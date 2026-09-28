@@ -22,12 +22,16 @@ sources:
             read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
+        data_tests:
+          # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [cnpj_raiz, _mes_referencia]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: cnpj_raiz
             description: 8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).
             data_tests:
-              - unique:
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: razao_social
@@ -70,9 +74,10 @@ sources:
             hive_partitioning=false)
         tags: [escopo_original]
         data_tests:
+          # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
           - dbt_utils.unique_combination_of_columns:
               arguments:
-                combination_of_columns: [cnpj_raiz, cnpj_ordem, cnpj_dv]
+                combination_of_columns: [cnpj_raiz, cnpj_ordem, cnpj_dv, _mes_referencia]
               config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: cnpj_raiz
@@ -191,12 +196,16 @@ sources:
             read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/cnaes/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
+        data_tests:
+          # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [codigo, _mes_referencia]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
             description: Código da subclasse CNAE (7 dígitos).
             data_tests:
-              - unique:
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
@@ -212,12 +221,16 @@ sources:
             read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/municipios/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
+        data_tests:
+          # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [codigo, _mes_referencia]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
             description: Código do município na classificação da RFB (4 dígitos; não é o código IBGE).
             data_tests:
-              - unique:
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
@@ -231,12 +244,16 @@ sources:
             read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/naturezas/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
+        data_tests:
+          # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [codigo, _mes_referencia]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
             description: Código da natureza jurídica.
             data_tests:
-              - unique:
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
@@ -250,12 +267,16 @@ sources:
             read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/motivos/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
+        data_tests:
+          # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [codigo, _mes_referencia]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
             description: Código do motivo de situação cadastral.
             data_tests:
-              - unique:
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
