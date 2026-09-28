@@ -22,9 +22,9 @@ depois de cada etapa e acrescente análises que respondam melhor às perguntas d
 | Feature | Reason |
 | ------- | ------ |
 | Ingestão de `Socios*` | Dados de pessoas físicas; não respondem às perguntas (ADR-0008) |
-| Agendamento/orquestrador (Airflow, Dagster, cron em nuvem) | Pipeline é um comando idempotente; agendar é trabalho futuro |
-| Dashboard/UI | Saídas são Parquet, `dbt docs` e relatórios Markdown |
-| Histórico multi-mês / snapshots SCD2 | Um mês por execução; snapshots só explicados no guia |
+| Orquestrador (Airflow, Dagster) | `rfb atualizar` é idempotente; receitas de agendamento (cron/launchd/GitHub Actions) documentadas, não executadas (ADR-0012) |
+| Dashboard/UI pronto (arquivo .pbix) | Entregamos o modelo estrela em Parquet + guia Power BI; montar o relatório é do usuário (ADR-0013) |
+| Snapshots SCD2 por estabelecimento | Volume (~65 M × meses); tendência coberta pela série agregada `fct_resumo_mensal` (ADR-0012) |
 | Geocodificação por endereço | Distância usa centroide do município |
 | Validação real no Tigris | Sem credenciais no ambiente; coberto por moto + roteiro manual |
 
@@ -87,6 +87,8 @@ pelo menos um registro multilinha; população 2024: Fundão 20000, Linhares 180
 | O | 11111111/0002 | (filial de A) | — | — | 5699 | 4741500 | 02 | 20240115 | — | matriz_filial 2; nome_fantasia multilinha |
 
 Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
+
+**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 14 estabelecimentos e 14 empresas. As respostas de 2026-09 acima não mudam.
 
 ---
 
@@ -268,6 +270,50 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 ---
 
+
+### P2: Atualização mensal com dados mais recentes (melhoria — pedido do usuário)
+
+**User Story**: Como analista, quero que o pipeline detecte e processe sozinho o mês mais recente publicado pela RFB, mantendo uma série histórica, para ter a base sempre atualizada sem retrabalho.
+
+**Why P2**: Transforma a carga pontual do original num processo recorrente; não bloqueia o MVP.
+
+**Acceptance Criteria**:
+
+1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `DATA_ROOT/_estado/ultima_execucao.json`.
+2. WHEN the most recent complete month equals the last processed month THEN `rfb atualizar` SHALL exit 0 without downloading any file and SHALL print "nenhum mês novo".
+3. IF the most recent remote month folder lacks any expected file (`Empresas0–9`, `Estabelecimentos0–9`, `Simples`, 6 domínios) THEN the system SHALL treat it as incomplete and SHALL select the previous complete month.
+4. IF `dbt build` fails THEN `rfb atualizar` SHALL exit non-zero and SHALL NOT update `ultima_execucao.json`.
+5. WHEN a month is processed successfully THEN the system SHALL keep only the raw partitions of the last `RFB_MESES_RETIDOS` months (default 2) and SHALL delete that month's downloaded zips unless `RFB_MANTER_ZIPS=true`.
+6. The system SHALL persist `fct_resumo_mensal` as one Parquet partition per month under `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`, surviving deletion of `warehouse.duckdb`.
+7. WHEN a month already present in `fct_resumo_mensal` is reprocessed THEN the system SHALL replace only that month's partition.
+8. WHEN fixture months 2026-08 then 2026-09 are processed in order THEN `fct_resumo_mensal` SHALL contain both months, with `qtd_estabelecimentos` for (Serra, 4741500, ATIVA) equal to 0 or absent in 2026-08 and 1 in 2026-09.
+9. The system SHALL document scheduling recipes for cron, launchd and GitHub Actions in `docs/OPERACAO.md`.
+
+**Independent Test**: fixtures com dois meses → `rfb atualizar --origem-local` processa 2026-09 após 2026-08; segunda chamada imprime "nenhum mês novo".
+
+---
+
+### P2: Modelo estrela otimizado para Power BI (melhoria — pedido do usuário)
+
+**User Story**: Como analista de BI, quero um modelo estrela com chaves inteiras, calendário, hierarquias e uma fato agregada leve, para montar painéis no Power BI sem modelagem adicional.
+
+**Why P2**: Viabiliza consumo self-service ("trabalho futuro" do notebook 5); não bloqueia o MVP.
+
+**Acceptance Criteria**:
+
+1. Every dimension SHALL have a unique, non-null integer surrogate key `sk_*` and a member with key `-1` described as `NÃO INFORMADO`.
+2. The system SHALL provide `dim_data` with one row per day from the smallest date referenced by the facts to `data_referencia`, key `sk_data = yyyymmdd` (integer), and columns `data, ano, semestre, trimestre, mes, nome_mes, ano_mes, dia_semana`, plus member `-1`.
+3. `fct_estabelecimentos` SHALL reference dimensions only through integer keys (`sk_municipio, sk_cnae, sk_natureza_juridica, sk_porte, sk_situacao_cadastral, sk_data_inicio_atividade, sk_data_situacao`), with `-1` when unknown, plus the degenerate `cnpj_completo`.
+4. `dim_municipio` SHALL expose the hierarchy columns região, UF, mesorregião, microrregião, município, região intermediária, região imediata; `dim_cnae` SHALL expose seção, divisão, grupo, classe, subclasse with code and description in separate columns.
+5. The system SHALL build `fct_resumo_mensal` at grain (`sk_mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_natureza_juridica`, `sk_situacao_cadastral`, `ano_inicio_atividade`, `opcao_mei`) with additive measures `qtd_estabelecimentos`, `qtd_ativos`, `soma_idade_anos`, `soma_capital_social`.
+6. The system SHALL fail (error) if, for the current month, `sum(fct_resumo_mensal.qtd_estabelecimentos) != count(fct_estabelecimentos)`.
+7. The system SHALL provide `docs/POWER_BI.md` with the star diagram, 1:* single-direction relationships, connection steps (Power Query Parquet connector and DuckDB ODBC), incremental refresh by month and at least 8 suggested DAX measures.
+8. The system SHALL declare a dbt `exposure` (type `dashboard`) depending on all star-schema models.
+
+**Independent Test**: fixtures → `fct_resumo_mensal` do mês 2026-09 soma 15; todas as FKs resolvem em dimensões; `dim_data` contém `20000229`.
+
+---
+
 ## Edge Cases
 
 - IF the WebDAV share is unreachable THEN the system SHALL exit non-zero after retries with the URL in the message.
@@ -304,8 +350,12 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 | OPS-01 | P1: Operação (AC 1, 2, 6) | Tasks | In Tasks |
 | OPS-02 | P1: Operação (AC 3–5) | Tasks | In Tasks |
 | DOC-01 | P2: Documentação (AC 1–3) | Tasks | In Tasks |
+| UPD-01 | P2: Atualização mensal (AC 1–5, 9) | Tasks | In Tasks |
+| UPD-02 | P2: Atualização mensal (AC 6–8) | Tasks | In Tasks |
+| BI-01 | P2: Modelo estrela BI (AC 1–4) | Tasks | In Tasks |
+| BI-02 | P2: Modelo estrela BI (AC 5–8) | Tasks | In Tasks |
 
-**Coverage:** 22 total, 22 mapped to tasks, 0 unmapped.
+**Coverage:** 26 total, 26 mapped to tasks, 0 unmapped.
 
 ---
 
@@ -316,3 +366,5 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 - [ ] Teste de paridade com o SQL original com diferença zero nos dados reais.
 - [ ] Relatório do estudo de caso gerado com dados reais de 2026-09.
 - [ ] Guia dbt revisado por um revisor independente sem erros técnicos pendentes.
+- [ ] `rfb atualizar` processa um mês novo e é no-op quando não há novidade.
+- [ ] Modelo estrela carregável no Power BI seguindo `docs/POWER_BI.md`.

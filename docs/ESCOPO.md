@@ -31,6 +31,9 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Análises do estudo de caso Fundão/ES (`analyses/`) | original | notebook 4 |
 | Relatório gerado do estudo de caso | adição | — |
 | Testes CNPJ-DV, data não futura, reconciliação, histórico DQ | adição | — |
+| Atualização mensal (`rfb atualizar`, completude do mês, retenção, estado) | adição (pedido do usuário) | original era carga estática única (notebook 0, "Observações") — ADR-0012 |
+| Série histórica `fct_resumo_mensal` particionada por mês | adição (pedido do usuário) | ADR-0012/0013 |
+| Modelo estrela otimizado para Power BI (`sk_*` inteiras, `dim_data`, hierarquias, fato agregada, guia + exposure) | adição (pedido do usuário) | "modelo estrela/snowflake para self-service" citado como trabalho futuro no notebook 5 — ADR-0013 |
 | Workaround Hive Metastore (`## Reconstruir tabelas Spark`) | removido | desnecessário: Parquet + DuckDB não têm metastore volátil |
 | Script Pig `grep.pig` | removido | exploração manual; substituída por rejeitos do parser e fixtures com os quirks |
 

@@ -16,3 +16,5 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0009](0009-estrategia-testes.md) | Estratégia de testes em camadas e severidades | aceita |
 | [0010](0010-fixtures-sinteticas.md) | Fixtures sintéticas com respostas conhecidas | aceita |
 | [0011](0011-processo-equipe-agentes.md) | Processo: equipe de agentes, roteamento de modelos e lotes | aceita |
+| [0012](0012-atualizacao-mensal.md) | Atualização mensal: mês novo, completude, retenção, série histórica | aceita |
+| [0013](0013-modelo-estrela-bi.md) | Modelo estrela otimizado para BI (Power BI) | aceita |

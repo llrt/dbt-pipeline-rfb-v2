@@ -16,7 +16,8 @@ Child workers also follow the `traycer-implement` skill (when to ask the lead, w
 
 Legenda de classificação: complexidade **P** (pequena) / **M** (média) / **G** (grande); criticidade **C** (crítica) / **NC** (não crítica).
 Roteamento (docs/PLANO.md): C → Opus esforço médio · G/NC → Sonnet médio · M/NC → **Sonnet médio** (decisão do usuário em 2026-09-28, AD-014; antes DeepSeek v4 flash alto) · P/NC → DeepSeek v4 flash baixo.
-Críticas ou grandes: T8, T14, T15, T28 (= 4, limite do guia).
+Críticas ou grandes: T8, T14, T15, T28 (= 4, limite do guia). T36 (atualização mensal) é M/NC mas roda em Opus por ser E2E (regra do guia).
+Melhorias pedidas pelo usuário em 2026-09-28 (ADR-0012/0013): T32–T36 e ajustes BI em T17–T19.
 
 ---
 
@@ -80,12 +81,13 @@ T10 → T12 → T13
 T13 → T14 → T15
 ```
 
-### Phase 6: Agregado original e star schema — lote B6 (M/NC)
+### Phase 6: Segundo mês nas fixtures, agregado original e star schema para BI — lote B6 (M/NC)
 
 ```
-T15 → T16
+T15 → T32 → T16
 T16 → T17 → T19
 T16 → T18 → T19
+T16 → T33 → T19
 T19 → T20
 ```
 
@@ -99,10 +101,17 @@ T20 → T24 → T27
 T20 → T25 → T26
 ```
 
-### Phase 8: Ponta a ponta com dados reais — lote B8 (C, E2E)
+### Phase 7b: Série mensal e Power BI — lote B7b (M/NC)
 
 ```
-T27 → T28
+T20 → T34 → T35
+```
+
+### Phase 8: Ponta a ponta com dados reais e atualização mensal — lote B8 (C, E2E)
+
+```
+T27 → T28 → T36
+T34 → T36
 ```
 
 ### Phase 9: Guia dbt e documentação — lote B9 (M/NC; T29 roda em paralelo desde a Fase 2)
@@ -410,7 +419,7 @@ T30 → T31
 
 **What**: `models/marts/original/agg_empresas.sql` + yml (contrato, catálogo original), teste de reconciliação `sum(qtd_empresas) = count(bh_empresas)` (error), teste de integração com a resposta da spec (Fundão/4741500: ATIVA 1 MICRO 3.9; INATIVA 4).
 **Where**: `transform/models/marts/original/agg_empresas.sql`
-**Depends on**: T15
+**Depends on**: T32
 **Reuses**: notebook 3
 **Requirement**: ORI-02
 **Classificação**: M/NC
@@ -427,7 +436,7 @@ T30 → T31
 
 ### T17: `dim_municipio`
 
-**What**: `int_municipios__conformados` + `dim_municipio` (chave, ids IBGE/RFB, nome, UF, micro/meso, região imediata/intermediária, lat/long, população do último ano ou var `ano_populacao`, PIB) com membro `-1` "NÃO INFORMADO"; contrato; testes.
+**What**: `int_municipios__conformados` + `dim_municipio` (**`sk_municipio` inteira** determinística, ids IBGE/RFB, hierarquia em colunas: região → UF → mesorregião → microrregião → município e região intermediária → imediata, lat/long, população do último ano ou var `ano_populacao`, PIB) com membro `-1` "NÃO INFORMADO"; contrato; testes (ADR-0013).
 **Where**: `transform/models/marts/core/dim_municipio.sql`
 **Depends on**: T16
 **Reuses**: `stg_bd__*`, `stg_rfb__municipios`
@@ -446,7 +455,7 @@ T30 → T31
 
 ### T18: `dim_cnae`, `dim_natureza_juridica`, seeds de domínio
 
-**What**: seeds `dominio_porte`, `dominio_situacao_cadastral`, `dominio_matriz_filial`; `dim_cnae` (hierarquia completa), `dim_natureza_juridica`, `dim_porte`, `dim_situacao_cadastral`, todos com membro `-1`; contratos.
+**What**: seeds `dominio_porte`, `dominio_situacao_cadastral`, `dominio_matriz_filial`; `dim_cnae` (hierarquia seção → divisão → grupo → classe → subclasse, código e descrição em colunas separadas), `dim_natureza_juridica`, `dim_porte`, `dim_situacao_cadastral`, todos com **`sk_*` inteira** e membro `-1`; contratos (ADR-0013).
 **Where**: `transform/models/marts/core/dim_cnae.sql`
 **Depends on**: T16
 **Reuses**: `stg_bd__cnaes`, `stg_rfb__naturezas`
@@ -463,11 +472,50 @@ T30 → T31
 
 ---
 
+### T32: Segundo mês nas fixtures e testes por mês
+
+**What**: estender `scripts/gen_fixtures.py` para gerar também `rfb/2026-08/` conforme a spec ("Segundo mês": sem a linha O, nomes internos `D60810`); garantir que todos os testes de fonte/staging sejam por mês (unicidade com `_mes_referencia`) e que o `make ci` ingira os dois meses (2026-08 e depois 2026-09) mantendo todas as respostas de 2026-09.
+**Where**: `scripts/gen_fixtures.py`
+**Depends on**: T15
+**Reuses**: gerador existente; testes `tests/unit/test_gen_fixtures.py`
+**Requirement**: UPD-02
+**Classificação**: M/NC
+
+**Done when**:
+- [ ] Testes do gerador cobrem o mês 2026-08 (14 estabelecimentos, `D60810`, determinismo)
+- [ ] `make ci` verde com dois meses no raw; números de 2026-09 inalterados
+- [ ] Gate full passa
+
+**Tests**: unit + integration
+**Gate**: full
+**Commit**: `test(fixtures): second reference month for update and history scenarios`
+
+---
+
+### T33: `dim_data` (calendário)
+
+**What**: `dim_data` com uma linha por dia do menor dia referenciado pelas fatos até `data_referencia`, `sk_data = yyyymmdd` (INTEGER), `data, ano, semestre, trimestre, mes, nome_mes (pt-BR), ano_mes, dia_semana`, membro `-1`; contrato; testes (unicidade, contém `20000229`, contém `sk` de `data_referencia`).
+**Where**: `transform/models/marts/core/dim_data.sql`
+**Depends on**: T16
+**Reuses**: `dbt_utils.date_spine` ou `generate_series` do DuckDB
+**Requirement**: BI-01
+**Classificação**: M/NC
+
+**Done when**:
+- [ ] Testes dbt de unicidade/not_null da chave e presença das datas da spec
+- [ ] Gate full passa
+
+**Tests**: dbt data tests + dbt unit tests
+**Gate**: full
+**Commit**: `feat(dbt): calendar dimension for BI`
+
+---
+
 ### T19: `fct_estabelecimentos`
 
-**What**: `int_estabelecimentos__enriquecidos` (left joins + flags de correspondência) e `fct_estabelecimentos` (grão `cnpj_completo`, FKs para dims com −1 quando sem par, datas, `idade_anos`, `opcao_simples`, `opcao_mei`, `capital_social`, matriz/filial), contrato, `relationships` (error) para cada FK.
+**What**: `int_estabelecimentos__enriquecidos` (left joins + flags de correspondência) e `fct_estabelecimentos` (grão `cnpj_completo` como dimensão degenerada; **só chaves inteiras** `sk_municipio, sk_cnae, sk_natureza_juridica, sk_porte, sk_situacao_cadastral, sk_data_inicio_atividade, sk_data_situacao` com −1 quando sem par; `idade_anos`, `opcao_simples`, `opcao_mei`, `capital_social`, `eh_matriz`, `eh_ativa`), contrato, `relationships` (error) para cada FK, incluindo `dim_data`.
 **Where**: `transform/models/marts/core/fct_estabelecimentos.sql`
-**Depends on**: T17, T18
+**Depends on**: T17, T18, T33
 **Reuses**: dims de T17/T18
 **Requirement**: CORE-01
 **Classificação**: M/NC
@@ -636,6 +684,46 @@ T30 → T31
 
 ---
 
+### T34: `fct_resumo_mensal` com histórico por partição
+
+**What**: fato agregada para Power BI no grão (`sk_mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_natureza_juridica`, `sk_situacao_cadastral`, `ano_inicio_atividade`, `opcao_mei`) com `qtd_estabelecimentos`, `qtd_ativos`, `soma_idade_anos`, `soma_capital_social`; gravada como **uma partição Parquet por mês** em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/` (reprocessar substitui só a partição do mês; histórico sobrevive à remoção do `warehouse.duckdb`); visão/fonte que lê todas as partições para consumo; teste de reconciliação do mês corrente com `fct_estabelecimentos` (error).
+**Where**: `transform/models/marts/core/fct_resumo_mensal.sql`
+**Depends on**: T20
+**Reuses**: fato e dimensões de T17–T19, T33
+**Requirement**: BI-02, UPD-02
+**Classificação**: M/NC
+
+**Done when**:
+- [ ] Integração: após processar 2026-08 e 2026-09, duas partições; (Serra, 4741500, ATIVA) = 0/ausente em 2026-08 e 1 em 2026-09; soma de 2026-09 = 15
+- [ ] Apagar `warehouse.duckdb` e rodar 2026-09 de novo mantém a partição 2026-08
+- [ ] Gate full passa
+
+**Tests**: dbt data tests + integration
+**Gate**: full
+**Commit**: `feat(dbt): monthly summary fact with partitioned history`
+
+---
+
+### T35: Guia Power BI e exposure
+
+**What**: `docs/POWER_BI.md` (diagrama mermaid da estrela, tabela de relacionamentos 1:* direção única, conexão via conector Parquet do Power Query e via ODBC do DuckDB, atualização incremental por mês, ≥ 8 medidas DAX sugeridas — ex. Qtd Ativos, % Ativos, Idade Média, Ativos por 10 mil hab., Taxa de Sobrevivência 3a, Variação Mensal de Ativos) e `exposure` dbt tipo `dashboard` dependendo de todas as dims e fatos.
+**Where**: `docs/POWER_BI.md`
+**Depends on**: T34
+**Reuses**: ADR-0013
+**Requirement**: BI-02
+**Classificação**: M/NC
+
+**Done when**:
+- [ ] `dbt ls --resource-type exposure` lista a exposure; `dbt parse` ok
+- [ ] Documento cobre todos os itens do AC BI-7
+- [ ] Gate full passa
+
+**Tests**: none
+**Gate**: full
+**Commit**: `docs(bi): Power BI guide and dashboard exposure`
+
+---
+
 ### T28: Pipeline ponta a ponta com dados reais ★ crítica (E2E)
 
 **What**: `rfb pipeline` / `make pipeline MES=2026-09` (ingest → freshness → build → report, exit ≠0 em erro); execução real completa sobre 2026-09; ajuste de desempenho (materializações, memória, threads, ordem); `make ci` < 120 s; registro de tempos, volumes e resultados (incluindo paridade = 0 diferenças) em `docs/EXECUCAO_REAL.md`; relatório real gerado.
@@ -653,6 +741,26 @@ T30 → T31
 **Tests**: integration
 **Gate**: build
 **Commit**: `feat(pipeline): end-to-end run on real 2026-09 data`
+
+---
+
+### T36: `rfb atualizar` — atualização mensal automática (E2E)
+
+**What**: comando `rfb atualizar [--origem-local DIR]` + `make atualizar`: detecção do mês completo mais recente (todos os arquivos esperados presentes), comparação com `DATA_ROOT/_estado/ultima_execucao.json`, execução ingest → `dbt build --vars mes_referencia` → relatórios (→ sync se s3), gravação do estado só em sucesso, retenção (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`), mensagem "nenhum mês novo"; `docs/OPERACAO.md` com receitas cron, launchd e GitHub Actions; validação real: executar contra o WebDAV após T28 e confirmar no-op para 2026-09.
+**Where**: `src/rfb_pipeline/cli.py`
+**Depends on**: T28, T34
+**Reuses**: `rfb pipeline` (T28), manifesto (T9), cliente WebDAV (T6)
+**Requirement**: UPD-01
+**Classificação**: M/NC (roteado a Opus por ser E2E)
+
+**Done when**:
+- [ ] Integração com fixtures de dois meses cobre ACs UPD 1–5 e 8 (mês novo processado, no-op, mês incompleto ignorado, falha do dbt não grava estado, retenção)
+- [ ] Execução real contra o WebDAV registrada em `docs/EXECUCAO_REAL.md`
+- [ ] Gate build passa
+
+**Tests**: integration
+**Gate**: build
+**Commit**: `feat(pipeline): monthly auto-update with completeness check and retention`
 
 ---
 

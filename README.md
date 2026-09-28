@@ -12,8 +12,8 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 
 - **Consultor(a) / empreendedor(a):** concorrentes, idade média, porte, **taxa de sobrevivência em 3 anos** e
   **fornecedores num raio de X km** para qualquer CNAE e município do Brasil — numa consulta.
-- **Analista de mercado:** pipeline mensal, idempotente e testado; `make pipeline` quando a RFB publicar um mês
-  novo e o resultado sai em Parquet, pronto para qualquer ferramenta, com relatório de qualidade.
+- **Analista de mercado / BI:** pipeline mensal, idempotente e testado; agende `make atualizar` e, a cada mês novo
+  da RFB, receba um **modelo estrela pronto para o Power BI** (Parquet) com série histórica e relatório de qualidade.
 - **Quem está aprendendo dbt:** um projeto real, em português, com fontes, staging, marts, testes genéricos,
   singulares e unitários, contratos, freshness e um [guia de dbt](docs/guia-dbt/README.md) — tudo no laptop, custo zero.
 - **Avaliador(a):** cada regra é rastreável — o que veio do MVP e o que é adição está marcado no código e em
@@ -39,6 +39,7 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 make setup                 # uv sync + dbt deps
 make ci                    # fluxo completo sobre fixtures sintéticas (sem rede)
 make pipeline MES=2026-09  # dados reais: ingestão → dbt build → relatórios
+make atualizar             # processa o mês mais recente publicado pela RFB, se houver novidade
 make docs                  # dbt docs
 ```
 

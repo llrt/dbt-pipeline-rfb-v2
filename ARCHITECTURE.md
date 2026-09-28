@@ -158,6 +158,24 @@ mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
 | Taxa de rejeito acima do limiar | falha; rejeitos ficam gravados para auditoria |
 | Credenciais S3 ausentes com `DATA_ROOT=s3://` | falha imediata com mensagem indicando as variáveis faltantes |
 
+### 4.5 Atualização mensal ([ADR-0012](docs/adr/0012-atualizacao-mensal.md)) — melhoria
+
+```mermaid
+flowchart LR
+  A[rfb atualizar] --> B{mês completo mais recente<br/>no WebDAV}
+  B -->|pasta incompleta| B2[usa o mês completo anterior]
+  B --> C{> último processado?<br/>_estado/ultima_execucao.json}
+  B2 --> C
+  C -->|não| Z[exit 0: nenhum mês novo]
+  C -->|sim| D[ingest do mês] --> E[dbt build --vars mes_referencia] --> F[relatórios / sync s3]
+  F --> G[grava estado + retenção:<br/>mantém RFB_MESES_RETIDOS partições raw,<br/>apaga zips]
+  E -->|falha| X[exit ≠0, estado inalterado]
+```
+
+- "Mês completo" = pasta com `Empresas0–9`, `Estabelecimentos0–9`, `Simples` e os 6 domínios.
+- Histórico mensal em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/` (uma partição por mês, independente do
+  `.duckdb` e da retenção do raw). Receitas de agendamento (cron, launchd, GitHub Actions) em `docs/OPERACAO.md`.
+
 ## 5. T — Projeto dbt (`transform/`)
 
 ### 5.1 Camadas, materializações e convenções
@@ -218,9 +236,32 @@ mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
 - `paridade__bh_empresas_sql_original` (modelo efêmero de teste): o SQL do notebook 3 traduzido literalmente
   para DuckDB; um teste singular exige diferença zero contra `bh_empresas`.
 
-**Core (adição):** `dim_municipio`, `dim_cnae` (hierarquia seção→subclasse), `dim_natureza_juridica`,
-`dim_situacao_cadastral` (seed), `dim_porte` (seed), `fct_estabelecimentos` (grão CNPJ completo, chaves para
-dims com membro "não informado" em vez de descartar linhas, flags Simples/MEI, datas), `bridge_estabelecimento_cnae_secundario`.
+**Core — modelo estrela otimizado para BI (adição/melhoria, [ADR-0013](docs/adr/0013-modelo-estrela-bi.md)):**
+
+```mermaid
+erDiagram
+  dim_municipio ||--o{ fct_estabelecimentos : sk_municipio
+  dim_cnae ||--o{ fct_estabelecimentos : sk_cnae
+  dim_natureza_juridica ||--o{ fct_estabelecimentos : sk_natureza_juridica
+  dim_porte ||--o{ fct_estabelecimentos : sk_porte
+  dim_situacao_cadastral ||--o{ fct_estabelecimentos : sk_situacao_cadastral
+  dim_data ||--o{ fct_estabelecimentos : "sk_data_inicio_atividade / sk_data_situacao"
+  fct_estabelecimentos ||--o{ bridge_estabelecimento_cnae_secundario : cnpj_completo
+  dim_cnae ||--o{ bridge_estabelecimento_cnae_secundario : sk_cnae
+  dim_municipio ||--o{ fct_resumo_mensal : sk_municipio
+  dim_cnae ||--o{ fct_resumo_mensal : sk_cnae
+  dim_porte ||--o{ fct_resumo_mensal : sk_porte
+  dim_natureza_juridica ||--o{ fct_resumo_mensal : sk_natureza_juridica
+  dim_situacao_cadastral ||--o{ fct_resumo_mensal : sk_situacao_cadastral
+  dim_data ||--o{ fct_resumo_mensal : sk_mes_referencia
+```
+
+- Dimensões com chave substituta **inteira** `sk_*` e membro `-1` "NÃO INFORMADO"; hierarquias em colunas
+  (`dim_municipio`: região → UF → meso → micro → município; intermediária → imediata. `dim_cnae`: seção → divisão →
+  grupo → classe → subclasse). `dim_data` (calendário, `sk_data = yyyymmdd`).
+- `fct_estabelecimentos` (grão CNPJ, só chaves inteiras + flags + medidas; `cnpj_completo` degenerado) — detalhe/DuckDB.
+- `fct_resumo_mensal` (agregada, aditiva, histórico por partição mensal) — **modo Import do Power BI**.
+- `bridge_estabelecimento_cnae_secundario` (opcional no BI, muitos-para-muitos). Guia: `docs/POWER_BI.md`.
 
 **Análises (adição):**
 - `mart_concorrencia_municipio`: CNAE × município → ativos, inativos, ativos por 10 mil hab., ranking na UF.
@@ -267,6 +308,7 @@ Severidade: estrutura (PK, contratos, relacionamentos no core, paridade) = `erro
 | `make docs` | `dbt docs generate` (+ `serve`) |
 | `make lint` | ruff + sqlfluff |
 | `make sync` | envia `raw/` e `gold/` para `s3://` (Tigris) |
+| `make atualizar` | `rfb atualizar`: processa o mês novo mais recente, se houver (ADR-0012) |
 
 Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local),
 `s3` (`DATA_ROOT=s3://...`, secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente).

@@ -36,10 +36,12 @@
 | T13 | Staging de domínios/BD + macros | M | NC | B4 |
 | T14 | Staging empresas/estabelecimentos | **G** | **C** | B5 |
 | T15 | `bh_empresas` + paridade | M | **C** | B5 |
+| T32 | Fixtures: 2º mês (2026-08) + testes por mês | M | NC | B6 |
 | T16 | `agg_empresas` + reconciliação | M | NC | B6 |
 | T17 | `dim_municipio` | M | NC | B6 |
 | T18 | `dim_cnae` e dims de domínio | M | NC | B6 |
-| T19 | `fct_estabelecimentos` | M | NC | B6 |
+| T33 | `dim_data` (calendário) — melhoria BI | M | NC | B6 |
+| T19 | `fct_estabelecimentos` (chaves inteiras p/ BI) | M | NC | B6 |
 | T20 | Bridge CNAEs secundários | M | NC | B6 |
 | T21 | Densidade de concorrência | M | NC | B7 |
 | T22 | Sobrevivência por coorte | M | NC | B7 |
@@ -48,12 +50,17 @@
 | T25 | Testes genéricos DQ + governança de escopo | M | NC | B7 |
 | T26 | Histórico de DQ + catálogo | M | NC | B7 |
 | T27 | Estudo de caso + relatório | M | NC | B7 |
+| T34 | `fct_resumo_mensal` com histórico por partição — melhoria | M | NC | B7b |
+| T35 | Guia Power BI + exposure — melhoria | M | NC | B7b |
 | T28 | Pipeline E2E com dados reais | M | **C** (E2E) | B8 |
+| T36 | `rfb atualizar` (mês novo, completude, retenção, agendamento) — melhoria | M | NC (E2E → Opus) | B8 |
 | T29 | Guia dbt — fundamentos | M | NC | B9a (paralelo) |
 | T30 | Guia dbt — fluxo, testes, DQ | M | NC | B9b |
 | T31 | Guia dbt — bibliotecas/técnicas + índice/README | M | NC | B9b |
 
 Críticas ou grandes: **T8, T14, T15, T28** (4 = limite).
+
+Melhorias pedidas pelo usuário em 2026-09-28 (ADR-0012 atualização mensal, ADR-0013 modelo estrela para Power BI): T32–T36 e ajustes BI em T17–T19.
 
 ## Sequência de execução
 
@@ -61,8 +68,8 @@ Críticas ou grandes: **T8, T14, T15, T28** (4 = limite).
 flowchart LR
   P0[Planejamento<br/>líder] --> B1[B1 fundação<br/>DeepSeek low] --> B2[B2 fixtures/clientes<br/>DeepSeek high] --> B3[B3 conversão<br/>Opus med] --> B4[B4 ingestão/fontes<br/>Sonnet med] --> R1{{R1 revisão<br/>Opus high}}
   R1 --> B5[B5 staging+bh_empresas<br/>Opus med] --> R2{{R2 revisão<br/>Opus high}}
-  R2 --> B6[B6 agg+star schema<br/>Sonnet med] --> B7[B7 análises/DQ/caso<br/>Sonnet med] --> R3{{R3 revisão<br/>Opus high}}
-  R3 --> B8[B8 E2E real<br/>Opus med] --> R4{{R4 revisão final + auditoria<br/>+ Verifier — Opus high}}
+  R2 --> B6[B6 agg+star schema<br/>Sonnet med] --> B7[B7 análises/DQ/caso<br/>Sonnet med] --> B7b[B7b série mensal + Power BI<br/>Sonnet med] --> R3{{R3 revisão<br/>Opus high}}
+  R3 --> B8[B8 E2E real + rfb atualizar<br/>Opus med] --> R4{{R4 revisão final + auditoria<br/>+ Verifier — Opus high}}
   B1 -.paralelo.-> B9a[B9a guia fundamentos<br/>DeepSeek high]
   R3 -.paralelo com B8.-> B9b[B9b guia fluxo/testes/libs<br/>Sonnet med] --> R5{{R5 revisão docs<br/>Opus high}}
   R4 --> F[RETRO + billing<br/>líder]

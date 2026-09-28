@@ -28,8 +28,8 @@ concorrentes? Há fornecedores por perto?"* — generalizada para qualquer CNAE 
 
 - **Consultor(a):** *"Troque dias de planilha por uma consulta: concorrentes, idade média, porte, taxa de
   sobrevivência em 3 anos e fornecedores num raio de X km, para qualquer atividade e município do Brasil."*
-- **Analista:** *"Um pipeline mensal, idempotente e testado: rode `make pipeline` quando a RFB publicar um
-  novo mês e receba tabelas Parquet prontas para qualquer ferramenta — com relatório de qualidade anexo."*
+- **Analista:** *"Um pipeline mensal, idempotente e testado: agende `make atualizar` e, quando a RFB publicar um
+  novo mês, receba o modelo estrela em Parquet pronto para o Power BI, com série histórica e relatório de qualidade."*
 - **Engenheiro(a) aprendendo dbt:** *"Um projeto dbt real, em português, com fontes, staging, marts, testes
   genéricos, singulares e unitários, contratos, freshness e um guia que explica cada peça — sem nuvem, sem
   custo, no seu laptop."*
@@ -46,6 +46,8 @@ concorrentes? Há fornecedores por perto?"* — generalizada para qualquer CNAE 
 6. **Dinâmica de mercado**: aberturas × encerramentos por ano — *adição*.
 7. **Fornecedores próximos por distância** (km entre centroides de municípios) — *adição*.
 8. **Relatório de qualidade de dados** por execução — *adição*.
+9. **Atualização mensal automática** com série histórica (`rfb atualizar`) — *adição, pedido do usuário*.
+10. **Modelo estrela para Power BI** (chaves inteiras, calendário, hierarquias, fato agregada mensal) — *adição, pedido do usuário*.
 
 ## Valores centrais
 
@@ -58,7 +60,7 @@ concorrentes? Há fornecedores por perto?"* — generalizada para qualquer CNAE 
 ## O que está fora (outside)
 
 - **Dados de sócios (QSA/Sócios)** — contêm dados de pessoas físicas; fora por minimização (LGPD) e por não responderem às perguntas.
-- **Orquestração agendada** (Airflow/Dagster/cron em nuvem) — o pipeline é um comando idempotente; agendar fica como trabalho futuro.
-- **Dashboard/UI interativa** — saída são tabelas Parquet, `dbt docs` e um relatório Markdown.
-- **Histórico multi-mês (SCD/snapshots)** — processa um mês de referência por vez; snapshots ficam explicados no guia, não implementados.
+- **Orquestrador** (Airflow/Dagster) — `rfb atualizar` é idempotente e há receitas de agendamento (cron/launchd/GitHub Actions); um orquestrador fica como trabalho futuro.
+- **Relatório Power BI pronto (.pbix)** — entregamos o modelo estrela e o guia de conexão/medidas; o painel é montado pelo usuário.
+- **SCD2 por estabelecimento** — o histórico é mantido de forma agregada (`fct_resumo_mensal`); snapshots por CNPJ ficam explicados no guia.
 - **Geocodificação por endereço** — distância usa centroide do município, não o endereço do estabelecimento.

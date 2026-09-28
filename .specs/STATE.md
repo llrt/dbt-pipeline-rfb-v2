@@ -20,6 +20,8 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-012 | Usuário delegou autonomia total ao líder; escalar só decisões críticas/irreversíveis. Confirmações do tlc-spec-driven (spec/tasks/oferta de sub-agentes) são feitas pelo líder | active | 2026-09-28 |
 | AD-013 | Sem `design.md` separado: `ARCHITECTURE.md` + ADRs são o design do feature `rfb-dbt-port` | active | 2026-09-28 |
 | AD-014 | Por decisão do usuário (2026-09-28), tarefas médias não críticas passam a usar Claude Sonnet (esforço médio) em vez de DeepSeek v4 flash; vale para B4, B6, B7, B9b e correções dessas tarefas. Pequenas seguem DeepSeek v4 flash (baixo); críticas/E2E seguem Opus (médio) | active | 2026-09-28 |
+| AD-015 | Atualização mensal: `rfb atualizar` com completude do mês, estado de última execução, retenção de 2 meses no raw e histórico em `gold/fct_resumo_mensal/mes_referencia=*/`; testes de fonte por mês (ADR-0012; pedido do usuário) | active | 2026-09-28 |
+| AD-016 | Modelo estrela para BI: `sk_*` inteiras, membro -1, `dim_data`, hierarquias, `fct_resumo_mensal` para Import no Power BI, `docs/POWER_BI.md` + exposure (ADR-0013; pedido do usuário) | active | 2026-09-28 |
 
 ## Handoff
 
