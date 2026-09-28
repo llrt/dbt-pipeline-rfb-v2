@@ -224,8 +224,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes com `httpx.MockTransport`: último mês detectado; mês inexistente lista disponíveis; tamanho divergente apaga arquivo e levanta erro; falha 3x levanta erro citando o arquivo; sucesso após 2 falhas; retomada com Range
-- [ ] Gate quick passa
+- [x] Testes com `httpx.MockTransport`: último mês detectado; mês inexistente lista disponíveis; tamanho divergente apaga arquivo e levanta erro; falha 3x levanta erro citando o arquivo; sucesso após 2 falhas; retomada com Range
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
