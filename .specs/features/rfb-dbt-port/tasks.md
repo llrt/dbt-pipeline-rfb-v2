@@ -281,8 +281,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes: manifesto com campos exigidos; segunda execução com mesmos zips não reescreve Parquet (mtime inalterado); `--force` reescreve
-- [ ] Gate quick passa
+- [x] Testes: manifesto com campos exigidos; segunda execução com mesmos zips não reescreve Parquet (mtime inalterado); `--force` reescreve
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
