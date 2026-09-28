@@ -243,8 +243,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes com MockTransport: 4 arquivos baixados; falha persistente não deixa arquivo parcial
-- [ ] Gate quick passa
+- [x] Testes com MockTransport: 4 arquivos baixados; falha persistente não deixa arquivo parcial
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
