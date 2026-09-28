@@ -79,5 +79,7 @@ flowchart LR
 
 | Lote | Status | Agente | Commits |
 |---|---|---|---|
-| P0 Planejamento | concluído | líder | commit inicial |
-| B1 | a fazer | — | — |
+| P0 Planejamento | concluído | líder (bc8ec47f) | `bd773a5` |
+| B1 | concluído, verificado e integrado | c64e33f0 · opencode `ses_f1673ddc3ffe6aFmwW2gXtoYDI` · DeepSeek v4 flash low (confirmado) | `a1f21c0` `2971b0b` `9816e88` |
+| B2 | em andamento | (ver abaixo) | — |
+| B9a | em andamento (paralelo) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | — |
