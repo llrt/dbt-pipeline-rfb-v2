@@ -205,8 +205,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes: 30 colunas em estabelecimentos, 7 em empresas, 7 em simples, 2 nos domínios; nenhuma entidade casa `Socios*`; config lê overrides do ambiente
-- [ ] Gate quick passa
+- [x] Testes: 30 colunas em estabelecimentos, 7 em empresas, 7 em simples, 2 nos domínios; nenhuma entidade casa `Socios*`; config lê overrides do ambiente
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
