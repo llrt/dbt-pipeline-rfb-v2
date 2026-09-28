@@ -10,6 +10,8 @@ def test_carregar_config_usa_padroes_sem_overrides(tmp_path: Path) -> None:
 
     assert config.data_root == (tmp_path / "data").resolve()
     assert config.max_taxa_rejeito == 0.0001
+    assert config.velocidade_minima_bps == 50 * 1024
+    assert config.janela_lentidao_s == 60.0
     assert config.duckdb_memory_limit == "8GB"
     assert config.duckdb_threads == 4
 
@@ -18,6 +20,8 @@ def test_carregar_config_le_overrides_do_ambiente(tmp_path: Path) -> None:
     env = {
         "DATA_ROOT": str(tmp_path / "data"),
         "RFB_MAX_TAXA_REJEITO": "0.05",
+        "RFB_VELOCIDADE_MINIMA_BPS": "1000",
+        "RFB_JANELA_LENTIDAO_S": "30",
         "DUCKDB_MEMORY_LIMIT": "2GB",
         "DUCKDB_THREADS": "8",
     }
@@ -25,6 +29,8 @@ def test_carregar_config_le_overrides_do_ambiente(tmp_path: Path) -> None:
     config = carregar_config(env=env)
 
     assert config.max_taxa_rejeito == 0.05
+    assert config.velocidade_minima_bps == 1000.0
+    assert config.janela_lentidao_s == 30.0
     assert config.duckdb_memory_limit == "2GB"
     assert config.duckdb_threads == 8
 

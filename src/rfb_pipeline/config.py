@@ -26,6 +26,8 @@ class Config:
     max_taxa_rejeito: float = 0.0001
     timeout_s: float = 60.0
     tentativas: int = 3
+    velocidade_minima_bps: float = 50 * 1024
+    janela_lentidao_s: float = 60.0
     duckdb_memory_limit: str = "8GB"
     duckdb_threads: int = 4
 
@@ -69,6 +71,10 @@ def carregar_config(env: Mapping[str, str] | None = None) -> Config:
     overrides: dict[str, object] = {}
     if "RFB_MAX_TAXA_REJEITO" in env:
         overrides["max_taxa_rejeito"] = float(env["RFB_MAX_TAXA_REJEITO"])
+    if "RFB_VELOCIDADE_MINIMA_BPS" in env:
+        overrides["velocidade_minima_bps"] = float(env["RFB_VELOCIDADE_MINIMA_BPS"])
+    if "RFB_JANELA_LENTIDAO_S" in env:
+        overrides["janela_lentidao_s"] = float(env["RFB_JANELA_LENTIDAO_S"])
     if "DUCKDB_MEMORY_LIMIT" in env:
         overrides["duckdb_memory_limit"] = env["DUCKDB_MEMORY_LIMIT"]
     if "DUCKDB_THREADS" in env:

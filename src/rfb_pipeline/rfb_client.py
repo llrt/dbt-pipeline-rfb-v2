@@ -29,11 +29,28 @@ __all__ = [
     "HostNaoPermitidoError",
     "MesInexistenteError",
     "TamanhoDivergenteError",
+    "VelocidadeBaixaError",
     "baixar_com_retry",
 ]
 
 _DAV_NS = {"d": "DAV:"}
 _MES_RE = re.compile(r"^\d{4}-\d{2}$")
+
+
+class VelocidadeBaixaError(Exception):
+    """A taxa de download ficou abaixo do mínimo configurado por tempo demais.
+
+    Levantada dentro de uma tentativa (não é um `ErroIngestao` de borda): o chamador de
+    `baixar_com_retry` a trata como qualquer outra falha de tentativa, decidindo se houve
+    progresso (bytes novos no `.part`) para resetar o contador de tentativas sem avanço.
+    """
+
+    def __init__(self, taxa_bps: float, minima_bps: float, janela_s: float) -> None:
+        self.taxa_bps = taxa_bps
+        super().__init__(
+            f"taxa de download {taxa_bps:.0f} B/s abaixo do mínimo {minima_bps:.0f} B/s "
+            f"por mais de {janela_s:.0f}s"
+        )
 
 
 @dataclass(frozen=True)
@@ -48,7 +65,16 @@ def _verificar_host_permitido(url: str, hosts_permitidos: tuple[str, ...]) -> No
         raise HostNaoPermitidoError(host, hosts_permitidos)
 
 
-def _baixar_uma_vez(http: httpx.Client, url: str, parcial: Path, *, auth) -> None:
+def _baixar_uma_vez(
+    http: httpx.Client,
+    url: str,
+    parcial: Path,
+    *,
+    auth,
+    velocidade_minima_bps: float,
+    janela_lentidao_s: float,
+    relogio: Callable[[], float],
+) -> None:
     headers: dict[str, str] = {}
     modo = "wb"
     if parcial.exists() and parcial.stat().st_size > 0:
@@ -59,9 +85,20 @@ def _baixar_uma_vez(http: httpx.Client, url: str, parcial: Path, *, auth) -> Non
         if headers.get("Range") and resp.status_code != 206:
             modo = "wb"  # servidor não suporta retomada; reinicia do zero
         resp.raise_for_status()
+        inicio_janela = relogio()
+        bytes_na_janela = 0
         with open(parcial, modo) as fh:
             for chunk in resp.iter_bytes():
                 fh.write(chunk)
+                bytes_na_janela += len(chunk)
+                agora = relogio()
+                decorrido = agora - inicio_janela
+                if decorrido >= janela_lentidao_s:
+                    taxa = bytes_na_janela / decorrido
+                    if taxa < velocidade_minima_bps:
+                        raise VelocidadeBaixaError(taxa, velocidade_minima_bps, janela_lentidao_s)
+                    inicio_janela = agora
+                    bytes_na_janela = 0
 
 
 def baixar_com_retry(
@@ -74,12 +111,21 @@ def baixar_com_retry(
     hosts_permitidos: tuple[str, ...],
     auth: tuple[str, str] | None = None,
     dormir: Callable[[float], None] = time.sleep,
+    velocidade_minima_bps: float = 50 * 1024,
+    janela_lentidao_s: float = 60.0,
+    relogio: Callable[[], float] = time.monotonic,
 ) -> Path:
     """Baixa `url` para `destino`, com retomada via Range, retry com backoff e checagem de tamanho.
 
     Grava em `destino` + `.part` e só renomeia (atomicamente) para `destino` após confirmar o
-    tamanho final. Levanta `TamanhoDivergenteError` (apagando o `.part`) se o tamanho não bater, e
-    `DownloadError` citando o arquivo se todas as tentativas falharem.
+    tamanho final. Levanta `TamanhoDivergenteError` (apagando o `.part`) se o tamanho não bater.
+
+    Resiliência ao WebDAV lento/travado (P4): se a taxa de download cair abaixo de
+    `velocidade_minima_bps` por `janela_lentidao_s` segundos, a tentativa é abortada e retomada
+    via Range na tentativa seguinte. O contador de tentativas só conta tentativas **sem
+    progresso**: sempre que uma tentativa (mesmo abortada por lentidão ou por erro de rede) grava
+    bytes novos no `.part`, o contador é zerado. `DownloadError` citando o arquivo é levantado
+    somente após `tentativas` tentativas consecutivas sem nenhum avanço.
     """
     _verificar_host_permitido(url, hosts_permitidos)
 
@@ -87,21 +133,40 @@ def baixar_com_retry(
     parcial = destino.parent / (destino.name + ".part")
     destino.parent.mkdir(parents=True, exist_ok=True)
 
+    def _tamanho_parcial() -> int:
+        return parcial.stat().st_size if parcial.exists() else 0
+
     ultimo_erro: Exception | None = None
     sucesso = False
-    for tentativa in range(tentativas):
+    tentativas_sem_progresso = 0
+    while tentativas_sem_progresso < tentativas:
+        bytes_antes = _tamanho_parcial()
         try:
-            _baixar_uma_vez(http, url, parcial, auth=auth)
+            _baixar_uma_vez(
+                http,
+                url,
+                parcial,
+                auth=auth,
+                velocidade_minima_bps=velocidade_minima_bps,
+                janela_lentidao_s=janela_lentidao_s,
+                relogio=relogio,
+            )
             sucesso = True
             break
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, VelocidadeBaixaError) as exc:
             ultimo_erro = exc
-            if tentativa < tentativas - 1:
-                dormir(2**tentativa)
+            if _tamanho_parcial() > bytes_antes:
+                tentativas_sem_progresso = 0
+            else:
+                tentativas_sem_progresso += 1
+                if tentativas_sem_progresso < tentativas:
+                    dormir(2 ** (tentativas_sem_progresso - 1))
 
     if not sucesso:
         parcial.unlink(missing_ok=True)
-        raise DownloadError(nome_arquivo, f"falha após {tentativas} tentativas: {ultimo_erro}")
+        raise DownloadError(
+            nome_arquivo, f"falha após {tentativas} tentativas sem progresso: {ultimo_erro}"
+        )
 
     tamanho_final = parcial.stat().st_size
     if tamanho_esperado is not None and tamanho_final != tamanho_esperado:
@@ -186,4 +251,6 @@ class ClienteRFB:
             hosts_permitidos=self._config.hosts_permitidos,
             auth=self._auth,
             dormir=self._dormir,
+            velocidade_minima_bps=self._config.velocidade_minima_bps,
+            janela_lentidao_s=self._config.janela_lentidao_s,
         )

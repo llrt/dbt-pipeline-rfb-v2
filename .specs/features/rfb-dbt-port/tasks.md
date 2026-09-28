@@ -300,9 +300,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `tests/integration/test_ingest_cli.py`: datasets das 9 entidades + 4 BD criados; manifesto presente; exit ≠0 para mês inexistente e para limiar de rejeito excedido
-- [ ] `make ci` roda (dbt build vazio ok)
-- [ ] Gate full passa
+- [x] `tests/integration/test_ingest_cli.py`: datasets das 9 entidades + 4 BD criados; manifesto presente; exit ≠0 para mês inexistente e para limiar de rejeito excedido
+- [x] `make ci` roda (dbt build vazio ok)
+- [x] Gate full passa
 
 **Tests**: integration
 **Gate**: full

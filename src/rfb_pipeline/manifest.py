@@ -138,9 +138,7 @@ def escrever_manifesto(config: Config, manifesto: Manifesto) -> Path:
     destino = caminho_manifesto(config, manifesto.mes_referencia)
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_name(f".tmp-{destino.name}-{uuid.uuid4().hex}")
-    tmp.write_text(
-        json.dumps(manifesto.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    tmp.write_text(json.dumps(manifesto.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(destino)
     return destino
 

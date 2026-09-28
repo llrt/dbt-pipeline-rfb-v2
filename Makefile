@@ -15,15 +15,18 @@ setup:
 fixtures:
 	uv run python scripts/gen_fixtures.py --saida tests/fixtures/generated
 
-## ingest: ingesta os dados RFB/BD (não implementado — T10)
+## ingest: ingesta os dados RFB/BD em DATA_ROOT (rede real, ou --origem-local via ORIGEM_LOCAL)
 ingest:
-	@echo "ingest: não implementado (tarefa T10)"
-	@exit 2
+	uv run rfb ingest $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL))
 
-## ci: pipeline local completo sobre fixtures (não implementado — T10)
+## ci: pipeline local completo sobre fixtures sintéticas, sem rede, em < 120s
+ci: DATA_ROOT := $(CURDIR)/.tmp/ci/data
 ci:
-	@echo "ci: não implementado (tarefa T10)"
-	@exit 2
+	rm -rf .tmp/ci
+	uv run python scripts/gen_fixtures.py --saida .tmp/ci/fixtures
+	uv run rfb ingest --origem-local .tmp/ci/fixtures --mes 2026-09
+	cd transform && uv run dbt deps && uv run dbt build --target ci
+	uv run pytest -q tests/integration
 
 ## pipeline: pipeline ponta a ponta sobre dados reais (não implementado — T28)
 pipeline:
@@ -34,10 +37,11 @@ pipeline:
 docs:
 	cd transform && uv run dbt docs generate
 
-## lint: ruff + sqlfluff
+## lint: ruff + sqlfluff (mkdir -p $(DATA_ROOT): o templater dbt do sqlfluff abre DATA_ROOT/warehouse.duckdb)
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
+	mkdir -p $(DATA_ROOT)
 	uv run sqlfluff lint transform/models
 
 ## sync: envia raw/ e gold/ a s3:// (não implementado — T11)

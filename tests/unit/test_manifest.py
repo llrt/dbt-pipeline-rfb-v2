@@ -90,7 +90,8 @@ def test_manifesto_tem_os_campos_exigidos_e_resumo_por_entidade(tmp_path: Path) 
         "estabelecimentos": {"linhas": 15, "rejeitadas": 1},
     }
     conteudo = caminho.read_text(encoding="utf-8")
-    for campo in ("mes_referencia", "data_referencia", "iniciado_em", "concluido_em", "versao_pipeline"):
+    campos = ("mes_referencia", "data_referencia", "iniciado_em", "concluido_em", "versao_pipeline")
+    for campo in campos:
         assert campo in conteudo
 
 
