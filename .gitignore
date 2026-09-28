@@ -1,0 +1,10 @@
+data/
+.venv/
+.env
+__pycache__/
+*.pyc
+transform/target/
+transform/dbt_packages/
+transform/logs/
+tests/fixtures/generated/
+.DS_Store

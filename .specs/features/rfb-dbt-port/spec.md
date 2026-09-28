@@ -1,0 +1,318 @@
+# Port RFB/CNPJ para dbt + DuckDB Specification
+
+## Problem Statement
+
+O MVP original (Databricks CE + Spark, notebooks) monta uma base de inteligência de mercado a partir dos
+dados abertos de CNPJ da RFB e da Base dos Dados, mas não é reprodutível fora do Databricks, não tem testes
+automatizados, depende de `now()` e sofre com limites da plataforma. Precisamos de um pipeline dbt sobre
+DuckDB + Parquet (local ou S3/Tigris) que preserve as regras originais, meça a qualidade dos dados antes e
+depois de cada etapa e acrescente análises que respondam melhor às perguntas de negócio.
+
+## Goals
+
+- [ ] Um comando (`make pipeline`) reconstrói raw → gold do mês de referência a partir das fontes públicas.
+- [ ] `bh_empresas`/`agg_empresas` com paridade lógica comprovada por teste contra o SQL original.
+- [ ] `make ci` roda o fluxo completo sobre fixtures sintéticas em < 2 min, sem rede, verificando os números do cenário conhecido.
+- [ ] Todos os checks de qualidade dos notebooks 2.x do original automatizados como testes dbt, mais novos checks por etapa.
+- [ ] Quatro análises novas (densidade, sobrevivência por coorte, dinâmica, fornecedores por distância) + estudo de caso Fundão/ES reproduzido.
+- [ ] Guia de dbt em português cobrindo conceitos, estrutura, comandos, fluxo, testes, bibliotecas e checks por etapa.
+
+## Out of Scope
+
+| Feature | Reason |
+| ------- | ------ |
+| Ingestão de `Socios*` | Dados de pessoas físicas; não respondem às perguntas (ADR-0008) |
+| Agendamento/orquestrador (Airflow, Dagster, cron em nuvem) | Pipeline é um comando idempotente; agendar é trabalho futuro |
+| Dashboard/UI | Saídas são Parquet, `dbt docs` e relatórios Markdown |
+| Histórico multi-mês / snapshots SCD2 | Um mês por execução; snapshots só explicados no guia |
+| Geocodificação por endereço | Distância usa centroide do município |
+| Validação real no Tigris | Sem credenciais no ambiente; coberto por moto + roteiro manual |
+
+---
+
+## Assumptions & Open Questions
+
+| Assumption / decision | Chosen default | Rationale | Confirmed? |
+| --------------------- | -------------- | --------- | ---------- |
+| Mês de referência | Último mês listado no WebDAV (2026-09 hoje); `--mes` sobrescreve | 2025-02 do original não existe mais (ADR-0003) | y (líder) |
+| Paridade com o original | Lógica (mesmas regras nos mesmos dados), não numérica | Dados de outro mês | y (líder) |
+| Idade das empresas | Relativa a `data_referencia` (data do extrato), não `now()` | Determinismo (ADR-0004) | y (líder) |
+| "Inativa" | `situacao_codigo != 2` (regra original); data de encerramento = `dat_situacao` | Consistência com o original | y (líder) |
+| Sobrevivência a N anos | Coorte = ano de `dat_inicio`. A coorte inteira é elegível no horizonte N se `make_date(ano_coorte + N, 12, 31) <= data_referencia`; um membro sobrevive se ativo ou `dat_situacao >= dat_inicio + N anos` | Elegibilidade por coorte inteira garante sobreviventes_N ⊆ sobreviventes_M (N>M) e, portanto, taxas monotônicas | y (líder) |
+| População usada | Último `ano` disponível em `br_ibge_populacao.municipio` (var `ano_populacao` sobrescreve) | Dado mais recente | y (líder) |
+| Distância | Haversine, raio 6371.0088 km, entre centroides BD | Sem geocodificação (out of scope) | y (líder) |
+| Nomes de colunas | snake_case minúsculo (`CNAE_principal` → `cnae_principal`, `UF` → `uf`) | Convenção dbt; mapeamento em docs/ESCOPO.md | y (líder) |
+| Strings vazias na RFB | Convertidas para NULL no staging | Spark do original tratava vazio como null | y (líder) |
+| Limiar de rejeito do parser | 0,0001 (0,01%) | Original não teve rejeitos após ajuste de escape | y (líder) |
+
+**Open questions:** none - all resolved or logged above (required before the spec is confirmed).
+
+---
+
+## Cenário de fixtures com respostas conhecidas (fonte dos valores esperados)
+
+`data_referencia = 2026-09-12`, `mes_referencia = 2026-09`, nome interno dos arquivos `F.K03200$Z.D60912.<TIPO>`.
+
+**Domínios RFB:** municípios `5643 FUNDAO`, `5663 LINHARES`, `5611 ARACRUZ`, `5699 SERRA`, `5705 VITORIA`,
+`2701 AGUA BRANCA`, `1003 AGUA BRANCA`, `1901 AGUA BRANCA`, `9707 EXTERIOR`, `1182 BOA ESPERANCA DO NORTE`;
+CNAEs `4741500, 2071100, 4679601, 4679699, 4711302, 4744099, 0111301, 3511500`; naturezas `2062, 2135, 2305,
+0000 "Natureza Jurídica não informada", 8885 "Natureza Jurídica não informada"`; motivos `00, 01`.
+
+**BD:** municípios = os 8 acima exceto 9707 e 1182 (ids IBGE, nomes acentuados, micro/meso, regiões
+imediata/intermediária e centroides reais: Fundão `POINT(-40.3557928987053 -19.9687204052472)`, Serra
+`POINT(-40.3011804058758 -20.1284748148379)`, Linhares `POINT(-40.0286164065601 -19.3821001934877)`,
+Aracruz `POINT(-40.1758978602985 -19.7659695292442)`, Vitória `POINT(-39.176338320945 -20.3338472806447)`,
+Água Branca/AL `POINT(-37.9018536858562 -9.27325871173002)`); CNAE 2 = os CNAEs acima exceto `3511500`, com
+pelo menos um registro multilinha; população 2024: Fundão 20000, Linhares 180000, Aracruz 100000, Serra
+520000, Vitória 330000, cada Água Branca 10000; população 2023: Fundão 19000.
+
+**Estabelecimentos** (todos com DV correto, exceto L):
+
+| id | cnpj_raiz/ordem | razão social (empresa) | natureza | porte | município | CNAE principal | situação | início | dat_situacao | observação |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A | 11111111/0001 | TINTAS FUNDAO LTDA | 2135 | 01 | 5643 | 4741500 | 02 | 20221015 | — | nome_fantasia `TINTAS FUNDÃO` |
+| B | 22222222/0001 | COLORIR TINTAS | 2062 | 03 | 5643 | 4741500 | 08 | 20150301 | 20190510 | |
+| C | 33333333/0001 | PINTE BEM | 2135 | 01 | 5643 | 4741500 | 08 | 20200110 | 20210815 | capital `1000,50` |
+| D | 44444444/0001 | CASA DAS CORES | 2062 | 05 | 5643 | 4741500 | 04 | 20100601 | 20230101 | |
+| E | 55555555/0001 | TINTAS CAPIXABA | 2305 | (vazio) | 5643 | 4741500 | 08 | 20180101 | 20240301 | nome_fantasia vazio |
+| F | 66666666/0001 | FABRICA DE TINTAS SERRA SA | 2062 | 05 | 5699 | 2071100 | 02 | 20000101 | — | |
+| G | 77777777/0001 | ATACADO VITORIA TINTAS | 2062 | 03 | 5705 | 4679601 | 02 | 20050505 | — | |
+| H | 88888888/0001 | MERCADO LINHARES | 2062 | 03 | 5663 | 4711302 | 02 | 20120312 | — | secundários `4679699,4744099` |
+| I | 99999999/0001 | ATACADO ARACRUZ | 2062 | 01 | 5611 | 4679601 | 08 | 20080101 | 20200101 | |
+| J | 12121212/0001 | TINTAS SERTAO | 2062 | 01 | 2701 | 2071100 | 02 | 20190101 | — | |
+| K | 13131313/0001 | `EMPRESA EXTERIOR LTDA\` (com `\"` no arquivo) | 2062 | 00 | 9707 | 4711302 | 02 | 20210101 | — | quirk de escape |
+| L | 14141414/0001 | ENERGIA NOVA | 2062 | 05 | 5699 | 3511500 | 02 | 20160101 | — | **DV inválido**; CNAE sem par no BD |
+| M | 15151515/0001 | BOA ESPERANCA COMERCIO | 2135 | 01 | 1182 | 4711302 | 02 | 20231201 | `00000000` | município sem par no BD |
+| N | 16161616/0001 | AGRO FUNDAO | 2135 | 00 | 5643 | 0111301 | 02 | 20000229 | — | CNAE com zero à esquerda |
+| O | 11111111/0002 | (filial de A) | — | — | 5699 | 4741500 | 02 | 20240115 | — | matriz_filial 2; nome_fantasia multilinha |
+
+Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
+
+---
+
+## User Stories
+
+### P1: Ingestão reprodutível para Parquet raw ⭐ MVP
+
+**User Story**: Como engenheiro(a) de dados, quero baixar e converter os arquivos da RFB e da BD para Parquet raw com um comando, para que o dbt trabalhe sobre dados fiéis e auditáveis.
+
+**Why P1**: Sem raw não há pipeline.
+
+**Acceptance Criteria**:
+
+1. WHEN `rfb ingest` runs without `--mes` THEN the system SHALL select the most recent `YYYY-MM` folder listed by the WebDAV share.
+2. WHEN `rfb ingest --mes 2026-09` runs THEN the system SHALL write one Parquet dataset per entity under `raw/rfb/<entidade>/mes_referencia=2026-09/` for `empresas, estabelecimentos, simples, cnaes, municipios, naturezas, motivos, paises, qualificacoes`.
+3. The system SHALL store every RFB data column as VARCHAR using the column names listed in ARCHITECTURE.md §4.2, plus `_arquivo_origem`, `_mes_referencia`, `_data_referencia`, `_ingerido_em`.
+4. WHEN a field contains `\"` before the closing quote (row K) THEN the system SHALL parse it as a value ending in `\` without rejecting the row.
+5. WHEN a quoted field spans multiple lines (row O) THEN the system SHALL keep it as a single record.
+6. WHEN the fixtures are ingested THEN the system SHALL write exactly 14 `empresas` rows, 15 `estabelecimentos` rows and 0 rejected rows.
+7. WHEN the internal file name contains `D60912` THEN the system SHALL set `_data_referencia` to `2026-09-12`.
+8. IF the rejected-row rate for an entity exceeds `RFB_MAX_TAXA_REJEITO` THEN the system SHALL exit non-zero and SHALL keep the rejected rows under `raw/_rejeitos/`.
+9. IF a downloaded file size differs from the WebDAV `getcontentlength` THEN the system SHALL delete the file and exit non-zero without writing to `raw/`.
+10. IF a network error persists after 3 attempts THEN the system SHALL exit non-zero naming the file.
+11. IF the requested month does not exist THEN the system SHALL exit non-zero listing the available months.
+12. WHEN the same month is ingested twice with identical zip checksums THEN the system SHALL skip conversion and leave the Parquet files unchanged.
+13. The system SHALL never leave a partially written Parquet dataset under `raw/` (write to temp + atomic rename).
+14. WHEN ingestion finishes THEN the system SHALL write `_manifests/<mes>.json` with size, sha256, rows read and rows rejected per file.
+15. WHEN `rfb ingest` runs THEN the system SHALL download the four BD tables (municipio, cnae_2, populacao, pib) to `raw/bd/<tabela>/`.
+16. IF a zip entry path escapes the extraction directory THEN the system SHALL refuse to extract it and exit non-zero.
+17. The system SHALL NOT download `Socios*` files.
+
+**Independent Test**: `rfb ingest --origem-local tests/fixtures --mes 2026-09` produces the datasets and manifest; pytest checks counts and quirks.
+
+---
+
+### P1: Staging e fontes com os checks do original ⭐ MVP
+
+**User Story**: Como analista, quero fontes declaradas com os mesmos checks de qualidade dos notebooks 2.x e um staging tipado, para confiar nos dados antes de modelar.
+
+**Why P1**: Checks do original fazem parte do escopo; staging é a base de tudo.
+
+**Acceptance Criteria**:
+
+1. The system SHALL declare dbt sources for every raw dataset with `external_location` derived from `env_var('DATA_ROOT')`.
+2. The system SHALL test `unique` and `not_null` on `codigo` of `cnaes`, `municipios`, `naturezas`, `motivos` (notebook 2.1.1).
+3. The system SHALL test `unique` + `not_null` on `empresas.cnpj_raiz` and on the concatenated `cnpj_completo` of `estabelecimentos` (notebooks 2.2/2.3).
+4. The system SHALL test that `empresas.natureza_jur`, `estabelecimentos.cnae_principal` and `estabelecimentos.municipio` exist in their RFB domain tables (notebooks 2.2/2.3).
+5. The system SHALL test `porte ∈ {00,01,03,05}` (nulls allowed) and `situacao ∈ {01,02,03,04,08}`.
+6. The system SHALL test that RFB municipalities without a BD pair are exactly those listed in seed `excecoes_conhecidas_municipio` (fixtures: 9707, 1182), with severity error for any other.
+7. WHEN RFB CNAEs have no BD pair THEN the system SHALL raise a `warn` reporting their count (fixtures: 1).
+8. WHILE `_ingerido_em` is older than 35 days the system SHALL report source freshness `warn`, and older than 65 days `error`.
+9. WHEN staging runs THEN `stg_rfb__estabelecimentos.cnpj_completo` SHALL be `lpad(raiz,8)||lpad(ordem,4)||lpad(dv,2)` with exactly 14 digits.
+10. WHEN a date field is `0`, `00000000` or not a valid `YYYYMMDD` THEN staging SHALL output NULL.
+11. WHEN `capital_soc` is `1000,50` THEN `stg_rfb__empresas.capital_social` SHALL equal 1000.50.
+12. WHEN a text field is empty THEN staging SHALL output NULL.
+13. The system SHALL pad CNAE codes to 7 digits (`0111301`) and RFB municipality codes to 4 digits.
+14. The system SHALL NOT expose `email`, `ddd1`, `tel1`, `ddd2`, `tel2`, `ddd_fax`, `fax` in any staging or downstream model.
+15. WHERE `mes_referencia` var is null the staging SHALL select the greatest available `_mes_referencia`.
+
+**Independent Test**: `dbt build --select staging+ sources --target ci` passes with the listed warns only.
+
+---
+
+### P1: Modelos originais com paridade ⭐ MVP
+
+**User Story**: Como avaliador(a), quero `bh_empresas` e `agg_empresas` com as regras do notebook 3, para comparar com o MVP original.
+
+**Why P1**: É o núcleo do escopo original.
+
+**Acceptance Criteria**:
+
+1. The system SHALL build `bh_empresas` with exactly the columns `cnpj_raiz, cnpj_completo, nome, natureza_juridica, porte, cnae_principal, desc_cnae_principal, grupo_cnae_principal, cnaes_secundarios, municipio, microrregiao_municipio, mesorregiao_municipio, uf, situacao, idade_atual` under an enforced contract.
+2. WHEN built on fixtures THEN `bh_empresas` SHALL contain 12 rows (15 minus K, L, M dropped by the original inner joins).
+3. The system SHALL map porte `0→'N/A'`, `1→'MICRO'`, `3→'PEQUENA'`, `5→'DEMAIS'`, otherwise NULL (row E → NULL).
+4. The system SHALL map situação `2→'ATIVA'`, otherwise `'INATIVA'`.
+5. WHEN situação is ATIVA THEN `idade_atual` SHALL be `round(days(data_referencia − dat_inicio)/365.25, 1)` (row A → 3.9); otherwise NULL.
+6. The system SHALL set `nome = upper(coalesce(nome_fantasia, razao_social))` (row A → `TINTAS FUNDÃO`, row E → `TINTAS CAPIXABA`).
+7. The system SHALL set `municipio`, `microrregiao_municipio`, `mesorregiao_municipio`, `uf`, `desc_cnae_principal`, `grupo_cnae_principal`, `natureza_juridica` as upper-case values from BD/RFB domains (row A → `FUNDÃO`, `LINHARES`, `LITORAL NORTE ESPÍRITO-SANTENSE`, `ES`).
+8. The system SHALL build `agg_empresas` grouped by the 10 original dimensions with `qtd_empresas = count(cnpj_completo)` and `media_idade = avg(idade_atual)`.
+9. The system SHALL fail (error) if `sum(agg_empresas.qtd_empresas) != count(bh_empresas)`.
+10. The system SHALL fail (error) if `bh_empresas` differs from the literal DuckDB translation of the notebook 3 SQL (same data, with `now()` replaced by `data_referencia`).
+11. The system SHALL report (warn) the number of estabelecimentos dropped by the inner joins (fixtures: 3).
+12. The system SHALL fail (error) if any `idade_atual` is outside [0, 200].
+13. The system SHALL cover rules 3–6 with dbt unit tests.
+
+**Independent Test**: fixtures → `agg_empresas` for `cnae_principal='4741500'`, `municipio='FUNDÃO'`, `uf='ES'` returns ATIVA=1 (MICRO, media_idade 3.9) and INATIVA totaling 4.
+
+---
+
+### P2: Star schema conformado (adição)
+
+**User Story**: Como analista, quero dimensões e fato sem descartes silenciosos, com Simples/MEI e CNAEs secundários explodidos, para análises completas.
+
+**Why P2**: Corrige limitações do original ("trabalhos futuros"), não bloqueia o MVP.
+
+**Acceptance Criteria**:
+
+1. The system SHALL build `fct_estabelecimentos` with one row per `cnpj_completo` (fixtures: 15 rows) and enforced contract.
+2. WHEN a estabelecimento has no matching dimension member THEN the fact SHALL reference the "não informado" member (key `-1`) instead of dropping the row.
+3. The system SHALL build `dim_municipio` with IBGE id, RFB code, name, UF, micro/meso, região imediata/intermediária, latitude, longitude, população do último ano (Fundão → 20000) and PIB.
+4. The system SHALL build `dim_cnae` with subclass, classe, grupo, divisão, seção and descriptions.
+5. The system SHALL build `bridge_estabelecimento_cnae_secundario` with one row per (cnpj_completo, CNAE secundário) (row H → 2 rows).
+6. The system SHALL flag `opcao_mei` on the fact (rows A and C → true).
+7. The system SHALL test `relationships` from every fact foreign key to its dimension with severity error.
+
+**Independent Test**: fixtures → fact 15 rows; K, L, M present with key -1 on the missing dimension.
+
+---
+
+### P2: Análises novas (adição)
+
+**User Story**: Como consultor(a), quero densidade de concorrência, sobrevivência por coorte, dinâmica de mercado e fornecedores por distância, para decidir com mais evidência que o MVP original.
+
+**Why P2**: Valor analítico novo sobre o núcleo.
+
+**Acceptance Criteria**:
+
+1. WHEN built on fixtures THEN `mart_concorrencia_municipio` for (4741500, Fundão) SHALL show ativos=1, inativos=4, ativos_por_10k_hab=0.5.
+2. WHEN built on fixtures THEN `mart_sobrevivencia_coorte` summed over cohorts and portes for (4741500, ES) SHALL give eligible/survivors 6/6 at 1 year, 5/4 at 3 years and 4/2 at 5 years.
+3. The system SHALL fail (error) if any survival rate is outside [0,1] or if, within a row, taxa_1a < taxa_3a or taxa_3a < taxa_5a when both compared rates are non-null.
+4. WHEN built on fixtures THEN `mart_dinamica_mercado` for (4741500, Fundão) SHALL show aberturas in 2010, 2015, 2018, 2020, 2022 (1 each) and encerramentos in 2019, 2021, 2023, 2024 (1 each).
+5. WHEN built on fixtures THEN `mart_fornecedores_proximos` for Fundão with CNAEs {2071100, 4679601, 4679699} and radius 100 km SHALL list exactly F (Serra, 18.66 ± 0.5 km, via CNAE principal) and H (Linhares, 73.68 ± 0.5 km, via CNAE secundário).
+6. The system SHALL exclude inactive suppliers (row I) and suppliers beyond the radius (rows G at ≈129.6 km and J).
+7. The system SHALL fail (error) if any distance is negative or if a municipality's distance to itself is not 0.
+
+**Independent Test**: fixtures → queries on the gold Parquet return the numbers above.
+
+---
+
+### P2: Qualidade de dados e observabilidade (adição)
+
+**User Story**: Como engenheiro(a), quero checks novos por etapa e histórico dos resultados, para detectar regressões de qualidade entre meses.
+
+**Acceptance Criteria**:
+
+1. The system SHALL provide a generic test `cnpj_dv_valido` that validates both CNPJ check digits (fixtures: exactly 1 failure, row L, severity warn).
+2. The system SHALL provide a generic test `data_nao_futura` relative to `data_referencia` applied to every staging date column.
+3. The system SHALL store failures of `warn` tests (`store_failures`).
+4. WHEN `dbt build` finishes THEN the system SHALL append one row per executed test to `dq_historico_testes` with invocation id, test name, status, failures, severity and escopo.
+5. The system SHALL produce `docs/QUALIDADE_DADOS.md` listing every check by stage (antes/depois), marking original vs adição.
+6. The system SHALL fail CI if any dbt node lacks `meta.escopo`.
+
+---
+
+### P2: Estudo de caso e relatório (original + adição)
+
+**User Story**: Como consultor(a), quero o estudo de caso de Fundão/ES reproduzido como análises dbt parametrizadas e um relatório gerado.
+
+**Acceptance Criteria**:
+
+1. The system SHALL provide `analyses/` SQL for each question of notebook 4, parameterized by vars `caso_*`.
+2. WHEN `rfb report` runs THEN the system SHALL write `docs/RELATORIO_ESTUDO_CASO.md` with the answers of the original questions and of the new analyses for the configured case.
+3. WHEN run on fixtures THEN the report SHALL state 1 active competitor and 4 inactive in Fundão/ES for CNAE 4741500.
+
+---
+
+### P1: Operação ponta a ponta ⭐ MVP
+
+**User Story**: Como analista, quero um comando para rodar tudo e um CI local rápido.
+
+**Acceptance Criteria**:
+
+1. WHEN `make ci` runs THEN the system SHALL generate fixtures, ingest them into a temporary `DATA_ROOT`, run `dbt build --target ci` and the integration tests, finishing in under 120 s on the reference machine.
+2. WHEN `make pipeline MES=2026-09` runs THEN the system SHALL execute ingest → source freshness → dbt build → reports and exit non-zero if any error-severity test fails.
+3. WHERE `DATA_ROOT` starts with `s3://` the system SHALL read/write through DuckDB httpfs using `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3` from the environment.
+4. IF `DATA_ROOT` is `s3://` and any of those variables is missing THEN the system SHALL exit non-zero naming the missing variables.
+5. WHEN `rfb sync` runs THEN the system SHALL upload `raw/` and `gold/` to the configured bucket, skipping objects with identical size and checksum.
+6. The system SHALL write gold marts as Parquet under `DATA_ROOT/gold/`.
+
+---
+
+### P2: Documentação e guia dbt
+
+**Acceptance Criteria**:
+
+1. The system SHALL provide `docs/guia-dbt/` covering: o que é dbt; como funciona; conceitos (models, sources, seeds, snapshots, tests, macros, packages, materializations, refs/DAG, vars, targets/profiles, docs, exposures, contracts, unit tests); estrutura de projeto; comandos; fluxo de dados por etapa neste projeto; testes; bibliotecas/plugins; checks de qualidade antes/depois de cada etapa.
+2. The system SHALL link each guide section to the corresponding files of this project and to official docs.
+3. The system SHALL provide `docs/ESCOPO.md` mapping every model/check to original or adição, with the notebook of origin for originals.
+
+---
+
+## Edge Cases
+
+- IF the WebDAV share is unreachable THEN the system SHALL exit non-zero after retries with the URL in the message.
+- IF a BD table download fails THEN the system SHALL exit non-zero without partial Parquet.
+- WHEN a CNAE secundário list is empty THEN the bridge SHALL have no rows for that estabelecimento.
+- WHEN `dat_inicio_atividade` is NULL THEN `idade_atual` SHALL be NULL and the row SHALL be excluded from cohort analyses.
+- WHEN a municipality has no population row THEN density SHALL be NULL (not zero, not error).
+
+---
+
+## Requirement Traceability
+
+| Requirement ID | Story | Phase | Status |
+| -------------- | ----- | ----- | ------ |
+| ING-01 | P1: Ingestão (AC 1, 11) | Tasks | In Tasks |
+| ING-02 | P1: Ingestão (AC 2, 3, 7, 17) | Tasks | In Tasks |
+| ING-03 | P1: Ingestão (AC 4, 5, 6, 8) | Tasks | In Tasks |
+| ING-04 | P1: Ingestão (AC 9, 10, 13, 16) | Tasks | In Tasks |
+| ING-05 | P1: Ingestão (AC 12, 14) | Tasks | In Tasks |
+| ING-06 | P1: Ingestão (AC 15) | Tasks | In Tasks |
+| SRC-01 | P1: Staging/fontes (AC 1–8) | Tasks | In Tasks |
+| STG-01 | P1: Staging/fontes (AC 9–15) | Tasks | In Tasks |
+| ORI-01 | P1: Originais (AC 1–7, 12, 13) | Tasks | In Tasks |
+| ORI-02 | P1: Originais (AC 8, 9) | Tasks | In Tasks |
+| ORI-03 | P1: Originais (AC 10, 11) | Tasks | In Tasks |
+| CORE-01 | P2: Star schema (AC 1–7) | Tasks | In Tasks |
+| ANA-01 | P2: Análises (AC 1) | Tasks | In Tasks |
+| ANA-02 | P2: Análises (AC 2, 3) | Tasks | In Tasks |
+| ANA-03 | P2: Análises (AC 4) | Tasks | In Tasks |
+| ANA-04 | P2: Análises (AC 5–7) | Tasks | In Tasks |
+| DQ-01 | P2: DQ (AC 1, 2, 3, 6) | Tasks | In Tasks |
+| DQ-02 | P2: DQ (AC 4, 5) | Tasks | In Tasks |
+| CASE-01 | P2: Estudo de caso (AC 1–3) | Tasks | In Tasks |
+| OPS-01 | P1: Operação (AC 1, 2, 6) | Tasks | In Tasks |
+| OPS-02 | P1: Operação (AC 3–5) | Tasks | In Tasks |
+| DOC-01 | P2: Documentação (AC 1–3) | Tasks | In Tasks |
+
+**Coverage:** 22 total, 22 mapped to tasks, 0 unmapped.
+
+---
+
+## Success Criteria
+
+- [ ] `make ci` verde em < 120 s, com os números do cenário conhecido.
+- [ ] `make pipeline MES=2026-09` conclui sobre os dados reais sem testes `error` falhando.
+- [ ] Teste de paridade com o SQL original com diferença zero nos dados reais.
+- [ ] Relatório do estudo de caso gerado com dados reais de 2026-09.
+- [ ] Guia dbt revisado por um revisor independente sem erros técnicos pendentes.
