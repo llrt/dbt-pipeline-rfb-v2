@@ -131,6 +131,7 @@ mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
 - Leitura CSV RFB: `delim=';'`, `quote='"'`, `escape='"'`, `header=false`, `encoding='latin-1'`,
   `all_varchar`, colunas nomeadas explicitamente, `store_rejects=true`. Replica as opções do Spark do
   original (escape `"` por causa de `\"` em razões sociais; campos multilinha).
+- Campo `""` (vazio entre aspas) é gravado como NULL (padrão do DuckDB); o staging trata vazio e NULL igual.
 - Escrita atômica: grava em diretório temporário e renomeia; nunca deixa Parquet parcial.
 - Rejeitos do parser → `raw/_rejeitos/<entidade>/mes_referencia=.../*.parquet`. Se a taxa de rejeito
   exceder `RFB_MAX_TAXA_REJEITO` (padrão `0.0001`), a ingestão falha (gate de qualidade na borda).

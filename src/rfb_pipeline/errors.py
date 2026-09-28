@@ -41,3 +41,42 @@ class HostNaoPermitidoError(ErroIngestao):
         self.host = host
         self.hosts_permitidos = hosts_permitidos
         super().__init__(f"host {host!r} não está na allowlist {hosts_permitidos!r}")
+
+
+class ZipInseguroError(ErroIngestao):
+    """Entrada de zip com caminho absoluto ou que escapa do diretório de extração (zip-slip)."""
+
+    def __init__(self, zip_path: str, entrada: str) -> None:
+        self.zip_path = zip_path
+        self.entrada = entrada
+        super().__init__(f"zip {zip_path}: entrada insegura {entrada!r} recusada")
+
+
+class ZipCorrompidoError(ErroIngestao):
+    """Zip ilegível ou com CRC inválido."""
+
+    def __init__(self, zip_path: str, motivo: str) -> None:
+        self.zip_path = zip_path
+        super().__init__(f"zip corrompido {zip_path}: {motivo}")
+
+
+class TaxaRejeitoExcedidaError(ErroIngestao):
+    """A taxa de linhas rejeitadas pelo parser CSV excedeu o limiar configurado."""
+
+    def __init__(self, entidade: str, taxa: float, limiar: float, caminho_rejeitos: str) -> None:
+        self.entidade = entidade
+        self.taxa = taxa
+        self.limiar = limiar
+        self.caminho_rejeitos = caminho_rejeitos
+        super().__init__(
+            f"{entidade}: taxa de rejeito {taxa:.6%} excede o limiar {limiar:.6%}; "
+            f"rejeitos em {caminho_rejeitos}"
+        )
+
+
+class ConversaoError(ErroIngestao):
+    """Falha do DuckDB ao converter um arquivo para Parquet."""
+
+    def __init__(self, arquivo: str, motivo: str) -> None:
+        self.arquivo = arquivo
+        super().__init__(f"falha ao converter {arquivo}: {motivo}")

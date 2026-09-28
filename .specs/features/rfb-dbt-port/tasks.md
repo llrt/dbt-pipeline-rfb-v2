@@ -262,8 +262,8 @@ T30 → T31
 **Classificação**: G/C
 
 **Done when**:
-- [ ] Testes cobrem ACs de ingestão 2–8, 13, 16: contagens 14/15/0 nas fixtures, `\`` final em K, O como registro único, `_data_referencia=2026-09-12`, CNAE `0111301` preservado como texto, limiar de rejeito com arquivo corrompido gerado no teste, zip-slip recusado, nenhuma pasta parcial após falha simulada
-- [ ] Gate quick passa
+- [x] Testes cobrem ACs de ingestão 2–8, 13, 16: contagens 14/15/0 nas fixtures, `\`` final em K, O como registro único, `_data_referencia=2026-09-12`, CNAE `0111301` preservado como texto, limiar de rejeito com arquivo corrompido gerado no teste, zip-slip recusado, nenhuma pasta parcial após falha simulada
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
