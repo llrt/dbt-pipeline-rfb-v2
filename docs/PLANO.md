@@ -92,5 +92,6 @@ flowchart LR
 | B2 | worker 1 falhou (parou sem commit: `finish=length`, estouro de saída) → substituído e escalado | e4e76ec8 · opencode `ses_f166a54c8ffezXsUR5KUGpjDx0` · DeepSeek v4 flash high (arquivado) | — |
 | B2 (substituto) | concluído, verificado (34 testes, fixtures determinísticas, parse DuckDB conferido) e integrado | 1a15ce55 · Claude Sonnet médio (escalonamento pela regra do guia) | `2253d8e` `054a98c` `bc8896e` `8b4f283` |
 | B3 | concluído, verificado (67 testes; validação real: Empresas1 4.494.860 linhas/0 rejeitos/1,2 s; Estabelecimentos1 4.753.435/0/4,1 s) e integrado | 31f7d382 · Claude Opus médio | `ddc0731` |
-| B4 | em andamento | c1dc175c · Claude Sonnet médio | — |
+| B4 | concluído, verificado (90 unit + 5 integração; dbt PASS=45 WARN=1 ERROR=0; `make ci` 6,8 s) e integrado | c1dc175c · Claude Sonnet médio | `cf37463` `dc38939` `e72dc84` `f7d2603` `8bdbadc` `ea00fe5` `f109d49` |
+| R1 | em andamento | (Opus alto) | — |
 | B9a | concluído e integrado (1 achado p/ R5, ver docs/revisoes/pendencias.md) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | `c9a6dbc` |
