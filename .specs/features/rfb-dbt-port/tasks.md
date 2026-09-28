@@ -359,8 +359,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Unit tests dbt passam; `stg_bd__municipios` de Fundão tem latitude −19.9687…, longitude −40.3557…
-- [ ] Gate full passa
+- [x] Unit tests dbt passam; `stg_bd__municipios` de Fundão tem latitude −19.9687…, longitude −40.3557…
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests
 **Gate**: full

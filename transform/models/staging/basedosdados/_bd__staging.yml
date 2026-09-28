@@ -1,0 +1,153 @@
+version: 2
+
+models:
+  - name: stg_bd__municipios
+    description: >
+      Municípios da Base dos Dados, tipado e limpo: ids como texto (`texto_ou_nulo`),
+      `latitude`/`longitude` extraídos do WKT `centroide` (`POINT(longitude latitude)`).
+    columns:
+      - name: id_municipio
+        description: Código IBGE do município (7 dígitos).
+        data_tests:
+          - unique
+          - not_null
+      - name: id_municipio_rf
+        description: >
+          Código do município na classificação da RFB; usado para casar com
+          `stg_rfb__municipios.codigo` (ver cobertura em `tests/cobertura_municipio_rfb_bd.sql`).
+      - name: nome
+        description: Nome do município, acentuado.
+      - name: sigla_uf
+        description: Sigla da UF do município.
+      - name: nome_uf
+        description: Nome completo da UF.
+      - name: nome_regiao
+        description: Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
+      - name: id_microrregiao
+        description: Código IBGE da microrregião.
+      - name: nome_microrregiao
+        description: Nome da microrregião.
+      - name: id_mesorregiao
+        description: Código IBGE da mesorregião.
+      - name: nome_mesorregiao
+        description: Nome da mesorregião.
+      - name: id_regiao_imediata
+        description: Código IBGE da região geográfica imediata.
+      - name: nome_regiao_imediata
+        description: Nome da região geográfica imediata.
+      - name: id_regiao_intermediaria
+        description: Código IBGE da região geográfica intermediária.
+      - name: nome_regiao_intermediaria
+        description: Nome da região geográfica intermediária.
+      - name: latitude
+        description: Latitude do centroide do município (extraída do WKT `centroide`).
+      - name: longitude
+        description: Longitude do centroide do município (extraída do WKT `centroide`).
+
+  - name: stg_bd__cnaes
+    description: >
+      CNAEs (versão 2.x) da Base dos Dados, tipado e limpo: `subclasse` e demais códigos da
+      hierarquia com zeros à esquerda preservados (`lpad_codigo`).
+    columns:
+      - name: subclasse
+        description: Subclasse CNAE (7 dígitos; FK lógica para `stg_rfb__cnaes.codigo`).
+        data_tests:
+          - unique
+          - not_null
+      - name: descricao_subclasse
+        description: Descrição da subclasse.
+      - name: classe
+        description: Código da classe (5 dígitos).
+      - name: descricao_classe
+        description: Descrição da classe.
+      - name: grupo
+        description: Código do grupo (3 dígitos).
+      - name: descricao_grupo
+        description: Descrição do grupo.
+      - name: divisao
+        description: Código da divisão (2 dígitos).
+      - name: descricao_divisao
+        description: Descrição da divisão.
+      - name: secao
+        description: Letra da seção (agregado mais alto da hierarquia CNAE).
+      - name: descricao_secao
+        description: Descrição da seção.
+
+  - name: stg_bd__populacao
+    description: "População estimada por município e ano (adição), tipada: `ano` inteiro, `populacao` bigint."
+    columns:
+      - name: id_municipio
+        description: Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).
+      - name: sigla_uf
+        description: Sigla da UF do município.
+      - name: ano
+        description: Ano de referência da estimativa populacional.
+      - name: populacao
+        description: População estimada no município e ano.
+
+  - name: stg_bd__pib
+    description: "PIB municipal e seus componentes (adição), tipados como `double`; `ano` inteiro."
+    columns:
+      - name: id_municipio
+        description: Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).
+      - name: ano
+        description: Ano de referência do PIB.
+      - name: pib
+        description: PIB total do município no ano, em mil R$.
+      - name: impostos_liquidos
+        description: Impostos líquidos de subsídios, em mil R$.
+      - name: va
+        description: Valor adicionado total, em mil R$.
+      - name: va_agropecuaria
+        description: Valor adicionado da agropecuária, em mil R$.
+      - name: va_industria
+        description: Valor adicionado da indústria, em mil R$.
+      - name: va_servicos
+        description: Valor adicionado dos serviços, em mil R$.
+      - name: va_adespss
+        description: Valor adicionado da administração, defesa, educação e saúde públicas, em mil R$.
+
+unit_tests:
+  - name: test_stg_bd__municipios_parse_centroide
+    description: "Extrai latitude/longitude do WKT `POINT(longitude latitude)` de `centroide`."
+    model: stg_bd__municipios
+    given:
+      # `source('basedosdados', 'municipio')` usa `external_location`; sem relação física para o
+      # dbt introspeccionar tipos de coluna, então a fixture é SQL literal (não `rows` dict).
+      - input: source('basedosdados', 'municipio')
+        format: sql
+        rows: |
+          select
+              '3202207' as id_municipio,
+              '5643' as id_municipio_rf,
+              'Fundão' as nome,
+              'ES' as sigla_uf,
+              'Espírito Santo' as nome_uf,
+              'Sudeste' as nome_regiao,
+              '32007' as id_microrregiao,
+              'Linhares' as nome_microrregiao,
+              '3202' as id_mesorregiao,
+              'Litoral Norte Espírito-santense' as nome_mesorregiao,
+              '320005' as id_regiao_imediata,
+              'Vitória' as nome_regiao_imediata,
+              '3202' as id_regiao_intermediaria,
+              'Vitória' as nome_regiao_intermediaria,
+              'POINT(-40.3557928987053 -19.9687204052472)' as centroide
+    expect:
+      rows:
+        - id_municipio: "3202207"
+          id_municipio_rf: "5643"
+          nome: "Fundão"
+          sigla_uf: "ES"
+          nome_uf: "Espírito Santo"
+          nome_regiao: "Sudeste"
+          id_microrregiao: "32007"
+          nome_microrregiao: "Linhares"
+          id_mesorregiao: "3202"
+          nome_mesorregiao: "Litoral Norte Espírito-santense"
+          id_regiao_imediata: "320005"
+          nome_regiao_imediata: "Vitória"
+          id_regiao_intermediaria: "3202"
+          nome_regiao_intermediaria: "Vitória"
+          longitude: -40.3557928987053
+          latitude: -19.9687204052472
