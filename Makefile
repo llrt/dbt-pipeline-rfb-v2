@@ -8,13 +8,12 @@ export DBT_PROFILES_DIR = $(CURDIR)/transform
 
 ## setup: sincroniza dependências Python e pacotes dbt
 setup:
-	uv sync
+	uv sync --all-extras
 	cd transform && uv run dbt deps
 
-## fixtures: gera fixtures sintéticas RFB/BD (não implementado — T4)
+## fixtures: gera fixtures sintéticas RFB/BD em tests/fixtures/generated
 fixtures:
-	@echo "fixtures: não implementado (tarefa T4)"
-	@exit 2
+	uv run python scripts/gen_fixtures.py --saida tests/fixtures/generated
 
 ## ingest: ingesta os dados RFB/BD (não implementado — T10)
 ingest:

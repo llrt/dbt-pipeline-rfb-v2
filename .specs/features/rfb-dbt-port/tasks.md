@@ -185,9 +185,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `make fixtures` gera os arquivos; duas execuções produzem bytes idênticos
-- [ ] `tests/unit/test_gen_fixtures.py` verifica: encoding latin-1 (bytes de `Ã`), presença de `\"` em K, quebra de linha dentro de aspas em O, 15 estabelecimentos/14 empresas, DV válido em todos exceto L
-- [ ] Gate quick passa
+- [x] `make fixtures` gera os arquivos; duas execuções produzem bytes idênticos
+- [x] `tests/unit/test_gen_fixtures.py` verifica: encoding latin-1 (bytes de `Ã`), presença de `\"` em K, quebra de linha dentro de aspas em O, 15 estabelecimentos/14 empresas, DV válido em todos exceto L
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
@@ -205,8 +205,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes: 30 colunas em estabelecimentos, 7 em empresas, 7 em simples, 2 nos domínios; nenhuma entidade casa `Socios*`; config lê overrides do ambiente
-- [ ] Gate quick passa
+- [x] Testes: 30 colunas em estabelecimentos, 7 em empresas, 7 em simples, 2 nos domínios; nenhuma entidade casa `Socios*`; config lê overrides do ambiente
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
@@ -224,8 +224,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes com `httpx.MockTransport`: último mês detectado; mês inexistente lista disponíveis; tamanho divergente apaga arquivo e levanta erro; falha 3x levanta erro citando o arquivo; sucesso após 2 falhas; retomada com Range
-- [ ] Gate quick passa
+- [x] Testes com `httpx.MockTransport`: último mês detectado; mês inexistente lista disponíveis; tamanho divergente apaga arquivo e levanta erro; falha 3x levanta erro citando o arquivo; sucesso após 2 falhas; retomada com Range
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
@@ -243,8 +243,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes com MockTransport: 4 arquivos baixados; falha persistente não deixa arquivo parcial
-- [ ] Gate quick passa
+- [x] Testes com MockTransport: 4 arquivos baixados; falha persistente não deixa arquivo parcial
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
