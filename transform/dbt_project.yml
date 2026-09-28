@@ -1,0 +1,64 @@
+name: "rfb"
+version: "1.0.0"
+config-version: 2
+profile: "rfb"
+require-dbt-version: [">=1.8.0", "<2.0.0"]
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  mes_referencia: null
+  data_referencia: null
+  ano_populacao: null
+  caso_cnae_alvo: "4741500"
+  caso_municipio: "FUNDÃO"
+  caso_uf: "ES"
+  caso_cnaes_fornecedores: ["2071100", "4679601", "4679699"]
+  raio_fornecedores_km: 100
+
+models:
+  rfb:
+    staging:
+      +materialized: view
+      +meta:
+        escopo: adicao
+      +tags: ["escopo_adicao"]
+    intermediate:
+      +materialized: table
+      +meta:
+        escopo: adicao
+      +tags: ["escopo_adicao"]
+    marts:
+      +materialized: external
+      original:
+        +meta:
+          escopo: original
+        +tags: ["escopo_original"]
+      core:
+        +meta:
+          escopo: adicao
+        +tags: ["escopo_adicao"]
+      analises:
+        +meta:
+          escopo: adicao
+        +tags: ["escopo_adicao"]
+    observabilidade:
+      +materialized: table
+      +meta:
+        escopo: adicao
+      +tags: ["escopo_adicao"]
+
+seeds:
+  rfb:
+    +meta:
+      escopo: adicao
+    +tags: ["escopo_adicao"]

@@ -1,0 +1,36 @@
+rfb:
+  target: dev
+  outputs:
+    ci:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', env_var('DATA_ROOT', '../data') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('DATA_ROOT', '../data') }}/gold"
+      threads: "{{ env_var('DUCKDB_THREADS', 4) }}"
+      temp_directory: "{{ env_var('DATA_ROOT', '../data') }}/_tmp"
+      settings:
+        memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '2GB') }}"
+    dev:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', env_var('DATA_ROOT', '../data') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('DATA_ROOT', '../data') }}/gold"
+      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
+      temp_directory: "{{ env_var('DATA_ROOT', '../data') }}/_tmp"
+      settings:
+        memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
+    s3:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', env_var('DATA_ROOT', '../data') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('DATA_ROOT', '../data') }}/gold"
+      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
+      temp_directory: "{{ env_var('DATA_ROOT', '../data') }}/_tmp"
+      extensions:
+        - httpfs
+      settings:
+        memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
+      secrets:
+        - type: s3
+          key_id: "{{ env_var('AWS_ACCESS_KEY_ID', '') }}"
+          secret: "{{ env_var('AWS_SECRET_ACCESS_KEY', '') }}"
+          endpoint: "{{ env_var('AWS_ENDPOINT_URL_S3', 'https://fly.storage.tigris.dev') | replace('https://', '') | replace('http://', '') }}"
+          region: auto
+          url_style: "{{ env_var('S3_URL_STYLE', 'vhost') }}"

@@ -146,9 +146,9 @@ T30 → T31
 **Classificação**: P/NC
 
 **Done when**:
-- [ ] `cd transform && uv run dbt deps && uv run dbt parse --target ci` sem erro (com `DATA_ROOT` apontando para diretório temporário)
-- [ ] `uv run dbt debug --target ci` ok
-- [ ] Gate build passa
+- [x] `cd transform && uv run dbt deps && uv run dbt parse --target ci` sem erro (com `DATA_ROOT` apontando para diretório temporário)
+- [x] `uv run dbt debug --target ci` ok
+- [x] Gate build passa
 
 **Tests**: none
 **Gate**: build
