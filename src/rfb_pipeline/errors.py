@@ -80,3 +80,13 @@ class ConversaoError(ErroIngestao):
     def __init__(self, arquivo: str, motivo: str) -> None:
         self.arquivo = arquivo
         super().__init__(f"falha ao converter {arquivo}: {motivo}")
+
+
+class CredenciaisS3FaltandoError(ErroIngestao):
+    """`DATA_ROOT` é `s3://` mas faltam variáveis de ambiente obrigatórias."""
+
+    def __init__(self, faltando: list[str]) -> None:
+        self.faltando = faltando
+        super().__init__(
+            "DATA_ROOT é s3:// mas faltam variáveis de ambiente: " + ", ".join(faltando)
+        )

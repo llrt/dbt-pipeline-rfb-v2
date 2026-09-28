@@ -12,7 +12,12 @@ from rfb_pipeline.errors import (
     MesInexistenteError,
     TamanhoDivergenteError,
 )
-from rfb_pipeline.rfb_client import ArquivoRemoto, ClienteRFB, baixar_com_retry
+from rfb_pipeline.rfb_client import (
+    ArquivoRemoto,
+    ClienteRFB,
+    VelocidadeBaixaError,
+    baixar_com_retry,
+)
 
 WEBDAV_URL = "https://arquivos.receitafederal.gov.br/public.php/webdav/"
 
@@ -233,3 +238,92 @@ class TestBaixarComRetry:
         )
 
         assert resultado.read_bytes() == conteudo_completo
+
+    def test_taxa_abaixo_do_minimo_aborta_e_retoma_com_range(self, tmp_path: Path) -> None:
+        conteudo_completo = b"0123456789" * 5  # 50 bytes
+        primeira_parte = conteudo_completo[:10]
+        segunda_parte = conteudo_completo[10:]
+        destino = tmp_path / "Empresas0.zip"
+        chamadas = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            chamadas["n"] += 1
+            if chamadas["n"] == 1:
+                assert "range" not in request.headers
+                return httpx.Response(200, content=primeira_parte)
+            assert request.headers.get("range") == f"bytes={len(primeira_parte)}-"
+            return httpx.Response(
+                206,
+                content=segunda_parte,
+                headers={
+                    "Content-Range": (
+                        f"bytes {len(primeira_parte)}-{len(conteudo_completo) - 1}/"
+                        f"{len(conteudo_completo)}"
+                    )
+                },
+            )
+
+        http = httpx.Client(transport=httpx.MockTransport(handler))
+        # 1a tentativa: inicio_janela=0.0, agora=100.0 apos escrever o unico chunk (10 B em
+        # 100s = 0.1 B/s, abaixo do minimo) -> aborta com progresso (10 B gravados).
+        # 2a tentativa (retomada via Range): inicio_janela=100.0, agora=100.0 -> sem estouro
+        # de janela, conclui com sucesso.
+        relogios = iter([0.0, 100.0, 100.0, 100.0])
+
+        resultado = baixar_com_retry(
+            http,
+            "https://arquivos.receitafederal.gov.br/Empresas0.zip",
+            destino,
+            tamanho_esperado=len(conteudo_completo),
+            tentativas=3,
+            hosts_permitidos=("arquivos.receitafederal.gov.br",),
+            dormir=lambda _s: None,
+            velocidade_minima_bps=1000.0,
+            janela_lentidao_s=60.0,
+            relogio=lambda: next(relogios),
+        )
+
+        assert resultado.read_bytes() == conteudo_completo
+        assert chamadas["n"] == 2
+
+    def test_tentativas_sem_progresso_nao_conta_quando_ha_avanco(self, tmp_path: Path) -> None:
+        """Cada tentativa avança 1 byte e aborta por lentidão; o progresso reseta o contador, então
+        a ingestão continua tentando além do limite de `tentativas` enquanto houver avanço."""
+        destino = tmp_path / "Empresas0.zip"
+        chamadas = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            chamadas["n"] += 1
+            offset = int(
+                request.headers.get("range", "bytes=0-").removeprefix("bytes=").rstrip("-")
+            )
+            return httpx.Response(200 if offset == 0 else 206, content=b"x")
+
+        http = httpx.Client(transport=httpx.MockTransport(handler))
+        # A janela sempre estoura (agora - inicio >= janela) com taxa abaixo do mínimo, então
+        # toda tentativa levanta VelocidadeBaixaError -- mas grava 1 byte antes de abortar, o
+        # que reseta o contador de tentativas sem progresso a cada vez. Com `tentativas=2` isso
+        # ultrapassaria o limite se o contador não fosse resetado; o relógio se esgota primeiro,
+        # provando que o laço não parou em 2 tentativas.
+        relogios = iter([0.0, 100.0] * 4)
+
+        with pytest.raises(StopIteration):
+            baixar_com_retry(
+                http,
+                "https://arquivos.receitafederal.gov.br/Empresas0.zip",
+                destino,
+                tamanho_esperado=None,
+                tentativas=2,
+                hosts_permitidos=("arquivos.receitafederal.gov.br",),
+                dormir=lambda _s: None,
+                velocidade_minima_bps=1000.0,
+                janela_lentidao_s=60.0,
+                relogio=lambda: next(relogios),
+            )
+
+        assert chamadas["n"] > 2
+
+    def test_velocidade_baixa_error_mensagem(self) -> None:
+        erro = VelocidadeBaixaError(taxa_bps=100.0, minima_bps=1000.0, janela_s=60.0)
+        assert "100" in str(erro)
+        assert "1000" in str(erro)

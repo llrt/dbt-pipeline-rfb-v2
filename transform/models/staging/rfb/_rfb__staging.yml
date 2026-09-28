@@ -1,0 +1,130 @@
+version: 2
+
+models:
+  - name: stg_rfb__cnaes
+    description: >
+      Domínio de CNAEs (subclasse) da RFB, tipado e limpo: `codigo` com 7 dígitos (`lpad_codigo`)
+      e `descricao` vazia convertida em NULL (`texto_ou_nulo`). Filtra pelo mês de referência
+      (`filtro_mes_referencia`).
+    columns:
+      - name: codigo
+        description: Subclasse CNAE, sempre com 7 dígitos.
+        data_tests:
+          - unique
+          - not_null
+      - name: descricao
+        description: Descrição da atividade econômica; NULL se vazia no raw.
+
+  - name: stg_rfb__municipios
+    description: >
+      Domínio de municípios da RFB, tipado e limpo: `codigo` com 4 dígitos (`lpad_codigo`).
+      Não tem UF; ver `stg_bd__municipios` para UF e georreferência.
+    columns:
+      - name: codigo
+        description: Código do município na classificação da RFB (4 dígitos; não é o código IBGE).
+        data_tests:
+          - unique
+          - not_null
+      - name: descricao
+        description: Nome do município, sem acentos.
+
+  - name: stg_rfb__naturezas
+    description: "Domínio de naturezas jurídicas da RFB, tipado e limpo: `codigo` com 4 dígitos."
+    columns:
+      - name: codigo
+        description: Código da natureza jurídica (4 dígitos).
+        data_tests:
+          - unique
+          - not_null
+      - name: descricao
+        description: Descrição da natureza jurídica.
+
+  - name: stg_rfb__motivos
+    description: "Domínio de motivos de situação cadastral da RFB, tipado e limpo: `codigo` com 2 dígitos."
+    columns:
+      - name: codigo
+        description: Código do motivo de situação cadastral (2 dígitos).
+        data_tests:
+          - unique
+          - not_null
+      - name: descricao
+        description: Descrição do motivo de situação cadastral.
+
+  - name: stg_rfb__simples
+    description: >
+      Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opcao_simples` e
+      `opcao_mei` viram booleanos (`S`/`N`); datas `00000000` viram NULL.
+    columns:
+      - name: cnpj_raiz
+        description: 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).
+        data_tests:
+          - unique
+          - not_null
+      - name: opcao_simples
+        description: "`true` se optante pelo Simples Nacional, `false` caso contrário."
+      - name: dat_opcao_simples
+        description: Data de opção pelo Simples; NULL se `00000000` no raw.
+      - name: dat_exclusao_simples
+        description: Data de exclusão do Simples; NULL se `00000000` no raw.
+      - name: opcao_mei
+        description: "`true` se optante pelo MEI, `false` caso contrário."
+      - name: dat_opcao_mei
+        description: Data de opção pelo MEI; NULL se `00000000` no raw.
+      - name: dat_exclusao_mei
+        description: Data de exclusão do MEI; NULL se `00000000` no raw.
+
+unit_tests:
+  - name: test_stg_rfb__cnaes_lpad_e_texto_vazio
+    description: "`lpad_codigo` preenche até 7 dígitos; `texto_ou_nulo` converte descrição vazia em NULL."
+    model: stg_rfb__cnaes
+    given:
+      # `source('rfb', 'cnaes')` usa `external_location` (read_parquet); sem relação física para
+      # o dbt introspeccionar tipos de coluna, então a fixture é SQL literal (não `rows` dict).
+      - input: source('rfb', 'cnaes')
+        format: sql
+        rows: |
+          select '111301' as codigo, 'Cultivo de arroz' as descricao, '2026-09' as _mes_referencia
+          union all
+          select '4741500' as codigo, '' as descricao, '2026-09' as _mes_referencia
+    expect:
+      rows:
+        - { codigo: "0111301", descricao: "Cultivo de arroz" }
+        - { codigo: "4741500", descricao: null }
+
+  - name: test_stg_rfb__municipios_lpad_codigo
+    description: "`lpad_codigo` preenche até 4 dígitos mesmo quando o raw já vem sem zeros à esquerda."
+    model: stg_rfb__municipios
+    given:
+      - input: source('rfb', 'municipios')
+        format: sql
+        rows: |
+          select '643' as codigo, 'FUNDAO' as descricao, '2026-09' as _mes_referencia
+    expect:
+      rows:
+        - { codigo: "0643", descricao: "FUNDAO" }
+
+  - name: test_stg_rfb__simples_flags_e_datas
+    description: "`S`/`N` vira booleano; data `00000000` vira NULL; data válida vira DATE."
+    model: stg_rfb__simples
+    given:
+      - input: source('rfb', 'simples')
+        format: sql
+        rows: |
+          select
+              '11111111' as cnpj_raiz,
+              'S' as opcao_simples,
+              '20070701' as dat_opcao_simples,
+              '00000000' as dat_exclusao_simples,
+              'N' as opcao_mei,
+              '00000000' as dat_opcao_mei,
+              '00000000' as dat_exclusao_mei,
+              '2026-09' as _mes_referencia
+    expect:
+      rows:
+        - cnpj_raiz: "11111111"
+          opcao_simples: true
+          dat_opcao_simples: "2007-07-01"
+          dat_exclusao_simples: null
+          opcao_mei: false
+          dat_opcao_mei: null
+          dat_exclusao_mei: null

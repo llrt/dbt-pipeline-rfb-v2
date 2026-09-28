@@ -1,0 +1,122 @@
+version: 2
+
+sources:
+  - name: basedosdados
+    description: >
+      Tabelas públicas do portal Base dos Dados (csv.gz baixados de
+      `storage.googleapis.com/basedosdados-public`), convertidas para Parquet raw. Todas as
+      colunas são VARCHAR (ARCHITECTURE.md §4.2); a tipagem acontece no staging.
+    loader: rfb_pipeline (Python, DuckDB read_csv)
+    tables:
+      - name: municipio
+        description: >
+          `br_bd_diretorios_brasil.municipio`: catálogo curado de municípios do IBGE, com ids,
+          UF, hierarquia regional e centroide geográfico (notebook 2.1.2). Fonte:
+          `municipio.csv.gz`.
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/bd/municipio/*.parquet')
+        tags: [escopo_original]
+        columns:
+          - name: id_municipio
+            description: Código IBGE do município (7 dígitos).
+          - name: id_municipio_rf
+            description: >
+              Código do município na classificação da RFB; usado para casar com
+              `rfb.municipios.codigo` (comparar com `lpad(4)` de ambos os lados — pode vir sem
+              zeros à esquerda aqui).
+          - name: nome
+            description: Nome do município, acentuado.
+          - name: sigla_uf
+            description: Sigla da UF do município.
+          - name: nome_regiao_imediata
+            description: Nome da região geográfica imediata (IBGE) do município.
+          - name: nome_regiao_intermediaria
+            description: Nome da região geográfica intermediária (IBGE) do município.
+          - name: nome_microrregiao
+            description: Nome da microrregião (IBGE) do município.
+          - name: nome_mesorregiao
+            description: Nome da mesorregião (IBGE) do município.
+          - name: centroide
+            description: "Centroide geográfico em WKT: `POINT(longitude latitude)`."
+
+      - name: cnae_2
+        description: >
+          `br_bd_diretorios_brasil.cnae_2`: catálogo curado de CNAEs (subclasse, classe, grupo,
+          divisão, seção) segundo a versão 2.x do IBGE (notebook 2.1.2). Fonte:
+          `cnae_2.csv.gz`.
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/bd/cnae_2/*.parquet')
+        tags: [escopo_original]
+        columns:
+          - name: subclasse
+            description: Subclasse CNAE (7 dígitos; FK lógica para `rfb.cnaes.codigo`).
+          - name: descricao_subclasse
+            description: Descrição da subclasse.
+          - name: classe
+            description: Código da classe (5 primeiros dígitos da subclasse).
+          - name: descricao_classe
+            description: Descrição da classe.
+          - name: grupo
+            description: Código do grupo (3 primeiros dígitos da subclasse).
+          - name: descricao_grupo
+            description: Descrição do grupo.
+          - name: divisao
+            description: Código da divisão (2 primeiros dígitos da subclasse).
+          - name: descricao_divisao
+            description: Descrição da divisão.
+          - name: secao
+            description: Letra da seção (agregado mais alto da hierarquia CNAE).
+          - name: descricao_secao
+            description: Descrição da seção.
+
+      - name: populacao
+        description: >
+          `br_ibge_populacao.municipio`: população estimada por município e ano (adição: não
+          usada pelo modelo original). Fonte: `populacao.csv.gz`.
+        meta:
+          escopo: adicao
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/bd/populacao/*.parquet')
+        tags: [escopo_adicao]
+        columns:
+          - name: ano
+            description: Ano de referência da estimativa populacional.
+          - name: sigla_uf
+            description: Sigla da UF do município.
+          - name: id_municipio
+            description: Código IBGE do município (FK lógica para `municipio.id_municipio`).
+          - name: populacao
+            description: População estimada no município e ano.
+
+      - name: pib
+        description: >
+          `br_ibge_pib.municipio`: PIB municipal e seus componentes (adição: não usada pelo
+          modelo original). Fonte: `pib.csv.gz`.
+        meta:
+          escopo: adicao
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/bd/pib/*.parquet')
+        tags: [escopo_adicao]
+        columns:
+          - name: id_municipio
+            description: Código IBGE do município (FK lógica para `municipio.id_municipio`).
+          - name: ano
+            description: Ano de referência do PIB.
+          - name: pib
+            description: PIB total do município no ano, em mil R$.
+          - name: impostos_liquidos
+            description: Impostos líquidos de subsídios, em mil R$.
+          - name: va
+            description: Valor adicionado total, em mil R$.
+          - name: va_agropecuaria
+            description: Valor adicionado da agropecuária, em mil R$.
+          - name: va_industria
+            description: Valor adicionado da indústria, em mil R$.
+          - name: va_servicos
+            description: Valor adicionado dos serviços, em mil R$.
+          - name: va_adespss
+            description: Valor adicionado da administração, defesa, educação e saúde públicas, em mil R$.

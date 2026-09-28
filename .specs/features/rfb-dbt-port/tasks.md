@@ -290,8 +290,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes: manifesto com campos exigidos; segunda execução com mesmos zips não reescreve Parquet (mtime inalterado); `--force` reescreve
-- [ ] Gate quick passa
+- [x] Testes: manifesto com campos exigidos; segunda execução com mesmos zips não reescreve Parquet (mtime inalterado); `--force` reescreve
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
@@ -309,9 +309,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `tests/integration/test_ingest_cli.py`: datasets das 9 entidades + 4 BD criados; manifesto presente; exit ≠0 para mês inexistente e para limiar de rejeito excedido
-- [ ] `make ci` roda (dbt build vazio ok)
-- [ ] Gate full passa
+- [x] `tests/integration/test_ingest_cli.py`: datasets das 9 entidades + 4 BD criados; manifesto presente; exit ≠0 para mês inexistente e para limiar de rejeito excedido
+- [x] `make ci` roda (dbt build vazio ok)
+- [x] Gate full passa
 
 **Tests**: integration
 **Gate**: full
@@ -329,8 +329,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes com moto server: upload, segunda sync não reenvia, variáveis faltantes nomeadas no erro, DuckDB lê Parquet de `s3://` do moto com o secret gerado
-- [ ] Gate quick passa
+- [x] Testes com moto server: upload, segunda sync não reenvia, variáveis faltantes nomeadas no erro, DuckDB lê Parquet de `s3://` do moto com o secret gerado
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
@@ -348,9 +348,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `make ci` executa os testes de fonte: todos passam exceto 1 warn (CNAE sem par = 1)
-- [ ] `dbt source freshness --target ci` executa
-- [ ] Gate full passa
+- [x] `make ci` executa os testes de fonte: todos passam exceto 1 warn (CNAE sem par = 1)
+- [x] `dbt source freshness --target ci` executa
+- [x] Gate full passa
 
 **Tests**: dbt data tests
 **Gate**: full
@@ -368,8 +368,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Unit tests dbt passam; `stg_bd__municipios` de Fundão tem latitude −19.9687…, longitude −40.3557…
-- [ ] Gate full passa
+- [x] Unit tests dbt passam; `stg_bd__municipios` de Fundão tem latitude −19.9687…, longitude −40.3557…
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests
 **Gate**: full
