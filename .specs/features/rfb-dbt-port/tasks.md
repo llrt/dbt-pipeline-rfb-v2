@@ -166,8 +166,8 @@ T30 → T31
 **Classificação**: P/NC
 
 **Done when**:
-- [ ] `make lint` roda e passa no repositório atual
-- [ ] Gate build passa
+- [x] `make lint` roda e passa no repositório atual
+- [x] Gate build passa
 
 **Tests**: none
 **Gate**: build

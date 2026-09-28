@@ -49,7 +49,9 @@ def _parser() -> argparse.ArgumentParser:
     p_pipeline = sub.add_parser("pipeline", help="Pipeline ponta a ponta (não implementado).")
     p_pipeline.set_defaults(func=_cmd_pipeline)
 
-    p_report = sub.add_parser("report", help="Gera o relatório do estudo de caso (não implementado).")
+    p_report = sub.add_parser(
+        "report", help="Gera o relatório do estudo de caso (não implementado)."
+    )
     p_report.set_defaults(func=_cmd_report)
 
     return parser

@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 4.3.0
+    hooks:
+      - id: sqlfluff-lint
+        args: [--rules, L003,L009,L010,L016,L022,L023,L024,L025,L026,L027,L028,L029,L031,L034,L036,L038,L040,L042,L044,L046,L047,L048,L051,L054,L056,L058]
+        files: ^transform/models/.+\.(sql|sql\.jinja|jinja)$
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^transform/packages\.yml$

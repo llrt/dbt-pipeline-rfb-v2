@@ -1,0 +1,15 @@
+[sqlfluff]
+dialect = duckdb
+templater = dbt
+exclude_rules = L016,L031,L034,L047
+max_line_length = 100
+large_file_skip_byte_limit = 20000
+
+[sqlfluff:indentation]
+tab_space_size = 2
+indented_joins = false
+
+[sqlfluff:templater:dbt]
+project_dir = transform
+profiles_dir = transform
+target = ci
