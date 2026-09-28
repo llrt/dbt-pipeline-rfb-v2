@@ -126,9 +126,9 @@ T30 → T31
 **Classificação**: P/NC
 
 **Done when**:
-- [ ] `uv sync` resolve e instala; `uv run rfb --help` imprime ajuda (stub em `src/rfb_pipeline/cli.py`)
-- [ ] `uv run python -c "import duckdb, dbt"` ok; versões resolvidas registradas no relatório
-- [ ] Gate build passa (pytest sem testes coletados tratado como ok via `tests/unit/test_smoke.py` trivial)
+- [x] `uv sync` resolve e instala; `uv run rfb --help` imprime ajuda (stub em `src/rfb_pipeline/cli.py`)
+- [x] `uv run python -c "import duckdb, dbt"` ok; versões resolvidas registradas no relatório
+- [x] Gate build passa (pytest sem testes coletados tratado como ok via `tests/unit/test_smoke.py` trivial)
 
 **Tests**: none
 **Gate**: build
