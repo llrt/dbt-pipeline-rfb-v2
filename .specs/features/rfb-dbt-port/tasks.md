@@ -339,9 +339,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `make ci` executa os testes de fonte: todos passam exceto 1 warn (CNAE sem par = 1)
-- [ ] `dbt source freshness --target ci` executa
-- [ ] Gate full passa
+- [x] `make ci` executa os testes de fonte: todos passam exceto 1 warn (CNAE sem par = 1)
+- [x] `dbt source freshness --target ci` executa
+- [x] Gate full passa
 
 **Tests**: dbt data tests
 **Gate**: full

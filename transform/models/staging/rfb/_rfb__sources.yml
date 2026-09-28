@@ -1,0 +1,294 @@
+version: 2
+
+sources:
+  - name: rfb
+    description: >
+      Dados abertos de CNPJ da Receita Federal (WebDAV público), convertidos para Parquet raw
+      pela ingestão Python (`src/rfb_pipeline`). Todas as colunas de dado são VARCHAR
+      (ARCHITECTURE.md §4.2); a tipagem acontece no staging.
+    loader: rfb_pipeline (Python, DuckDB read_csv)
+    loaded_at_field: _ingerido_em
+    freshness:
+      warn_after: { count: 35, period: day }
+      error_after: { count: 65, period: day }
+    tables:
+      - name: empresas
+        description: >
+          Uma linha por empresa (CNPJ raiz, 8 primeiros dígitos). Notebook original: 1 (carga) e
+          2.2 (qualidade). Fonte: `Empresas{0..9}.zip`.
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_original]
+        columns:
+          - name: cnpj_raiz
+            description: 8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).
+            data_tests:
+              - unique:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: razao_social
+            description: Razão social (nome oficial/jurídico) da empresa.
+          - name: natureza_jur
+            description: Código da natureza jurídica (FK para `naturezas.codigo`).
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('rfb', 'naturezas')
+                    field: codigo
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: qualificacao_resp
+            description: Código de qualificação do responsável pela empresa perante a RFB.
+          - name: capital_soc
+            description: Capital social declarado, formato RFB (vírgula decimal), ex. `1000,50`.
+          - name: porte
+            description: >
+              Código de porte da empresa: `00` não informado, `01` micro, `03` pequena, `05`
+              demais (metadados RFB). Pode vir vazio (raw grava `""` → NULL).
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: ["00", "01", "03", "05"]
+                  config:
+                    where: "porte is not null"
+                    meta: { escopo: original }
+                    tags: [escopo_original]
+          - name: ente_fed_resp
+            description: Ente federativo responsável, preenchido só para órgãos/autarquias públicas.
+
+      - name: estabelecimentos
+        description: >
+          Uma linha por estabelecimento (CNPJ completo: raiz + ordem + DV). Notebook original: 1
+          (carga) e 2.3 (qualidade). Fonte: `Estabelecimentos{0..9}.zip`.
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_original]
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [cnpj_raiz, cnpj_ordem, cnpj_dv]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+        columns:
+          - name: cnpj_raiz
+            description: 8 primeiros dígitos do CNPJ (FK lógica para `empresas.cnpj_raiz`).
+          - name: cnpj_ordem
+            description: Dígitos 9-12 do CNPJ (nº de ordem do estabelecimento dentro da empresa).
+          - name: cnpj_dv
+            description: Dígitos verificadores (13-14) do CNPJ.
+          - name: ind_matriz_filial
+            description: "Indicador: `1` matriz, `2` filial."
+          - name: nome_fantasia
+            description: Nome fantasia do estabelecimento; frequentemente vazio.
+          - name: situacao
+            description: >
+              Código da situação cadastral: `01` nula, `02` ativa, `03` suspensa, `04` inapta,
+              `08` baixada (metadados RFB).
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: ["01", "02", "03", "04", "08"]
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: dat_situacao
+            description: Data do evento que gerou a situação atual (`YYYYMMDD`; pode ser `00000000`).
+          - name: mot_situacao
+            description: Código do motivo da situação (FK para `motivos.codigo`).
+          - name: cidade_exterior
+            description: Cidade no exterior, preenchida só quando `pais` está preenchido.
+          - name: pais
+            description: Código do país, preenchido só para estabelecimentos no exterior.
+          - name: dat_inicio_atividade
+            description: Data de início de atividade do estabelecimento (`YYYYMMDD`).
+          - name: cnae_principal
+            description: Subclasse CNAE (7 dígitos) da atividade econômica principal.
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('rfb', 'cnaes')
+                    field: codigo
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: cnaes_secundarios
+            description: Subclasses CNAE secundárias, separadas por vírgula; pode ser vazio.
+          - name: tip_logradouro
+            description: Tipo de logradouro (Rua, Avenida, ...).
+          - name: logradouro
+            description: Nome do logradouro.
+          - name: num_logradouro
+            description: Número do logradouro.
+          - name: compl_logradouro
+            description: Complemento do endereço; opcional.
+          - name: bairro
+            description: Bairro do endereço.
+          - name: cep
+            description: CEP do endereço.
+          - name: uf
+            description: UF do endereço (sigla), conforme cadastro RFB (não usar como UF canônica; ver `stg_bd__municipios`).
+          - name: municipio
+            description: Código do município RFB (4 dígitos; FK para `municipios.codigo`).
+            data_tests:
+              - relationships:
+                  arguments:
+                    to: source('rfb', 'municipios')
+                    field: codigo
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: ddd1
+            description: DDD do telefone 1. Descartado no staging (ADR-0008, minimização de dados pessoais).
+          - name: tel1
+            description: Telefone 1. Descartado no staging (ADR-0008).
+          - name: ddd2
+            description: DDD do telefone 2. Descartado no staging (ADR-0008).
+          - name: tel2
+            description: Telefone 2. Descartado no staging (ADR-0008).
+          - name: ddd_fax
+            description: DDD do fax. Descartado no staging (ADR-0008).
+          - name: fax
+            description: Número do fax. Descartado no staging (ADR-0008).
+          - name: email
+            description: E-mail de contato. Descartado no staging (ADR-0008).
+          - name: sit_especial
+            description: Situação especial (ex. falência, recuperação judicial); raramente preenchida.
+          - name: dat_sit_especial
+            description: Data da situação especial (`YYYYMMDD`); raramente preenchida.
+
+      - name: simples
+        description: >
+          Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (adição:
+          não fazia parte do modelo original). Fonte: `Simples.zip`.
+        meta:
+          escopo: adicao
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/simples/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_adicao]
+        columns:
+          - name: cnpj_raiz
+            description: 8 primeiros dígitos do CNPJ (FK lógica para `empresas.cnpj_raiz`).
+          - name: opcao_simples
+            description: "Opção pelo Simples Nacional: `S`/`N`."
+          - name: dat_opcao_simples
+            description: Data de opção pelo Simples (`YYYYMMDD`; `00000000` se não aplicável).
+          - name: dat_exclusao_simples
+            description: Data de exclusão do Simples (`YYYYMMDD`; `00000000` se não aplicável).
+          - name: opcao_mei
+            description: "Opção pelo MEI (Microempreendedor Individual): `S`/`N`."
+          - name: dat_opcao_mei
+            description: Data de opção pelo MEI (`YYYYMMDD`; `00000000` se não aplicável).
+          - name: dat_exclusao_mei
+            description: Data de exclusão do MEI (`YYYYMMDD`; `00000000` se não aplicável).
+
+      - name: cnaes
+        description: >
+          Tabela de domínio: código e descrição de cada subclasse CNAE segundo a RFB (notebook
+          2.1.1). A Base dos Dados traz uma versão mais rica (`basedosdados.cnae_2`).
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/cnaes/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_original]
+        columns:
+          - name: codigo
+            description: Código da subclasse CNAE (7 dígitos).
+            data_tests:
+              - unique:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: descricao
+            description: Descrição textual da atividade econômica.
+
+      - name: municipios
+        description: >
+          Tabela de domínio: código RFB e nome de cada município (notebook 2.1.1). Não traz UF;
+          o cruzamento com UF/região vem de `basedosdados.municipio`.
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/municipios/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_original]
+        columns:
+          - name: codigo
+            description: Código do município na classificação da RFB (4 dígitos; não é o código IBGE).
+            data_tests:
+              - unique:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: descricao
+            description: Nome do município, sem acentos, conforme grafia da RFB.
+
+      - name: naturezas
+        description: "Tabela de domínio: código e descrição de cada natureza jurídica (notebook 2.1.1)."
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/naturezas/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_original]
+        columns:
+          - name: codigo
+            description: Código da natureza jurídica.
+            data_tests:
+              - unique:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: descricao
+            description: Descrição da natureza jurídica.
+
+      - name: motivos
+        description: "Tabela de domínio: código e descrição de cada motivo de situação cadastral (notebook 2.1.1)."
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/motivos/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_original]
+        columns:
+          - name: codigo
+            description: Código do motivo de situação cadastral.
+            data_tests:
+              - unique:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
+          - name: descricao
+            description: Descrição do motivo de situação cadastral.
+
+      - name: paises
+        description: >
+          Tabela de domínio: código e descrição de cada país (adição: não usada pelo modelo
+          original). Fonte: `Paises.zip`.
+        meta:
+          escopo: adicao
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/paises/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_adicao]
+        columns:
+          - name: codigo
+            description: Código do país segundo a tabela da RFB.
+          - name: descricao
+            description: Nome do país.
+
+      - name: qualificacoes
+        description: >
+          Tabela de domínio: código e descrição de cada qualificação de responsável (adição: não
+          usada pelo modelo original). Fonte: `Qualificacoes.zip`.
+        meta:
+          escopo: adicao
+          external_location: >-
+            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/qualificacoes/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
+        tags: [escopo_adicao]
+        columns:
+          - name: codigo
+            description: Código de qualificação do responsável.
+          - name: descricao
+            description: Descrição da qualificação do responsável.
