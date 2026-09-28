@@ -11,7 +11,7 @@
 | Tech lead / arquiteto(a) / PM | Líder (este agente): produto, spec, arquitetura, ADRs, planejamento, integração, verificação por evidência, RETRO | Claude **Opus 5.5** (`claude`) | alto |
 | Dev sênior (código crítico e E2E) | Workers dos lotes B3, B5, B8 | Claude **Opus** (`claude`) | médio |
 | Dev pleno (tarefa grande não crítica) | — (nenhuma tarefa G/NC neste plano) | Claude **Sonnet** (`claude`) | médio |
-| Dev júnior/pleno (tarefas médias) | Workers dos lotes B2, B4, B6, B7, B9 | **DeepSeek v4 flash** (`openrouter`) | alto |
+| Dev pleno (tarefas médias) | Workers dos lotes B4, B6, B7, B9b (B2 e B9a rodaram em DeepSeek antes da mudança) | Claude **Sonnet** (`claude`) — decisão do usuário, AD-014 | médio |
 | Dev júnior (tarefas pequenas) | Worker do lote B1 | **DeepSeek v4 flash** (`openrouter`) | baixo |
 | Code reviewer independente | Revisores R1–R5 (sempre agente novo) | Claude **Opus** (`claude`) | alto |
 | QA / auditor(a) de segurança / Verifier | R4 (revisão final + auditoria de segurança + Verifier da spec) | Claude **Opus** (`claude`) | alto |
@@ -59,12 +59,12 @@ Críticas ou grandes: **T8, T14, T15, T28** (4 = limite).
 
 ```mermaid
 flowchart LR
-  P0[Planejamento<br/>líder] --> B1[B1 fundação<br/>DeepSeek low] --> B2[B2 fixtures/clientes<br/>DeepSeek high] --> B3[B3 conversão<br/>Opus med] --> B4[B4 ingestão/fontes<br/>DeepSeek high] --> R1{{R1 revisão<br/>Opus high}}
+  P0[Planejamento<br/>líder] --> B1[B1 fundação<br/>DeepSeek low] --> B2[B2 fixtures/clientes<br/>DeepSeek high] --> B3[B3 conversão<br/>Opus med] --> B4[B4 ingestão/fontes<br/>Sonnet med] --> R1{{R1 revisão<br/>Opus high}}
   R1 --> B5[B5 staging+bh_empresas<br/>Opus med] --> R2{{R2 revisão<br/>Opus high}}
-  R2 --> B6[B6 agg+star schema<br/>DeepSeek high] --> B7[B7 análises/DQ/caso<br/>DeepSeek high] --> R3{{R3 revisão<br/>Opus high}}
+  R2 --> B6[B6 agg+star schema<br/>Sonnet med] --> B7[B7 análises/DQ/caso<br/>Sonnet med] --> R3{{R3 revisão<br/>Opus high}}
   R3 --> B8[B8 E2E real<br/>Opus med] --> R4{{R4 revisão final + auditoria<br/>+ Verifier — Opus high}}
   B1 -.paralelo.-> B9a[B9a guia fundamentos<br/>DeepSeek high]
-  R3 -.paralelo com B8.-> B9b[B9b guia fluxo/testes/libs<br/>DeepSeek high] --> R5{{R5 revisão docs<br/>Opus high}}
+  R3 -.paralelo com B8.-> B9b[B9b guia fluxo/testes/libs<br/>Sonnet med] --> R5{{R5 revisão docs<br/>Opus high}}
   R4 --> F[RETRO + billing<br/>líder]
   R5 --> F
 ```

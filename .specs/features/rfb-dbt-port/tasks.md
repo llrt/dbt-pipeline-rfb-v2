@@ -15,7 +15,7 @@ Child workers also follow the `traycer-implement` skill (when to ask the lead, w
 **Status**: Approved (líder, autonomia delegada pelo usuário)
 
 Legenda de classificação: complexidade **P** (pequena) / **M** (média) / **G** (grande); criticidade **C** (crítica) / **NC** (não crítica).
-Roteamento (docs/PLANO.md): C → Opus esforço médio · G/NC → Sonnet médio · M/NC → DeepSeek v4 flash alto · P/NC → DeepSeek v4 flash baixo.
+Roteamento (docs/PLANO.md): C → Opus esforço médio · G/NC → Sonnet médio · M/NC → **Sonnet médio** (decisão do usuário em 2026-09-28, AD-014; antes DeepSeek v4 flash alto) · P/NC → DeepSeek v4 flash baixo.
 Críticas ou grandes: T8, T14, T15, T28 (= 4, limite do guia).
 
 ---
