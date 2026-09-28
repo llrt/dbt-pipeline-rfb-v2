@@ -51,7 +51,7 @@ depois de cada etapa e acrescente análises que respondam melhor às perguntas d
 
 ## Cenário de fixtures com respostas conhecidas (fonte dos valores esperados)
 
-`data_referencia = 2026-09-12`, `mes_referencia = 2026-09`, nome interno dos arquivos `F.K03200$Z.D60912.<TIPO>`.
+`data_referencia = 2026-09-12`, `mes_referencia = 2026-09`. Nomes internos iguais aos reais de 2026-09: `K3241.K03200Y0.D60912.EMPRECSV` (Empresas0), `K3241.K03200Y0.D60912.ESTABELE` (Estabelecimentos0), `F.K03200$W.SIMPLES.CSV.D60912` (Simples), `F.K03200$Z.D60912.<CNAECSV|MUNICCSV|NATJUCSV|MOTICSV|PAISCSV|QUALSCSV>` (domínios). Formato real: separador `;`, **todos** os campos entre aspas, fim de linha LF, latin-1; datas vazias vêm como `"00000000"` (Simples) ou `""`; `dat_situacao` de ativos = data de início. `D60912` = ano cujo último dígito é 6 (resolvido pelo mês de referência) + `0912`.
 
 **Domínios RFB:** municípios `5643 FUNDAO`, `5663 LINHARES`, `5611 ARACRUZ`, `5699 SERRA`, `5705 VITORIA`,
 `2701 AGUA BRANCA`, `1003 AGUA BRANCA`, `1901 AGUA BRANCA`, `9707 EXTERIOR`, `1182 BOA ESPERANCA DO NORTE`;
