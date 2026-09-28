@@ -74,6 +74,7 @@ flowchart LR
 - Lotes de código são sequenciais; trilhas de documentação (arquivos disjuntos) correm em paralelo.
 - Correções apontadas por revisão: agente novo no nível da tarefa de origem.
 - Worker que parar sem commit/relatório é substituído por um de nível superior, que faz triagem do diff herdado.
+- Escada de escalonamento: DeepSeek v4 flash → Claude Sonnet (médio) → Claude Opus (médio).
 
 ## Status (atualizado pelo líder)
 
@@ -81,5 +82,6 @@ flowchart LR
 |---|---|---|---|
 | P0 Planejamento | concluído | líder (bc8ec47f) | `bd773a5` |
 | B1 | concluído, verificado e integrado | c64e33f0 · opencode `ses_f1673ddc3ffe6aFmwW2gXtoYDI` · DeepSeek v4 flash low (confirmado) | `a1f21c0` `2971b0b` `9816e88` |
-| B2 | em andamento | e4e76ec8 · opencode `ses_f166a54c8ffezXsUR5KUGpjDx0` · DeepSeek v4 flash high (confirmado) | — |
+| B2 | worker 1 falhou (parou sem commit: `finish=length`, estouro de saída) → substituído e escalado | e4e76ec8 · opencode `ses_f166a54c8ffezXsUR5KUGpjDx0` · DeepSeek v4 flash high (arquivado) | — |
+| B2 (substituto) | em andamento | 1a15ce55 · Claude Sonnet médio (escalonamento pela regra do guia) | — |
 | B9a | em andamento (paralelo) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | — |
