@@ -44,10 +44,9 @@ lint:
 	mkdir -p $(DATA_ROOT)
 	uv run sqlfluff lint transform/models
 
-## sync: envia raw/ e gold/ a s3:// (não implementado — T11)
+## sync: envia raw/ e gold/ a s3:// (DATA_ROOT precisa ser s3://...; ver docs/adr/0007)
 sync:
-	@echo "sync: não implementado (tarefa T11)"
-	@exit 2
+	uv run rfb sync
 
 ## report: gera o relatório do estudo de caso (não implementado — T27)
 report:

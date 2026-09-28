@@ -320,8 +320,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes com moto server: upload, segunda sync não reenvia, variáveis faltantes nomeadas no erro, DuckDB lê Parquet de `s3://` do moto com o secret gerado
-- [ ] Gate quick passa
+- [x] Testes com moto server: upload, segunda sync não reenvia, variáveis faltantes nomeadas no erro, DuckDB lê Parquet de `s3://` do moto com o secret gerado
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick

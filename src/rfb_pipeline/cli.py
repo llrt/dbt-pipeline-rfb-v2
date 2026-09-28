@@ -1,7 +1,7 @@
 """CLI de linha de comando do pipeline RFB/CNPJ.
 
-`rfb ingest` liga cliente WebDAV/BD, conversão e manifesto (T10). `sync`, `pipeline` e `report`
-ainda são stubs (T11, T28, T27).
+`rfb ingest` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sync` publica raw/gold no
+S3/Tigris (T11). `pipeline` e `report` ainda são stubs (T28, T27).
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from rfb_pipeline.manifest import (
 )
 from rfb_pipeline.rfb_client import ArquivoRemoto, ClienteRFB
 from rfb_pipeline.schemas import ENTIDADES_RFB, TABELAS_BD, EntidadeRFB, entidade_do_zip
+from rfb_pipeline.storage import sincronizar
 
 EXIT_NO_IMPL = 2
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")
@@ -214,8 +215,13 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_sync(_args: argparse.Namespace) -> None:
-    _no_implementado("sync")
+def _cmd_sync(_args: argparse.Namespace) -> int:
+    config = carregar_config()
+    enviados = sincronizar(config)
+    for chave in enviados:
+        print(f"enviado: {chave}")
+    print(f"{len(enviados)} objeto(s) enviado(s)")
+    return 0
 
 
 def _cmd_pipeline(_args: argparse.Namespace) -> None:
