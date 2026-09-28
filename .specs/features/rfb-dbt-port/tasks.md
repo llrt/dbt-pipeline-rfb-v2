@@ -666,7 +666,7 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Todos os tópicos listados cobertos com exemplos; links oficiais conferidos
+- [x] Todos os tópicos listados cobertos com exemplos; links oficiais conferidos
 
 **Tests**: none
 **Gate**: build
