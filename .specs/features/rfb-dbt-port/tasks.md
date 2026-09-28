@@ -185,9 +185,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `make fixtures` gera os arquivos; duas execuções produzem bytes idênticos
-- [ ] `tests/unit/test_gen_fixtures.py` verifica: encoding latin-1 (bytes de `Ã`), presença de `\"` em K, quebra de linha dentro de aspas em O, 15 estabelecimentos/14 empresas, DV válido em todos exceto L
-- [ ] Gate quick passa
+- [x] `make fixtures` gera os arquivos; duas execuções produzem bytes idênticos
+- [x] `tests/unit/test_gen_fixtures.py` verifica: encoding latin-1 (bytes de `Ã`), presença de `\"` em K, quebra de linha dentro de aspas em O, 15 estabelecimentos/14 empresas, DV válido em todos exceto L
+- [x] Gate quick passa
 
 **Tests**: unit
 **Gate**: quick
