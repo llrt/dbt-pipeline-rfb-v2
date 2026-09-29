@@ -25,6 +25,14 @@ class DownloadError(ErroIngestao):
         super().__init__(f"falha ao baixar {arquivo}: {motivo}")
 
 
+class WebDAVIndisponivelError(ErroIngestao):
+    """Falha de rede/HTTP ao consultar o WebDAV (listagem), após esgotar as tentativas."""
+
+    def __init__(self, url: str, motivo: str) -> None:
+        self.url = url
+        super().__init__(f"WebDAV indisponível em {url}: {motivo}")
+
+
 class TamanhoDivergenteError(DownloadError):
     """O tamanho baixado não confere com o tamanho anunciado pelo servidor."""
 

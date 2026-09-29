@@ -151,7 +151,7 @@ mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
 
 | Cenário | Tratamento |
 |---|---|
-| Rede/timeout/5xx | 3 tentativas com backoff exponencial; download retoma via `Range` quando possível; depois falha com mensagem citando o arquivo |
+| Rede/timeout/5xx | Backoff exponencial entre tentativas (também após tentativas com progresso); download retoma via `Range` + `If-Range` (ETag/Last-Modified); encerra após 3 falhas seguidas sem progresso (`tentativas`), `RFB_MAX_RETOMADAS` (50) falhas no total ou `RFB_TIMEOUT_TOTAL_S` (3600 s), com mensagem citando arquivo e URL; PROPFIND usa o mesmo retry; exit 1 sem traceback |
 | Tamanho baixado ≠ `getcontentlength` do WebDAV | apaga o arquivo e falha (sem conversão) |
 | Zip corrompido | falha antes de converter; nada é escrito em `raw/` |
 | Mês inexistente | erro explícito listando os meses disponíveis |

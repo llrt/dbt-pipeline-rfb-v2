@@ -96,3 +96,32 @@ class TestCaminhosDeErro:
 
         assert codigo == 1
         assert "taxa de rejeito" in capsys.readouterr().err
+
+
+class TestRedeIndisponivel:
+    def test_webdav_fora_do_ar_sai_com_codigo_1_sem_traceback_e_com_url(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import httpx
+
+        from rfb_pipeline import rfb_client
+
+        def _fora_do_ar(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("[Errno 8] sem rede", request=request)
+
+        original = httpx.Client
+
+        def _cliente(*args: object, **kwargs: object) -> httpx.Client:
+            kwargs["transport"] = httpx.MockTransport(_fora_do_ar)
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(rfb_client.httpx, "Client", _cliente)
+        monkeypatch.setattr(rfb_client.time, "sleep", lambda _s: None)
+        monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
+
+        codigo = cli.main(["ingest"])
+
+        assert codigo == 1
+        erro = capsys.readouterr().err
+        assert "arquivos.receitafederal.gov.br" in erro
+        assert "Traceback" not in erro

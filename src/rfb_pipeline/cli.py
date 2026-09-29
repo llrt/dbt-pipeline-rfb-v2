@@ -14,6 +14,8 @@ import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import httpx
+
 from rfb_pipeline.basedosdados import baixar_tabelas_bd
 from rfb_pipeline.config import Config, carregar_config
 from rfb_pipeline.convert import converter_entidade_rfb, converter_tabela_bd
@@ -98,7 +100,11 @@ def _baixar_entidades_remoto(
         if entidade is None:
             continue
         destino = destino_dir / arquivo.nome
-        if destino.exists() and destino.stat().st_size == arquivo.tamanho:
+        if (
+            arquivo.tamanho is not None
+            and destino.exists()
+            and destino.stat().st_size == arquivo.tamanho
+        ):
             caminho = destino
         else:
             caminho = cliente.baixar(mes, ArquivoRemoto(arquivo.nome, arquivo.tamanho), destino_dir)
@@ -273,6 +279,13 @@ def main(argv: list[str] | None = None) -> int:
         codigo = args.func(args)
     except ErroIngestao as exc:
         print(str(exc), file=sys.stderr)
+        return 1
+    except httpx.HTTPError as exc:  # rede escapando dos clientes: sem traceback, com a URL
+        try:
+            url = str(exc.request.url)
+        except RuntimeError:
+            url = "(URL desconhecida)"
+        print(f"erro de rede em {url}: {exc}", file=sys.stderr)
         return 1
     return codigo if codigo is not None else 0
 

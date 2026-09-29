@@ -46,6 +46,8 @@ def baixar_tabelas_bd(
                     tentativas=config.tentativas,
                     hosts_permitidos=config.hosts_permitidos,
                     dormir=dormir,
+                    max_retomadas=config.max_retomadas,
+                    timeout_total_s=config.timeout_total_s,
                 )
             resultado[nome] = destino
     finally:
