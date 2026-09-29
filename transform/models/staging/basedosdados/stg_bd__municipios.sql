@@ -1,6 +1,6 @@
 select
   {{ texto_ou_nulo('id_municipio') }} as id_municipio,
-  {{ texto_ou_nulo('id_municipio_rf') }} as id_municipio_rf,
+  {{ lpad_codigo('id_municipio_rf', 4) }} as id_municipio_rf,
   {{ texto_ou_nulo('nome') }} as nome,
   {{ texto_ou_nulo('sigla_uf') }} as sigla_uf,
   {{ texto_ou_nulo('nome_uf') }} as nome_uf,

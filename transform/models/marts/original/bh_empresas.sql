@@ -60,4 +60,4 @@ inner join naturezas as nat
 inner join cnaes_bd as cnae
   on est.cnae_principal = cnae.subclasse
 inner join municipios_bd as mun
-  on est.municipio_rfb_codigo = lpad(mun.id_municipio_rf, 4, '0')
+  on est.municipio_rfb_codigo = mun.id_municipio_rf
