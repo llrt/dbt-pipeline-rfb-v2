@@ -47,11 +47,11 @@ models:
         +meta:
           escopo: adicao
         +tags: ["escopo_adicao"]
-      analises:
+      analytics:
         +meta:
           escopo: adicao
         +tags: ["escopo_adicao"]
-    observabilidade:
+    observability:
       +materialized: table
       +meta:
         escopo: adicao
