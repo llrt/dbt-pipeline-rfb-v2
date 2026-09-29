@@ -8,6 +8,8 @@ fixtures, então mantemos a mesma trava).
 
 from __future__ import annotations
 
+import dataclasses
+import fcntl
 import json
 import os
 import sys
@@ -91,7 +93,14 @@ class TestCaminhosDeErro:
         monkeypatch.setattr(cli, "converter_entidade_rfb", _sempre_excede)
 
         codigo = cli.main(
-            ["ingest", "--mes", gen_fixtures.MES_REFERENCIA, "--origem-local", str(origem_local)]
+            [
+                "ingest",
+                "--mes",
+                gen_fixtures.MES_REFERENCIA,
+                "--origem-local",
+                str(origem_local),
+                "--permitir-incompleto",
+            ]
         )
 
         assert codigo == 1
@@ -125,3 +134,126 @@ class TestRedeIndisponivel:
         erro = capsys.readouterr().err
         assert "arquivos.receitafederal.gov.br" in erro
         assert "Traceback" not in erro
+
+
+def _fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    origem_local = tmp_path / "fixtures"
+    gen_fixtures.gerar_fixtures(origem_local)
+    data = tmp_path / "data"
+    monkeypatch.setenv("DATA_ROOT", str(data))
+    return origem_local, data
+
+
+def _args(origem_local: Path, *extra: str) -> list[str]:
+    return [
+        "ingest",
+        "--mes",
+        gen_fixtures.MES_REFERENCIA,
+        "--origem-local",
+        str(origem_local),
+        *extra,
+    ]
+
+
+class TestExecucaoSegura:
+    def test_mes_incompleto_falha_listando_faltantes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+
+        codigo = cli.main(_args(origem_local))
+
+        assert codigo == 1
+        erro = capsys.readouterr().err
+        assert "incompleto" in erro
+        assert "Empresas1.zip" in erro
+        assert "--permitir-incompleto" in erro
+        assert not (data / "raw").exists()
+
+    def test_permitir_incompleto_ingere(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 0
+        assert (data / "_manifests" / f"{gen_fixtures.MES_REFERENCIA}.json").is_file()
+        assert "faltam" in capsys.readouterr().err
+
+    def test_segunda_execucao_simultanea_sai_1_e_nao_limpa_residuos(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+        residuo = data / "raw" / "rfb" / "empresas" / ".tmp-em-uso"
+        residuo.mkdir(parents=True)
+        (data / "_estado").mkdir()
+
+        with (data / "_estado" / "rfb.lock").open("a+") as fh:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            codigo = cli.main(_args(origem_local, "--permitir-incompleto"))
+
+        assert codigo == 1
+        assert "execução em andamento" in capsys.readouterr().err
+        assert residuo.is_dir()  # a limpeza só roda com o lock
+
+    def test_lock_e_liberado_ao_terminar_e_residuos_sao_limpos(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+        residuos = [
+            data / "raw" / "rfb" / "empresas" / ".tmp-x",
+            data / "raw" / "bd" / "municipio" / ".tmp-y",
+            data / "raw" / "_rejeitos" / "empresas" / ".old-z",
+            data / "_tmp" / "extract-empresas-1",
+        ]
+        for r in residuos:
+            r.mkdir(parents=True)
+
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 0
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 0  # lock liberado
+        assert not any(r.exists() for r in residuos)
+
+    def test_manifesto_gravado_incrementalmente_por_entidade(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+        original = cli.converter_entidade_rfb
+
+        def _falha_na_terceira(zips, entidade, *args, **kwargs):
+            if entidade.nome == "simples":
+                raise TaxaRejeitoExcedidaError("simples", 0.5, 0.0001, "x")
+            return original(zips, entidade, *args, **kwargs)
+
+        monkeypatch.setattr(cli, "converter_entidade_rfb", _falha_na_terceira)
+
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 1
+
+        manifesto = json.loads(
+            (data / "_manifests" / f"{gen_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+        )
+        assert set(manifesto["entidades"]) == {"empresas", "estabelecimentos"}
+        assert manifesto["concluido_em"] is None
+
+        # a execução seguinte pula o que já estava convertido
+        monkeypatch.setattr(cli, "converter_entidade_rfb", original)
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 0
+        final = json.loads(
+            (data / "_manifests" / f"{gen_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+        )
+        assert final["concluido_em"]
+        assert len(final["entidades"]) == 9
+
+    def test_data_referencia_nula_gera_aviso(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        origem_local, _ = _fixtures(tmp_path, monkeypatch)
+        original = cli.converter_entidade_rfb
+
+        def _sem_data(*args, **kwargs):
+            return [dataclasses.replace(r, data_referencia=None) for r in original(*args, **kwargs)]
+
+        monkeypatch.setattr(cli, "converter_entidade_rfb", _sem_data)
+
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 0
+        erro = capsys.readouterr().err
+        assert "_data_referencia ficou NULL" in erro
+        assert "nenhuma data de referência" in erro

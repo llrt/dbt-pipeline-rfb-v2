@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 COLUNAS_TECNICAS = ("_arquivo_origem", "_mes_referencia", "_data_referencia", "_ingerido_em")
@@ -115,6 +116,25 @@ def entidade_do_zip(nome_zip: str) -> EntidadeRFB | None:
         if entidade.padrao_zip.match(nome_zip):
             return entidade
     return None
+
+
+ARQUIVOS_ESPERADOS_MES: tuple[str, ...] = (
+    *(f"Empresas{i}.zip" for i in range(10)),
+    *(f"Estabelecimentos{i}.zip" for i in range(10)),
+    "Simples.zip",
+    "Cnaes.zip",
+    "Municipios.zip",
+    "Naturezas.zip",
+    "Motivos.zip",
+    "Paises.zip",
+    "Qualificacoes.zip",
+)
+
+
+def arquivos_faltantes(nomes: Iterable[str]) -> list[str]:
+    """Arquivos de `ARQUIVOS_ESPERADOS_MES` ausentes em `nomes` (mês completo = lista vazia)."""
+    presentes = set(nomes)
+    return [n for n in ARQUIVOS_ESPERADOS_MES if n not in presentes]
 
 
 @dataclass(frozen=True)

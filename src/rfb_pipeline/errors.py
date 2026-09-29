@@ -17,6 +17,27 @@ class MesInexistenteError(ErroIngestao):
         super().__init__(f"mês {mes!r} não encontrado; meses disponíveis: {disponiveis_str}")
 
 
+class MesIncompletoError(ErroIngestao):
+    """A pasta do mês não tem todos os arquivos esperados (a RFB publica ao longo de dias)."""
+
+    def __init__(self, mes: str, faltantes: list[str]) -> None:
+        self.mes = mes
+        self.faltantes = faltantes
+        super().__init__(
+            f"mês {mes!r} incompleto; faltam {len(faltantes)} arquivo(s): "
+            + ", ".join(faltantes)
+            + " (use --permitir-incompleto para ingerir mesmo assim)"
+        )
+
+
+class ExecucaoEmAndamentoError(ErroIngestao):
+    """Outra execução de `rfb ingest` detém o lock de `DATA_ROOT/_estado/rfb.lock`."""
+
+    def __init__(self, lock: str) -> None:
+        self.lock = lock
+        super().__init__(f"execução em andamento (lock {lock} ocupado); tente novamente depois")
+
+
 class DownloadError(ErroIngestao):
     """Falha ao baixar um arquivo, após esgotar as tentativas configuradas."""
 

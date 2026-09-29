@@ -7,13 +7,17 @@ rejeitadas (`linhas_lidas = linhas_gravadas + linhas_rejeitadas`); o resumo por 
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 from rfb_pipeline.config import Config
+from rfb_pipeline.errors import ExecucaoEmAndamentoError
 
 __all__ = [
     "VERSAO_PIPELINE",
@@ -21,6 +25,7 @@ __all__ = [
     "Manifesto",
     "caminho_manifesto",
     "escrever_manifesto",
+    "lock_execucao",
     "ler_manifesto",
     "precisa_reconverter",
     "sha256_arquivo",
@@ -82,7 +87,7 @@ class Manifesto:
     mes_referencia: str
     data_referencia: str | None
     iniciado_em: str
-    concluido_em: str
+    concluido_em: str | None
     arquivos: tuple[ArquivoManifesto, ...]
     versao_pipeline: str = VERSAO_PIPELINE
 
@@ -115,7 +120,7 @@ class Manifesto:
             mes_referencia=dados["mes_referencia"],
             data_referencia=dados.get("data_referencia"),
             iniciado_em=dados["iniciado_em"],
-            concluido_em=dados["concluido_em"],
+            concluido_em=dados.get("concluido_em"),
             arquivos=tuple(ArquivoManifesto.from_dict(a) for a in dados["arquivos"]),
             versao_pipeline=dados.get("versao_pipeline", VERSAO_PIPELINE),
         )
@@ -141,6 +146,26 @@ def escrever_manifesto(config: Config, manifesto: Manifesto) -> Path:
     tmp.write_text(json.dumps(manifesto.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(destino)
     return destino
+
+
+@contextmanager
+def lock_execucao(config: Config) -> Iterator[Path]:
+    """Lock exclusivo de execução em `DATA_ROOT/_estado/rfb.lock` (`flock` não bloqueante).
+
+    Levanta `ExecucaoEmAndamentoError` se outra execução já o detém. O lock some com o processo,
+    então uma execução morta nunca deixa o lock preso.
+    """
+    caminho = config.data_root / "_estado" / "rfb.lock"
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    with caminho.open("a+") as fh:
+        try:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ExecucaoEmAndamentoError(str(caminho)) from None
+        try:
+            yield caminho
+        finally:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
 def _particao_rfb_existe(config: Config, entidade: str, mes: str) -> bool:
