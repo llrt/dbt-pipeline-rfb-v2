@@ -171,7 +171,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 9. The system SHALL fail (error) if `sum(agg_empresas.qtd_empresas) != count(bh_empresas)`.
 10. The system SHALL fail (error) if `bh_empresas` differs from the literal DuckDB translation of the notebook 3 SQL (same data, with `now()` replaced by `data_referencia`).
 11. The system SHALL report (warn) the number of estabelecimentos dropped by the inner joins (fixtures: 3).
-12. The system SHALL fail (error) if any `idade_atual` is outside [0, 200].
+12. IF any `idade_atual` is outside [0, 200] THEN the system SHALL report it as `warn`, and SHALL fail (error) when more than 100 rows are outside the range (emenda R2-02: o extrato real contém inícios de atividade absurdos, ex. 1194).
 13. The system SHALL cover rules 3–6 with dbt unit tests.
 
 **Independent Test**: fixtures → `agg_empresas` for `cnae_principal='4741500'`, `municipio='FUNDÃO'`, `uf='ES'` returns ATIVA=1 (MICRO, media_idade 3.9) and INATIVA totaling 4.

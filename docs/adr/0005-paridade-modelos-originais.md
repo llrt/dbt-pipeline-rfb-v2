@@ -9,4 +9,9 @@ DuckDB e um teste exige diferença zero. Os descartes passam a ser **medidos** p
 modelagem (left joins com membro "não informado", região imediata/intermediária, Simples/MEI, CNAEs
 secundários explodidos) vão para o star schema `marts/core` — atendendo o "trabalho futuro" citado no original.
 
+**Emenda (2026-09-29, R2-01).** O staging aplica `trim` aos textos; o Spark do original não
+(`ignoreLeadingWhiteSpace=false`). Em dados reais (fev/2025), ~752 estabelecimentos sem nome fantasia têm razão social
+com espaço à esquerda. Decisão: `bh_empresas.nome` mantém o `trim` (`meta.escopo: adaptado`); o modelo de auditoria
+continua literal e só alinha `trim(nome)` no select final (como o lpad do CNAE); um teste `warn` conta os casos.
+
 **Consequências.** Quem conhece o MVP encontra as mesmas tabelas; quem precisa de completude usa o core.

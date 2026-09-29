@@ -23,6 +23,8 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-015 | Atualização mensal: `rfb atualizar` com completude do mês, estado de última execução, retenção de 2 meses no raw e histórico em `gold/fct_resumo_mensal/mes_referencia=*/`; testes de fonte por mês (ADR-0012; pedido do usuário) | active | 2026-09-28 |
 | AD-016 | Modelo estrela para BI: `sk_*` inteiras, membro -1, `dim_data`, hierarquias, `fct_resumo_mensal` para Import no Power BI, `docs/POWER_BI.md` + exposure (ADR-0013; pedido do usuário) | active | 2026-09-28 |
 | AD-017 | Convenção de idioma (decisão do usuário 2026-09-29): inglês só no vocabulário padrão do dbt/ferramentas (lista fechada no ADR-0014); todo o resto em português; lote RN aplica as renomeações após o B5 | active | 2026-09-29 |
+| AD-018 | Extrato real de fev/2025 (mesmo mês do MVP; CSVs do projeto v1, só leitura) entra no B8 para paridade **numérica** com os resultados publicados no notebook 4 do original, além da execução real de 2026-09 | active | 2026-09-29 |
+| AD-019 | Emendas da R2: `bh_empresas.nome` com trim declarado como adaptação (ADR-0005); idade fora de [0,200] = warn com error_if >100 (spec Original AC 12) | active | 2026-09-29 |
 
 ## Handoff
 
