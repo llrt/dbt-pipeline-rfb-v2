@@ -25,7 +25,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 
 ## Handoff
 
-**Pausado pelo usuário em 2026-09-29 (2ª pausa).** Nenhum agente em execução; `main` limpo.
+**Retomado em 2026-09-29 após a 2ª pausa.** Verificação ok (`main` limpo em `86fa2e5`; `make ci` PASS=45 WARN=1 ERROR=0). F1a reativada no agente `eba62c6d` (reescrever WIP da FX5 → merge main → FX6/FX7).
 
 - **main** = `7530018` (+ commit deste handoff), verde: 106 unit + 5 integração; `make ci` PASS=45 WARN=1 ERROR=0; lint ok.
 - **Integrado:** P0, B1, B2, B3, B4, B9a, **R1** (relatório `docs/revisoes/R1.md`, triagem `docs/revisoes/R1-triagem.md`) e **F1b** (R1-04, R1-10 parte convert, R1-23, R1-24).
