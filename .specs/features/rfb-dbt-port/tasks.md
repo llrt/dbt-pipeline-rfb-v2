@@ -406,8 +406,8 @@ T30 → T31
 **Classificação**: M/C
 
 **Done when**:
-- [ ] `tests/integration/test_bh_empresas.py` confirma 12 linhas e os valores de A e E da spec
-- [ ] Gate full passa
+- [x] `tests/integration/test_bh_empresas.py` confirma 12 linhas e os valores de A e E da spec
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full

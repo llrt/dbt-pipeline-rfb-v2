@@ -25,6 +25,7 @@ ci:
 	rm -rf .tmp/ci
 	uv run python scripts/gen_fixtures.py --saida .tmp/ci/fixtures
 	uv run rfb ingest --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
+	mkdir -p $(DATA_ROOT)/gold
 	cd transform && uv run dbt deps && uv run dbt build --target ci
 	uv run pytest -q tests/integration
 
