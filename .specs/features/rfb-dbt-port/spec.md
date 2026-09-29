@@ -76,7 +76,7 @@ pelo menos um registro multilinha; população 2024: Fundão 20000, Linhares 180
 | D | 44444444/0001 | CASA DAS CORES | 2062 | 05 | 5643 | 4741500 | 04 | 20100601 | 20230101 | |
 | E | 55555555/0001 | TINTAS CAPIXABA | 2305 | (vazio) | 5643 | 4741500 | 08 | 20180101 | 20240301 | nome_fantasia vazio |
 | F | 66666666/0001 | FABRICA DE TINTAS SERRA SA | 2062 | 05 | 5699 | 2071100 | 02 | 20000101 | — | |
-| G | 77777777/0001 | ATACADO VITORIA TINTAS | 2062 | 03 | 5705 | 4679601 | 02 | 20050505 | — | |
+| G | 77777777/0001 | ` ATACADO VITORIA TINTAS` (espaço à esquerda no arquivo) | 2062 | 03 | 5705 | 4679601 | 02 | 20050505 | — | sem nome fantasia: `nome` = `ATACADO VITORIA TINTAS` (trim, ADR-0005 emenda R2-01); paridade passa e o warn de trim acusa só G |
 | H | 88888888/0001 | MERCADO LINHARES | 2062 | 03 | 5663 | 4711302 | 02 | 20120312 | — | secundários `4679699,4744099` |
 | I | 99999999/0001 | ATACADO ARACRUZ | 2062 | 01 | 5611 | 4679601 | 08 | 20080101 | 20200101 | |
 | J | 12121212/0001 | TINTAS SERTAO | 2062 | 01 | 2701 | 2071100 | 02 | 20190101 | — | |

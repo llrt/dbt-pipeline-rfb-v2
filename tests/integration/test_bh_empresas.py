@@ -5,6 +5,7 @@ Lê `RAIZ_DADOS` do ambiente — exportado por `make ci`, que roda `dbt build` a
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -77,3 +78,46 @@ def test_linha_e(linhas: dict[str, dict[str, object]]) -> None:
 
 def test_cnae_com_zero_a_esquerda_linha_n(linhas: dict[str, dict[str, object]]) -> None:
     assert linhas["16161616000184"]["cnae_principal"] == "0111301"
+
+
+RESULTADOS_DBT = Path(__file__).resolve().parents[2] / "transform" / "target" / "run_results.json"
+
+
+def _status_dos_testes() -> dict[str, tuple[str, int | None]]:
+    """`nome do teste -> (status, failures)` do último `dbt build` (o do `make ci`)."""
+    assert RESULTADOS_DBT.is_file(), f"{RESULTADOS_DBT} não existe; rode `make ci`"
+    resultados = json.loads(RESULTADOS_DBT.read_text(encoding="utf-8"))["results"]
+    return {
+        r["unique_id"].split(".")[2]: (r["status"], r["failures"])
+        for r in resultados
+        if r["unique_id"].startswith("test.rfb.")
+    }
+
+
+def _falhas_armazenadas(teste: str) -> list[tuple[object, ...]]:
+    """Linhas gravadas por `store_failures` de um teste singular, ordenadas."""
+    banco = Path(os.environ["RAIZ_DADOS"]) / "warehouse.duckdb"
+    with duckdb.connect(str(banco), read_only=True) as con:
+        return sorted(con.sql(f"select * from main_dbt_test__audit.{teste}").fetchall())
+
+
+def test_linha_g_razao_social_com_espaco_a_esquerda(linhas: dict[str, dict[str, object]]) -> None:
+    """R2-01: o raw guarda o espaço; `bh_empresas.nome` sai com trim e a paridade passa."""
+    raw = Path(os.environ["RAIZ_DADOS"]) / "raw" / "rfb" / "empresas"
+    with duckdb.connect() as con:
+        razao = con.sql(
+            f"select razao_social from read_parquet('{raw}/*/*.parquet') "
+            "where cnpj_raiz = '77777777' and _mes_referencia = '2026-09'"
+        ).fetchone()
+    assert razao == (" ATACADO VITORIA TINTAS",)
+    (g,) = [linha for linha in linhas.values() if linha["cnpj_raiz"] == "77777777"]
+    assert g["nome"] == "ATACADO VITORIA TINTAS"
+    assert _status_dos_testes()["paridade_bh_empresas"] == ("pass", 0)
+
+
+def test_warn_de_trim_acusa_exatamente_g(linhas: dict[str, dict[str, object]]) -> None:
+    (cnpj_g,) = [c for c, linha in linhas.items() if linha["cnpj_raiz"] == "77777777"]
+    assert _status_dos_testes()["bh_empresas_nome_alterado_por_trim"] == ("warn", 1)
+    assert _falhas_armazenadas("bh_empresas_nome_alterado_por_trim") == [
+        (cnpj_g, " ATACADO VITORIA TINTAS", "ATACADO VITORIA TINTAS")
+    ]

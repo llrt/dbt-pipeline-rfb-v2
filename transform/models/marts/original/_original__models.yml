@@ -32,8 +32,13 @@ models:
       - name: nome
         description: >
           Nome da empresa. Linhagem: `estabelecimentos.nome_fantasia`; `empresas.razao_social`
-          apenas se `nome_fantasia` for null; upper case para padronizar.
+          apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005,
+          emenda R2-01): sem espaços nas bordas (`trim` do staging), que o original mantinha
+          (fev/2025: ~752 razões sociais com espaço à esquerda); o teste
+          `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas.
         data_type: varchar
+        meta:
+          escopo: adaptado
       - name: natureza_juridica
         description: >
           Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais).
