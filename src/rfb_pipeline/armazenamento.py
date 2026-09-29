@@ -3,7 +3,7 @@
 A ingestão (EL) sempre lê/escreve localmente (`configuracao.raiz_dados`, ver `configuracao.py`);
 este módulo só entra em jogo quando `DATA_ROOT` é `s3://...`, para publicar o que já foi
 gravado localmente
-(`rfb sync`, via boto3, como o `subir_arquivos_tigris.py` original). O secret S3 do DuckDB no
+(`rfb sincronizar`, via boto3, como o `subir_arquivos_tigris.py` original). O secret S3 do DuckDB no
 dbt vem do profile `s3` (`transform/profiles.yml`), não deste módulo (ADR-0007).
 """
 

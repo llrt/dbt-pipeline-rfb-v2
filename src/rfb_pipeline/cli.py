@@ -1,7 +1,7 @@
 """CLI de linha de comando do pipeline RFB/CNPJ.
 
-`rfb ingest` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sync` publica raw/gold no
-S3/Tigris (T11). `pipeline` e `report` ainda são stubs (T28, T27).
+`rfb ingerir` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sincronizar` publica
+raw/gold no S3/Tigris (T11). `pipeline` e `relatorio` ainda são stubs (T28, T27).
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def _no_implementado(nome: str) -> None:
     sys.exit(SAIDA_NAO_IMPLEMENTADA)
 
 
-# --------------------------------------------------------------------------- ingest
+# ---------------------------------------------------------------------------- ingerir
 
 
 def _aviso(mensagem: str) -> None:
@@ -355,7 +355,7 @@ def _cmd_pipeline(_argumentos: argparse.Namespace) -> None:
 
 
 def _cmd_relatorio(_argumentos: argparse.Namespace) -> None:
-    _no_implementado("report")
+    _no_implementado("relatorio")
 
 
 def _construir_analisador() -> argparse.ArgumentParser:
@@ -365,7 +365,7 @@ def _construir_analisador() -> argparse.ArgumentParser:
     )
     sub = analisador.add_subparsers(dest="comando", required=True)
 
-    p_ingerir = sub.add_parser("ingest", help="Ingesta os dados RFB/BD para a camada raw.")
+    p_ingerir = sub.add_parser("ingerir", help="Ingesta os dados RFB/BD para a camada raw.")
     p_ingerir.add_argument("--mes", default=None, help="Mês YYYY-MM (padrão: o mais recente).")
     p_ingerir.add_argument(
         "--origem-local",
@@ -385,14 +385,16 @@ def _construir_analisador() -> argparse.ArgumentParser:
     )
     p_ingerir.set_defaults(func=_cmd_ingerir)
 
-    p_sincronizar = sub.add_parser("sync", help="Sincroniza raw/ e gold/ a S3 (não implementado).")
+    p_sincronizar = sub.add_parser(
+        "sincronizar", help="Sincroniza raw/ e gold/ a S3 (não implementado)."
+    )
     p_sincronizar.set_defaults(func=_cmd_sincronizar)
 
     p_pipeline = sub.add_parser("pipeline", help="Pipeline ponta a ponta (não implementado).")
     p_pipeline.set_defaults(func=_cmd_pipeline)
 
     p_relatorio = sub.add_parser(
-        "report", help="Gera o relatório do estudo de caso (não implementado)."
+        "relatorio", help="Gera o relatório do estudo de caso (não implementado)."
     )
     p_relatorio.set_defaults(func=_cmd_relatorio)
 

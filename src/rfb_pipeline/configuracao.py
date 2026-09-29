@@ -122,8 +122,8 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
     Quando `DATA_ROOT` é `s3://...` (ADR-0007), a ingestão (EL) continua lendo/escrevendo em um
     diretório **local**, `DATA_ROOT_LOCAL` (padrão `./data`): `configuracao.raiz_dados` sempre
     aponta para esse diretório local, e `configuracao.raiz_dados_s3` guarda a URI remota (usada por
-    `rfb sync` e pelo secret do DuckDB). Credenciais S3 são validadas já aqui, cedo, citando as
-    variáveis faltantes.
+    `rfb sincronizar` e pelo secret do DuckDB). Credenciais S3 são validadas já aqui, cedo,
+    citando as variáveis faltantes.
     """
     if env is None:
         load_dotenv()

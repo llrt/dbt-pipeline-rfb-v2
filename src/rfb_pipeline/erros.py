@@ -31,7 +31,7 @@ class MesIncompletoErro(ErroIngestao):
 
 
 class ExecucaoEmAndamentoErro(ErroIngestao):
-    """Outra execução de `rfb ingest` detém a trava de `DATA_ROOT/_estado/rfb.lock`."""
+    """Outra execução de `rfb ingerir` detém a trava de `DATA_ROOT/_estado/rfb.lock`."""
 
     def __init__(self, trava: str) -> None:
         self.trava = trava

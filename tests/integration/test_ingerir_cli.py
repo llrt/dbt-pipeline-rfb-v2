@@ -1,7 +1,7 @@
-"""Testes de integração do `rfb ingest`: fluxo completo sobre fixtures e caminhos de erro.
+"""Testes de integração do `rfb ingerir`: fluxo completo sobre fixtures e caminhos de erro.
 
 As asserções de fluxo feliz leem `DATA_ROOT` do ambiente — exportado por `make ci`, que já
-gerou fixtures e rodou `rfb ingest --origem-local` antes de chamar o dbt e o pytest. Sem
+gerou fixtures e rodou `rfb ingerir --origem-local` antes de chamar o dbt e o pytest. Sem
 `DATA_ROOT`, o módulo inteiro é pulado (os caminhos de erro também dependem do gerador de
 fixtures, então mantemos a mesma trava).
 """
@@ -38,7 +38,7 @@ def _raiz_dados() -> Path:
 def _mes_ingerido() -> str:
     manifestos_dir = _raiz_dados() / "_manifests"
     nomes = sorted(p.stem for p in manifestos_dir.glob("*.json"))
-    assert nomes, "nenhum manifesto encontrado em _manifests/; rode `rfb ingest` antes"
+    assert nomes, "nenhum manifesto encontrado em _manifests/; rode `rfb ingerir` antes"
     return nomes[-1]
 
 
@@ -74,7 +74,7 @@ class TestCaminhosDeErro:
         gerar_fixtures.gerar_fixtures(origem_local)
         monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
 
-        codigo = cli.main(["ingest", "--mes", "2099-01", "--origem-local", str(origem_local)])
+        codigo = cli.main(["ingerir", "--mes", "2099-01", "--origem-local", str(origem_local)])
 
         assert codigo == 1
         erro = capsys.readouterr().err
@@ -95,7 +95,7 @@ class TestCaminhosDeErro:
 
         codigo = cli.main(
             [
-                "ingest",
+                "ingerir",
                 "--mes",
                 gerar_fixtures.MES_REFERENCIA,
                 "--origem-local",
@@ -129,7 +129,7 @@ class TestRedeIndisponivel:
         monkeypatch.setattr(cliente_rfb.time, "sleep", lambda _s: None)
         monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
 
-        codigo = cli.main(["ingest"])
+        codigo = cli.main(["ingerir"])
 
         assert codigo == 1
         erro = capsys.readouterr().err
@@ -147,7 +147,7 @@ def _fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pa
 
 def _argumentos(origem_local: Path, *extra: str) -> list[str]:
     return [
-        "ingest",
+        "ingerir",
         "--mes",
         gerar_fixtures.MES_REFERENCIA,
         "--origem-local",
