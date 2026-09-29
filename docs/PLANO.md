@@ -36,6 +36,7 @@
 | T13 | Staging de domínios/BD + macros | M | NC | B4 |
 | T14 | Staging empresas/estabelecimentos | **G** | **C** | B5 |
 | T15 | `bh_empresas` + paridade | M | **C** | B5 |
+| T37 | Padronização de nomes (ADR-0014, pedido do usuário) | M | NC | RN |
 | T32 | Fixtures: 2º mês (2026-08) + testes por mês | M | NC | B6 |
 | T16 | `agg_empresas` + reconciliação | M | NC | B6 |
 | T17 | `dim_municipio` | M | NC | B6 |
@@ -67,7 +68,7 @@ Melhorias pedidas pelo usuário em 2026-09-28 (ADR-0012 atualização mensal, AD
 ```mermaid
 flowchart LR
   P0[Planejamento<br/>líder] --> B1[B1 fundação<br/>DeepSeek low] --> B2[B2 fixtures/clientes<br/>DeepSeek high] --> B3[B3 conversão<br/>Opus med] --> B4[B4 ingestão/fontes<br/>Sonnet med] --> R1{{R1 revisão<br/>Opus high}}
-  R1 --> B5[B5 staging+bh_empresas<br/>Opus med] --> R2{{R2 revisão<br/>Opus high}}
+  R1 --> B5[B5 staging+bh_empresas<br/>Opus med] --> RN[RN padronização de nomes<br/>Sonnet med] --> R2{{R2 revisão<br/>Opus high}}
   R2 --> B6[B6 agg+star schema<br/>Sonnet med] --> B7[B7 análises/DQ/caso<br/>Sonnet med] --> B7b[B7b série mensal + Power BI<br/>Sonnet med] --> R3{{R3 revisão<br/>Opus high}}
   R3 --> B8[B8 E2E real + rfb atualizar<br/>Opus med] --> R4{{R4 revisão final + auditoria<br/>+ Verifier — Opus high}}
   B1 -.paralelo.-> B9a[B9a guia fundamentos<br/>DeepSeek high]
@@ -96,5 +97,6 @@ flowchart LR
 | R1 | concluída: APROVADO COM RESSALVAS (0 bloq., 10 imp., 14 menores, 3 sug.; 20 mutações) — triagem em `docs/revisoes/R1-triagem.md` | a84e9afe · Claude Opus alto (traycer-review) | `f5d3119` |
 | F1a | concluído, verificado (153 unit + 18 integração; dbt PASS=61 WARN=1 ERROR=0; `make ci` 19,9 s; pre-commit ok) e integrado — 20 achados da R1 + P7 | eba62c6d · Claude Sonnet médio | `d45ef8d` `fb53801` `7d66721` `2a03c6e` `f264d1f` `59b0480` `958d81a` |
 | B5 | em andamento | 0c170aeb · Claude Opus médio | — |
+| RN | planejado (após B5, antes da R2) — T37, ADR-0014 | (Sonnet médio) | — |
 | F1b | concluído, verificado (106 unit; dbt PASS=45 WARN=1 ERROR=0) e integrado — R1-04, R1-10 (convert), R1-23, R1-24 | 89931ace · Claude Opus médio | `54368a4` `88f9312` `081d8be` |
 | B9a | concluído e integrado (1 achado p/ R5, ver docs/revisoes/pendencias.md) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | `c9a6dbc` |

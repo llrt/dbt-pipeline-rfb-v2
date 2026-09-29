@@ -81,10 +81,16 @@ T10 → T12 → T13
 T13 → T14 → T15
 ```
 
+### Phase 5b: Padronização de nomes (ADR-0014) — lote RN (M/NC)
+
+```
+T15 → T37
+```
+
 ### Phase 6: Segundo mês nas fixtures, agregado original e star schema para BI — lote B6 (M/NC)
 
 ```
-T15 → T32 → T16
+T37 → T32 → T16
 T16 → T17 → T19
 T16 → T18 → T19
 T16 → T33 → T19
@@ -472,11 +478,31 @@ T30 → T31
 
 ---
 
+### T37: Padronização de nomes conforme ADR-0014
+
+**What**: aplicar a convenção de idioma do ADR-0014 em todo o repositório: renomear subpastas `marts/analises` → `marts/analytics` e `observabilidade` → `observability` (e chaves correspondentes em `dbt_project.yml`); módulos Python e seus testes (`configuracao.py`, `esquemas.py`, `erros.py`, `cliente_rfb.py`, `conversao.py`, `manifesto.py`, `armazenamento.py`); subcomandos da CLI (`ingerir`, `sincronizar`, `relatorio`) e alvos do Make; variáveis `RAIZ_DADOS`/`RAIZ_DADOS_LOCAL`; diretórios `_manifestos`/`_baixados`; identificadores Python com palavras em inglês fora da lista de exceções; atualizar todas as referências em código, `.env.example`, profiles/sources, testes, ARCHITECTURE, ADRs, spec, tasks, PLANO, ESCOPO, README e guia; criar `tests/unit/test_convencao_nomes.py` que falha se surgir subpasta de `models/`, prefixo de modelo, módulo Python, subcomando da CLI ou alvo do Make fora da convenção.
+**Where**: `tests/unit/test_convencao_nomes.py`
+**Depends on**: T15
+**Reuses**: ADR-0014 (lista fechada de exceções)
+**Requirement**: DOC-01
+**Classificação**: M/NC
+
+**Done when**:
+- [ ] `git grep` não encontra nomes antigos fora de trechos históricos explicitamente marcados (ex.: tabela "Antes → Depois" do ADR-0014)
+- [ ] `test_convencao_nomes.py` passa e falha ao introduzir uma pasta `models/marts/analises`
+- [ ] Gate build passa (`make lint && make ci`, pre-commit)
+
+**Tests**: unit + integration
+**Gate**: build
+**Commit**: `refactor: apply naming language convention (ADR-0014)`
+
+---
+
 ### T32: Segundo mês nas fixtures e testes por mês
 
 **What**: estender `scripts/gen_fixtures.py` para gerar também `rfb/2026-08/` conforme a spec ("Segundo mês": sem a linha O, nomes internos `D60810`); garantir que todos os testes de fonte/staging sejam por mês (unicidade com `_mes_referencia`) e que o `make ci` ingira os dois meses (2026-08 e depois 2026-09) mantendo todas as respostas de 2026-09.
 **Where**: `scripts/gen_fixtures.py`
-**Depends on**: T15
+**Depends on**: T37
 **Reuses**: gerador existente; testes `tests/unit/test_gen_fixtures.py`
 **Requirement**: UPD-02
 **Classificação**: M/NC
