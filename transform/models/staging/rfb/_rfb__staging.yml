@@ -239,7 +239,12 @@ models:
       - name: _mes_referencia
         description: Mês de referência (`YYYY-MM`) do extrato RFB.
       - name: _data_referencia
-        description: Data do extrato RFB (do nome interno do arquivo).
+        description: >
+          Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto,
+          de `idade_atual`: NULL falha (R2-03).
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
 unit_tests:
   - name: test_stg_rfb__cnaes_lpad_e_texto_vazio
