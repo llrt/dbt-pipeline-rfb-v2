@@ -25,7 +25,10 @@ sources:
             description: >
               Código do município na classificação da RFB; usado para casar com
               `rfb.municipios.codigo` (comparar com `lpad(4)` de ambos os lados — pode vir sem
-              zeros à esquerda aqui).
+              zeros à esquerda aqui). Duplicata multiplicaria linhas nos joins.
+            data_tests:
+              - unique:
+                  config: { severity: warn, meta: { escopo: original }, tags: [escopo_original] }
           - name: nome
             description: Nome do município, acentuado.
           - name: sigla_uf
@@ -82,6 +85,11 @@ sources:
           external_location: >-
             read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/bd/populacao/*.parquet')
         tags: [escopo_adicao]
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id_municipio, ano]
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
         columns:
           - name: ano
             description: Ano de referência da estimativa populacional.
@@ -101,6 +109,11 @@ sources:
           external_location: >-
             read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/bd/pib/*.parquet')
         tags: [escopo_adicao]
+        data_tests:
+          - dbt_utils.unique_combination_of_columns:
+              arguments:
+                combination_of_columns: [id_municipio, ano]
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
         columns:
           - name: id_municipio
             description: Código IBGE do município (FK lógica para `municipio.id_municipio`).

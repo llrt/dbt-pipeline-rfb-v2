@@ -62,3 +62,9 @@ seeds:
     +meta:
       escopo: adicao
     +tags: ["escopo_adicao"]
+
+unit_tests:
+  rfb:
+    +meta:
+      escopo: adicao
+    +tags: ["escopo_adicao"]

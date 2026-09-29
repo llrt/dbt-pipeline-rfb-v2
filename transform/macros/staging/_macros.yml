@@ -1,0 +1,18 @@
+version: 2
+
+macros:
+  - name: data_rfb
+    description: "`YYYYMMDD` -> DATE; `0`, `00000000` e datas inválidas viram NULL (`try_strptime`)."
+    meta: { escopo: adicao }
+  - name: lpad_codigo
+    description: "Preenche com zeros à esquerda até `tamanho`, sem truncar códigos maiores."
+    meta: { escopo: adicao }
+  - name: texto_ou_nulo
+    description: "`trim` + texto vazio -> NULL."
+    meta: { escopo: adicao }
+  - name: filtro_mes_referencia
+    description: "Filtra `_mes_referencia` pela var `mes_referencia` ou pelo mês mais recente."
+    meta: { escopo: adicao }
+  - name: test_tamanho_exato
+    description: "Teste genérico: valores não nulos da coluna têm exatamente `tamanho` caracteres."
+    meta: { escopo: adicao }

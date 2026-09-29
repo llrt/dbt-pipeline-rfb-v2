@@ -9,8 +9,10 @@ models:
       - name: id_municipio
         description: Código IBGE do município (7 dígitos).
         data_tests:
-          - unique
-          - not_null
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: id_municipio_rf
         description: >
           Código do município na classificação da RFB; usado para casar com
@@ -52,8 +54,14 @@ models:
       - name: subclasse
         description: Subclasse CNAE (7 dígitos; FK lógica para `stg_rfb__cnaes.codigo`).
         data_tests:
-          - unique
-          - not_null
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: descricao_subclasse
         description: Descrição da subclasse.
       - name: classe

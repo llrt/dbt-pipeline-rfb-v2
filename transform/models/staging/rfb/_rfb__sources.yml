@@ -82,10 +82,19 @@ sources:
         columns:
           - name: cnpj_raiz
             description: 8 primeiros dígitos do CNPJ (FK lógica para `empresas.cnpj_raiz`).
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: cnpj_ordem
             description: Dígitos 9-12 do CNPJ (nº de ordem do estabelecimento dentro da empresa).
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: cnpj_dv
             description: Dígitos verificadores (13-14) do CNPJ.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: ind_matriz_filial
             description: "Indicador: `1` matriz, `2` filial."
           - name: nome_fantasia

@@ -10,8 +10,14 @@ models:
       - name: codigo
         description: Subclasse CNAE, sempre com 7 dígitos.
         data_tests:
-          - unique
-          - not_null
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: descricao
         description: Descrição da atividade econômica; NULL se vazia no raw.
 
@@ -23,8 +29,14 @@ models:
       - name: codigo
         description: Código do município na classificação da RFB (4 dígitos; não é o código IBGE).
         data_tests:
-          - unique
-          - not_null
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 4
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: descricao
         description: Nome do município, sem acentos.
 
@@ -34,8 +46,14 @@ models:
       - name: codigo
         description: Código da natureza jurídica (4 dígitos).
         data_tests:
-          - unique
-          - not_null
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 4
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: descricao
         description: Descrição da natureza jurídica.
 
@@ -45,8 +63,14 @@ models:
       - name: codigo
         description: Código do motivo de situação cadastral (2 dígitos).
         data_tests:
-          - unique
-          - not_null
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 2
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: descricao
         description: Descrição do motivo de situação cadastral.
 
@@ -58,8 +82,14 @@ models:
       - name: cnpj_raiz
         description: 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).
         data_tests:
-          - unique
-          - not_null
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 8
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: opcao_simples
         description: "`true` se optante pelo Simples Nacional, `false` caso contrário."
       - name: dat_opcao_simples
@@ -91,6 +121,18 @@ unit_tests:
         - { codigo: "0111301", descricao: "Cultivo de arroz" }
         - { codigo: "4741500", descricao: null }
 
+  - name: test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior
+    description: "Código maior que o tamanho fica intacto (o `lpad` do DuckDB truncaria); `tamanho_exato` o acusa."
+    model: stg_rfb__cnaes
+    given:
+      - input: source('rfb', 'cnaes')
+        format: sql
+        rows: |
+          select '12345678' as codigo, 'Malformado' as descricao, '2026-09' as _mes_referencia
+    expect:
+      rows:
+        - { codigo: "12345678", descricao: "Malformado" }
+
   - name: test_stg_rfb__municipios_lpad_codigo
     description: "`lpad_codigo` preenche até 4 dígitos mesmo quando o raw já vem sem zeros à esquerda."
     model: stg_rfb__municipios
@@ -102,6 +144,38 @@ unit_tests:
     expect:
       rows:
         - { codigo: "0643", descricao: "FUNDAO" }
+
+  - name: test_stg_rfb__simples_datas_invalidas_viram_null
+    description: "`0`, `00000000`, `20230230` (inexistente), vazio e lixo viram NULL; data válida vira DATE."
+    model: stg_rfb__simples
+    given:
+      - input: source('rfb', 'simples')
+        format: sql
+        rows: |
+          select
+              '11111111' as cnpj_raiz, 'S' as opcao_simples,
+              '0' as dat_opcao_simples, '00000000' as dat_exclusao_simples,
+              'N' as opcao_mei, '20230230' as dat_opcao_mei, '2023' as dat_exclusao_mei,
+              '2026-09' as _mes_referencia
+          union all
+          select
+              '22222222', 'S', '', ' 20070701 ', 'N', 'abcdefgh', '20241231', '2026-09'
+    expect:
+      rows:
+        - cnpj_raiz: "11111111"
+          opcao_simples: true
+          dat_opcao_simples: null
+          dat_exclusao_simples: null
+          opcao_mei: false
+          dat_opcao_mei: null
+          dat_exclusao_mei: null
+        - cnpj_raiz: "22222222"
+          opcao_simples: true
+          dat_opcao_simples: null
+          dat_exclusao_simples: "2007-07-01"
+          opcao_mei: false
+          dat_opcao_mei: null
+          dat_exclusao_mei: "2024-12-31"
 
   - name: test_stg_rfb__simples_flags_e_datas
     description: "`S`/`N` vira booleano; data `00000000` vira NULL; data válida vira DATE."
