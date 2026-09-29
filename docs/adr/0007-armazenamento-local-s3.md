@@ -28,4 +28,3 @@ O modo `s3://` não fechava de ponta a ponta. Decisões:
   variável (paridade com a validação do Python). O helper Python `sql_create_secret` foi **removido**:
   não era usado em produção, duplicava o profile e interpolava credenciais sem escapar `'`.
 - **Variável vazia = padrão** (`config.py`), e `.env.example` traz as chaves opcionais comentadas.
-

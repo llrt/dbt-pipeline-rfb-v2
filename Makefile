@@ -42,7 +42,7 @@ lint:
 	uv run ruff check .
 	uv run ruff format --check .
 	mkdir -p $(DATA_ROOT)
-	uv run sqlfluff lint transform/models
+	uv run sqlfluff lint transform/models transform/tests
 
 ## sync: envia raw/ e gold/ a s3:// (DATA_ROOT precisa ser s3://...; ver docs/adr/0007)
 sync:
