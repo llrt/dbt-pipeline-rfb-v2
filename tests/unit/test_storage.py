@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -119,6 +120,61 @@ class TestSincronizar:
         _criar_parquet(caminho, 2)  # conteúdo (e tamanho) muda
         segundo_envio = sincronizar(config, cliente_s3=cliente_s3)
         assert segundo_envio == ["outro-prefixo/raw/bd/municipio.parquet"]
+
+    def test_arquivo_multipart_alterado_com_mesmo_tamanho_e_reenviado(
+        self, tmp_path: Path, endpoint: str, cliente_s3
+    ) -> None:
+        """R1-07: acima de 8 MB o upload é multipart (ETag sem MD5); o tamanho não basta."""
+        config = _config_s3(tmp_path / "local", endpoint, prefixo="multipart")
+        grande = config.gold_dir / "grande.parquet"
+        grande.parent.mkdir(parents=True)
+        tamanho = 9 * 1024 * 1024
+        grande.write_bytes(b"A" * tamanho)
+
+        assert sincronizar(config, cliente_s3=cliente_s3) == ["multipart/gold/grande.parquet"]
+        assert (
+            "-"
+            in cliente_s3.head_object(Bucket=BUCKET, Key="multipart/gold/grande.parquet")["ETag"]
+        )
+        assert sincronizar(config, cliente_s3=cliente_s3) == []
+
+        grande.write_bytes(b"B" * tamanho)  # mesmo tamanho, conteúdo diferente
+        assert sincronizar(config, cliente_s3=cliente_s3) == ["multipart/gold/grande.parquet"]
+        corpo = cliente_s3.get_object(Bucket=BUCKET, Key="multipart/gold/grande.parquet")["Body"]
+        assert corpo.read(1) == b"B"
+
+    def test_grava_sha256_como_metadado_do_objeto(
+        self, tmp_path: Path, endpoint: str, cliente_s3
+    ) -> None:
+        config = _config_s3(tmp_path / "local", endpoint, prefixo="meta")
+        caminho = config.raw_dir / "bd" / "municipio.parquet"
+        _criar_parquet(caminho, 5)
+
+        sincronizar(config, cliente_s3=cliente_s3)
+
+        cabecalho = cliente_s3.head_object(Bucket=BUCKET, Key="meta/raw/bd/municipio.parquet")
+        assert cabecalho["Metadata"]["sha256"] == hashlib.sha256(caminho.read_bytes()).hexdigest()
+
+    def test_objeto_sem_metadado_sha256_e_reenviado(
+        self, tmp_path: Path, endpoint: str, cliente_s3
+    ) -> None:
+        config = _config_s3(tmp_path / "local", endpoint, prefixo="semmeta")
+        caminho = config.raw_dir / "bd" / "municipio.parquet"
+        _criar_parquet(caminho, 5)
+        cliente_s3.put_object(
+            Bucket=BUCKET, Key="semmeta/raw/bd/municipio.parquet", Body=caminho.read_bytes()
+        )
+
+        assert sincronizar(config, cliente_s3=cliente_s3) == ["semmeta/raw/bd/municipio.parquet"]
+        assert sincronizar(config, cliente_s3=cliente_s3) == []
+
+    def test_residuos_ocultos_nao_sobem(self, tmp_path: Path, endpoint: str, cliente_s3) -> None:
+        config = _config_s3(tmp_path / "local", endpoint, prefixo="residuos")
+        _criar_parquet(config.raw_dir / "bd" / "municipio.parquet", 5)
+        _criar_parquet(config.raw_dir / "rfb" / "empresas" / ".tmp-abc" / "x.parquet", 1)
+        (config.raw_dir / "bd" / ".tmp-manifesto.json").write_text("{}")
+
+        assert sincronizar(config, cliente_s3=cliente_s3) == ["residuos/raw/bd/municipio.parquet"]
 
     def test_nao_falha_sem_raw_ou_gold_locais(
         self, tmp_path: Path, endpoint: str, cliente_s3
