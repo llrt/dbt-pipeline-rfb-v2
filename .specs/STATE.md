@@ -12,7 +12,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-004 | Métricas temporais relativas a `data_referencia`, nunca `now()` (ADR-0004) | active | 2026-09-28 |
 | AD-005 | `bh_empresas`/`agg_empresas` em paridade com o original; melhorias só no star schema (ADR-0005) | active | 2026-09-28 |
 | AD-006 | Todo nó dbt com `meta.escopo` ∈ {original, adicao, adaptado} + tag (ADR-0006) | active | 2026-09-28 |
-| AD-007 | `DATA_ROOT` local ou `s3://`; sync via boto3; testes com moto (ADR-0007) | active | 2026-09-28 |
+| AD-007 | `RAIZ_DADOS` local ou `s3://`; sync via boto3; testes com moto (ADR-0007) | active | 2026-09-28 |
 | AD-008 | Sem `Socios`; contatos descartados no staging (ADR-0008) | active | 2026-09-28 |
 | AD-009 | Testes em camadas; estrutura = error, conteúdo = warn + error_if (ADR-0009) | active | 2026-09-28 |
 | AD-010 | Fixtures sintéticas determinísticas com respostas conhecidas definidas na spec (ADR-0010) | active | 2026-09-28 |
@@ -25,6 +25,8 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-017 | Convenção de idioma (decisão do usuário 2026-09-29): inglês só no vocabulário padrão do dbt/ferramentas (lista fechada no ADR-0014); todo o resto em português; lote RN aplica as renomeações após o B5 | active | 2026-09-29 |
 
 ## Handoff
+
+- **Lote RN (T37) concluído na branch `lote/rn-padronizacao-nomes`:** nomes padronizados conforme o ADR-0014 (pastas dbt, módulos/identificadores Python, CLI/Make, `RAIZ_DADOS*`, `_manifestos`/`_baixados`, `scripts/gerar_fixtures.py`); guarda em `tests/unit/test_convencao_nomes.py`.
 
 **Retomado em 2026-09-29 após a 2ª pausa.** Verificação ok (`main` limpo em `86fa2e5`; `make ci` PASS=45 WARN=1 ERROR=0). F1a concluída e integrada (`b5012a6`). Próximo: B5 (T14–T15, Opus médio).
 
@@ -43,6 +45,6 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 
 ### Contexto importante para os próximos briefs
 - Roteamento: AD-014 (médias → Sonnet médio). Melhorias do usuário: AD-015/ADR-0012 (atualização mensal) e AD-016/ADR-0013 (estrela para Power BI).
-- Pendências: P1, P2 (guia → R5), P8 (→ B9b) em `docs/revisoes/pendencias.md`; R1-11, R1-21, R1-22 adiados para T32 (B6); teste de CLI para `EntidadeVaziaError` (F1b) ainda sem cobertura.
+- Pendências: P1, P2 (guia → R5), P8 (→ B9b) em `docs/revisoes/pendencias.md`; R1-11, R1-21, R1-22 adiados para T32 (B6); teste de CLI para `EntidadeVaziaErro` (F1b) ainda sem cobertura.
 - Lições: escrever arquivos grandes incrementalmente; unit tests dbt sobre fontes `external_location` exigem `format: sql`; rejeitos do DuckDB acumulam por conexão; hive automático em `mes_referencia=` (fontes usam `hive_partitioning=false` + `_mes_referencia`); `lpad` do DuckDB trunca; `strptime` falha em data inválida (usar `try_strptime`).
 - WebDAV da RFB trava downloads — B8 deve monitorar. Worktrees já integrados (b1, b2, b3, b4, b9a, r1, f1b) podem ser limpos com `traycer-housekeeping`.

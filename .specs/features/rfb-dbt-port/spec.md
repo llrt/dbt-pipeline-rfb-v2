@@ -102,8 +102,8 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. WHEN `rfb ingest` runs without `--mes` THEN the system SHALL select the most recent `YYYY-MM` folder listed by the WebDAV share.
-2. WHEN `rfb ingest --mes 2026-09` runs THEN the system SHALL write one Parquet dataset per entity under `raw/rfb/<entidade>/mes_referencia=2026-09/` for `empresas, estabelecimentos, simples, cnaes, municipios, naturezas, motivos, paises, qualificacoes`.
+1. WHEN `rfb ingerir` runs without `--mes` THEN the system SHALL select the most recent `YYYY-MM` folder listed by the WebDAV share.
+2. WHEN `rfb ingerir --mes 2026-09` runs THEN the system SHALL write one Parquet dataset per entity under `raw/rfb/<entidade>/mes_referencia=2026-09/` for `empresas, estabelecimentos, simples, cnaes, municipios, naturezas, motivos, paises, qualificacoes`.
 3. The system SHALL store every RFB data column as VARCHAR using the column names listed in ARCHITECTURE.md §4.2, plus `_arquivo_origem`, `_mes_referencia`, `_data_referencia`, `_ingerido_em`.
 4. WHEN a field contains `\"` before the closing quote (row K) THEN the system SHALL parse it as a value ending in `\` without rejecting the row.
 5. WHEN a quoted field spans multiple lines (row O) THEN the system SHALL keep it as a single record.
@@ -115,12 +115,12 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 11. IF the requested month does not exist THEN the system SHALL exit non-zero listing the available months.
 12. WHEN the same month is ingested twice with identical zip checksums THEN the system SHALL skip conversion and leave the Parquet files unchanged.
 13. The system SHALL never leave a partially written Parquet dataset under `raw/` (write to temp + atomic rename).
-14. WHEN ingestion finishes THEN the system SHALL write `_manifests/<mes>.json` with size, sha256, rows read and rows rejected per file.
-15. WHEN `rfb ingest` runs THEN the system SHALL download the four BD tables (municipio, cnae_2, populacao, pib) to `raw/bd/<tabela>/`.
+14. WHEN ingestion finishes THEN the system SHALL write `_manifestos/<mes>.json` with size, sha256, rows read and rows rejected per file.
+15. WHEN `rfb ingerir` runs THEN the system SHALL download the four BD tables (municipio, cnae_2, populacao, pib) to `raw/bd/<tabela>/`.
 16. IF a zip entry path escapes the extraction directory THEN the system SHALL refuse to extract it and exit non-zero.
 17. The system SHALL NOT download `Socios*` files.
 
-**Independent Test**: `rfb ingest --origem-local tests/fixtures --mes 2026-09` produces the datasets and manifest; pytest checks counts and quirks.
+**Independent Test**: `rfb ingerir --origem-local tests/fixtures --mes 2026-09` produces the datasets and manifest; pytest checks counts and quirks.
 
 ---
 
@@ -132,7 +132,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. The system SHALL declare dbt sources for every raw dataset with `external_location` derived from `env_var('DATA_ROOT')`.
+1. The system SHALL declare dbt sources for every raw dataset with `external_location` derived from `env_var('RAIZ_DADOS')`.
 2. The system SHALL test `unique` and `not_null` on `codigo` of `cnaes`, `municipios`, `naturezas`, `motivos` (notebook 2.1.1).
 3. The system SHALL test `unique` + `not_null` on `empresas.cnpj_raiz` and on the concatenated `cnpj_completo` of `estabelecimentos` (notebooks 2.2/2.3).
 4. The system SHALL test that `empresas.natureza_jur`, `estabelecimentos.cnae_principal` and `estabelecimentos.municipio` exist in their RFB domain tables (notebooks 2.2/2.3).
@@ -240,7 +240,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 **Acceptance Criteria**:
 
 1. The system SHALL provide `analyses/` SQL for each question of notebook 4, parameterized by vars `caso_*`.
-2. WHEN `rfb report` runs THEN the system SHALL write `docs/RELATORIO_ESTUDO_CASO.md` with the answers of the original questions and of the new analyses for the configured case.
+2. WHEN `rfb relatorio` runs THEN the system SHALL write `docs/RELATORIO_ESTUDO_CASO.md` with the answers of the original questions and of the new analyses for the configured case.
 3. WHEN run on fixtures THEN the report SHALL state 1 active competitor and 4 inactive in Fundão/ES for CNAE 4741500.
 
 ---
@@ -251,12 +251,12 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. WHEN `make ci` runs THEN the system SHALL generate fixtures, ingest them into a temporary `DATA_ROOT`, run `dbt build --target ci` and the integration tests, finishing in under 120 s on the reference machine.
+1. WHEN `make ci` runs THEN the system SHALL generate fixtures, ingest them into a temporary `RAIZ_DADOS`, run `dbt build --target ci` and the integration tests, finishing in under 120 s on the reference machine.
 2. WHEN `make pipeline MES=2026-09` runs THEN the system SHALL execute ingest → source freshness → dbt build → reports and exit non-zero if any error-severity test fails.
-3. WHERE `DATA_ROOT` starts with `s3://` the system SHALL read/write through DuckDB httpfs using `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3` from the environment.
-4. IF `DATA_ROOT` is `s3://` and any of those variables is missing THEN the system SHALL exit non-zero naming the missing variables.
-5. WHEN `rfb sync` runs THEN the system SHALL upload `raw/` and `gold/` to the configured bucket, skipping objects with identical size and checksum.
-6. The system SHALL write gold marts as Parquet under `DATA_ROOT/gold/`.
+3. WHERE `RAIZ_DADOS` starts with `s3://` the system SHALL read/write through DuckDB httpfs using `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3` from the environment.
+4. IF `RAIZ_DADOS` is `s3://` and any of those variables is missing THEN the system SHALL exit non-zero naming the missing variables.
+5. WHEN `rfb sincronizar` runs THEN the system SHALL upload `raw/` and `gold/` to the configured bucket, skipping objects with identical size and checksum.
+6. The system SHALL write gold marts as Parquet under `RAIZ_DADOS/gold/`.
 
 ---
 
@@ -279,7 +279,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `DATA_ROOT/_estado/ultima_execucao.json`.
+1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `RAIZ_DADOS/_estado/ultima_execucao.json`.
 2. WHEN the most recent complete month equals the last processed month THEN `rfb atualizar` SHALL exit 0 without downloading any file and SHALL print "nenhum mês novo".
 3. IF the most recent remote month folder lacks any expected file (`Empresas0–9`, `Estabelecimentos0–9`, `Simples`, 6 domínios) THEN the system SHALL treat it as incomplete and SHALL select the previous complete month.
 4. IF `dbt build` fails THEN `rfb atualizar` SHALL exit non-zero and SHALL NOT update `ultima_execucao.json`.

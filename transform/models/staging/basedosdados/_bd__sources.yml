@@ -16,7 +16,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/bd/municipio/*.parquet')
+            read_parquet('{{ env_var('RAIZ_DADOS', '../data') }}/raw/bd/municipio/*.parquet')
         tags: [escopo_original]
         columns:
           - name: id_municipio
@@ -52,7 +52,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/bd/cnae_2/*.parquet')
+            read_parquet('{{ env_var('RAIZ_DADOS', '../data') }}/raw/bd/cnae_2/*.parquet')
         tags: [escopo_original]
         columns:
           - name: subclasse
@@ -83,7 +83,7 @@ sources:
         meta:
           escopo: adicao
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/bd/populacao/*.parquet')
+            read_parquet('{{ env_var('RAIZ_DADOS', '../data') }}/raw/bd/populacao/*.parquet')
         tags: [escopo_adicao]
         data_tests:
           - dbt_utils.unique_combination_of_columns:
@@ -107,7 +107,7 @@ sources:
         meta:
           escopo: adicao
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/bd/pib/*.parquet')
+            read_parquet('{{ env_var('RAIZ_DADOS', '../data') }}/raw/bd/pib/*.parquet')
         tags: [escopo_adicao]
         data_tests:
           - dbt_utils.unique_combination_of_columns:

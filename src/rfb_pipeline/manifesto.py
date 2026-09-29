@@ -16,8 +16,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import ExecucaoEmAndamentoError
+from rfb_pipeline.configuracao import Configuracao
+from rfb_pipeline.erros import ExecucaoEmAndamentoErro
 
 __all__ = [
     "VERSAO_PIPELINE",
@@ -25,7 +25,7 @@ __all__ = [
     "Manifesto",
     "caminho_manifesto",
     "escrever_manifesto",
-    "lock_execucao",
+    "trava_execucao",
     "ler_manifesto",
     "precisa_reconverter",
     "sha256_arquivo",
@@ -126,21 +126,21 @@ class Manifesto:
         )
 
 
-def caminho_manifesto(config: Config, mes: str) -> Path:
-    return config.manifests_dir / f"{mes}.json"
+def caminho_manifesto(configuracao: Configuracao, mes: str) -> Path:
+    return configuracao.manifestos_dir / f"{mes}.json"
 
 
-def ler_manifesto(config: Config, mes: str) -> Manifesto | None:
+def ler_manifesto(configuracao: Configuracao, mes: str) -> Manifesto | None:
     """Lê o manifesto de `mes`, ou `None` se ainda não existir."""
-    caminho = caminho_manifesto(config, mes)
+    caminho = caminho_manifesto(configuracao, mes)
     if not caminho.exists():
         return None
     return Manifesto.from_dict(json.loads(caminho.read_text(encoding="utf-8")))
 
 
-def escrever_manifesto(config: Config, manifesto: Manifesto) -> Path:
-    """Grava o manifesto em `_manifests/<mes>.json` atomicamente (temp + rename)."""
-    destino = caminho_manifesto(config, manifesto.mes_referencia)
+def escrever_manifesto(configuracao: Configuracao, manifesto: Manifesto) -> Path:
+    """Grava o manifesto em `_manifestos/<mes>.json` atomicamente (temp + rename)."""
+    destino = caminho_manifesto(configuracao, manifesto.mes_referencia)
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_name(f".tmp-{destino.name}-{uuid.uuid4().hex}")
     tmp.write_text(json.dumps(manifesto.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
@@ -149,48 +149,48 @@ def escrever_manifesto(config: Config, manifesto: Manifesto) -> Path:
 
 
 @contextmanager
-def lock_execucao(config: Config) -> Iterator[Path]:
-    """Lock exclusivo de execução em `DATA_ROOT/_estado/rfb.lock` (`flock` não bloqueante).
+def trava_execucao(configuracao: Configuracao) -> Iterator[Path]:
+    """Trava exclusiva de execução em `RAIZ_DADOS/_estado/rfb.lock` (`flock` não bloqueante).
 
-    Levanta `ExecucaoEmAndamentoError` se outra execução já o detém. O lock some com o processo,
-    então uma execução morta nunca deixa o lock preso.
+    Levanta `ExecucaoEmAndamentoErro` se outra execução já a detém. A trava some com o processo,
+    então uma execução morta nunca deixa a trava presa.
     """
-    caminho = config.data_root / "_estado" / "rfb.lock"
+    caminho = configuracao.raiz_dados / "_estado" / "rfb.lock"
     caminho.parent.mkdir(parents=True, exist_ok=True)
     with caminho.open("a+") as fh:
         try:
             fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            raise ExecucaoEmAndamentoError(str(caminho)) from None
+            raise ExecucaoEmAndamentoErro(str(caminho)) from None
         try:
             yield caminho
         finally:
             fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
-def _particao_rfb_existe(config: Config, entidade: str, mes: str) -> bool:
-    return (config.raw_dir / "rfb" / entidade / f"mes_referencia={mes}").is_dir()
+def _particao_rfb_existe(configuracao: Configuracao, entidade: str, mes: str) -> bool:
+    return (configuracao.raw_dir / "rfb" / entidade / f"mes_referencia={mes}").is_dir()
 
 
 def precisa_reconverter(
-    config: Config,
+    configuracao: Configuracao,
     manifesto_anterior: Manifesto | None,
     entidade: str,
     mes: str,
     zips_atuais: list[tuple[str, int, str]],
     *,
-    force: bool = False,
+    forcar: bool = False,
 ) -> bool:
     """Decide se a entidade `entidade` precisa ser (re)convertida para o mês `mes`.
 
     `zips_atuais` é a lista `(nome, bytes, sha256)` dos zips atuais da entidade. Retorna `False`
-    (pula a conversão) somente quando `force` é falso, há manifesto anterior, a partição já existe
+    (pula a conversão) somente quando `forcar` é falso, há manifesto anterior, a partição já existe
     em `raw/` e o conjunto de zips (nome+bytes+sha256) é idêntico ao do manifesto anterior para
     essa entidade — nesse caso o Parquet existente não é tocado (mtime inalterado).
     """
-    if force or manifesto_anterior is None:
+    if forcar or manifesto_anterior is None:
         return True
-    if not _particao_rfb_existe(config, entidade, mes):
+    if not _particao_rfb_existe(configuracao, entidade, mes):
         return True
     anteriores = {
         (a.nome, a.bytes, a.sha256) for a in manifesto_anterior.arquivos_da_entidade(entidade)

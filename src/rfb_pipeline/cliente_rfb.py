@@ -1,4 +1,4 @@
-"""Cliente WebDAV da RFB: listagem de meses/arquivos e download resiliente."""
+"""Cliente WebDAV da RFB: listagem de meses/arquivos e baixa resiliente."""
 
 from __future__ import annotations
 
@@ -13,51 +13,51 @@ from pathlib import Path
 
 import httpx
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import (
-    DownloadError,
+from rfb_pipeline.configuracao import Configuracao
+from rfb_pipeline.erros import (
+    BaixaArquivoErro,
     ErroIngestao,
-    HostNaoPermitidoError,
-    MesInexistenteError,
-    TamanhoDivergenteError,
-    WebDAVIndisponivelError,
+    HostNaoPermitidoErro,
+    MesInexistenteErro,
+    TamanhoDivergenteErro,
+    WebDAVIndisponivelErro,
 )
 
 __all__ = [
     "ArquivoRemoto",
     "ClienteRFB",
-    "DownloadError",
+    "BaixaArquivoErro",
     "ErroIngestao",
-    "HostNaoPermitidoError",
-    "MesInexistenteError",
-    "TamanhoDivergenteError",
-    "VelocidadeBaixaError",
-    "WebDAVIndisponivelError",
-    "baixar_com_retry",
+    "HostNaoPermitidoErro",
+    "MesInexistenteErro",
+    "TamanhoDivergenteErro",
+    "VelocidadeBaixaErro",
+    "WebDAVIndisponivelErro",
+    "baixar_com_retentativas",
 ]
 
 _DAV_NS = {"d": "DAV:"}
 _MES_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
-class VelocidadeBaixaError(Exception):
-    """A taxa de download ficou abaixo do mínimo configurado por tempo demais.
+class VelocidadeBaixaErro(Exception):
+    """A taxa de baixa ficou abaixo do mínimo configurado por tempo demais.
 
     Levantada dentro de uma tentativa (não é um `ErroIngestao` de borda): o chamador de
-    `baixar_com_retry` a trata como qualquer outra falha de tentativa, decidindo se houve
+    `baixar_com_retentativas` a trata como qualquer outra falha de tentativa, decidindo se houve
     progresso (bytes novos no `.part`) para resetar o contador de tentativas sem avanço.
     """
 
     def __init__(self, taxa_bps: float, minima_bps: float, janela_s: float) -> None:
         self.taxa_bps = taxa_bps
         super().__init__(
-            f"taxa de download {taxa_bps:.0f} B/s abaixo do mínimo {minima_bps:.0f} B/s "
+            f"taxa de baixa {taxa_bps:.0f} B/s abaixo do mínimo {minima_bps:.0f} B/s "
             f"por mais de {janela_s:.0f}s"
         )
 
 
 class _PrazoExcedido(Exception):
-    """O teto de tempo total do download foi atingido (interno a `baixar_com_retry`)."""
+    """O teto de tempo total da baixa foi atingido (interno a `baixar_com_retentativas`)."""
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class ArquivoRemoto:
 def _verificar_host_permitido(url: str, hosts_permitidos: tuple[str, ...]) -> None:
     host = urllib.parse.urlsplit(url).hostname or ""
     if host not in hosts_permitidos:
-        raise HostNaoPermitidoError(host, hosts_permitidos)
+        raise HostNaoPermitidoErro(host, hosts_permitidos)
 
 
 def _erro_permanente(exc: Exception) -> bool:
@@ -80,12 +80,12 @@ def _erro_permanente(exc: Exception) -> bool:
     return False
 
 
-def _validador(resp: httpx.Response) -> str | None:
+def _validador(resposta: httpx.Response) -> str | None:
     """Validador forte para `If-Range`: ETag (não fraco) ou, na falta, Last-Modified."""
-    etag = resp.headers.get("etag")
+    etag = resposta.headers.get("etag")
     if etag and not etag.startswith("W/"):
         return etag
-    return resp.headers.get("last-modified")
+    return resposta.headers.get("last-modified")
 
 
 def _baixar_uma_vez(
@@ -99,53 +99,53 @@ def _baixar_uma_vez(
     relogio: Callable[[], float],
     prazo: Callable[[], bool] = lambda: False,
 ) -> None:
-    validador_path = parcial.with_name(parcial.name + ".validador")
+    caminho_validador = parcial.with_name(parcial.name + ".validador")
     headers: dict[str, str] = {}
     modo = "wb"
     if parcial.exists() and parcial.stat().st_size > 0:
         headers["Range"] = f"bytes={parcial.stat().st_size}-"
         modo = "ab"
-        if validador_path.exists():
-            headers["If-Range"] = validador_path.read_text(encoding="utf-8")
+        if caminho_validador.exists():
+            headers["If-Range"] = caminho_validador.read_text(encoding="utf-8")
 
-    with http.stream("GET", url, headers=headers, auth=auth) as resp:
-        if resp.status_code == 416:
+    with http.stream("GET", url, headers=headers, auth=auth) as resposta:
+        if resposta.status_code == 416:
             # `.part` maior/igual ao arquivo remoto: começa de novo na próxima tentativa.
             parcial.unlink(missing_ok=True)
-            validador_path.unlink(missing_ok=True)
-        resp.raise_for_status()
-        if headers.get("Range") and resp.status_code != 206:
+            caminho_validador.unlink(missing_ok=True)
+        resposta.raise_for_status()
+        if headers.get("Range") and resposta.status_code != 206:
             modo = "wb"  # sem suporte a Range ou validador mudou (arquivo republicado): do zero
         if modo == "wb":
-            validador = _validador(resp)
+            validador = _validador(resposta)
             if validador:
-                validador_path.write_text(validador, encoding="utf-8")
+                caminho_validador.write_text(validador, encoding="utf-8")
             else:
-                validador_path.unlink(missing_ok=True)
+                caminho_validador.unlink(missing_ok=True)
         inicio_janela = relogio()
         bytes_na_janela = 0
         with open(parcial, modo) as fh:
-            for chunk in resp.iter_bytes():
-                fh.write(chunk)
+            for pedaco in resposta.iter_bytes():
+                fh.write(pedaco)
                 if prazo():
                     raise _PrazoExcedido
-                bytes_na_janela += len(chunk)
+                bytes_na_janela += len(pedaco)
                 agora = relogio()
                 decorrido = agora - inicio_janela
                 if decorrido >= janela_lentidao_s:
                     taxa = bytes_na_janela / decorrido
                     if taxa < velocidade_minima_bps:
-                        raise VelocidadeBaixaError(taxa, velocidade_minima_bps, janela_lentidao_s)
+                        raise VelocidadeBaixaErro(taxa, velocidade_minima_bps, janela_lentidao_s)
                     inicio_janela = agora
                     bytes_na_janela = 0
 
 
-def _backoff_s(sem_progresso: int) -> float:
+def _recuo_s(sem_progresso: int) -> float:
     """1 s após tentativa com progresso; 1, 2, 4... (teto 60 s) para falhas seguidas sem avanço."""
     return float(min(2 ** max(sem_progresso - 1, 0), 60))
 
 
-def baixar_com_retry(
+def baixar_com_retentativas(
     http: httpx.Client,
     url: str,
     destino: Path,
@@ -159,27 +159,27 @@ def baixar_com_retry(
     janela_lentidao_s: float = 60.0,
     relogio: Callable[[], float] = time.monotonic,
     max_retomadas: int = 50,
-    timeout_total_s: float = 3600.0,
+    tempo_limite_total_s: float = 3600.0,
     relogio_total: Callable[[], float] = time.monotonic,
 ) -> Path:
-    """Baixa `url` para `destino`, com retomada via Range, retry com backoff e checagem de tamanho.
+    """Baixa `url` para `destino`, retomada via Range, retentativa com recuo e checagem do tamanho.
 
     Grava em `destino` + `.part` e só renomeia (atomicamente) para `destino` após confirmar o
-    tamanho final. Levanta `TamanhoDivergenteError` (apagando o `.part`) se o tamanho não bater.
+    tamanho final. Levanta `TamanhoDivergenteErro` (apagando o `.part`) se o tamanho não bater.
 
     Resiliência ao WebDAV lento/travado (P4, P6): a tentativa é abortada se a taxa cair abaixo de
     `velocidade_minima_bps` por `janela_lentidao_s` segundos e retomada via Range (com `If-Range`
     quando o servidor deu ETag/Last-Modified; resposta 200 a um Range reinicia do zero). O
     contador de tentativas sem progresso zera quando uma tentativa grava bytes novos, mas três
-    tetos independentes encerram o download com `DownloadError` (que cita a URL): `tentativas`
-    falhas seguidas sem avanço, `max_retomadas` falhas no total e `timeout_total_s` de relógio.
-    Há espera (backoff) entre tentativas, com ou sem progresso.
+    tetos independentes encerram a baixa com `BaixaArquivoErro` (que cita a URL): `tentativas`
+    falhas seguidas sem avanço, `max_retomadas` falhas no total e `tempo_limite_total_s` de relógio.
+    Há espera (recuo) entre tentativas, com ou sem progresso.
     """
     _verificar_host_permitido(url, hosts_permitidos)
 
     nome_arquivo = destino.name
     parcial = destino.parent / (destino.name + ".part")
-    validador_path = parcial.with_name(parcial.name + ".validador")
+    caminho_validador = parcial.with_name(parcial.name + ".validador")
     destino.parent.mkdir(parents=True, exist_ok=True)
     inicio_total = relogio_total()
 
@@ -187,12 +187,12 @@ def baixar_com_retry(
         return parcial.stat().st_size if parcial.exists() else 0
 
     def _prazo_excedido() -> bool:
-        return relogio_total() - inicio_total >= timeout_total_s
+        return relogio_total() - inicio_total >= tempo_limite_total_s
 
-    def _falhar(motivo: str) -> DownloadError:
+    def _falhar(motivo: str) -> BaixaArquivoErro:
         parcial.unlink(missing_ok=True)
-        validador_path.unlink(missing_ok=True)
-        return DownloadError(nome_arquivo, f"{motivo} ({url})")
+        caminho_validador.unlink(missing_ok=True)
+        return BaixaArquivoErro(nome_arquivo, f"{motivo} ({url})")
 
     ultimo_erro: Exception | None = None
     sem_progresso = 0
@@ -214,8 +214,8 @@ def baixar_com_retry(
             )
             break
         except _PrazoExcedido:
-            raise _falhar(f"tempo total de {timeout_total_s:.0f}s esgotado") from None
-        except (httpx.HTTPError, VelocidadeBaixaError) as exc:
+            raise _falhar(f"tempo total de {tempo_limite_total_s:.0f}s esgotado") from None
+        except (httpx.HTTPError, VelocidadeBaixaErro) as exc:
             ultimo_erro = exc
             if _erro_permanente(exc):
                 raise _falhar(f"erro HTTP permanente: {exc}") from exc
@@ -231,15 +231,15 @@ def baixar_com_retry(
                 ) from exc
             if _prazo_excedido():
                 raise _falhar(
-                    f"tempo total de {timeout_total_s:.0f}s esgotado: {ultimo_erro}"
+                    f"tempo total de {tempo_limite_total_s:.0f}s esgotado: {ultimo_erro}"
                 ) from exc
-            dormir(_backoff_s(sem_progresso))
+            dormir(_recuo_s(sem_progresso))
 
     tamanho_final = _tamanho_parcial()
-    validador_path.unlink(missing_ok=True)
+    caminho_validador.unlink(missing_ok=True)
     if tamanho_esperado is not None and tamanho_final != tamanho_esperado:
         parcial.unlink(missing_ok=True)
-        raise TamanhoDivergenteError(nome_arquivo, tamanho_esperado, tamanho_final)
+        raise TamanhoDivergenteErro(nome_arquivo, tamanho_esperado, tamanho_final)
 
     parcial.replace(destino)
     return destino
@@ -250,41 +250,43 @@ class ClienteRFB:
 
     def __init__(
         self,
-        config: Config,
+        configuracao: Configuracao,
         http: httpx.Client | None = None,
         dormir: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._config = config
-        self._auth = (config.webdav_token, "")
-        self._http = http or httpx.Client(auth=self._auth, timeout=config.timeout_s)
+        self._configuracao = configuracao
+        self._auth = (configuracao.webdav_token, "")
+        self._http = http or httpx.Client(auth=self._auth, timeout=configuracao.tempo_limite_s)
         self._dormir = dormir
 
     def _propfind(self, subpath: str) -> ET.Element | None:
-        """PROPFIND com retry/backoff como o download; falhas viram `WebDAVIndisponivelError`."""
-        url = self._config.webdav_url + subpath
-        tentativas = max(self._config.tentativas, 1)
+        """PROPFIND com retentativa/recuo como a baixa; falhas viram `WebDAVIndisponivelErro`."""
+        url = self._configuracao.webdav_url + subpath
+        tentativas = max(self._configuracao.tentativas, 1)
         for numero in range(1, tentativas + 1):
             try:
-                resp = self._http.request("PROPFIND", url, headers={"Depth": "1"}, auth=self._auth)
-                if resp.status_code == 404:
+                resposta = self._http.request(
+                    "PROPFIND", url, headers={"Depth": "1"}, auth=self._auth
+                )
+                if resposta.status_code == 404:
                     return None
-                resp.raise_for_status()
-                return ET.fromstring(resp.text)
+                resposta.raise_for_status()
+                return ET.fromstring(resposta.text)
             except ET.ParseError as exc:
-                raise WebDAVIndisponivelError(url, f"resposta XML inválida: {exc}") from exc
+                raise WebDAVIndisponivelErro(url, f"resposta XML inválida: {exc}") from exc
             except httpx.HTTPError as exc:
                 if _erro_permanente(exc) or numero == tentativas:
                     motivo = f"{exc} (após {numero} tentativa(s))"
-                    raise WebDAVIndisponivelError(url, motivo) from exc
-                self._dormir(_backoff_s(numero))
+                    raise WebDAVIndisponivelErro(url, motivo) from exc
+                self._dormir(_recuo_s(numero))
         raise AssertionError("inalcançável")  # pragma: no cover
 
     def listar_meses(self) -> list[str]:
         root = self._propfind("")
         meses = []
         if root is not None:
-            for response in root.findall("d:response", _DAV_NS):
-                href = response.findtext("d:href", default="", namespaces=_DAV_NS)
+            for resposta in root.findall("d:response", _DAV_NS):
+                href = resposta.findtext("d:href", default="", namespaces=_DAV_NS)
                 if not href.endswith("/"):
                     continue
                 nome = href.rstrip("/").rsplit("/", maxsplit=1)[-1]
@@ -295,27 +297,27 @@ class ClienteRFB:
     def mes_mais_recente(self) -> str:
         meses = self.listar_meses()
         if not meses:
-            raise MesInexistenteError("(mais recente)", meses)
+            raise MesInexistenteErro("(mais recente)", meses)
         return meses[-1]
 
     def listar_arquivos(self, mes: str) -> list[ArquivoRemoto]:
         disponiveis = self.listar_meses()
         if mes not in disponiveis:
-            raise MesInexistenteError(mes, disponiveis)
+            raise MesInexistenteErro(mes, disponiveis)
 
         root = self._propfind(f"{mes}/")
         if root is None:
-            raise MesInexistenteError(mes, disponiveis)
+            raise MesInexistenteErro(mes, disponiveis)
 
         arquivos = []
-        for response in root.findall("d:response", _DAV_NS):
-            href = response.findtext("d:href", default="", namespaces=_DAV_NS)
+        for resposta in root.findall("d:response", _DAV_NS):
+            href = resposta.findtext("d:href", default="", namespaces=_DAV_NS)
             if href.endswith("/"):
                 continue  # a própria pasta
             nome = href.rsplit("/", maxsplit=1)[-1]
             if nome.startswith("Socios"):
                 continue
-            tamanho_texto = response.findtext(".//d:getcontentlength", namespaces=_DAV_NS)
+            tamanho_texto = resposta.findtext(".//d:getcontentlength", namespaces=_DAV_NS)
             tamanho = int(tamanho_texto) if tamanho_texto and tamanho_texto.strip() else None
             if tamanho is None:
                 print(
@@ -326,19 +328,19 @@ class ClienteRFB:
         return arquivos
 
     def baixar(self, mes: str, arquivo: ArquivoRemoto, destino_dir: Path) -> Path:
-        url = f"{self._config.webdav_url}{mes}/{arquivo.nome}"
+        url = f"{self._configuracao.webdav_url}{mes}/{arquivo.nome}"
         destino = destino_dir / arquivo.nome
-        return baixar_com_retry(
+        return baixar_com_retentativas(
             self._http,
             url,
             destino,
             tamanho_esperado=arquivo.tamanho,
-            tentativas=self._config.tentativas,
-            hosts_permitidos=self._config.hosts_permitidos,
+            tentativas=self._configuracao.tentativas,
+            hosts_permitidos=self._configuracao.hosts_permitidos,
             auth=self._auth,
             dormir=self._dormir,
-            velocidade_minima_bps=self._config.velocidade_minima_bps,
-            janela_lentidao_s=self._config.janela_lentidao_s,
-            max_retomadas=self._config.max_retomadas,
-            timeout_total_s=self._config.timeout_total_s,
+            velocidade_minima_bps=self._configuracao.velocidade_minima_bps,
+            janela_lentidao_s=self._configuracao.janela_lentidao_s,
+            max_retomadas=self._configuracao.max_retomadas,
+            tempo_limite_total_s=self._configuracao.tempo_limite_total_s,
         )

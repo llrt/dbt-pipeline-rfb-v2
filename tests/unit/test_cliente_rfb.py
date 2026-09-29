@@ -5,29 +5,29 @@ from pathlib import Path
 import httpx
 import pytest
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import (
-    DownloadError,
-    ErroIngestao,
-    HostNaoPermitidoError,
-    MesInexistenteError,
-    TamanhoDivergenteError,
-)
-from rfb_pipeline.rfb_client import (
+from rfb_pipeline.cliente_rfb import (
     ArquivoRemoto,
     ClienteRFB,
-    VelocidadeBaixaError,
-    WebDAVIndisponivelError,
-    baixar_com_retry,
+    VelocidadeBaixaErro,
+    WebDAVIndisponivelErro,
+    baixar_com_retentativas,
+)
+from rfb_pipeline.configuracao import Configuracao
+from rfb_pipeline.erros import (
+    BaixaArquivoErro,
+    ErroIngestao,
+    HostNaoPermitidoErro,
+    MesInexistenteErro,
+    TamanhoDivergenteErro,
 )
 
 WEBDAV_URL = "https://arquivos.receitafederal.gov.br/public.php/webdav/"
 
 
-def _config(**overrides: object) -> Config:
-    base = dict(data_root=Path("/tmp/nao-usado"), data_root_uri="/tmp/nao-usado")
-    base.update(overrides)
-    return Config(**base)
+def _configuracao(**sobrescritas: object) -> Configuracao:
+    base = dict(raiz_dados=Path("/tmp/nao-usado"), raiz_dados_uri="/tmp/nao-usado")
+    base.update(sobrescritas)
+    return Configuracao(**base)
 
 
 def _multistatus(entries: list[tuple[str, int | None]]) -> str:
@@ -68,7 +68,7 @@ class TestListarMeses:
             return httpx.Response(207, text=xml)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        cliente = ClienteRFB(_config(), http=http)
+        cliente = ClienteRFB(_configuracao(), http=http)
 
         assert cliente.listar_meses() == ["2025-12", "2026-08", "2026-09"]
 
@@ -80,7 +80,7 @@ class TestListarMeses:
             ]
         )
         http = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(207, text=xml)))
-        cliente = ClienteRFB(_config(), http=http)
+        cliente = ClienteRFB(_configuracao(), http=http)
 
         assert cliente.mes_mais_recente() == "2026-09"
 
@@ -91,9 +91,9 @@ class TestListarArquivos:
         http = httpx.Client(
             transport=httpx.MockTransport(lambda r: httpx.Response(207, text=xml_raiz))
         )
-        cliente = ClienteRFB(_config(), http=http)
+        cliente = ClienteRFB(_configuracao(), http=http)
 
-        with pytest.raises(MesInexistenteError) as exc_info:
+        with pytest.raises(MesInexistenteErro) as exc_info:
             cliente.listar_arquivos("2020-01")
 
         assert exc_info.value.mes == "2020-01"
@@ -117,7 +117,7 @@ class TestListarArquivos:
             return httpx.Response(207, text=xml_mes)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        cliente = ClienteRFB(_config(), http=http)
+        cliente = ClienteRFB(_configuracao(), http=http)
 
         arquivos = cliente.listar_arquivos("2026-09")
 
@@ -125,12 +125,12 @@ class TestListarArquivos:
         assert all(not a.nome.startswith("Socios") for a in arquivos)
 
 
-class TestBaixarComRetry:
+class TestBaixarComRetentativas:
     def test_host_fora_da_allowlist_e_recusado(self, tmp_path: Path) -> None:
         http = httpx.Client(transport=httpx.MockTransport(_sem_chamadas))
 
-        with pytest.raises(HostNaoPermitidoError):
-            baixar_com_retry(
+        with pytest.raises(HostNaoPermitidoErro):
+            baixar_com_retentativas(
                 http,
                 "https://host-nao-permitido.example.com/arquivo.zip",
                 tmp_path / "arquivo.zip",
@@ -147,8 +147,8 @@ class TestBaixarComRetry:
         )
         destino = tmp_path / "Empresas0.zip"
 
-        with pytest.raises(TamanhoDivergenteError) as exc_info:
-            baixar_com_retry(
+        with pytest.raises(TamanhoDivergenteErro) as exc_info:
+            baixar_com_retentativas(
                 http,
                 "https://arquivos.receitafederal.gov.br/x.zip",
                 destino,
@@ -163,15 +163,15 @@ class TestBaixarComRetry:
         assert not destino.exists()
         assert not (tmp_path / "Empresas0.zip.part").exists()
 
-    def test_tres_falhas_leva_download_error_citando_arquivo(self, tmp_path: Path) -> None:
+    def test_tres_falhas_leva_baixa_arquivo_erro_citando_arquivo(self, tmp_path: Path) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("falha de rede", request=request)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
         sonos = []
 
-        with pytest.raises(DownloadError) as exc_info:
-            baixar_com_retry(
+        with pytest.raises(BaixaArquivoErro) as exc_info:
+            baixar_com_retentativas(
                 http,
                 "https://arquivos.receitafederal.gov.br/Empresas0.zip",
                 tmp_path / "Empresas0.zip",
@@ -182,7 +182,7 @@ class TestBaixarComRetry:
             )
 
         assert "Empresas0.zip" in str(exc_info.value)
-        assert sonos == [1, 2]  # backoff exponencial entre as 3 tentativas
+        assert sonos == [1, 2]  # recuo exponencial entre as 3 tentativas
         assert not (tmp_path / "Empresas0.zip.part").exists()
 
     def test_sucesso_apos_duas_falhas(self, tmp_path: Path) -> None:
@@ -198,7 +198,7 @@ class TestBaixarComRetry:
         http = httpx.Client(transport=httpx.MockTransport(handler))
         destino = tmp_path / "Empresas0.zip"
 
-        resultado = baixar_com_retry(
+        resultado = baixar_com_retentativas(
             http,
             "https://arquivos.receitafederal.gov.br/Empresas0.zip",
             destino,
@@ -219,8 +219,8 @@ class TestBaixarComRetry:
         parcial.write_bytes(conteudo_completo[:4])
 
         def handler(request: httpx.Request) -> httpx.Response:
-            range_header = request.headers.get("range")
-            assert range_header == "bytes=4-"
+            cabecalho_range = request.headers.get("range")
+            assert cabecalho_range == "bytes=4-"
             return httpx.Response(
                 206,
                 content=conteudo_completo[4:],
@@ -229,7 +229,7 @@ class TestBaixarComRetry:
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
 
-        resultado = baixar_com_retry(
+        resultado = baixar_com_retentativas(
             http,
             "https://arquivos.receitafederal.gov.br/Empresas0.zip",
             destino,
@@ -266,13 +266,13 @@ class TestBaixarComRetry:
             )
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        # 1a tentativa: inicio_janela=0.0, agora=100.0 apos escrever o unico chunk (10 B em
+        # 1a tentativa: inicio_janela=0.0, agora=100.0 apos escrever o unico pedaco (10 B em
         # 100s = 0.1 B/s, abaixo do minimo) -> aborta com progresso (10 B gravados).
         # 2a tentativa (retomada via Range): inicio_janela=100.0, agora=100.0 -> sem estouro
         # de janela, conclui com sucesso.
         relogios = iter([0.0, 100.0, 100.0, 100.0])
 
-        resultado = baixar_com_retry(
+        resultado = baixar_com_retentativas(
             http,
             "https://arquivos.receitafederal.gov.br/Empresas0.zip",
             destino,
@@ -303,14 +303,14 @@ class TestBaixarComRetry:
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
         # A janela sempre estoura (agora - inicio >= janela) com taxa abaixo do mínimo, então
-        # toda tentativa levanta VelocidadeBaixaError -- mas grava 1 byte antes de abortar, o
+        # toda tentativa levanta VelocidadeBaixaErro -- mas grava 1 byte antes de abortar, o
         # que reseta o contador de tentativas sem progresso a cada vez. Com `tentativas=2` isso
         # ultrapassaria o limite se o contador não fosse resetado; o relógio se esgota primeiro,
         # provando que o laço não parou em 2 tentativas.
         relogios = iter([0.0, 100.0] * 4)
 
         with pytest.raises(StopIteration):
-            baixar_com_retry(
+            baixar_com_retentativas(
                 http,
                 "https://arquivos.receitafederal.gov.br/Empresas0.zip",
                 destino,
@@ -326,7 +326,7 @@ class TestBaixarComRetry:
         assert chamadas["n"] > 2
 
     def test_velocidade_baixa_error_mensagem(self) -> None:
-        erro = VelocidadeBaixaError(taxa_bps=100.0, minima_bps=1000.0, janela_s=60.0)
+        erro = VelocidadeBaixaErro(taxa_bps=100.0, minima_bps=1000.0, janela_s=60.0)
         assert "100" in str(erro)
         assert "1000" in str(erro)
 
@@ -336,14 +336,14 @@ URL_ZIP = "https://arquivos.receitafederal.gov.br/Empresas0.zip"
 
 
 def _baixar(http: httpx.Client, destino: Path, **kw: object) -> Path:
-    args: dict[str, object] = dict(
+    argumentos: dict[str, object] = dict(
         tamanho_esperado=None,
         tentativas=3,
         hosts_permitidos=HOSTS,
         dormir=lambda _s: None,
     )
-    args.update(kw)
-    return baixar_com_retry(http, URL_ZIP, destino, **args)
+    argumentos.update(kw)
+    return baixar_com_retentativas(http, URL_ZIP, destino, **argumentos)
 
 
 class TestResiliencia:
@@ -363,7 +363,7 @@ class TestResiliencia:
             return httpx.Response(206 if "range" in request.headers else 200, stream=_Cai())
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        with pytest.raises(DownloadError) as exc_info:
+        with pytest.raises(BaixaArquivoErro) as exc_info:
             _baixar(
                 http, tmp_path / "Empresas0.zip", tentativas=3, max_retomadas=7, dormir=sonos.append
             )
@@ -382,12 +382,12 @@ class TestResiliencia:
         http = httpx.Client(transport=httpx.MockTransport(handler))
         relogio_total = iter([0.0, 10.0, 20.0, 5000.0])
 
-        with pytest.raises(DownloadError) as exc_info:
+        with pytest.raises(BaixaArquivoErro) as exc_info:
             _baixar(
                 http,
                 tmp_path / "Empresas0.zip",
                 tentativas=100,
-                timeout_total_s=100.0,
+                tempo_limite_total_s=100.0,
                 relogio_total=lambda: next(relogio_total),
             )
 
@@ -400,15 +400,15 @@ class TestResiliencia:
         )
         relogio_total = iter([0.0, 999.0])
 
-        with pytest.raises(DownloadError, match="tempo total"):
+        with pytest.raises(BaixaArquivoErro, match="tempo total"):
             _baixar(
                 http,
                 tmp_path / "Empresas0.zip",
-                timeout_total_s=10.0,
+                tempo_limite_total_s=10.0,
                 relogio_total=lambda: next(relogio_total),
             )
 
-    def test_backoff_tambem_apos_tentativa_com_progresso(self, tmp_path: Path) -> None:
+    def test_recuo_tambem_apos_tentativa_com_progresso(self, tmp_path: Path) -> None:
         conteudo = b"0123456789"
         chamadas = {"n": 0}
         sonos: list[float] = []
@@ -441,13 +441,13 @@ class TestResiliencia:
             return httpx.Response(404)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        with pytest.raises(DownloadError, match="Empresas0.zip"):
+        with pytest.raises(BaixaArquivoErro, match="Empresas0.zip"):
             _baixar(http, tmp_path / "Empresas0.zip")
         assert chamadas["n"] == 1
 
 
 class TestIfRange:
-    def test_retomada_envia_if_range_com_o_validador_do_inicio_do_download(
+    def test_retomada_envia_if_range_com_o_validador_do_inicio_do_baixa(
         self, tmp_path: Path
     ) -> None:
         conteudo = b"0123456789"
@@ -550,7 +550,7 @@ class TestPropfindResiliente:
             return httpx.Response(207, text=xml)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        cliente = ClienteRFB(_config(), http=http, dormir=sonos.append)
+        cliente = ClienteRFB(_configuracao(), http=http, dormir=sonos.append)
 
         assert cliente.listar_meses() == ["2026-09"]
         assert chamadas["n"] == 3
@@ -561,9 +561,9 @@ class TestPropfindResiliente:
             raise httpx.ConnectError("[Errno 8] nodename nor servname", request=request)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        cliente = ClienteRFB(_config(), http=http, dormir=lambda _s: None)
+        cliente = ClienteRFB(_configuracao(), http=http, dormir=lambda _s: None)
 
-        with pytest.raises(WebDAVIndisponivelError) as exc_info:
+        with pytest.raises(WebDAVIndisponivelErro) as exc_info:
             cliente.listar_meses()
 
         assert WEBDAV_URL in str(exc_info.value)
@@ -577,9 +577,9 @@ class TestPropfindResiliente:
             return httpx.Response(503)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        cliente = ClienteRFB(_config(tentativas=4), http=http, dormir=lambda _s: None)
+        cliente = ClienteRFB(_configuracao(tentativas=4), http=http, dormir=lambda _s: None)
 
-        with pytest.raises(WebDAVIndisponivelError, match="503"):
+        with pytest.raises(WebDAVIndisponivelErro, match="503"):
             cliente.listar_meses()
         assert chamadas["n"] == 4
 
@@ -591,8 +591,8 @@ class TestPropfindResiliente:
             return httpx.Response(401)
 
         http = httpx.Client(transport=httpx.MockTransport(handler))
-        cliente = ClienteRFB(_config(), http=http, dormir=lambda _s: None)
-        with pytest.raises(WebDAVIndisponivelError):
+        cliente = ClienteRFB(_configuracao(), http=http, dormir=lambda _s: None)
+        with pytest.raises(WebDAVIndisponivelErro):
             cliente.listar_meses()
         assert chamadas["n"] == 1
 
@@ -610,12 +610,14 @@ class TestTamanhoAusente:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(207, text=raiz if str(request.url) == WEBDAV_URL else mes)
 
-        cliente = ClienteRFB(_config(), http=httpx.Client(transport=httpx.MockTransport(handler)))
+        cliente = ClienteRFB(
+            _configuracao(), http=httpx.Client(transport=httpx.MockTransport(handler))
+        )
 
         assert cliente.listar_arquivos("2026-09") == [ArquivoRemoto("Empresas0.zip", None)]
         assert "Empresas0.zip" in capsys.readouterr().err
 
-    def test_download_sem_tamanho_esperado_nao_checa_tamanho(self, tmp_path: Path) -> None:
+    def test_baixa_sem_tamanho_esperado_nao_checa_tamanho(self, tmp_path: Path) -> None:
         http = httpx.Client(
             transport=httpx.MockTransport(lambda r: httpx.Response(200, content=b"ab"))
         )

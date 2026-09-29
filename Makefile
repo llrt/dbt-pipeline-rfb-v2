@@ -1,10 +1,10 @@
-DATA_ROOT ?= $(CURDIR)/data
+RAIZ_DADOS ?= $(CURDIR)/data
 MES ?=
 
-export DATA_ROOT
+export RAIZ_DADOS
 export DBT_PROFILES_DIR = $(CURDIR)/transform
 
-.PHONY: setup fixtures ingest ci pipeline docs lint sync report clean
+.PHONY: setup fixtures ingerir ci pipeline docs lint sincronizar relatorio clean
 
 ## setup: sincroniza dependências Python e pacotes dbt
 setup:
@@ -13,19 +13,19 @@ setup:
 
 ## fixtures: gera fixtures sintéticas RFB/BD em tests/fixtures/generated
 fixtures:
-	uv run python scripts/gen_fixtures.py --saida tests/fixtures/generated
+	uv run python scripts/gerar_fixtures.py --saida tests/fixtures/generated
 
-## ingest: ingesta os dados RFB/BD em DATA_ROOT (rede real, ou --origem-local via ORIGEM_LOCAL)
-ingest:
-	uv run rfb ingest $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
+## ingerir: ingesta os dados RFB/BD em RAIZ_DADOS (rede real, ou --origem-local via ORIGEM_LOCAL)
+ingerir:
+	uv run rfb ingerir $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
 
 ## ci: pipeline local completo sobre fixtures sintéticas, sem rede, em < 120s
-ci: DATA_ROOT := $(CURDIR)/.tmp/ci/data
+ci: RAIZ_DADOS := $(CURDIR)/.tmp/ci/data
 ci:
 	rm -rf .tmp/ci
-	uv run python scripts/gen_fixtures.py --saida .tmp/ci/fixtures
-	uv run rfb ingest --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
-	mkdir -p $(DATA_ROOT)/gold
+	uv run python scripts/gerar_fixtures.py --saida .tmp/ci/fixtures
+	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
+	mkdir -p $(RAIZ_DADOS)/gold
 	cd transform && uv run dbt deps && uv run dbt build --target ci
 	uv run pytest -q tests/integration
 
@@ -38,20 +38,20 @@ pipeline:
 docs:
 	cd transform && uv run dbt docs generate
 
-## lint: ruff + sqlfluff (mkdir -p $(DATA_ROOT): o templater dbt do sqlfluff abre DATA_ROOT/warehouse.duckdb)
+## lint: ruff + sqlfluff (mkdir -p $(RAIZ_DADOS): o templater dbt do sqlfluff abre RAIZ_DADOS/warehouse.duckdb)
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
-	mkdir -p $(DATA_ROOT)
+	mkdir -p $(RAIZ_DADOS)
 	uv run sqlfluff lint transform/models transform/tests
 
-## sync: envia raw/ e gold/ a s3:// (DATA_ROOT precisa ser s3://...; ver docs/adr/0007)
-sync:
-	uv run rfb sync
+## sincronizar: envia raw/ e gold/ a s3:// (RAIZ_DADOS precisa ser s3://...; ver docs/adr/0007)
+sincronizar:
+	uv run rfb sincronizar
 
-## report: gera o relatório do estudo de caso (não implementado — T27)
-report:
-	@echo "report: não implementado (tarefa T27)"
+## relatorio: gera o relatório do estudo de caso (não implementado — T27)
+relatorio:
+	@echo "relatorio: não implementado (tarefa T27)"
 	@exit 2
 
 ## clean: remove artefactos temporais e de build

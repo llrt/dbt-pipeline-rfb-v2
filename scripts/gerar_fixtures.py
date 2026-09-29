@@ -3,7 +3,7 @@
 Reproduz o formato real dos arquivos publicados no WebDAV da RFB para o mês
 2026-09 (zips com um único arquivo interno, latin-1, separador `;`, todos os
 campos entre aspas, fim de linha LF) e os csv.gz da Base dos Dados
-(one-click-download: UTF-8, vírgula, header). Duas execuções produzem bytes
+(one-click-download: UTF-8, vírgula, cabecalho). Duas execuções produzem bytes
 idênticos: timestamps de zip/gzip são fixados e a ordem de escrita é estável.
 
 O cenário de dados (municípios, CNAEs, naturezas, empresas e estabelecimentos)
@@ -26,8 +26,8 @@ DATA_REFERENCIA_TAG = "D60912"  # último dígito do ano (2026 -> 6) + 0912
 ZIP_DATE_TIME = (2026, 9, 12, 0, 0, 0)
 GZIP_MTIME = 0
 
-ENCODING_RFB = "latin-1"
-ENCODING_BD = "utf-8"
+CODIFICACAO_RFB = "latin-1"
+CODIFICACAO_BD = "utf-8"
 
 
 def calcular_dv_cnpj(base12: str) -> str:
@@ -54,9 +54,9 @@ def dv_invalido(dv_correto: str) -> str:
 
 
 def _escrever_csv_rfb(colunas: list[str], linhas: list[list[str]]) -> bytes:
-    buffer = io.StringIO(newline="")
+    memoria_intermediaria = io.StringIO(newline="")
     writer = csv.writer(
-        buffer,
+        memoria_intermediaria,
         delimiter=";",
         quotechar='"',
         quoting=csv.QUOTE_ALL,
@@ -64,7 +64,7 @@ def _escrever_csv_rfb(colunas: list[str], linhas: list[list[str]]) -> bytes:
     )
     for linha in linhas:
         writer.writerow(linha)
-    return buffer.getvalue().encode(ENCODING_RFB)
+    return memoria_intermediaria.getvalue().encode(CODIFICACAO_RFB)
 
 
 def _escrever_zip(destino: Path, nome_interno: str, conteudo: bytes) -> None:
@@ -86,16 +86,20 @@ def gerar_zip_rfb(
 
 
 def gerar_csv_gz_bd(
-    saida_dir: Path, nome_tabela: str, header: list[str], linhas: list[list[str]]
+    saida_dir: Path, nome_tabela: str, cabecalho: list[str], linhas: list[list[str]]
 ) -> Path:
-    buffer = io.StringIO(newline="")
+    memoria_intermediaria = io.StringIO(newline="")
     writer = csv.writer(
-        buffer, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL, lineterminator="\n"
+        memoria_intermediaria,
+        delimiter=",",
+        quotechar='"',
+        quoting=csv.QUOTE_MINIMAL,
+        lineterminator="\n",
     )
-    writer.writerow(header)
+    writer.writerow(cabecalho)
     for linha in linhas:
         writer.writerow(linha)
-    conteudo = buffer.getvalue().encode(ENCODING_BD)
+    conteudo = memoria_intermediaria.getvalue().encode(CODIFICACAO_BD)
 
     destino = saida_dir / "bd" / f"{nome_tabela}.csv.gz"
     destino.parent.mkdir(parents=True, exist_ok=True)
@@ -448,10 +452,10 @@ _RAIZES_MEI = {"11111111", "33333333"}
 
 
 # ---------------------------------------------------------------------------
-# Base dos Dados — csv.gz (UTF-8, vírgula, header)
+# Base dos Dados — csv.gz (UTF-8, vírgula, cabecalho)
 # ---------------------------------------------------------------------------
 
-HEADER_MUNICIPIO_BD = [
+CABECALHO_MUNICIPIO_BD = [
     "id_municipio",
     "id_municipio_6",
     "id_municipio_tse",
@@ -657,10 +661,10 @@ def gerar_municipio_bd(saida_dir: Path) -> Path:
                 m["centroide"],
             ]
         )
-    return gerar_csv_gz_bd(saida_dir, "municipio", HEADER_MUNICIPIO_BD, linhas)
+    return gerar_csv_gz_bd(saida_dir, "municipio", CABECALHO_MUNICIPIO_BD, linhas)
 
 
-HEADER_CNAE2_BD = [
+CABECALHO_CNAE2_BD = [
     "subclasse",
     "descricao_subclasse",
     "classe",
@@ -770,10 +774,10 @@ def gerar_cnae2_bd(saida_dir: Path) -> Path:
                 "true",
             ]
         )
-    return gerar_csv_gz_bd(saida_dir, "cnae_2", HEADER_CNAE2_BD, linhas)
+    return gerar_csv_gz_bd(saida_dir, "cnae_2", CABECALHO_CNAE2_BD, linhas)
 
 
-HEADER_POPULACAO_BD = ["ano", "sigla_uf", "id_municipio", "populacao"]
+CABECALHO_POPULACAO_BD = ["ano", "sigla_uf", "id_municipio", "populacao"]
 
 _POPULACAO_BD = [
     ("2024", "ES", "3202207", "20000"),
@@ -790,11 +794,11 @@ _POPULACAO_BD = [
 
 def gerar_populacao_bd(saida_dir: Path) -> Path:
     return gerar_csv_gz_bd(
-        saida_dir, "populacao", HEADER_POPULACAO_BD, [list(r) for r in _POPULACAO_BD]
+        saida_dir, "populacao", CABECALHO_POPULACAO_BD, [list(r) for r in _POPULACAO_BD]
     )
 
 
-HEADER_PIB_BD = [
+CABECALHO_PIB_BD = [
     "id_municipio",
     "ano",
     "pib",
@@ -824,21 +828,21 @@ def gerar_pib_bd(saida_dir: Path) -> Path:
         [id_municipio, "2021", pib, impostos, va, agro, industria, servicos, adespss]
         for id_municipio, pib, impostos, va, agro, industria, servicos, adespss in _PIB_BD
     ]
-    return gerar_csv_gz_bd(saida_dir, "pib", HEADER_PIB_BD, linhas)
+    return gerar_csv_gz_bd(saida_dir, "pib", CABECALHO_PIB_BD, linhas)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Gera fixtures sintéticas RFB/BD.")
-    parser.add_argument(
+    analisador = argparse.ArgumentParser(description="Gera fixtures sintéticas RFB/BD.")
+    analisador.add_argument(
         "--saida",
         type=Path,
         default=Path("tests/fixtures/generated"),
         help="Diretório de saída (default: tests/fixtures/generated)",
     )
-    args = parser.parse_args(argv)
+    argumentos = analisador.parse_args(argv)
 
-    gerar_fixtures(args.saida)
-    print(f"fixtures geradas em {args.saida}")
+    gerar_fixtures(argumentos.saida)
+    print(f"fixtures geradas em {argumentos.saida}")
     return 0
 
 

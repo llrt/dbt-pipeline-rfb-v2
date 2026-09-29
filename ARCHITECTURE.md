@@ -30,8 +30,8 @@ flowchart LR
       INT[intermediate<br/>enriquecimento]
       ORI[marts/original<br/>bh_empresas, agg_empresas]
       CORE[marts/core<br/>dims + fato + bridge]
-      ANA[marts/analises<br/>densidade, sobrevivência,<br/>dinâmica, fornecedores]
-      OBS[observabilidade<br/>histórico DQ]
+      ANA[marts/analytics<br/>densidade, sobrevivência,<br/>dinâmica, fornecedores]
+      OBS[observability<br/>histórico DQ]
     end
     GOLD[(gold/ — Parquet<br/>external materialization)]
     REP[relatório estudo de caso<br/>+ relatório DQ + dbt docs]
@@ -63,7 +63,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 | Pacotes dbt | `dbt_utils`, `dbt_expectations` (metaplane), `dbt_audit_helper` (opcional) | últimos compatíveis | testes genéricos prontos ([ADR-0009](docs/adr/0009-estrategia-testes.md)) |
 | Testes Python | pytest (+ `httpx.MockTransport`, `moto[server]`) | — | ingestão e storage sem rede real |
 | Lint | sqlfluff (templater dbt/jinja) + ruff | — | padrão de estilo SQL/Python |
-| Armazenamento | FS local (`DATA_ROOT`) ou S3/Tigris | — | local-first ([ADR-0007](docs/adr/0007-armazenamento-local-s3.md)) |
+| Armazenamento | FS local (`RAIZ_DADOS`) ou S3/Tigris | — | local-first ([ADR-0007](docs/adr/0007-armazenamento-local-s3.md)) |
 
 ## 3. Estrutura do repositório
 
@@ -72,16 +72,16 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 ├── PRODUCT.md  ARCHITECTURE.md  README.md  RETRO.md (final)
 ├── pyproject.toml  uv.lock  Makefile  .env.example  .sqlfluff  .pre-commit-config.yaml
 ├── src/rfb_pipeline/           # EL em Python (pacote instalável, CLI `rfb`)
-│   ├── config.py               # DATA_ROOT, mês de referência, URLs, limiares
-│   ├── schemas.py              # colunas/nomes de cada arquivo RFB e BD (contrato raw)
-│   ├── rfb_client.py           # listagem WebDAV, detecção do último mês, download c/ retry
+│   ├── configuracao.py               # RAIZ_DADOS, mês de referência, URLs, limiares
+│   ├── esquemas.py              # colunas/nomes de cada arquivo RFB e BD (contrato raw)
+│   ├── cliente_rfb.py           # listagem WebDAV, detecção do último mês, download c/ retry
 │   ├── basedosdados.py         # download das tabelas BD
-│   ├── convert.py              # zip → CSV → Parquet (DuckDB), rejeitos, escrita atômica
-│   ├── manifest.py             # manifesto JSON por execução (checksums, contagens)
-│   ├── storage.py              # local vs s3/Tigris (secret DuckDB, sync boto3)
+│   ├── conversao.py              # zip → CSV → Parquet (DuckDB), rejeitos, escrita atômica
+│   ├── manifesto.py             # manifesto JSON por execução (checksums, contagens)
+│   ├── armazenamento.py              # local vs s3/Tigris (secret DuckDB, sync boto3)
 │   ├── report.py               # relatório do estudo de caso e de DQ (Markdown)
-│   └── cli.py                  # rfb ingest | sync | pipeline | report
-├── scripts/gen_fixtures.py     # gera fixtures sintéticas no formato RFB/BD
+│   └── cli.py                  # rfb ingerir | sync | pipeline | report
+├── scripts/gerar_fixtures.py     # gera fixtures sintéticas no formato RFB/BD
 ├── tests/                      # pytest: unit/ e integration/
 │   └── fixtures/               # (gerado) zips/csv.gz sintéticos
 ├── transform/                  # PROJETO dbt
@@ -91,13 +91,13 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   │   ├── intermediate/
 │   │   ├── marts/original/     # bh_empresas, agg_empresas (+ paridade)
 │   │   ├── marts/core/         # dims, fato, bridge            (adição)
-│   │   ├── marts/analises/     # marts analíticos              (adição)
-│   │   └── observabilidade/    # histórico e resumo de DQ      (adição)
+│   │   ├── marts/analytics/     # marts analíticos              (adição)
+│   │   └── observability/    # histórico e resumo de DQ      (adição)
 │   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso)
-├── data/ (gitignored)          # DATA_ROOT padrão
+├── data/ (gitignored)          # RAIZ_DADOS padrão
 │   ├── raw/rfb/<entidade>/mes_referencia=YYYY-MM/*.parquet
 │   ├── raw/bd/<tabela>/*.parquet
-│   ├── raw/_rejeitos/  _manifests/  _downloads/ (cache de zips)
+│   ├── raw/_rejeitos/  _manifestos/  _baixados/ (cache de zips)
 │   ├── gold/<modelo>.parquet
 │   └── warehouse.duckdb
 └── docs/  adr/  guia-dbt/  ESCOPO.md  QUALIDADE_DADOS.md  PLANO.md  referencia-original/
@@ -138,7 +138,7 @@ mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
 - **Idempotência:** o manifesto guarda tamanho/sha256 de cada zip e contagens por entidade; reexecutar o
   mesmo mês com os mesmos zips não reprocessa (a menos que `--force`).
 
-### 4.3 Manifesto (`_manifests/<mes>.json`)
+### 4.3 Manifesto (`_manifestos/<mes>.json`)
 
 ```json
 {"mes_referencia": "2026-09", "data_referencia": "2026-09-12", "iniciado_em": "...", "concluido_em": "...",
@@ -151,14 +151,14 @@ mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
 
 | Cenário | Tratamento |
 |---|---|
-| Rede/timeout/5xx | Backoff exponencial entre tentativas (também após tentativas com progresso); download retoma via `Range` + `If-Range` (ETag/Last-Modified); encerra após 3 falhas seguidas sem progresso (`tentativas`), `RFB_MAX_RETOMADAS` (50) falhas no total ou `RFB_TIMEOUT_TOTAL_S` (3600 s), com mensagem citando arquivo e URL; PROPFIND usa o mesmo retry; exit 1 sem traceback |
+| Rede/timeout/5xx | Backoff exponencial entre tentativas (também após tentativas com progresso); download retoma via `Range` + `If-Range` (ETag/Last-Modified); encerra após 3 falhas seguidas sem progresso (`tentativas`), `RFB_MAX_RETOMADAS` (50) falhas no total ou `RFB_TEMPO_LIMITE_TOTAL_S` (3600 s), com mensagem citando arquivo e URL; PROPFIND usa o mesmo retry; exit 1 sem traceback |
 | Tamanho baixado ≠ `getcontentlength` do WebDAV | apaga o arquivo e falha (sem conversão) |
 | Zip corrompido | falha antes de converter; nada é escrito em `raw/` |
 | Mês inexistente | erro explícito listando os meses disponíveis |
 | Taxa de rejeito acima do limiar | falha; rejeitos ficam gravados para auditoria |
-| Credenciais S3 ausentes com `DATA_ROOT=s3://` | falha imediata com mensagem indicando as variáveis faltantes (também no dbt: o profile `s3` não tem padrão para `AWS_*`) |
+| Credenciais S3 ausentes com `RAIZ_DADOS=s3://` | falha imediata com mensagem indicando as variáveis faltantes (também no dbt: o profile `s3` não tem padrão para `AWS_*`) |
 | Mês incompleto (faltam `Empresas0–9`, `Estabelecimentos0–9`, `Simples` ou um dos 6 domínios) | sem `--mes` usa o mais recente completo (avisa o ignorado); com `--mes` falha listando os faltantes; `--permitir-incompleto` aceita (usado no `make ci`) |
-| Segunda `rfb ingest` simultânea | falha com "execução em andamento" (lock `DATA_ROOT/_estado/rfb.lock`); a limpeza de resíduos só roda com o lock |
+| Segunda `rfb ingerir` simultânea | falha com "execução em andamento" (lock `RAIZ_DADOS/_estado/rfb.lock`); a limpeza de resíduos só roda com o lock |
 | `_data_referencia` nula | aviso explícito por arquivo e ao fim; manifesto grava `data_referencia: null` |
 
 ### 4.5 Atualização mensal ([ADR-0012](docs/adr/0012-atualizacao-mensal.md)) — melhoria
@@ -190,15 +190,15 @@ flowchart LR
 | Intermediate | `models/intermediate/` | `table` | `int_<entidade>__<verbo>` | variável |
 | Original | `models/marts/original/` | `external` (Parquet em `gold/`) | nomes do original: `bh_empresas`, `agg_empresas` | estabelecimento / estrato |
 | Core (adição) | `models/marts/core/` | `external` | `dim_*`, `fct_*`, `bridge_*` | estrela |
-| Análises (adição) | `models/marts/analises/` | `external` | `mart_*` | por pergunta |
-| Observabilidade (adição) | `models/observabilidade/` | `table`/`incremental` | `dq_*` | execução × teste |
+| Análises (adição) | `models/marts/analytics/` | `external` | `mart_*` | por pergunta |
+| Observabilidade (adição) | `models/observability/` | `table`/`incremental` | `dq_*` | execução × teste |
 
 - Colunas em `snake_case` minúsculo (o original usava `CNAE_principal`, `UF`; DuckDB é case-insensitive,
   mas padronizamos). Mapeamento de nomes em [docs/ESCOPO.md](docs/ESCOPO.md).
 - Todo modelo declara `meta: {escopo: original | adicao | adaptado}` e a tag correspondente
   (`escopo_original`, `escopo_adicao`, `escopo_adaptado`) — [ADR-0006](docs/adr/0006-marcacao-escopo.md).
 - Marts `original` e `core` têm **contrato** (`contract: enforced: true`) com tipos declarados.
-- `external_location` das fontes e `location` dos marts derivam de `env_var('DATA_ROOT', '../data')`.
+- `external_location` das fontes e `location` dos marts derivam de `env_var('RAIZ_DADOS', '../data')`.
 
 ### 5.2 Variáveis (`dbt_project.yml`)
 
@@ -306,18 +306,18 @@ Severidade: estrutura (PK, contratos, relacionamentos no core, paridade) = `erro
 |---|---|
 | `make setup` | `uv sync` + `dbt deps` |
 | `make fixtures` | gera fixtures sintéticas em `tests/fixtures/` |
-| `make ci` | fixtures → `rfb ingest --origem-local tests/fixtures` → `dbt build --target ci` → pytest integração (tudo em `DATA_ROOT` temporário) |
+| `make ci` | fixtures → `rfb ingerir --origem-local tests/fixtures` → `dbt build --target ci` → pytest integração (tudo em `RAIZ_DADOS` temporário) |
 | `make pipeline MES=2026-09` | dados reais: ingest → `dbt source freshness` → `dbt build` → relatórios |
 | `make docs` | `dbt docs generate` (+ `serve`) |
 | `make lint` | ruff + sqlfluff |
-| `make sync` | envia `raw/` e `gold/` para `s3://` (Tigris) |
+| `make sincronizar` | envia `raw/` e `gold/` para `s3://` (Tigris) |
 | `make atualizar` | `rfb atualizar`: processa o mês novo mais recente, se houver (ADR-0012) |
 
 Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local),
-`s3` (`DATA_ROOT=s3://...`; fontes e `gold/` no bucket, mas o `warehouse.duckdb` e os temporários ficam em
-`DATA_ROOT_LOCAL`; secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente, sem padrão).
+`s3` (`RAIZ_DADOS=s3://...`; fontes e `gold/` no bucket, mas o `warehouse.duckdb` e os temporários ficam em
+`RAIZ_DADOS_LOCAL`; secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente, sem padrão).
 
-**Fluxo S3 (ADR-0007):** `rfb ingest` (local, `DATA_ROOT_LOCAL`) → `rfb sync` (`raw/` e `gold/`, comparação por
+**Fluxo S3 (ADR-0007):** `rfb ingerir` (local, `RAIZ_DADOS_LOCAL`) → `rfb sincronizar` (`raw/` e `gold/`, comparação por
 tamanho + sha256) → `dbt build --target s3`. Variáveis vazias equivalem a ausentes; ver `.env.example`.
 
 ## 8. Segurança e privacidade

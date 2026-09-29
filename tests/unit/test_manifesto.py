@@ -4,8 +4,8 @@ import hashlib
 import time
 from pathlib import Path
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.manifest import (
+from rfb_pipeline.configuracao import Configuracao
+from rfb_pipeline.manifesto import (
     ArquivoManifesto,
     Manifesto,
     caminho_manifesto,
@@ -16,8 +16,8 @@ from rfb_pipeline.manifest import (
 )
 
 
-def _config(data_root: Path) -> Config:
-    return Config(data_root=data_root, data_root_uri=str(data_root))
+def _configuracao(raiz_dados: Path) -> Configuracao:
+    return Configuracao(raiz_dados=raiz_dados, raiz_dados_uri=str(raiz_dados))
 
 
 def _manifesto_empresas(
@@ -51,7 +51,7 @@ def test_sha256_arquivo_e_deterministico_e_confere_com_hashlib(tmp_path: Path) -
 
 
 def test_manifesto_tem_os_campos_exigidos_e_resumo_por_entidade(tmp_path: Path) -> None:
-    config = _config(tmp_path)
+    configuracao = _configuracao(tmp_path)
     arquivos = (
         ArquivoManifesto(
             nome="Empresas0.zip",
@@ -80,10 +80,10 @@ def test_manifesto_tem_os_campos_exigidos_e_resumo_por_entidade(tmp_path: Path) 
         arquivos=arquivos,
     )
 
-    caminho = escrever_manifesto(config, manifesto)
+    caminho = escrever_manifesto(configuracao, manifesto)
 
-    assert caminho == caminho_manifesto(config, "2026-09")
-    lido = ler_manifesto(config, "2026-09")
+    assert caminho == caminho_manifesto(configuracao, "2026-09")
+    lido = ler_manifesto(configuracao, "2026-09")
     assert lido == manifesto
     assert lido.entidades == {
         "empresas": {"linhas": 14, "rejeitadas": 0},
@@ -96,20 +96,20 @@ def test_manifesto_tem_os_campos_exigidos_e_resumo_por_entidade(tmp_path: Path) 
 
 
 def test_ler_manifesto_inexistente_retorna_none(tmp_path: Path) -> None:
-    assert ler_manifesto(_config(tmp_path), "2026-09") is None
+    assert ler_manifesto(_configuracao(tmp_path), "2026-09") is None
 
 
 def test_precisa_reconverter_sem_manifesto_anterior(tmp_path: Path) -> None:
     assert precisa_reconverter(
-        _config(tmp_path), None, "empresas", "2026-09", [("Empresas0.zip", 1, "x")]
+        _configuracao(tmp_path), None, "empresas", "2026-09", [("Empresas0.zip", 1, "x")]
     )
 
 
 def test_precisa_reconverter_pula_quando_zips_identicos_e_particao_existe(
     tmp_path: Path,
 ) -> None:
-    config = _config(tmp_path)
-    particao = config.raw_dir / "rfb" / "empresas" / "mes_referencia=2026-09"
+    configuracao = _configuracao(tmp_path)
+    particao = configuracao.raw_dir / "rfb" / "empresas" / "mes_referencia=2026-09"
     particao.mkdir(parents=True)
     parquet = particao / "part-Empresas0.parquet"
     parquet.write_bytes(b"conteudo")
@@ -118,7 +118,7 @@ def test_precisa_reconverter_pula_quando_zips_identicos_e_particao_existe(
     manifesto = _manifesto_empresas()
 
     resultado = precisa_reconverter(
-        config, manifesto, "empresas", "2026-09", [("Empresas0.zip", 1, "x")]
+        configuracao, manifesto, "empresas", "2026-09", [("Empresas0.zip", 1, "x")]
     )
 
     assert resultado is False
@@ -127,36 +127,36 @@ def test_precisa_reconverter_pula_quando_zips_identicos_e_particao_existe(
 
 
 def test_precisa_reconverter_quando_zip_mudou_de_tamanho_ou_hash(tmp_path: Path) -> None:
-    config = _config(tmp_path)
-    (config.raw_dir / "rfb" / "empresas" / "mes_referencia=2026-09").mkdir(parents=True)
+    configuracao = _configuracao(tmp_path)
+    (configuracao.raw_dir / "rfb" / "empresas" / "mes_referencia=2026-09").mkdir(parents=True)
     manifesto = _manifesto_empresas()
 
     assert precisa_reconverter(
-        config, manifesto, "empresas", "2026-09", [("Empresas0.zip", 2, "y")]
+        configuracao, manifesto, "empresas", "2026-09", [("Empresas0.zip", 2, "y")]
     )
 
 
 def test_precisa_reconverter_quando_particao_nao_existe_em_disco(tmp_path: Path) -> None:
-    config = _config(tmp_path)
+    configuracao = _configuracao(tmp_path)
     manifesto = _manifesto_empresas()
 
     assert precisa_reconverter(
-        config, manifesto, "empresas", "2026-09", [("Empresas0.zip", 1, "x")]
+        configuracao, manifesto, "empresas", "2026-09", [("Empresas0.zip", 1, "x")]
     )
 
 
-def test_precisa_reconverter_force_sempre_reconverte(tmp_path: Path) -> None:
-    config = _config(tmp_path)
-    (config.raw_dir / "rfb" / "empresas" / "mes_referencia=2026-09").mkdir(parents=True)
+def test_precisa_reconverter_forcar_sempre_reconverte(tmp_path: Path) -> None:
+    configuracao = _configuracao(tmp_path)
+    (configuracao.raw_dir / "rfb" / "empresas" / "mes_referencia=2026-09").mkdir(parents=True)
     manifesto = _manifesto_empresas()
 
     assert precisa_reconverter(
-        config,
+        configuracao,
         manifesto,
         "empresas",
         "2026-09",
         [("Empresas0.zip", 1, "x")],
-        force=True,
+        forcar=True,
     )
 
 

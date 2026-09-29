@@ -1,7 +1,7 @@
 """CLI de linha de comando do pipeline RFB/CNPJ.
 
-`rfb ingest` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sync` publica raw/gold no
-S3/Tigris (T11). `pipeline` e `report` ainda são stubs (T28, T27).
+`rfb ingerir` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sincronizar` publica
+raw/gold no S3/Tigris (T11). `pipeline` e `relatorio` ainda são stubs (T28, T27).
 """
 
 from __future__ import annotations
@@ -16,54 +16,54 @@ from pathlib import Path
 
 import httpx
 
+from rfb_pipeline.armazenamento import sincronizar
 from rfb_pipeline.basedosdados import baixar_tabelas_bd
-from rfb_pipeline.config import Config, carregar_config
-from rfb_pipeline.convert import converter_entidade_rfb, converter_tabela_bd
-from rfb_pipeline.errors import ErroIngestao, MesIncompletoError, MesInexistenteError
-from rfb_pipeline.manifest import (
-    ArquivoManifesto,
-    Manifesto,
-    escrever_manifesto,
-    ler_manifesto,
-    lock_execucao,
-    precisa_reconverter,
-    sha256_arquivo,
-)
-from rfb_pipeline.rfb_client import ArquivoRemoto, ClienteRFB
-from rfb_pipeline.schemas import (
+from rfb_pipeline.cliente_rfb import ArquivoRemoto, ClienteRFB
+from rfb_pipeline.configuracao import Configuracao, carregar_configuracao
+from rfb_pipeline.conversao import converter_entidade_rfb, converter_tabela_bd
+from rfb_pipeline.erros import ErroIngestao, MesIncompletoErro, MesInexistenteErro
+from rfb_pipeline.esquemas import (
     ENTIDADES_RFB,
     TABELAS_BD,
     EntidadeRFB,
     arquivos_faltantes,
     entidade_do_zip,
 )
-from rfb_pipeline.storage import sincronizar
+from rfb_pipeline.manifesto import (
+    ArquivoManifesto,
+    Manifesto,
+    escrever_manifesto,
+    ler_manifesto,
+    precisa_reconverter,
+    sha256_arquivo,
+    trava_execucao,
+)
 
-EXIT_NO_IMPL = 2
+SAIDA_NAO_IMPLEMENTADA = 2
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")
 
 
 def _no_implementado(nome: str) -> None:
     print(f"{nome}: não implementado")
-    sys.exit(EXIT_NO_IMPL)
+    sys.exit(SAIDA_NAO_IMPLEMENTADA)
 
 
-# --------------------------------------------------------------------------- ingest
+# ---------------------------------------------------------------------------- ingerir
 
 
 def _aviso(mensagem: str) -> None:
     print(f"aviso: {mensagem}", file=sys.stderr)
 
 
-def _limpar_residuos(config: Config) -> None:
-    """Remove resíduos de execuções interrompidas. Só chamar com o lock de execução."""
+def _limpar_residuos(configuracao: Configuracao) -> None:
+    """Remove resíduos de execuções interrompidas. Só chamar com a trava de execução."""
     residuos: list[Path] = []
-    if config.raw_dir.is_dir():
+    if configuracao.raw_dir.is_dir():
         for padrao in (".tmp-*", ".old-*"):
-            residuos.extend(config.raw_dir.rglob(padrao))
-    if config.manifests_dir.is_dir():
-        residuos.extend(config.manifests_dir.glob(".tmp-*"))
-    tmp_dir = config.data_root / "_tmp"
+            residuos.extend(configuracao.raw_dir.rglob(padrao))
+    if configuracao.manifestos_dir.is_dir():
+        residuos.extend(configuracao.manifestos_dir.glob(".tmp-*"))
+    tmp_dir = configuracao.raiz_dados / "_tmp"
     if tmp_dir.is_dir():
         residuos.extend(tmp_dir.glob("extract-*"))
     for residuo in residuos:
@@ -107,15 +107,15 @@ def _resolver_mes(
     )
     if mes is not None:
         if mes not in disponiveis:
-            raise MesInexistenteError(mes, disponiveis)
+            raise MesInexistenteErro(mes, disponiveis)
         faltantes = arquivos_faltantes(_nomes_do_mes(mes, cliente, origem_local))
         if faltantes and not permitir_incompleto:
-            raise MesIncompletoError(mes, faltantes)
+            raise MesIncompletoErro(mes, faltantes)
         if faltantes:
             _aviso(f"mês {mes} incompleto (faltam {len(faltantes)} arquivo(s)); prosseguindo")
         return mes
     if not disponiveis:
-        raise MesInexistenteError("(mais recente)", disponiveis)
+        raise MesInexistenteErro("(mais recente)", disponiveis)
     if permitir_incompleto:
         return disponiveis[-1]
     ignorados: list[tuple[str, list[str]]] = []
@@ -130,7 +130,7 @@ def _resolver_mes(
                 )
             return candidato
         ignorados.append((candidato, faltantes))
-    raise MesIncompletoError(*ignorados[0])
+    raise MesIncompletoErro(*ignorados[0])
 
 
 def _zips_locais_entidade(origem_local: Path, mes: str, entidade: EntidadeRFB) -> list[Path]:
@@ -163,12 +163,12 @@ def _baixar_entidades_remoto(
     return por_entidade
 
 
-def ingest(
-    config: Config,
+def ingerir(
+    configuracao: Configuracao,
     *,
     mes: str | None = None,
     origem_local: Path | None = None,
-    force: bool = False,
+    forcar: bool = False,
     ingerido_em: datetime | None = None,
     permitir_incompleto: bool = False,
 ) -> Manifesto:
@@ -177,37 +177,37 @@ def ingest(
     Levanta `ErroIngestao` (ou subclasses) em qualquer falha; nesse caso a partição anterior de
     cada entidade permanece intacta e nada é gravado para as entidades ainda não convertidas. O
     manifesto é regravado a cada entidade concluída (`concluido_em` fica nulo até o fim). Uma
-    segunda execução simultânea falha com "execução em andamento" (lock em `_estado/rfb.lock`).
+    segunda execução simultânea falha com "execução em andamento" (trava em `_estado/rfb.lock`).
     """
-    with lock_execucao(config):
-        _limpar_residuos(config)
+    with trava_execucao(configuracao):
+        _limpar_residuos(configuracao)
         return _ingerir(
-            config,
+            configuracao,
             mes=mes,
             origem_local=origem_local,
-            force=force,
+            forcar=forcar,
             ingerido_em=ingerido_em,
             permitir_incompleto=permitir_incompleto,
         )
 
 
 def _ingerir(
-    config: Config,
+    configuracao: Configuracao,
     *,
     mes: str | None,
     origem_local: Path | None,
-    force: bool,
+    forcar: bool,
     ingerido_em: datetime | None,
     permitir_incompleto: bool,
 ) -> Manifesto:
     ingerido_em = ingerido_em or datetime.now(UTC)
 
-    cliente = ClienteRFB(config) if origem_local is None else None
+    cliente = ClienteRFB(configuracao) if origem_local is None else None
     mes_resolvido = _resolver_mes(
         mes, cliente, origem_local, permitir_incompleto=permitir_incompleto
     )
 
-    manifesto_anterior = ler_manifesto(config, mes_resolvido)
+    manifesto_anterior = ler_manifesto(configuracao, mes_resolvido)
     data_referencia: date | None = None
     if manifesto_anterior is not None and manifesto_anterior.data_referencia:
         data_referencia = date.fromisoformat(manifesto_anterior.data_referencia)
@@ -215,7 +215,7 @@ def _ingerir(
     remotos_por_entidade: dict[str, list[Path]] | None = None
     if origem_local is None:
         remotos_por_entidade = _baixar_entidades_remoto(
-            cliente, mes_resolvido, config.downloads_dir(mes_resolvido)
+            cliente, mes_resolvido, configuracao.baixados_dir(mes_resolvido)
         )
 
     entradas: list[ArquivoManifesto] = []
@@ -229,7 +229,7 @@ def _ingerir(
             else []
         )
         escrever_manifesto(
-            config,
+            configuracao,
             Manifesto(
                 mes_referencia=mes_resolvido,
                 data_referencia=data_referencia.isoformat() if data_referencia else None,
@@ -253,7 +253,12 @@ def _ingerir(
         zips_atuais = [(p.name, p.stat().st_size, sha256_arquivo(p)) for p in zips]
 
         if not precisa_reconverter(
-            config, manifesto_anterior, entidade.nome, mes_resolvido, zips_atuais, force=force
+            configuracao,
+            manifesto_anterior,
+            entidade.nome,
+            mes_resolvido,
+            zips_atuais,
+            forcar=forcar,
         ):
             reaproveitadas = manifesto_anterior.arquivos_da_entidade(entidade.nome)
             entradas.extend(reaproveitadas)
@@ -267,10 +272,10 @@ def _ingerir(
             continue
 
         resultados = converter_entidade_rfb(
-            zips, entidade, mes_resolvido, config, ingerido_em=ingerido_em
+            zips, entidade, mes_resolvido, configuracao, ingerido_em=ingerido_em
         )
         bytes_por_nome = {nome: b for nome, b, _ in zips_atuais}
-        sha_por_nome = {nome: s for nome, _, s in zips_atuais}
+        sha256_por_nome = {nome: s for nome, _, s in zips_atuais}
         for resultado in resultados:
             if resultado.data_referencia is not None:
                 data_referencia = resultado.data_referencia
@@ -283,11 +288,13 @@ def _ingerir(
                 ArquivoManifesto(
                     nome=resultado.arquivo_origem,
                     bytes=bytes_por_nome[resultado.arquivo_origem],
-                    sha256=sha_por_nome[resultado.arquivo_origem],
+                    sha256=sha256_por_nome[resultado.arquivo_origem],
                     entidade=resultado.entidade,
                     linhas_lidas=resultado.linhas + resultado.linhas_rejeitadas,
                     linhas_rejeitadas=resultado.linhas_rejeitadas,
-                    parquet=tuple(str(p.relative_to(config.data_root)) for p in resultado.parquet),
+                    parquet=tuple(
+                        str(p.relative_to(configuracao.raiz_dados)) for p in resultado.parquet
+                    ),
                 )
             )
         linhas = sum(r.linhas for r in resultados)
@@ -302,12 +309,12 @@ def _ingerir(
     if data_referencia is None:
         _aviso("nenhuma data de referência obtida; data_referencia do manifesto é nula")
 
-    destino_bd = config.downloads_dir(mes_resolvido) / "bd"
-    caminhos_bd = baixar_tabelas_bd(config, destino_bd, origem_local=origem_local)
+    destino_bd = configuracao.baixados_dir(mes_resolvido) / "bd"
+    caminhos_bd = baixar_tabelas_bd(configuracao, destino_bd, origem_local=origem_local)
     for nome_tabela, tabela in TABELAS_BD.items():
         inicio = time.monotonic()
         resultado = converter_tabela_bd(
-            caminhos_bd[nome_tabela], tabela, config, ingerido_em=ingerido_em
+            caminhos_bd[nome_tabela], tabela, configuracao, ingerido_em=ingerido_em
         )
         print(f"bd.{nome_tabela}: {resultado.linhas} linhas, {time.monotonic() - inicio:.1f}s")
 
@@ -318,84 +325,86 @@ def _ingerir(
         concluido_em=datetime.now(UTC).isoformat(),
         arquivos=tuple(entradas),
     )
-    escrever_manifesto(config, manifesto)
+    escrever_manifesto(configuracao, manifesto)
     return manifesto
 
 
-def _cmd_ingest(args: argparse.Namespace) -> int:
-    config = carregar_config()
-    ingest(
-        config,
-        mes=args.mes,
-        origem_local=args.origem_local,
-        force=args.force,
-        permitir_incompleto=args.permitir_incompleto,
+def _cmd_ingerir(argumentos: argparse.Namespace) -> int:
+    configuracao = carregar_configuracao()
+    ingerir(
+        configuracao,
+        mes=argumentos.mes,
+        origem_local=argumentos.origem_local,
+        forcar=argumentos.forcar,
+        permitir_incompleto=argumentos.permitir_incompleto,
     )
     return 0
 
 
-def _cmd_sync(_args: argparse.Namespace) -> int:
-    config = carregar_config()
-    enviados = sincronizar(config)
+def _cmd_sincronizar(_argumentos: argparse.Namespace) -> int:
+    configuracao = carregar_configuracao()
+    enviados = sincronizar(configuracao)
     for chave in enviados:
         print(f"enviado: {chave}")
     print(f"{len(enviados)} objeto(s) enviado(s)")
     return 0
 
 
-def _cmd_pipeline(_args: argparse.Namespace) -> None:
+def _cmd_pipeline(_argumentos: argparse.Namespace) -> None:
     _no_implementado("pipeline")
 
 
-def _cmd_report(_args: argparse.Namespace) -> None:
-    _no_implementado("report")
+def _cmd_relatorio(_argumentos: argparse.Namespace) -> None:
+    _no_implementado("relatorio")
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+def _construir_analisador() -> argparse.ArgumentParser:
+    analisador = argparse.ArgumentParser(
         prog="rfb",
         description="Pipeline ELT RFB/CNPJ (dbt + DuckDB).",
     )
-    sub = parser.add_subparsers(dest="comando", required=True)
+    sub = analisador.add_subparsers(dest="comando", required=True)
 
-    p_ingest = sub.add_parser("ingest", help="Ingesta os dados RFB/BD para a camada raw.")
-    p_ingest.add_argument("--mes", default=None, help="Mês YYYY-MM (padrão: o mais recente).")
-    p_ingest.add_argument(
+    p_ingerir = sub.add_parser("ingerir", help="Ingesta os dados RFB/BD para a camada raw.")
+    p_ingerir.add_argument("--mes", default=None, help="Mês YYYY-MM (padrão: o mais recente).")
+    p_ingerir.add_argument(
         "--origem-local",
         dest="origem_local",
         type=Path,
         default=None,
         help="Usa fixtures locais em vez de baixar da rede (layout <dir>/rfb, <dir>/bd).",
     )
-    p_ingest.add_argument(
-        "--force", action="store_true", help="Reconverte mesmo se o manifesto não mudou."
+    p_ingerir.add_argument(
+        "--forcar", action="store_true", help="Reconverte mesmo se o manifesto não mudou."
     )
-    p_ingest.add_argument(
+    p_ingerir.add_argument(
         "--permitir-incompleto",
         dest="permitir_incompleto",
         action="store_true",
         help="Aceita mês sem todos os arquivos esperados (Empresas0-9, Estabelecimentos0-9, ...).",
     )
-    p_ingest.set_defaults(func=_cmd_ingest)
+    p_ingerir.set_defaults(func=_cmd_ingerir)
 
-    p_sync = sub.add_parser("sync", help="Sincroniza raw/ e gold/ a S3 (não implementado).")
-    p_sync.set_defaults(func=_cmd_sync)
+    p_sincronizar = sub.add_parser(
+        "sincronizar", help="Sincroniza raw/ e gold/ a S3 (não implementado)."
+    )
+    p_sincronizar.set_defaults(func=_cmd_sincronizar)
 
     p_pipeline = sub.add_parser("pipeline", help="Pipeline ponta a ponta (não implementado).")
     p_pipeline.set_defaults(func=_cmd_pipeline)
 
-    p_report = sub.add_parser(
-        "report", help="Gera o relatório do estudo de caso (não implementado)."
+    p_relatorio = sub.add_parser(
+        "relatorio", help="Gera o relatório do estudo de caso (não implementado)."
     )
-    p_report.set_defaults(func=_cmd_report)
+    p_relatorio.set_defaults(func=_cmd_relatorio)
 
-    return parser
+    return analisador
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    argumentos = _construir_analisador().parse_args(argv)
     try:
-        codigo = args.func(args)
+        codigo = argumentos.func(argumentos)
     except ErroIngestao as exc:
         print(str(exc), file=sys.stderr)
         return 1

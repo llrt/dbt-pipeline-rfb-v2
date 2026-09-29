@@ -3,16 +3,16 @@
 Contrato da camada raw: ARCHITECTURE.md §4.2. Pontos principais:
 
 - Leitura CSV via DuckDB `read_csv`, arquivo a arquivo, com `COPY ... TO ... (FORMAT parquet)`:
-  os dados nunca passam pelo Python, e memória/threads/spill vêm da `Config`.
+  os dados nunca passam pelo Python, e memória/threads/spill vêm da `Configuracao`.
 - Todas as colunas de dados como VARCHAR; campos `""` (vazio entre aspas) viram NULL (comportamento
   padrão do DuckDB, mantido de propósito: o staging trata vazio e NULL da mesma forma).
 - Escrita atômica: tudo é gravado num diretório temporário irmão do destino e só então publicado
   por rename, substituindo a partição anterior. Qualquer falha remove o temporário e preserva a
   partição anterior.
-- Rejeitos do parser (`store_rejects`) vão para `raw/_rejeitos/`; acima do limiar a entidade
+- Rejeitos do analisador (`store_rejects`) vão para `raw/_rejeitos/`; acima do limiar a entidade
   não é publicada.
 - Contagem > 0: uma entidade (ou tabela BD) que resulte em 0 linhas no total não é publicada
-  (`EntidadeVaziaError`); um arquivo vazio numa entidade com outros arquivos não vazios só gera
+  (`EntidadeVaziaErro`); um arquivo vazio numa entidade com outros arquivos não vazios só gera
   aviso no log.
 """
 
@@ -31,24 +31,24 @@ from pathlib import Path, PurePosixPath
 
 import duckdb
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import (
-    ConversaoError,
-    EntidadeVaziaError,
+from rfb_pipeline.configuracao import Configuracao
+from rfb_pipeline.erros import (
+    ConversaoErro,
+    EntidadeVaziaErro,
     ErroIngestao,
-    TaxaRejeitoExcedidaError,
-    ZipCorrompidoError,
-    ZipInseguroError,
+    TaxaRejeitoExcedidaErro,
+    ZipCorrompidoErro,
+    ZipInseguroErro,
 )
-from rfb_pipeline.schemas import EntidadeRFB, TabelaBD
+from rfb_pipeline.esquemas import EntidadeRFB, TabelaBD
 
 __all__ = [
-    "ConversaoError",
-    "EntidadeVaziaError",
+    "ConversaoErro",
+    "EntidadeVaziaErro",
     "ResultadoConversao",
-    "TaxaRejeitoExcedidaError",
-    "ZipCorrompidoError",
-    "ZipInseguroError",
+    "TaxaRejeitoExcedidaErro",
+    "ZipCorrompidoErro",
+    "ZipInseguroErro",
     "converter_entidade_rfb",
     "converter_tabela_bd",
     "data_referencia_do_nome",
@@ -83,26 +83,26 @@ def _entrada_insegura(nome: str) -> bool:
     return ".." in PurePosixPath(normalizado).parts
 
 
-def extrair_zip_seguro(zip_path: Path, destino_dir: Path) -> list[Path]:
-    """Extrai os arquivos de `zip_path` em `destino_dir`, recusando zip-slip.
+def extrair_zip_seguro(caminho_zip: Path, destino_dir: Path) -> list[Path]:
+    """Extrai os arquivos de `caminho_zip` em `destino_dir`, recusando zip-slip.
 
     Todas as entradas são validadas antes de qualquer escrita: caminho absoluto, letra de drive ou
     componente `..` (ou qualquer caminho que resolva fora de `destino_dir`) levanta
-    `ZipInseguroError`. A integridade é verificada pelo CRC de cada entrada durante a extração
+    `ZipInseguroErro`. A integridade é verificada pelo CRC de cada entrada durante a extração
     (sem um `testzip` separado, que descomprimiria os ~2 GB de `Estabelecimentos0` duas vezes);
-    zip ilegível ou CRC inválido levanta `ZipCorrompidoError` e remove o que foi extraído.
+    zip ilegível ou CRC inválido levanta `ZipCorrompidoErro` e remove o que foi extraído.
     """
     destino_dir.mkdir(parents=True, exist_ok=True)
     raiz = destino_dir.resolve()
     extraidos: list[Path] = []
     try:
-        with zipfile.ZipFile(zip_path) as zf:
+        with zipfile.ZipFile(caminho_zip) as zf:
             entradas = [info for info in zf.infolist() if not info.is_dir()]
             alvos: list[tuple[zipfile.ZipInfo, Path]] = []
             for info in entradas:
                 alvo = (raiz / info.filename.replace("\\", "/")).resolve()
                 if _entrada_insegura(info.filename) or not alvo.is_relative_to(raiz):
-                    raise ZipInseguroError(str(zip_path), info.filename)
+                    raise ZipInseguroErro(str(caminho_zip), info.filename)
                 alvos.append((info, alvo))
             for info, alvo in alvos:
                 alvo.parent.mkdir(parents=True, exist_ok=True)
@@ -112,7 +112,7 @@ def extrair_zip_seguro(zip_path: Path, destino_dir: Path) -> list[Path]:
     except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError) as exc:
         for caminho in extraidos:
             caminho.unlink(missing_ok=True)
-        raise ZipCorrompidoError(str(zip_path), str(exc) or type(exc).__name__) from exc
+        raise ZipCorrompidoErro(str(caminho_zip), str(exc) or type(exc).__name__) from exc
     return extraidos
 
 
@@ -141,11 +141,11 @@ def data_referencia_do_nome(nome_interno: str, mes_referencia: str) -> date | No
 # ----------------------------------------------------------------------- DuckDB
 
 
-def _lit(valor: str) -> str:
+def _literal(valor: str) -> str:
     return "'" + valor.replace("'", "''") + "'"
 
 
-def _ident(nome: str) -> str:
+def _identificador(nome: str) -> str:
     return '"' + nome.replace('"', '""') + '"'
 
 
@@ -155,13 +155,13 @@ def _ts(momento: datetime) -> str:
     return momento.isoformat(sep=" ")
 
 
-def _conectar(config: Config) -> duckdb.DuckDBPyConnection:
-    tmp = config.data_root / "_tmp"
+def _conectar(configuracao: Configuracao) -> duckdb.DuckDBPyConnection:
+    tmp = configuracao.raiz_dados / "_tmp"
     tmp.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
-    con.execute(f"SET memory_limit = {_lit(config.duckdb_memory_limit)}")
-    con.execute(f"SET threads = {int(config.duckdb_threads)}")
-    con.execute(f"SET temp_directory = {_lit(str(tmp))}")
+    con.execute(f"SET memory_limit = {_literal(configuracao.duckdb_memory_limit)}")
+    con.execute(f"SET threads = {int(configuracao.duckdb_threads)}")
+    con.execute(f"SET temp_directory = {_literal(str(tmp))}")
     con.execute("SET preserve_insertion_order = false")
     return con
 
@@ -191,7 +191,7 @@ def _dir_temporario(final_dir: Path) -> Path:
 # -------------------------------------------------------------------------- RFB
 
 _TABELA_REJEITOS = "_rfb_rejeitos"
-_TABELA_REJEITOS_SCAN = "_rfb_rejeitos_scan"
+_TABELA_REJEITOS_VARREDURA = "_rfb_rejeitos_scan"
 _TABELA_REJEITOS_ENTIDADE = "_rfb_rejeitos_entidade"
 
 
@@ -204,28 +204,28 @@ def _sql_copia_rfb(
     data_ref: date | None,
     ingerido_em: datetime,
 ) -> str:
-    colunas = ", ".join(_ident(c) for c in entidade.colunas)
+    colunas = ", ".join(_identificador(c) for c in entidade.colunas)
     tecnicas = (
-        f"{_lit(arquivo_origem)}::VARCHAR AS _arquivo_origem, "
-        f"{_lit(mes)}::VARCHAR AS _mes_referencia, "
-        f"{_lit(data_ref.isoformat()) if data_ref else 'NULL'}::DATE AS _data_referencia, "
-        f"{_lit(_ts(ingerido_em))}::TIMESTAMP AS _ingerido_em"
+        f"{_literal(arquivo_origem)}::VARCHAR AS _arquivo_origem, "
+        f"{_literal(mes)}::VARCHAR AS _mes_referencia, "
+        f"{_literal(data_ref.isoformat()) if data_ref else 'NULL'}::DATE AS _data_referencia, "
+        f"{_literal(_ts(ingerido_em))}::TIMESTAMP AS _ingerido_em"
     )
     if csv.stat().st_size == 0:
         # O sniffer do DuckDB falha em arquivo vazio; produz um Parquet vazio com o schema certo.
-        vazias = ", ".join(f"NULL::VARCHAR AS {_ident(c)}" for c in entidade.colunas)
+        vazias = ", ".join(f"NULL::VARCHAR AS {_identificador(c)}" for c in entidade.colunas)
         origem = f"(SELECT {vazias} LIMIT 0)"
     else:
-        struct = ", ".join(f"{_lit(c)}: 'VARCHAR'" for c in entidade.colunas)
+        struct = ", ".join(f"{_literal(c)}: 'VARCHAR'" for c in entidade.colunas)
         origem = (
-            f"read_csv({_lit(str(csv))}, delim=';', quote='\"', escape='\"', header=false, "
+            f"read_csv({_literal(str(csv))}, delim=';', quote='\"', escape='\"', header=false, "
             f"encoding='latin-1', all_varchar=true, columns={{{struct}}}, "
             f"store_rejects=true, rejects_table='{_TABELA_REJEITOS}', "
-            f"rejects_scan='{_TABELA_REJEITOS_SCAN}')"
+            f"rejects_scan='{_TABELA_REJEITOS_VARREDURA}')"
         )
     return (
         f"COPY (SELECT {colunas}, {tecnicas} FROM {origem}) "
-        f"TO {_lit(str(parquet))} (FORMAT parquet, COMPRESSION zstd)"
+        f"TO {_literal(str(parquet))} (FORMAT parquet, COMPRESSION zstd)"
     )
 
 
@@ -252,12 +252,12 @@ def _converter_csv_rfb(
     arquivo; os rejeitos deste arquivo são copiados para a tabela da entidade.
     """
     con.execute(f"DROP TABLE IF EXISTS {_TABELA_REJEITOS}")
-    con.execute(f"DROP TABLE IF EXISTS {_TABELA_REJEITOS_SCAN}")
+    con.execute(f"DROP TABLE IF EXISTS {_TABELA_REJEITOS_VARREDURA}")
     sql = _sql_copia_rfb(csv, parquet, entidade, arquivo_origem, mes, data_ref, ingerido_em)
     try:
         linha = con.execute(sql).fetchone()
     except duckdb.Error as exc:
-        raise ConversaoError(f"{arquivo_origem}/{csv.name}", str(exc)) from exc
+        raise ConversaoErro(f"{arquivo_origem}/{csv.name}", str(exc)) from exc
     linhas = int(linha[0]) if linha else 0
 
     if not _existe_tabela(con, _TABELA_REJEITOS):
@@ -265,7 +265,7 @@ def _converter_csv_rfb(
     con.execute(
         f"""
         INSERT INTO {_TABELA_REJEITOS_ENTIDADE}
-        SELECT {_lit(arquivo_origem)}, {_lit(csv.name)}, line, column_idx, column_name,
+        SELECT {_literal(arquivo_origem)}, {_literal(csv.name)}, line, column_idx, column_name,
                error_type::VARCHAR, csv_line, error_message
         FROM {_TABELA_REJEITOS}
         """
@@ -281,15 +281,15 @@ def _gravar_rejeitos(con: duckdb.DuckDBPyConnection, destino: Path) -> None:
     tmp = destino.with_name(f".tmp-{destino.name}-{uuid.uuid4().hex}")
     con.execute(
         f"COPY (SELECT * FROM {_TABELA_REJEITOS_ENTIDADE} ORDER BY arquivo_origem, linha) "
-        f"TO {_lit(str(tmp))} (FORMAT parquet, COMPRESSION zstd)"
+        f"TO {_literal(str(tmp))} (FORMAT parquet, COMPRESSION zstd)"
     )
     tmp.replace(destino)
 
 
-def _unico_arquivo(zip_path: Path, extraidos: list[Path]) -> Path:
+def _unico_arquivo(caminho_zip: Path, extraidos: list[Path]) -> Path:
     if len(extraidos) != 1:
         raise ErroIngestao(
-            f"zip {zip_path.name}: esperado exatamente 1 arquivo interno, encontrados "
+            f"zip {caminho_zip.name}: esperado exatamente 1 arquivo interno, encontrados "
             f"{len(extraidos)}"
         )
     return extraidos[0]
@@ -299,7 +299,7 @@ def converter_entidade_rfb(
     zips: Sequence[Path],
     entidade: EntidadeRFB,
     mes: str,
-    config: Config,
+    configuracao: Configuracao,
     *,
     ingerido_em: datetime,
 ) -> list[ResultadoConversao]:
@@ -309,30 +309,30 @@ def converter_entidade_rfb(
     `raw/rfb/<entidade>/mes_referencia=<mes>/`. A conversão ocorre num diretório temporário irmão
     e só é publicada (substituindo a partição anterior) quando todos os zips foram convertidos e a
     taxa de rejeito da entidade, `rejeitadas / (gravadas + rejeitadas)`, não excede
-    `config.max_taxa_rejeito`. Rejeitos, quando existem, vão para
+    `configuracao.max_taxa_rejeito`. Rejeitos, quando existem, vão para
     `raw/_rejeitos/<entidade>/mes_referencia=<mes>/rejeitos.parquet`. Campos `""` são gravados
     como NULL.
 
-    Levanta `ZipInseguroError`, `ZipCorrompidoError`, `ConversaoError` ou
-    `TaxaRejeitoExcedidaError`; se a entidade inteira resultar em 0 linhas gravadas, levanta
-    `EntidadeVaziaError` (um arquivo vazio entre outros não vazios só gera aviso).
+    Levanta `ZipInseguroErro`, `ZipCorrompidoErro`, `ConversaoErro` ou
+    `TaxaRejeitoExcedidaErro`; se a entidade inteira resultar em 0 linhas gravadas, levanta
+    `EntidadeVaziaErro` (um arquivo vazio entre outros não vazios só gera aviso).
     Em qualquer falha a partição anterior permanece intacta.
     """
     if not _RE_MES.match(mes):
         raise ValueError(f"mes_referencia inválido: {mes!r} (esperado YYYY-MM)")
 
-    final_dir = config.raw_dir / "rfb" / entidade.nome / f"mes_referencia={mes}"
-    rejeitos_path = (
-        config.rejeitos_dir / entidade.nome / f"mes_referencia={mes}" / "rejeitos.parquet"
+    final_dir = configuracao.raw_dir / "rfb" / entidade.nome / f"mes_referencia={mes}"
+    caminho_rejeitos = (
+        configuracao.rejeitos_dir / entidade.nome / f"mes_referencia={mes}" / "rejeitos.parquet"
     )
     final_dir.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = _dir_temporario(final_dir)
-    extracao_dir = config.data_root / "_tmp" / f"extract-{entidade.nome}-{uuid.uuid4().hex}"
+    extracao_dir = configuracao.raiz_dados / "_tmp" / f"extract-{entidade.nome}-{uuid.uuid4().hex}"
 
     parciais: list[tuple[str, str, int, int, str, date | None]] = []
     con: duckdb.DuckDBPyConnection | None = None
     try:
-        con = _conectar(config)
+        con = _conectar(configuracao)
         con.execute(
             f"""
             CREATE TEMP TABLE {_TABELA_REJEITOS_ENTIDADE} (
@@ -342,18 +342,18 @@ def converter_entidade_rfb(
             )
             """
         )
-        for zip_path in sorted(zips, key=lambda p: p.name):
-            csv = _unico_arquivo(zip_path, extrair_zip_seguro(zip_path, extracao_dir))
+        for caminho_zip in sorted(zips, key=lambda p: p.name):
+            csv = _unico_arquivo(caminho_zip, extrair_zip_seguro(caminho_zip, extracao_dir))
             nome_interno = csv.relative_to(extracao_dir.resolve()).as_posix()
             data_ref = data_referencia_do_nome(nome_interno, mes)
-            nome_parquet = f"part-{zip_path.stem}.parquet"
+            nome_parquet = f"part-{caminho_zip.stem}.parquet"
             try:
                 linhas, rejeitadas = _converter_csv_rfb(
                     con,
                     csv,
                     tmp_dir / nome_parquet,
                     entidade,
-                    zip_path.name,
+                    caminho_zip.name,
                     mes,
                     data_ref,
                     ingerido_em,
@@ -361,7 +361,7 @@ def converter_entidade_rfb(
             finally:
                 csv.unlink(missing_ok=True)
             parciais.append(
-                (zip_path.name, nome_interno, linhas, rejeitadas, nome_parquet, data_ref)
+                (caminho_zip.name, nome_interno, linhas, rejeitadas, nome_parquet, data_ref)
             )
 
         total_linhas = sum(p[2] for p in parciais)
@@ -370,13 +370,13 @@ def converter_entidade_rfb(
         taxa = total_rejeitadas / lidas if lidas else 0.0
 
         if total_rejeitadas:
-            _gravar_rejeitos(con, rejeitos_path)
-        if taxa > config.max_taxa_rejeito:
-            raise TaxaRejeitoExcedidaError(
-                entidade.nome, taxa, config.max_taxa_rejeito, str(rejeitos_path)
+            _gravar_rejeitos(con, caminho_rejeitos)
+        if taxa > configuracao.max_taxa_rejeito:
+            raise TaxaRejeitoExcedidaErro(
+                entidade.nome, taxa, configuracao.max_taxa_rejeito, str(caminho_rejeitos)
             )
         if not total_linhas:
-            raise EntidadeVaziaError(entidade.nome, [p[0] for p in parciais])
+            raise EntidadeVaziaErro(entidade.nome, [p[0] for p in parciais])
         for origem, interno, linhas, *_ in parciais:
             if not linhas:
                 _log.warning(
@@ -387,7 +387,7 @@ def converter_entidade_rfb(
                     interno,
                 )
         if not total_rejeitadas:
-            rejeitos_path.unlink(missing_ok=True)
+            caminho_rejeitos.unlink(missing_ok=True)
 
         _publicar(tmp_dir, final_dir)
     finally:
@@ -414,35 +414,35 @@ def converter_entidade_rfb(
 
 
 def converter_tabela_bd(
-    csv_gz: Path, tabela: TabelaBD, config: Config, *, ingerido_em: datetime
+    csv_gz: Path, tabela: TabelaBD, configuracao: Configuracao, *, ingerido_em: datetime
 ) -> ResultadoConversao:
     """Converte um csv.gz da Base dos Dados em `raw/bd/<tabela>/<tabela>.parquet`.
 
-    CSV UTF-8 com header, vírgula, aspas `"` (campos multilinha aceitos), todas as colunas
+    CSV UTF-8 com cabecalho, vírgula, aspas `"` (campos multilinha aceitos), todas as colunas
     VARCHAR, mais `_arquivo_origem` e `_ingerido_em`. Leitura estrita: qualquer erro de parsing
-    levanta `ConversaoError`; 0 linhas levanta `EntidadeVaziaError`. Mesma publicação atômica da
+    levanta `ConversaoErro`; 0 linhas levanta `EntidadeVaziaErro`. Mesma publicação atômica da
     RFB.
     """
-    final_dir = config.raw_dir / "bd" / tabela.nome
+    final_dir = configuracao.raw_dir / "bd" / tabela.nome
     final_dir.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = _dir_temporario(final_dir)
     nome_parquet = f"{tabela.nome}.parquet"
     sql = (
-        f"COPY (SELECT *, {_lit(csv_gz.name)}::VARCHAR AS _arquivo_origem, "
-        f"{_lit(_ts(ingerido_em))}::TIMESTAMP AS _ingerido_em "
-        f"FROM read_csv({_lit(str(csv_gz))}, header=true, delim=',', quote='\"', "
+        f"COPY (SELECT *, {_literal(csv_gz.name)}::VARCHAR AS _arquivo_origem, "
+        f"{_literal(_ts(ingerido_em))}::TIMESTAMP AS _ingerido_em "
+        f"FROM read_csv({_literal(str(csv_gz))}, header=true, delim=',', quote='\"', "
         f"escape='\"', encoding='utf-8', compression='gzip', all_varchar=true)) "
-        f"TO {_lit(str(tmp_dir / nome_parquet))} (FORMAT parquet, COMPRESSION zstd)"
+        f"TO {_literal(str(tmp_dir / nome_parquet))} (FORMAT parquet, COMPRESSION zstd)"
     )
     con: duckdb.DuckDBPyConnection | None = None
     try:
-        con = _conectar(config)
+        con = _conectar(configuracao)
         try:
             linha = con.execute(sql).fetchone()
         except duckdb.Error as exc:
-            raise ConversaoError(csv_gz.name, str(exc)) from exc
+            raise ConversaoErro(csv_gz.name, str(exc)) from exc
         if not (linha and linha[0]):
-            raise EntidadeVaziaError(tabela.nome, [csv_gz.name])
+            raise EntidadeVaziaErro(tabela.nome, [csv_gz.name])
         _publicar(tmp_dir, final_dir)
     finally:
         if con is not None:

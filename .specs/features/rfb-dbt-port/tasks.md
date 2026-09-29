@@ -30,7 +30,7 @@ Melhorias pedidas pelo usuário em 2026-09-28 (ADR-0012/0013): T32–T36 e ajust
 | Python EL (`src/rfb_pipeline/*`) | unit | Todos os ramos; 1:1 com os ACs de ingestão; todo edge case listado; rede sempre mockada (`httpx.MockTransport`), S3 via moto | `tests/unit/test_*.py` | `uv run pytest -q tests/unit` |
 | CLI + fluxo fixtures→dbt→gold | integration | Happy path + números do cenário conhecido da spec + caminhos de erro (limiar de rejeito, mês inexistente) | `tests/integration/test_*.py` | `make ci` |
 | dbt sources/staging/marts | dbt data tests + dbt unit tests | Todo AC de modelo com teste dbt; regras de negócio com `unit_tests` given/expect; contratos nos marts original/core | `transform/models/**/_*.yml`, `transform/tests/**` | `make ci` (executa `dbt build --target ci`) |
-| Fixtures (`scripts/gen_fixtures.py`) | unit | Cada linha/quirk do cenário presente nos arquivos gerados; saída determinística | `tests/unit/test_gen_fixtures.py` | `uv run pytest -q tests/unit` |
+| Fixtures (`scripts/gerar_fixtures.py`) | unit | Cada linha/quirk do cenário presente nos arquivos gerados; saída determinística | `tests/unit/test_gerar_fixtures.py` | `uv run pytest -q tests/unit` |
 | Config/tooling (pyproject, Makefile, profiles, lint) | none | build gate only | - | build gate |
 | Documentação | none | revisão independente (R5) | `docs/**` | - |
 
@@ -143,7 +143,7 @@ T30 → T31
 **Done when**:
 - [x] `uv sync` resolve e instala; `uv run rfb --help` imprime ajuda (stub em `src/rfb_pipeline/cli.py`)
 - [x] `uv run python -c "import duckdb, dbt"` ok; versões resolvidas registradas no relatório
-- [x] Gate build passa (pytest sem testes coletados tratado como ok via `tests/unit/test_smoke.py` trivial)
+- [x] Gate build passa (pytest sem testes coletados tratado como ok via `tests/unit/test_importacao.py` trivial)
 
 **Tests**: none
 **Gate**: build
@@ -153,7 +153,7 @@ T30 → T31
 
 ### T2: Esqueleto do projeto dbt
 
-**What**: `transform/dbt_project.yml` (nome `rfb`, pastas conforme ARCHITECTURE §3, materializações por pasta §5.1, vars §5.2, `+meta.escopo` default ausente), `transform/profiles.yml` (targets `ci`, `dev`, `s3`; path do `.duckdb` e `DATA_ROOT` via `env_var`; `threads`, `memory_limit`, `temp_directory` configuráveis por env), `transform/packages.yml` (dbt_utils, metaplane/dbt_expectations), pastas vazias com `.gitkeep`.
+**What**: `transform/dbt_project.yml` (nome `rfb`, pastas conforme ARCHITECTURE §3, materializações por pasta §5.1, vars §5.2, `+meta.escopo` default ausente), `transform/profiles.yml` (targets `ci`, `dev`, `s3`; path do `.duckdb` e `RAIZ_DADOS` via `env_var`; `threads`, `memory_limit`, `temp_directory` configuráveis por env), `transform/packages.yml` (dbt_utils, metaplane/dbt_expectations), pastas vazias com `.gitkeep`.
 **Where**: `transform/dbt_project.yml`
 **Depends on**: T1
 **Reuses**: ARCHITECTURE.md §5
@@ -161,7 +161,7 @@ T30 → T31
 **Classificação**: P/NC
 
 **Done when**:
-- [x] `cd transform && uv run dbt deps && uv run dbt parse --target ci` sem erro (com `DATA_ROOT` apontando para diretório temporário)
+- [x] `cd transform && uv run dbt deps && uv run dbt parse --target ci` sem erro (com `RAIZ_DADOS` apontando para diretório temporário)
 - [x] `uv run dbt debug --target ci` ok
 - [x] Gate build passa
 
@@ -192,8 +192,8 @@ T30 → T31
 
 ### T4: Gerador de fixtures sintéticas
 
-**What**: `scripts/gen_fixtures.py` gera deterministicamente em `tests/fixtures/generated/` (ou dir passado) os zips RFB do mês `2026-09` (`Empresas0.zip`, `Estabelecimentos0.zip`, `Simples.zip`, `Cnaes.zip`, `Municipios.zip`, `Naturezas.zip`, `Motivos.zip`, `Paises.zip`, `Qualificacoes.zip`, cada um com um arquivo interno `F.K03200$Z.D60912.<TIPO>CSV`, latin-1, `;`, todos os campos entre aspas) e os csv.gz BD (`municipio`, `cnae_2`, `populacao`, `pib`) exatamente conforme o "Cenário de fixtures" da spec, incluindo: `\"` na razão social de K, nome_fantasia multilinha em O, datas `00000000`, porte vazio em E, CNAE `0111301`, DV inválido só em L (calcular DV correto para os demais), registro multilinha no `cnae_2`.
-**Where**: `scripts/gen_fixtures.py`
+**What**: `scripts/gerar_fixtures.py` gera deterministicamente em `tests/fixtures/generated/` (ou dir passado) os zips RFB do mês `2026-09` (`Empresas0.zip`, `Estabelecimentos0.zip`, `Simples.zip`, `Cnaes.zip`, `Municipios.zip`, `Naturezas.zip`, `Motivos.zip`, `Paises.zip`, `Qualificacoes.zip`, cada um com um arquivo interno `F.K03200$Z.D60912.<TIPO>CSV`, latin-1, `;`, todos os campos entre aspas) e os csv.gz BD (`municipio`, `cnae_2`, `populacao`, `pib`) exatamente conforme o "Cenário de fixtures" da spec, incluindo: `\"` na razão social de K, nome_fantasia multilinha em O, datas `00000000`, porte vazio em E, CNAE `0111301`, DV inválido só em L (calcular DV correto para os demais), registro multilinha no `cnae_2`.
+**Where**: `scripts/gerar_fixtures.py`
 **Depends on**: T1
 **Reuses**: spec — seção "Cenário de fixtures"; `docs/referencia-original/1_Coleta_e_Carga_de_Dados.md` (quirks)
 **Requirement**: ING-03
@@ -201,7 +201,7 @@ T30 → T31
 
 **Done when**:
 - [x] `make fixtures` gera os arquivos; duas execuções produzem bytes idênticos
-- [x] `tests/unit/test_gen_fixtures.py` verifica: encoding latin-1 (bytes de `Ã`), presença de `\"` em K, quebra de linha dentro de aspas em O, 15 estabelecimentos/14 empresas, DV válido em todos exceto L
+- [x] `tests/unit/test_gerar_fixtures.py` verifica: encoding latin-1 (bytes de `Ã`), presença de `\"` em K, quebra de linha dentro de aspas em O, 15 estabelecimentos/14 empresas, DV válido em todos exceto L
 - [x] Gate quick passa
 
 **Tests**: unit
@@ -212,8 +212,8 @@ T30 → T31
 
 ### T5: Config e contrato de schemas
 
-**What**: `src/rfb_pipeline/config.py` (DATA_ROOT, URLs/token WebDAV, allowlist de hosts, limiar de rejeito, timeouts, lendo env/`.env`) e `src/rfb_pipeline/schemas.py` (para cada entidade RFB: padrão do zip, tipo interno, lista ordenada de colunas conforme ARCHITECTURE §4.2; tabelas BD com dataset/tabela; `Socios` explicitamente excluído).
-**Where**: `src/rfb_pipeline/schemas.py`
+**What**: `src/rfb_pipeline/configuracao.py` (RAIZ_DADOS, URLs/token WebDAV, allowlist de hosts, limiar de rejeito, timeouts, lendo env/`.env`) e `src/rfb_pipeline/esquemas.py` (para cada entidade RFB: padrão do zip, tipo interno, lista ordenada de colunas conforme ARCHITECTURE §4.2; tabelas BD com dataset/tabela; `Socios` explicitamente excluído).
+**Where**: `src/rfb_pipeline/esquemas.py`
 **Depends on**: T4
 **Reuses**: ARCHITECTURE §4.1–4.2
 **Requirement**: ING-02
@@ -231,8 +231,8 @@ T30 → T31
 
 ### T6: Cliente WebDAV da RFB
 
-**What**: `src/rfb_pipeline/rfb_client.py`: `listar_meses()`, `mes_mais_recente()`, `listar_arquivos(mes)` (nome, tamanho) via `PROPFIND Depth:1`; `baixar(arquivo, destino)` com 3 tentativas e backoff, retomada com `Range`, verificação de tamanho, gravação em `.part` + rename; erro claro para mês inexistente; só hosts da allowlist.
-**Where**: `src/rfb_pipeline/rfb_client.py`
+**What**: `src/rfb_pipeline/cliente_rfb.py`: `listar_meses()`, `mes_mais_recente()`, `listar_arquivos(mes)` (nome, tamanho) via `PROPFIND Depth:1`; `baixar(arquivo, destino)` com 3 tentativas e backoff, retomada com `Range`, verificação de tamanho, gravação em `.part` + rename; erro claro para mês inexistente; só hosts da allowlist.
+**Where**: `src/rfb_pipeline/cliente_rfb.py`
 **Depends on**: T5
 **Reuses**: resposta PROPFIND real (formato `<d:response><d:href>/public.php/webdav/2026-09/</d:href>...<d:getcontentlength>`)
 **Requirement**: ING-01, ING-04
@@ -253,7 +253,7 @@ T30 → T31
 **What**: `src/rfb_pipeline/basedosdados.py`: baixa as 4 tabelas (`one-click-download/<dataset>/<tabela>/<tabela>.csv.gz`) para o cache de downloads com retry e escrita atômica; suporta origem local (fixtures).
 **Where**: `src/rfb_pipeline/basedosdados.py`
 **Depends on**: T6
-**Reuses**: `rfb_client.py` (helper de download/retry)
+**Reuses**: `cliente_rfb.py` (helper de download/retry)
 **Requirement**: ING-06
 **Classificação**: M/NC
 
@@ -269,10 +269,10 @@ T30 → T31
 
 ### T8: Conversão zip/CSV → Parquet raw ★ crítica, grande
 
-**What**: `src/rfb_pipeline/convert.py`: extração segura de zip (anti zip-slip, checagem de integridade); conversão com DuckDB `read_csv` (opções ARCHITECTURE §4.2, `encoding='latin-1'`, colunas nomeadas, all VARCHAR, `store_rejects`) para `raw/rfb/<entidade>/mes_referencia=<mes>/` em Parquet zstd, com colunas técnicas; extração de `_data_referencia` do nome interno (`D60912` → 2026-09-12); rejeitos para `raw/_rejeitos/...`; limiar de rejeito; escrita em diretório temporário + rename atômico; conversão BD csv.gz (header, multilinha) para `raw/bd/<tabela>/`; streaming arquivo a arquivo e limites de memória/threads configuráveis para os ~8 GB de `Estabelecimentos0`.
-**Where**: `src/rfb_pipeline/convert.py`
+**What**: `src/rfb_pipeline/conversao.py`: extração segura de zip (anti zip-slip, checagem de integridade); conversão com DuckDB `read_csv` (opções ARCHITECTURE §4.2, `encoding='latin-1'`, colunas nomeadas, all VARCHAR, `store_rejects`) para `raw/rfb/<entidade>/mes_referencia=<mes>/` em Parquet zstd, com colunas técnicas; extração de `_data_referencia` do nome interno (`D60912` → 2026-09-12); rejeitos para `raw/_rejeitos/...`; limiar de rejeito; escrita em diretório temporário + rename atômico; conversão BD csv.gz (header, multilinha) para `raw/bd/<tabela>/`; streaming arquivo a arquivo e limites de memória/threads configuráveis para os ~8 GB de `Estabelecimentos0`.
+**Where**: `src/rfb_pipeline/conversao.py`
 **Depends on**: T7
-**Reuses**: `schemas.py`, `config.py`, fixtures de T4
+**Reuses**: `esquemas.py`, `configuracao.py`, fixtures de T4
 **Requirement**: ING-02, ING-03, ING-04
 **Classificação**: G/C
 
@@ -288,10 +288,10 @@ T30 → T31
 
 ### T9: Manifesto e idempotência
 
-**What**: `src/rfb_pipeline/manifest.py`: leitura/escrita de `_manifests/<mes>.json` (formato ARCHITECTURE §4.3), sha256 em streaming, decisão "pular se checksum igual", `--force`.
-**Where**: `src/rfb_pipeline/manifest.py`
+**What**: `src/rfb_pipeline/manifesto.py`: leitura/escrita de `_manifestos/<mes>.json` (formato ARCHITECTURE §4.3), sha256 em streaming, decisão "pular se checksum igual", `--force`.
+**Where**: `src/rfb_pipeline/manifesto.py`
 **Depends on**: T8
-**Reuses**: `convert.py` (contagens)
+**Reuses**: `conversao.py` (contagens)
 **Requirement**: ING-05
 **Classificação**: M/NC
 
@@ -305,9 +305,9 @@ T30 → T31
 
 ---
 
-### T10: CLI `rfb ingest` e alvo `make ci` (parte EL)
+### T10: CLI `rfb ingerir` e alvo `make ci` (parte EL)
 
-**What**: `src/rfb_pipeline/cli.py` com `rfb ingest [--mes] [--origem-local DIR] [--force]` (`--data-root` removido: `DATA_ROOT` vem do ambiente — R1-27) ligando cliente/BD/conversão/manifesto; `make ci` passa a: gerar fixtures → `rfb ingest --origem-local` em `DATA_ROOT` temporário → `dbt deps/build --target ci` → `pytest tests/integration`. Teste de integração da ingestão.
+**What**: `src/rfb_pipeline/cli.py` com `rfb ingerir [--mes] [--origem-local DIR] [--force]` (`--data-root` removido: `RAIZ_DADOS` vem do ambiente — R1-27) ligando cliente/BD/conversão/manifesto; `make ci` passa a: gerar fixtures → `rfb ingerir --origem-local` em `RAIZ_DADOS` temporário → `dbt deps/build --target ci` → `pytest tests/integration`. Teste de integração da ingestão.
 **Where**: `src/rfb_pipeline/cli.py`
 **Depends on**: T9
 **Reuses**: todos os módulos EL
@@ -315,20 +315,20 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [x] `tests/integration/test_ingest_cli.py`: datasets das 9 entidades + 4 BD criados; manifesto presente; exit ≠0 para mês inexistente e para limiar de rejeito excedido
+- [x] `tests/integration/test_ingerir_cli.py`: datasets das 9 entidades + 4 BD criados; manifesto presente; exit ≠0 para mês inexistente e para limiar de rejeito excedido
 - [x] `make ci` roda (dbt build vazio ok)
 - [x] Gate full passa
 
 **Tests**: integration
 **Gate**: full
-**Commit**: `feat(cli): rfb ingest command and local CI pipeline`
+**Commit**: `feat(cli): rfb ingerir command and local CI pipeline`
 
 ---
 
 ### T11: Armazenamento remoto S3/Tigris
 
-**What**: `src/rfb_pipeline/storage.py` + `rfb sync`: detecção `s3://`, validação de `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_ENDPOINT_URL_S3`, SQL de `CREATE SECRET` para DuckDB (região `auto`, `URL_STYLE` configurável), upload boto3 de `raw/` e `gold/` pulando objetos com mesmo tamanho+checksum; target `s3` do profile usando o secret.
-**Where**: `src/rfb_pipeline/storage.py`
+**What**: `src/rfb_pipeline/armazenamento.py` + `rfb sincronizar`: detecção `s3://`, validação de `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_ENDPOINT_URL_S3`, SQL de `CREATE SECRET` para DuckDB (região `auto`, `URL_STYLE` configurável), upload boto3 de `raw/` e `gold/` pulando objetos com mesmo tamanho+checksum; target `s3` do profile usando o secret.
+**Where**: `src/rfb_pipeline/armazenamento.py`
 **Depends on**: T10
 **Reuses**: `subir_arquivos_tigris.py` do original (lógica de upload)
 **Requirement**: OPS-02
@@ -346,7 +346,7 @@ T30 → T31
 
 ### T12: Fontes dbt com os checks do original
 
-**What**: `transform/models/staging/rfb/_rfb__sources.yml` e `transform/models/staging/basedosdados/_bd__sources.yml` com `external_location` via `DATA_ROOT`, descrições (catálogo do notebook 3), freshness (`_ingerido_em`, 35/65 dias), testes de fonte dos ACs SRC 2–7 (unicidade/completude dos domínios, cnpj, relacionamentos, accepted_values de porte/situação, cobertura município RFB×BD contra seed `excecoes_conhecidas_municipio`, CNAEs sem par = warn), `meta.escopo: original` nos checks vindos dos notebooks 2.x e `adicao` nos novos.
+**What**: `transform/models/staging/rfb/_rfb__sources.yml` e `transform/models/staging/basedosdados/_bd__sources.yml` com `external_location` via `RAIZ_DADOS`, descrições (catálogo do notebook 3), freshness (`_ingerido_em`, 35/65 dias), testes de fonte dos ACs SRC 2–7 (unicidade/completude dos domínios, cnpj, relacionamentos, accepted_values de porte/situação, cobertura município RFB×BD contra seed `excecoes_conhecidas_municipio`, CNAEs sem par = warn), `meta.escopo: original` nos checks vindos dos notebooks 2.x e `adicao` nos novos.
 **Where**: `transform/models/staging/rfb/_rfb__sources.yml`
 **Depends on**: T10
 **Reuses**: `docs/referencia-original/2.*.md`
@@ -480,7 +480,7 @@ T30 → T31
 
 ### T37: Padronização de nomes conforme ADR-0014
 
-**What**: aplicar a convenção de idioma do ADR-0014 em todo o repositório: renomear subpastas `marts/analises` → `marts/analytics` e `observabilidade` → `observability` (e chaves correspondentes em `dbt_project.yml`); módulos Python e seus testes (`configuracao.py`, `esquemas.py`, `erros.py`, `cliente_rfb.py`, `conversao.py`, `manifesto.py`, `armazenamento.py`); subcomandos da CLI (`ingerir`, `sincronizar`, `relatorio`) e alvos do Make; variáveis `RAIZ_DADOS`/`RAIZ_DADOS_LOCAL`; diretórios `_manifestos`/`_baixados`; identificadores Python com palavras em inglês fora da lista de exceções; atualizar todas as referências em código, `.env.example`, profiles/sources, testes, ARCHITECTURE, ADRs, spec, tasks, PLANO, ESCOPO, README e guia; criar `tests/unit/test_convencao_nomes.py` que falha se surgir subpasta de `models/`, prefixo de modelo, módulo Python, subcomando da CLI ou alvo do Make fora da convenção.
+**What**: aplicar a convenção de idioma do ADR-0014 em todo o repositório, conforme a tabela "Antes → Depois" do ADR: subpastas de `models/` (e chaves em `dbt_project.yml`); módulos Python e seus testes; subcomandos da CLI e alvos do Make; variáveis `RAIZ_DADOS`/`RAIZ_DADOS_LOCAL`; diretórios de dados `_manifestos`/`_baixados`; identificadores Python com palavras em inglês fora da lista de exceções; atualizar todas as referências em código, `.env.example`, profiles/sources, testes, ARCHITECTURE, ADRs, spec, tasks, PLANO, ESCOPO, README e guia; criar `tests/unit/test_convencao_nomes.py` que falha se surgir subpasta de `models/`, prefixo de modelo, módulo Python, subcomando da CLI ou alvo do Make fora da convenção.
 **Where**: `tests/unit/test_convencao_nomes.py`
 **Depends on**: T15
 **Reuses**: ADR-0014 (lista fechada de exceções)
@@ -488,9 +488,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `git grep` não encontra nomes antigos fora de trechos históricos explicitamente marcados (ex.: tabela "Antes → Depois" do ADR-0014)
-- [ ] `test_convencao_nomes.py` passa e falha ao introduzir uma pasta `models/marts/analises`
-- [ ] Gate build passa (`make lint && make ci`, pre-commit)
+- [x] `git grep` não encontra nomes antigos fora de trechos históricos explicitamente marcados (ex.: tabela "Antes → Depois" do ADR-0014)
+- [x] `test_convencao_nomes.py` passa e falha ao introduzir uma subpasta `analises` em `models/marts/` (demonstrado)
+- [x] Gate build passa (`make lint && make ci`, pre-commit)
 
 **Tests**: unit + integration
 **Gate**: build
@@ -500,10 +500,10 @@ T30 → T31
 
 ### T32: Segundo mês nas fixtures e testes por mês
 
-**What**: estender `scripts/gen_fixtures.py` para gerar também `rfb/2026-08/` conforme a spec ("Segundo mês": sem a linha O, nomes internos `D60810`); garantir que todos os testes de fonte/staging sejam por mês (unicidade com `_mes_referencia`) e que o `make ci` ingira os dois meses (2026-08 e depois 2026-09) mantendo todas as respostas de 2026-09.
-**Where**: `scripts/gen_fixtures.py`
+**What**: estender `scripts/gerar_fixtures.py` para gerar também `rfb/2026-08/` conforme a spec ("Segundo mês": sem a linha O, nomes internos `D60810`); garantir que todos os testes de fonte/staging sejam por mês (unicidade com `_mes_referencia`) e que o `make ci` ingira os dois meses (2026-08 e depois 2026-09) mantendo todas as respostas de 2026-09.
+**Where**: `scripts/gerar_fixtures.py`
 **Depends on**: T37
-**Reuses**: gerador existente; testes `tests/unit/test_gen_fixtures.py`
+**Reuses**: gerador existente; testes `tests/unit/test_gerar_fixtures.py`
 **Requirement**: UPD-02
 **Classificação**: M/NC
 
@@ -578,7 +578,7 @@ T30 → T31
 ### T21: `mart_concorrencia_municipio`
 
 **What**: CNAE × município → ativos, inativos, ativos por 10 mil hab. (NULL sem população), ranking na UF.
-**Where**: `transform/models/marts/analises/mart_concorrencia_municipio.sql`
+**Where**: `transform/models/marts/analytics/mart_concorrencia_municipio.sql`
 **Depends on**: T20
 **Reuses**: fato + dims
 **Requirement**: ANA-01
@@ -590,14 +590,14 @@ T30 → T31
 
 **Tests**: dbt data tests + integration
 **Gate**: full
-**Commit**: `feat(analises): competition density by municipality`
+**Commit**: `feat(analytics): competition density by municipality`
 
 ---
 
 ### T22: `mart_sobrevivencia_coorte`
 
 **What**: coorte × CNAE × porte × UF → elegíveis e sobreviventes a 1/3/5 anos e taxas, pela definição da spec; teste singular de invariantes (taxas ∈ [0,1], monotonicidade).
-**Where**: `transform/models/marts/analises/mart_sobrevivencia_coorte.sql`
+**Where**: `transform/models/marts/analytics/mart_sobrevivencia_coorte.sql`
 **Depends on**: T20
 **Reuses**: fato
 **Requirement**: ANA-02
@@ -610,14 +610,14 @@ T30 → T31
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full
-**Commit**: `feat(analises): cohort survival analysis`
+**Commit**: `feat(analytics): cohort survival analysis`
 
 ---
 
 ### T23: `mart_dinamica_mercado`
 
 **What**: ano × CNAE × município → aberturas, encerramentos, saldo.
-**Where**: `transform/models/marts/analises/mart_dinamica_mercado.sql`
+**Where**: `transform/models/marts/analytics/mart_dinamica_mercado.sql`
 **Depends on**: T20
 **Reuses**: fato
 **Requirement**: ANA-03
@@ -629,14 +629,14 @@ T30 → T31
 
 **Tests**: dbt data tests + integration
 **Gate**: full
-**Commit**: `feat(analises): market dynamics by year`
+**Commit**: `feat(analytics): market dynamics by year`
 
 ---
 
 ### T24: `mart_fornecedores_proximos`
 
 **What**: macro `haversine_km`; mart para o município/CNAEs do caso (vars) com fornecedores ativos por CNAE principal ou secundário dentro de `raio_fornecedores_km`, distância e via (principal/secundário); testes de distância (≥0; 0 no próprio município).
-**Where**: `transform/models/marts/analises/mart_fornecedores_proximos.sql`
+**Where**: `transform/models/marts/analytics/mart_fornecedores_proximos.sql`
 **Depends on**: T20
 **Reuses**: bridge, dim_municipio
 **Requirement**: ANA-04
@@ -649,7 +649,7 @@ T30 → T31
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full
-**Commit**: `feat(analises): nearby suppliers by distance`
+**Commit**: `feat(analytics): nearby suppliers by distance`
 
 ---
 
@@ -693,7 +693,7 @@ T30 → T31
 
 ### T27: Estudo de caso e relatório
 
-**What**: `transform/analyses/estudo_caso_q1..q4*.sql` reproduzindo cada consulta do notebook 4 (parametrizadas por vars `caso_*`) + análises das adições; `src/rfb_pipeline/report.py` + `rfb report` gerando `docs/RELATORIO_ESTUDO_CASO.md` (com seção de DQ da última execução).
+**What**: `transform/analyses/estudo_caso_q1..q4*.sql` reproduzindo cada consulta do notebook 4 (parametrizadas por vars `caso_*`) + análises das adições; `src/rfb_pipeline/report.py` + `rfb relatorio` gerando `docs/RELATORIO_ESTUDO_CASO.md` (com seção de DQ da última execução).
 **Where**: `src/rfb_pipeline/report.py`
 **Depends on**: T24
 **Reuses**: `docs/referencia-original/4_An_lise_de_Dados.md`
@@ -772,7 +772,7 @@ T30 → T31
 
 ### T36: `rfb atualizar` — atualização mensal automática (E2E)
 
-**What**: comando `rfb atualizar [--origem-local DIR]` + `make atualizar`: detecção do mês completo mais recente (todos os arquivos esperados presentes), comparação com `DATA_ROOT/_estado/ultima_execucao.json`, execução ingest → `dbt build --vars mes_referencia` → relatórios (→ sync se s3), gravação do estado só em sucesso, retenção (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`), mensagem "nenhum mês novo"; `docs/OPERACAO.md` com receitas cron, launchd e GitHub Actions; validação real: executar contra o WebDAV após T28 e confirmar no-op para 2026-09.
+**What**: comando `rfb atualizar [--origem-local DIR]` + `make atualizar`: detecção do mês completo mais recente (todos os arquivos esperados presentes), comparação com `RAIZ_DADOS/_estado/ultima_execucao.json`, execução ingest → `dbt build --vars mes_referencia` → relatórios (→ sync se s3), gravação do estado só em sucesso, retenção (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`), mensagem "nenhum mês novo"; `docs/OPERACAO.md` com receitas cron, launchd e GitHub Actions; validação real: executar contra o WebDAV após T28 e confirmar no-op para 2026-09.
 **Where**: `src/rfb_pipeline/cli.py`
 **Depends on**: T28, T34
 **Reuses**: `rfb pipeline` (T28), manifesto (T9), cliente WebDAV (T6)
