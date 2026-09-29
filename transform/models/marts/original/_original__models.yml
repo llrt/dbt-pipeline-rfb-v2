@@ -1,0 +1,263 @@
+version: 2
+
+models:
+  - name: bh_empresas
+    description: >
+      **BH Empresas** (flat table granular do notebook 3; bh = base humanizada): uma linha por
+      estabelecimento (CNPJ completo), com os dados de domínio (natureza jurídica RFB, CNAE e
+      município da Base dos Dados) já juntados e humanizados. Mesmas regras e mesmos **inner
+      joins** do SQL original — estabelecimentos sem par em algum domínio ficam de fora (teste
+      `bh_empresas_descartes_inner_join`). Paridade verificada contra a tradução literal do SQL
+      original (`paridade__bh_empresas_sql_original`, teste `paridade_bh_empresas`). Parquet em
+      `gold/bh_empresas.parquet`.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: cnpj_raiz
+        description: >
+          8 primeiros dígitos de CNPJ da empresa. Linhagem: `empresas.cnpj_raiz`, prefixado (lpad)
+          com '0'. Domínio: caracteres numéricos, prefixado com 0s se necessário.
+        data_type: varchar
+      - name: cnpj_completo
+        description: >
+          CNPJ completo da empresa, com 14 dígitos. Linhagem: `estabelecimentos.cnpj_raiz`,
+          `cnpj_ordem`, `cnpj_dv`, cada um prefixado (lpad) com '0'.
+        data_type: varchar
+        data_tests:
+          - unique:
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+          - not_null:
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+      - name: nome
+        description: >
+          Nome da empresa. Linhagem: `estabelecimentos.nome_fantasia`; `empresas.razao_social`
+          apenas se `nome_fantasia` for null; upper case para padronizar.
+        data_type: varchar
+      - name: natureza_juridica
+        description: >
+          Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais).
+          Linhagem: `natureza_juridica.descricao` com `codigo = empresas.natureza_jur`; upper case.
+        data_type: varchar
+      - name: porte
+        description: >
+          Porte da empresa, i.e. uma espécie de "tamanho" (em termos de faturamento). Linhagem:
+          `empresas.porte`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro
+          valor ou vazio → NULL.
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["N/A", "MICRO", "PEQUENA", "DEMAIS"]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+      - name: cnae_principal
+        description: >
+          Subclasse do CNAE (código nacional de atividade econômica) principal da empresa.
+          Linhagem: `estabelecimentos.CNAE_principal`, sem transformação. Domínio: 7 caracteres
+          numéricos (classificação IBGE).
+        data_type: varchar
+        data_tests:
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+      - name: desc_cnae_principal
+        description: >
+          Descrição textual da subclasse do CNAE principal. Linhagem: `cnae_bd.descricao_subclasse`
+          com `subclasse = estabelecimentos.CNAE_principal`; upper case.
+        data_type: varchar
+      - name: grupo_cnae_principal
+        description: >
+          Descrição textual do grupo (3 primeiros dígitos do CNAE) do CNAE principal. Linhagem:
+          `cnae_bd.descricao_grupo` com `subclasse = estabelecimentos.CNAE_principal`; upper case.
+        data_type: varchar
+      - name: cnaes_secundarios
+        description: >
+          Subclasses dos CNAEs secundários, separadas por vírgula. Linhagem:
+          `estabelecimentos.CNAEs_secundarios`, sem transformação.
+        data_type: varchar
+      - name: municipio
+        description: >
+          Nome do município do estabelecimento. Linhagem: `municipio_bd.nome` com
+          `id_municipio_rf = estabelecimentos.municipio`; upper case.
+        data_type: varchar
+      - name: microrregiao_municipio
+        description: >
+          Nome da microrregião (agregado de municípios vizinhos) do município. Linhagem:
+          `municipio_bd.nome_microrregiao`; upper case.
+        data_type: varchar
+      - name: mesorregiao_municipio
+        description: >
+          Nome da mesorregião (agregado de microrregiões vizinhas) do município. Linhagem:
+          `municipio_bd.nome_mesorregiao`; upper case.
+        data_type: varchar
+      - name: uf
+        description: >
+          Sigla da UF do município (`UF` no original). Linhagem: `municipio_bd.sigla_UF`; upper case.
+        data_type: varchar
+      - name: situacao
+        description: >
+          Situação da empresa, se ativa ou inativa. Linhagem: `estabelecimentos.situacao`, mapeado
+          2 → "ATIVA", qualquer outro código → "INATIVA".
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["ATIVA", "INATIVA"]
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+      - name: idade_atual
+        description: >
+          Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem:
+          `estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`.
+          **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do
+          extrato (`data_referencia`), para ser determinística. Não se esperam idades > 200 anos.
+        data_type: double
+        meta:
+          escopo: adaptado
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 200
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+
+unit_tests:
+  - name: test_bh_empresas_porte
+    description: "Original AC 3: porte 0/1/3/5 -> N/A/MICRO/PEQUENA/DEMAIS; vazio (NULL) ou outro código -> NULL."
+    model: bh_empresas
+    given:
+      - input: ref('stg_rfb__empresas')
+        rows:
+          - { cnpj_raiz: "00000000", razao_social: "E0", natureza_juridica_codigo: "2062", porte_codigo: 0 }
+          - { cnpj_raiz: "00000001", razao_social: "E1", natureza_juridica_codigo: "2062", porte_codigo: 1 }
+          - { cnpj_raiz: "00000003", razao_social: "E3", natureza_juridica_codigo: "2062", porte_codigo: 3 }
+          - { cnpj_raiz: "00000005", razao_social: "E5", natureza_juridica_codigo: "2062", porte_codigo: 5 }
+          - { cnpj_raiz: "00000009", razao_social: "EV", natureza_juridica_codigo: "2062", porte_codigo: null }
+          - { cnpj_raiz: "00000007", razao_social: "E7", natureza_juridica_codigo: "2062", porte_codigo: 7 }
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - &est_base
+            cnpj_raiz: "00000000"
+            cnpj_completo: "00000000000100"
+            situacao_codigo: 8
+            dat_inicio_atividade: "2020-01-01"
+            cnae_principal: "4741500"
+            municipio_rfb_codigo: "5643"
+            _data_referencia: "2026-09-12"
+          - { <<: *est_base, cnpj_raiz: "00000001", cnpj_completo: "00000001000100" }
+          - { <<: *est_base, cnpj_raiz: "00000003", cnpj_completo: "00000003000100" }
+          - { <<: *est_base, cnpj_raiz: "00000005", cnpj_completo: "00000005000100" }
+          - { <<: *est_base, cnpj_raiz: "00000009", cnpj_completo: "00000009000100" }
+          - { <<: *est_base, cnpj_raiz: "00000007", cnpj_completo: "00000007000100" }
+      - &naturezas
+        input: ref('stg_rfb__naturezas')
+        rows:
+          - { codigo: "2062", descricao: "Sociedade Empresária Limitada" }
+      - &cnaes_bd
+        input: ref('stg_bd__cnaes')
+        rows:
+          - { subclasse: "4741500", descricao_subclasse: "Comércio varejista de tintas", descricao_grupo: "Comércio varejista de material de construção" }
+      - &municipios_bd
+        input: ref('stg_bd__municipios')
+        rows:
+          - id_municipio_rf: "5643"
+            nome: "Fundão"
+            nome_microrregiao: "Linhares"
+            nome_mesorregiao: "Litoral Norte Espírito-santense"
+            sigla_uf: "ES"
+    expect:
+      rows:
+        - { cnpj_completo: "00000000000100", porte: "N/A" }
+        - { cnpj_completo: "00000001000100", porte: "MICRO" }
+        - { cnpj_completo: "00000003000100", porte: "PEQUENA" }
+        - { cnpj_completo: "00000005000100", porte: "DEMAIS" }
+        - { cnpj_completo: "00000009000100", porte: null }
+        - { cnpj_completo: "00000007000100", porte: null }
+
+  - name: test_bh_empresas_situacao_e_idade
+    description: >
+      Original AC 4–5: situação 2 -> ATIVA, qualquer outra -> INATIVA; idade só para ATIVA,
+      `round(dias até data_referencia / 365.25, 1)` (linha A: 2022-10-15 -> 3.9; 365 dias -> 1.0;
+      182 dias -> 0.5); INATIVA -> NULL. data_referencia = `_data_referencia` do mês (2026-09-12).
+    model: bh_empresas
+    given:
+      - input: ref('stg_rfb__empresas')
+        rows:
+          - { cnpj_raiz: "11111111", razao_social: "TINTAS FUNDAO LTDA", natureza_juridica_codigo: "2062", porte_codigo: 1 }
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000191", situacao_codigo: 2, dat_inicio_atividade: "2022-10-15" }
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000200", situacao_codigo: 2, dat_inicio_atividade: "2025-09-12" }
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000300", situacao_codigo: 2, dat_inicio_atividade: "2026-03-14" }
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000400", situacao_codigo: 8, dat_inicio_atividade: "2015-03-01" }
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000500", situacao_codigo: 4, dat_inicio_atividade: "2010-06-01" }
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000600", situacao_codigo: 1, dat_inicio_atividade: "2010-06-01" }
+      - *naturezas
+      - *cnaes_bd
+      - *municipios_bd
+    expect:
+      rows:
+        - { cnpj_completo: "11111111000191", situacao: "ATIVA", idade_atual: 3.9 }
+        - { cnpj_completo: "11111111000200", situacao: "ATIVA", idade_atual: 1.0 }
+        - { cnpj_completo: "11111111000300", situacao: "ATIVA", idade_atual: 0.5 }
+        - { cnpj_completo: "11111111000400", situacao: "INATIVA", idade_atual: null }
+        - { cnpj_completo: "11111111000500", situacao: "INATIVA", idade_atual: null }
+        - { cnpj_completo: "11111111000600", situacao: "INATIVA", idade_atual: null }
+
+  - name: test_bh_empresas_idade_usa_var_data_referencia
+    description: "ADR-0004: com a var `data_referencia` definida, a idade é relativa a ela (não ao extrato nem a `now()`)."
+    model: bh_empresas
+    overrides:
+      vars:
+        data_referencia: "2032-10-15"
+    given:
+      - input: ref('stg_rfb__empresas')
+        rows:
+          - { cnpj_raiz: "11111111", razao_social: "TINTAS FUNDAO LTDA", natureza_juridica_codigo: "2062", porte_codigo: 1 }
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000191", situacao_codigo: 2, dat_inicio_atividade: "2022-10-15" }
+      - *naturezas
+      - *cnaes_bd
+      - *municipios_bd
+    expect:
+      rows:
+        - { cnpj_completo: "11111111000191", idade_atual: 10.0 }
+
+  - name: test_bh_empresas_nome_e_dominios
+    description: >
+      Original AC 6–7: `nome = upper(coalesce(nome_fantasia, razao_social))`; domínios em upper
+      case (FUNDÃO, LINHARES, LITORAL NORTE ESPÍRITO-SANTENSE, ES); estabelecimento sem par em
+      município BD sai (inner join).
+    model: bh_empresas
+    given:
+      - input: ref('stg_rfb__empresas')
+        rows:
+          - { cnpj_raiz: "11111111", razao_social: "Tintas Fundao Ltda", natureza_juridica_codigo: "2062", porte_codigo: 1 }
+          - { cnpj_raiz: "55555555", razao_social: "Tintas Capixaba", natureza_juridica_codigo: "2062", porte_codigo: null }
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { <<: *est_base, cnpj_raiz: "11111111", cnpj_completo: "11111111000191", nome_fantasia: "Tintas Fundão" }
+          - { <<: *est_base, cnpj_raiz: "55555555", cnpj_completo: "55555555000191", nome_fantasia: null }
+          - { <<: *est_base, cnpj_raiz: "55555555", cnpj_completo: "55555555000200", municipio_rfb_codigo: "1182" }
+      - *naturezas
+      - *cnaes_bd
+      - *municipios_bd
+    expect:
+      rows:
+        - cnpj_completo: "11111111000191"
+          nome: "TINTAS FUNDÃO"
+          natureza_juridica: "SOCIEDADE EMPRESÁRIA LIMITADA"
+          desc_cnae_principal: "COMÉRCIO VAREJISTA DE TINTAS"
+          municipio: "FUNDÃO"
+          microrregiao_municipio: "LINHARES"
+          mesorregiao_municipio: "LITORAL NORTE ESPÍRITO-SANTENSE"
+          uf: "ES"
+        - cnpj_completo: "55555555000191"
+          nome: "TINTAS CAPIXABA"
+          natureza_juridica: "SOCIEDADE EMPRESÁRIA LIMITADA"
+          desc_cnae_principal: "COMÉRCIO VAREJISTA DE TINTAS"
+          municipio: "FUNDÃO"
+          microrregiao_municipio: "LINHARES"
+          mesorregiao_municipio: "LITORAL NORTE ESPÍRITO-SANTENSE"
+          uf: "ES"

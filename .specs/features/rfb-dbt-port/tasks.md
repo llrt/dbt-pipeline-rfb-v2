@@ -393,8 +393,8 @@ T30 → T31
 **Classificação**: G/C
 
 **Done when**:
-- [ ] Unit tests cobrem ACs STG 9–14; AC 14 verificado por teste que falha se colunas de contato existirem
-- [ ] Gate full passa
+- [x] Unit tests cobrem ACs STG 9–14; AC 14 verificado por teste que falha se colunas de contato existirem
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests
 **Gate**: full
@@ -412,8 +412,8 @@ T30 → T31
 **Classificação**: M/C
 
 **Done when**:
-- [ ] `tests/integration/test_bh_empresas.py` confirma 12 linhas e os valores de A e E da spec
-- [ ] Gate full passa
+- [x] `tests/integration/test_bh_empresas.py` confirma 12 linhas e os valores de A e E da spec
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full
