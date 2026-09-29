@@ -139,7 +139,7 @@ def ler_manifesto(configuracao: Configuracao, mes: str) -> Manifesto | None:
 
 
 def escrever_manifesto(configuracao: Configuracao, manifesto: Manifesto) -> Path:
-    """Grava o manifesto em `_manifests/<mes>.json` atomicamente (temp + rename)."""
+    """Grava o manifesto em `_manifestos/<mes>.json` atomicamente (temp + rename)."""
     destino = caminho_manifesto(configuracao, manifesto.mes_referencia)
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_name(f".tmp-{destino.name}-{uuid.uuid4().hex}")
@@ -150,7 +150,7 @@ def escrever_manifesto(configuracao: Configuracao, manifesto: Manifesto) -> Path
 
 @contextmanager
 def trava_execucao(configuracao: Configuracao) -> Iterator[Path]:
-    """Trava exclusiva de execução em `DATA_ROOT/_estado/rfb.lock` (`flock` não bloqueante).
+    """Trava exclusiva de execução em `RAIZ_DADOS/_estado/rfb.lock` (`flock` não bloqueante).
 
     Levanta `ExecucaoEmAndamentoErro` se outra execução já a detém. A trava some com o processo,
     então uma execução morta nunca deixa a trava presa.

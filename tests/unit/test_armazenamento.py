@@ -54,8 +54,8 @@ def _configuracao_s3(
         "AWS_ACCESS_KEY_ID": "testid",
         "AWS_SECRET_ACCESS_KEY": "testsecret",
         "AWS_ENDPOINT_URL_S3": endpoint,
-        "DATA_ROOT_LOCAL": str(raiz_dados_local),
-        "DATA_ROOT": f"s3://{BUCKET}/{prefixo}",
+        "RAIZ_DADOS_LOCAL": str(raiz_dados_local),
+        "RAIZ_DADOS": f"s3://{BUCKET}/{prefixo}",
     }
     from rfb_pipeline.configuracao import carregar_configuracao
 
@@ -74,7 +74,7 @@ class TestCredenciaisFaltando:
         from rfb_pipeline.configuracao import carregar_configuracao
 
         with pytest.raises(CredenciaisS3FaltandoErro) as exc_info:
-            carregar_configuracao(env={"DATA_ROOT": f"s3://{BUCKET}/prefixo"})
+            carregar_configuracao(env={"RAIZ_DADOS": f"s3://{BUCKET}/prefixo"})
 
         assert "AWS_ACCESS_KEY_ID" in str(exc_info.value)
 

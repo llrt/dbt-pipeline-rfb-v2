@@ -31,7 +31,7 @@ class MesIncompletoErro(ErroIngestao):
 
 
 class ExecucaoEmAndamentoErro(ErroIngestao):
-    """Outra execução de `rfb ingerir` detém a trava de `DATA_ROOT/_estado/rfb.lock`."""
+    """Outra execução de `rfb ingerir` detém a trava de `RAIZ_DADOS/_estado/rfb.lock`."""
 
     def __init__(self, trava: str) -> None:
         self.trava = trava
@@ -124,12 +124,12 @@ class EntidadeVaziaErro(ErroIngestao):
 
 
 class CredenciaisS3FaltandoErro(ErroIngestao):
-    """`DATA_ROOT` é `s3://` mas faltam variáveis de ambiente obrigatórias."""
+    """`RAIZ_DADOS` é `s3://` mas faltam variáveis de ambiente obrigatórias."""
 
     def __init__(self, faltando: list[str]) -> None:
         self.faltando = faltando
         super().__init__(
-            "DATA_ROOT é s3:// mas faltam variáveis de ambiente: " + ", ".join(faltando)
+            "RAIZ_DADOS é s3:// mas faltam variáveis de ambiente: " + ", ".join(faltando)
         )
 
 

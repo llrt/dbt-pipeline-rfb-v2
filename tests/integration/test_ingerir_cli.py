@@ -1,8 +1,8 @@
 """Testes de integração do `rfb ingerir`: fluxo completo sobre fixtures e caminhos de erro.
 
-As asserções de fluxo feliz leem `DATA_ROOT` do ambiente — exportado por `make ci`, que já
+As asserções de fluxo feliz leem `RAIZ_DADOS` do ambiente — exportado por `make ci`, que já
 gerou fixtures e rodou `rfb ingerir --origem-local` antes de chamar o dbt e o pytest. Sem
-`DATA_ROOT`, o módulo inteiro é pulado (os caminhos de erro também dependem do gerador de
+`RAIZ_DADOS`, o módulo inteiro é pulado (os caminhos de erro também dependem do gerador de
 fixtures, então mantemos a mesma trava).
 """
 
@@ -27,18 +27,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 import gerar_fixtures  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
-    "DATA_ROOT" not in os.environ, reason="rode via make ci (exporta DATA_ROOT)"
+    "RAIZ_DADOS" not in os.environ, reason="rode via make ci (exporta RAIZ_DADOS)"
 )
 
 
 def _raiz_dados() -> Path:
-    return Path(os.environ["DATA_ROOT"])
+    return Path(os.environ["RAIZ_DADOS"])
 
 
 def _mes_ingerido() -> str:
-    manifestos_dir = _raiz_dados() / "_manifests"
+    manifestos_dir = _raiz_dados() / "_manifestos"
     nomes = sorted(p.stem for p in manifestos_dir.glob("*.json"))
-    assert nomes, "nenhum manifesto encontrado em _manifests/; rode `rfb ingerir` antes"
+    assert nomes, "nenhum manifesto encontrado em _manifestos/; rode `rfb ingerir` antes"
     return nomes[-1]
 
 
@@ -57,7 +57,7 @@ class TestFluxoCompleto:
 
     def test_manifesto_presente_com_contagens_do_cenario_de_fixtures(self) -> None:
         mes = _mes_ingerido()
-        manifesto_path = _raiz_dados() / "_manifests" / f"{mes}.json"
+        manifesto_path = _raiz_dados() / "_manifestos" / f"{mes}.json"
         assert manifesto_path.is_file()
         dados = json.loads(manifesto_path.read_text(encoding="utf-8"))
         assert dados["entidades"]["empresas"]["linhas"] == 14
@@ -72,7 +72,7 @@ class TestCaminhosDeErro:
     ) -> None:
         origem_local = tmp_path / "fixtures"
         gerar_fixtures.gerar_fixtures(origem_local)
-        monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
+        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "data"))
 
         codigo = cli.main(["ingerir", "--mes", "2099-01", "--origem-local", str(origem_local)])
 
@@ -86,7 +86,7 @@ class TestCaminhosDeErro:
     ) -> None:
         origem_local = tmp_path / "fixtures"
         gerar_fixtures.gerar_fixtures(origem_local)
-        monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
+        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "data"))
 
         def _sempre_excede(*_argumentos: object, **_kwargs: object) -> None:
             raise TaxaRejeitoExcedidaErro("empresas", 0.5, 0.0001, "raw/_rejeitos/empresas")
@@ -127,7 +127,7 @@ class TestRedeIndisponivel:
 
         monkeypatch.setattr(cliente_rfb.httpx, "Client", _cliente)
         monkeypatch.setattr(cliente_rfb.time, "sleep", lambda _s: None)
-        monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
+        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "data"))
 
         codigo = cli.main(["ingerir"])
 
@@ -141,7 +141,7 @@ def _fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pa
     origem_local = tmp_path / "fixtures"
     gerar_fixtures.gerar_fixtures(origem_local)
     data = tmp_path / "data"
-    monkeypatch.setenv("DATA_ROOT", str(data))
+    monkeypatch.setenv("RAIZ_DADOS", str(data))
     return origem_local, data
 
 
@@ -177,7 +177,7 @@ class TestExecucaoSegura:
         origem_local, data = _fixtures(tmp_path, monkeypatch)
 
         assert cli.main(_argumentos(origem_local, "--permitir-incompleto")) == 0
-        assert (data / "_manifests" / f"{gerar_fixtures.MES_REFERENCIA}.json").is_file()
+        assert (data / "_manifestos" / f"{gerar_fixtures.MES_REFERENCIA}.json").is_file()
         assert "faltam" in capsys.readouterr().err
 
     def test_segunda_execucao_simultanea_sai_1_e_nao_limpa_residuos(
@@ -229,7 +229,7 @@ class TestExecucaoSegura:
         assert cli.main(_argumentos(origem_local, "--permitir-incompleto")) == 1
 
         manifesto = json.loads(
-            (data / "_manifests" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+            (data / "_manifestos" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
         )
         assert set(manifesto["entidades"]) == {"empresas", "estabelecimentos"}
         assert manifesto["concluido_em"] is None
@@ -238,7 +238,7 @@ class TestExecucaoSegura:
         monkeypatch.setattr(cli, "converter_entidade_rfb", original)
         assert cli.main(_argumentos(origem_local, "--permitir-incompleto")) == 0
         final = json.loads(
-            (data / "_manifests" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+            (data / "_manifestos" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
         )
         assert final["concluido_em"]
         assert len(final["entidades"]) == 9
@@ -295,7 +295,7 @@ class TestLigacaoDoCli:
         assert cli.main(_argumentos(origem_local, "--permitir-incompleto")) == 0
 
         manifesto = json.loads(
-            (data / "_manifests" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+            (data / "_manifestos" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
         )
         assert manifesto["arquivos"]
         for arquivo in manifesto["arquivos"]:

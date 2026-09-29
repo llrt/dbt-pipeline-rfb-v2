@@ -80,11 +80,11 @@ class Configuracao:
         return self.raiz_dados / "raw"
 
     def baixados_dir(self, mes: str) -> Path:
-        return self.raiz_dados / "_downloads" / mes
+        return self.raiz_dados / "_baixados" / mes
 
     @property
     def manifestos_dir(self) -> Path:
-        return self.raiz_dados / "_manifests"
+        return self.raiz_dados / "_manifestos"
 
     @property
     def rejeitos_dir(self) -> Path:
@@ -100,7 +100,7 @@ _SOBRESCRITAS_NUMERICAS: tuple[tuple[str, str, type], ...] = (
     ("RFB_VELOCIDADE_MINIMA_BPS", "velocidade_minima_bps", float),
     ("RFB_JANELA_LENTIDAO_S", "janela_lentidao_s", float),
     ("RFB_MAX_RETOMADAS", "max_retomadas", int),
-    ("RFB_TIMEOUT_TOTAL_S", "tempo_limite_total_s", float),
+    ("RFB_TEMPO_LIMITE_TOTAL_S", "tempo_limite_total_s", float),
     ("DUCKDB_THREADS", "duckdb_threads", int),
 )
 
@@ -119,8 +119,8 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
     Quando `env` é `None`, carrega `.env` (via python-dotenv) e lê `os.environ`. Variável vazia
     equivale a ausente (usa o padrão), para que `cp .env.example .env` não quebre nada.
 
-    Quando `DATA_ROOT` é `s3://...` (ADR-0007), a ingestão (EL) continua lendo/escrevendo em um
-    diretório **local**, `DATA_ROOT_LOCAL` (padrão `./data`): `configuracao.raiz_dados` sempre
+    Quando `RAIZ_DADOS` é `s3://...` (ADR-0007), a ingestão (EL) continua lendo/escrevendo em um
+    diretório **local**, `RAIZ_DADOS_LOCAL` (padrão `./data`): `configuracao.raiz_dados` sempre
     aponta para esse diretório local, e `configuracao.raiz_dados_s3` guarda a URI remota (usada por
     `rfb sincronizar` e pelo secret do DuckDB). Credenciais S3 são validadas já aqui, cedo,
     citando as variáveis faltantes.
@@ -129,11 +129,11 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
         load_dotenv()
         env = os.environ
 
-    raiz_dados_bruto = _texto(env, "DATA_ROOT") or RAIZ_DADOS_PADRAO
+    raiz_dados_bruto = _texto(env, "RAIZ_DADOS") or RAIZ_DADOS_PADRAO
     if raiz_dados_bruto.startswith("s3://"):
         ler_credenciais_s3(env)
         raiz_dados_s3 = raiz_dados_bruto.rstrip("/")
-        raiz_dados = Path(_texto(env, "DATA_ROOT_LOCAL") or RAIZ_DADOS_PADRAO).resolve()
+        raiz_dados = Path(_texto(env, "RAIZ_DADOS_LOCAL") or RAIZ_DADOS_PADRAO).resolve()
         raiz_dados_uri = raiz_dados_s3
     else:
         raiz_dados_s3 = None

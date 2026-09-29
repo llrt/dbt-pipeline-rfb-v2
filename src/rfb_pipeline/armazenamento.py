@@ -1,7 +1,7 @@
 """Armazenamento remoto S3/Tigris: sync de `raw/`/`gold/` e secret DuckDB (ADR-0007).
 
 A ingestão (EL) sempre lê/escreve localmente (`configuracao.raiz_dados`, ver `configuracao.py`);
-este módulo só entra em jogo quando `DATA_ROOT` é `s3://...`, para publicar o que já foi
+este módulo só entra em jogo quando `RAIZ_DADOS` é `s3://...`, para publicar o que já foi
 gravado localmente
 (`rfb sincronizar`, via boto3, como o `subir_arquivos_tigris.py` original). O secret S3 do DuckDB no
 dbt vem do profile `s3` (`transform/profiles.yml`), não deste módulo (ADR-0007).
@@ -67,7 +67,7 @@ def sincronizar(configuracao: Configuracao, *, cliente_s3: Any | None = None) ->
     Ignora nomes ocultos (`.tmp-*`). Retorna as chaves efetivamente enviadas.
     """
     if configuracao.raiz_dados_s3 is None:
-        raise ErroIngestao("DATA_ROOT não é s3://; nada para sincronizar")
+        raise ErroIngestao("RAIZ_DADOS não é s3://; nada para sincronizar")
 
     s3 = cliente_s3 if cliente_s3 is not None else _cliente_s3(ler_credenciais_s3())
     bucket, prefixo = _interpretar_uri_s3(configuracao.raiz_dados_s3)

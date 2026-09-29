@@ -12,7 +12,7 @@ repos:
     hooks:
       - id: sqlfluff-lint
         name: sqlfluff lint (models + tests dbt)
-        entry: bash -c 'export DATA_ROOT="${DATA_ROOT:-$PWD/.tmp/lint}"; mkdir -p "$DATA_ROOT"; uv run sqlfluff lint transform/models transform/tests'
+        entry: bash -c 'export RAIZ_DADOS="${RAIZ_DADOS:-$PWD/.tmp/lint}"; mkdir -p "$RAIZ_DADOS"; uv run sqlfluff lint transform/models transform/tests'
         language: system
         pass_filenames: false
         files: ^(transform/(models|tests|macros)/.+\.sql|\.sqlfluff)$

@@ -1,6 +1,6 @@
 """`bh_empresas` no Parquet de `gold/` contra o cenário de fixtures da spec (Original AC 2–7).
 
-Lê `DATA_ROOT` do ambiente — exportado por `make ci`, que roda `dbt build` antes do pytest.
+Lê `RAIZ_DADOS` do ambiente — exportado por `make ci`, que roda `dbt build` antes do pytest.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import duckdb
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    "DATA_ROOT" not in os.environ, reason="rode via make ci (exporta DATA_ROOT)"
+    "RAIZ_DADOS" not in os.environ, reason="rode via make ci (exporta RAIZ_DADOS)"
 )
 
 COLUNAS = [
@@ -36,7 +36,7 @@ COLUNAS = [
 
 @pytest.fixture(scope="module")
 def linhas() -> dict[str, dict[str, object]]:
-    parquet = Path(os.environ["DATA_ROOT"]) / "gold" / "bh_empresas.parquet"
+    parquet = Path(os.environ["RAIZ_DADOS"]) / "gold" / "bh_empresas.parquet"
     assert parquet.is_file(), f"{parquet} não existe; rode `make ci`"
     with duckdb.connect() as con:
         relacao = con.sql(f"select * from read_parquet('{parquet}')")
