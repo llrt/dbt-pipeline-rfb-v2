@@ -25,7 +25,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 
 ## Handoff
 
-**Pausado pelo usuário em 2026-09-28** (desligamento do computador). Nenhum agente em execução; nenhum trabalho não commitado.
+**Retomado em 2026-09-29** após pausa do usuário em 2026-09-28. Verificação de retomada ok (árvore limpa em `8740585`; `make ci` PASS=45 WARN=1 ERROR=0; 90 unit verdes). R1 reativada no mesmo agente `a84e9afe` com o brief completo.
 
 - **main** = `a3b2d38` (+ commit deste handoff), verde: 90 unit + 5 integração; `make ci` ≈ 7 s (dbt PASS=45 WARN=1 ERROR=0); `make lint` ok.
 - **Concluído e integrado:** P0, B1 (T1–T3), B2 (T4–T7), B3 (T8), B4 (T9–T13), B9a (T29). Status detalhado: `docs/PLANO.md`.
