@@ -341,6 +341,65 @@ def test_falha_no_segundo_zip_nao_publica_nada(
     assert not any((config.data_root / "_tmp").glob("extract-*"))
 
 
+def test_publicacao_atomica_falha_entre_renames_restaura_anterior(
+    fixtures: Path, config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Falha ao mover o temporário para o destino (depois de afastar a partição anterior)."""
+    (anterior,) = _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+    conteudo = anterior.parquet[0].read_bytes()
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    (origem / "Empresas1.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
+
+    rename_original = Path.rename
+    chamadas: list[tuple[str, str]] = []
+
+    def rename_falho(self: Path, alvo: Path) -> Path:
+        chamadas.append((self.name, Path(alvo).name))
+        if self.name.startswith(".tmp-") and Path(alvo).name == f"mes_referencia={MES}":
+            raise OSError("falha simulada no rename do temporário")
+        return rename_original(self, alvo)
+
+    monkeypatch.setattr(Path, "rename", rename_falho)
+
+    with pytest.raises(OSError, match="falha simulada"):
+        converter_entidade_rfb(
+            [origem / "Empresas1.zip"],
+            ENTIDADES_RFB["empresas"],
+            MES,
+            config,
+            ingerido_em=INGERIDO_EM,
+        )
+
+    # A falha ocorreu depois de a partição anterior ter sido afastada (2ª chamada a rename).
+    assert [a.startswith(".tmp-") for a, _ in chamadas[:2]] == [False, True]
+    # Ao término a partição existe e é a antiga, íntegra (sem arquivos da nova).
+    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas0.parquet"]
+    assert anterior.parquet[0].read_bytes() == conteudo
+    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+        f"mes_referencia={MES}"
+    ]
+
+
+def test_publicacao_atomica_sucesso_troca_inteira(
+    fixtures: Path, config: Config, tmp_path: Path
+) -> None:
+    _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    (origem / "Empresas1.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
+
+    converter_entidade_rfb(
+        [origem / "Empresas1.zip"], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+    )
+
+    # Nova íntegra, sem mistura com a anterior e sem sobras (.old-*/.tmp-*).
+    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas1.parquet"]
+    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+        f"mes_referencia={MES}"
+    ]
+
+
 # ------------------------------------------------------------------ contagem > 0
 
 
