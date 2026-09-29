@@ -119,3 +119,11 @@ class CredenciaisS3FaltandoError(ErroIngestao):
         super().__init__(
             "DATA_ROOT é s3:// mas faltam variáveis de ambiente: " + ", ".join(faltando)
         )
+
+
+class ConfiguracaoInvalidaError(ErroIngestao):
+    """Variável de ambiente com valor que não pode ser interpretado."""
+
+    def __init__(self, variavel: str, valor: str, esperado: str) -> None:
+        self.variavel = variavel
+        super().__init__(f"variável {variavel}={valor!r} inválida (esperado {esperado})")

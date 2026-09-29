@@ -8,9 +8,9 @@ import duckdb
 import pytest
 from moto.server import ThreadedMotoServer
 
-from rfb_pipeline.config import Config
+from rfb_pipeline.config import Config, ler_credenciais_s3
 from rfb_pipeline.errors import CredenciaisS3FaltandoError, ErroIngestao
-from rfb_pipeline.storage import sincronizar, sql_create_secret
+from rfb_pipeline.storage import sincronizar
 
 BUCKET = "meu-bucket"
 
@@ -127,33 +127,40 @@ class TestSincronizar:
         assert sincronizar(config, cliente_s3=cliente_s3) == []
 
 
-class TestSqlCreateSecret:
-    def test_recusa_config_sem_data_root_s3(self, tmp_path: Path) -> None:
-        config = Config(data_root=tmp_path, data_root_uri=str(tmp_path))
-        with pytest.raises(ErroIngestao):
-            sql_create_secret(config)
+class TestDuckDBLeDoBucket:
+    """O secret vem do profile dbt `s3`; aqui só se prova que os parâmetros derivados de
+    `CredenciaisS3` (endpoint sem esquema, SSL, estilo de URL) fazem o DuckDB ler do bucket."""
 
-    def test_duckdb_le_parquet_do_moto_com_o_secret_gerado(
-        self, tmp_path: Path, endpoint: str, cliente_s3, monkeypatch: pytest.MonkeyPatch
+    def test_duckdb_le_parquet_do_moto_com_secret_derivado_das_credenciais(
+        self, tmp_path: Path, endpoint: str, cliente_s3
     ) -> None:
-        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testid")
-        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testsecret")
-        monkeypatch.setenv("AWS_ENDPOINT_URL_S3", endpoint)
-        monkeypatch.setenv("S3_URL_STYLE", "path")
-
-        config = _config_s3(tmp_path / "local", endpoint, prefixo="secret-teste")
+        creds = ler_credenciais_s3(
+            env={
+                "AWS_ACCESS_KEY_ID": "testid",
+                "AWS_SECRET_ACCESS_KEY": "testsecret",
+                "AWS_ENDPOINT_URL_S3": endpoint,
+                "S3_URL_STYLE": "path",
+            }
+        )
+        assert creds.usa_ssl is False  # endpoint http:// nos testes com moto
         local_parquet = tmp_path / "origem.parquet"
         _criar_parquet(local_parquet, 42)
         cliente_s3.upload_file(str(local_parquet), BUCKET, "secret-teste/dado.parquet")
 
-        sql = sql_create_secret(config)
-        assert "USE_SSL false" in sql  # endpoint http:// nos testes com moto
-        assert "URL_STYLE 'path'" in sql
-
         con = duckdb.connect()
         con.execute("INSTALL httpfs")
         con.execute("LOAD httpfs")
-        con.execute(sql)
+        con.execute(
+            "CREATE SECRET s3_secret (TYPE s3, KEY_ID ?, SECRET ?, ENDPOINT ?, REGION ?, "
+            f"URL_STYLE ?, USE_SSL {'true' if creds.usa_ssl else 'false'})",
+            [
+                creds.access_key_id,
+                creds.secret_access_key,
+                creds.endpoint_sem_esquema,
+                creds.region,
+                creds.url_style,
+            ],
+        )
         resultado = con.execute(
             f"SELECT * FROM read_parquet('s3://{BUCKET}/secret-teste/dado.parquet')"
         ).fetchall()

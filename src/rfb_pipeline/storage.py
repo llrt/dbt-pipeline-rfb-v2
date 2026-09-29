@@ -2,8 +2,8 @@
 
 A ingestão (EL) sempre lê/escreve localmente (`config.data_root`, ver `config.py`); este módulo
 só entra em jogo quando `DATA_ROOT` é `s3://...`, para publicar o que já foi gravado localmente
-(`rfb sync`, via boto3, como o `subir_arquivos_tigris.py` original) e para gerar o SQL de
-`CREATE SECRET` que o DuckDB usa ao ler/escrever no bucket.
+(`rfb sync`, via boto3, como o `subir_arquivos_tigris.py` original). O secret S3 do DuckDB no
+dbt vem do profile `s3` (`transform/profiles.yml`), não deste módulo (ADR-0007).
 """
 
 from __future__ import annotations
@@ -18,32 +18,9 @@ from botocore.exceptions import ClientError
 from rfb_pipeline.config import Config, CredenciaisS3, ler_credenciais_s3
 from rfb_pipeline.errors import ErroIngestao
 
-__all__ = ["sincronizar", "sql_create_secret"]
+__all__ = ["sincronizar"]
 
 _CODIGOS_NAO_ENCONTRADO = {"404", "NoSuchKey", "NotFound"}
-
-
-def sql_create_secret(config: Config, *, nome: str = "s3_secret") -> str:
-    """SQL `CREATE SECRET` para o DuckDB ler/escrever no bucket S3/Tigris de `DATA_ROOT`.
-
-    Credenciais vêm de `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_ENDPOINT_URL_S3`
-    (validadas em `carregar_config`); `REGION` é sempre `'auto'`; `URL_STYLE` vem de
-    `S3_URL_STYLE` (padrão `vhost`); `USE_SSL` segue o esquema do endpoint.
-    """
-    if config.data_root_s3 is None:
-        raise ErroIngestao("DATA_ROOT não é s3://; não há secret S3 a criar")
-    creds = ler_credenciais_s3()
-    return (
-        f"CREATE OR REPLACE SECRET {nome} ("
-        "TYPE s3, "
-        f"KEY_ID '{creds.access_key_id}', "
-        f"SECRET '{creds.secret_access_key}', "
-        f"ENDPOINT '{creds.endpoint_sem_esquema}', "
-        f"REGION '{creds.region}', "
-        f"URL_STYLE '{creds.url_style}', "
-        f"USE_SSL {'true' if creds.usa_ssl else 'false'}"
-        ")"
-    )
 
 
 def _parse_s3_uri(uri: str) -> tuple[str, str]:

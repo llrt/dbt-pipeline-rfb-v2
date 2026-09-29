@@ -19,7 +19,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
         data_tests:
@@ -70,7 +70,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
         data_tests:
@@ -167,7 +167,7 @@ sources:
         meta:
           escopo: adicao
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/simples/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/simples/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_adicao]
         columns:
@@ -193,7 +193,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/cnaes/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/cnaes/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
         data_tests:
@@ -218,7 +218,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/municipios/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/municipios/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
         data_tests:
@@ -241,7 +241,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/naturezas/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/naturezas/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
         data_tests:
@@ -264,7 +264,7 @@ sources:
         meta:
           escopo: original
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/motivos/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/motivos/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_original]
         data_tests:
@@ -289,7 +289,7 @@ sources:
         meta:
           escopo: adicao
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/paises/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/paises/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_adicao]
         columns:
@@ -305,7 +305,7 @@ sources:
         meta:
           escopo: adicao
           external_location: >-
-            read_parquet('{{ env_var('DATA_ROOT') }}/raw/rfb/qualificacoes/mes_referencia=*/*.parquet',
+            read_parquet('{{ env_var('DATA_ROOT', '../data') }}/raw/rfb/qualificacoes/mes_referencia=*/*.parquet',
             hive_partitioning=false)
         tags: [escopo_adicao]
         columns:
