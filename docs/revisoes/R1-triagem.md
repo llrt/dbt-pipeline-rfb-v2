@@ -14,7 +14,7 @@ O líder reproduziu R1-05, R1-08, R1-09 e R1-15 antes de aceitar. Todos os impor
 | R1-05, R1-06, R1-12, R1-13, R1-15, R1-25 | corrigir já — datas via `try_strptime`, `not_null`/unicidade sobre `cnpj_completo`, exceção obsoleta detectada, `meta.escopo` em todos os nós, `lpad` sem truncar (teste de tamanho), unicidades BD | dbt | F1a — FX5 |
 | R1-10 (exceto partes de `test_convert.py`) | corrigir já — testes que afirmam a spec (lista literal de colunas, ligação CLI↔idempotência, sha256 conhecido, `_resolver_mes`) | `tests/` | F1a — FX6 |
 | R1-14 | corrigir já — hook sqlfluff do pre-commit | `.pre-commit-config.yaml` | F1a — FX7 |
-| R1-04, R1-24, R1-23, R1-10 (partes em `test_convert.py`) | corrigir já — falha em entidade com 0 linhas, teste de atomicidade da publicação, zip-slip sem caminho fixo, contrato de colunas afirmado literalmente | `convert.py`, `test_convert.py` | F1b (Opus médio — origem B3) |
+| R1-04, R1-24, R1-23, R1-10 (partes em `test_convert.py`) | corrigir já — falha em entidade com 0 linhas, teste de atomicidade da publicação, zip-slip sem caminho fixo, contrato de colunas afirmado literalmente | `convert.py`, `test_convert.py` | F1b (Opus médio — origem B3) — **resolvido** em `54368a4` `88f9312` `081d8be` (M15, M17, M18, M19 morrem) |
 | R1-11, R1-21, R1-22 | adiar para **T32** (B6), onde as fixtures ganham o 2º mês e o multi-mês fica testável | dbt | B6 |
 | R1-27 | corrigido pelo líder: `--data-root` desmarcado/removido de T10 em tasks.md | tasks.md | — |
 
