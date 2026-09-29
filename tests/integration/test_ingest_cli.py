@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 import fcntl
+import hashlib
 import json
 import os
 import sys
@@ -18,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from rfb_pipeline import cli
-from rfb_pipeline.errors import TaxaRejeitoExcedidaError
+from rfb_pipeline.errors import EntidadeVaziaError, TaxaRejeitoExcedidaError
 from rfb_pipeline.schemas import ENTIDADES_RFB, TABELAS_BD
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -257,3 +258,60 @@ class TestExecucaoSegura:
         erro = capsys.readouterr().err
         assert "_data_referencia ficou NULL" in erro
         assert "nenhuma data de referência" in erro
+
+
+class TestLigacaoDoCli:
+    def _parquets(self, data: Path) -> dict[Path, int]:
+        return {p: p.stat().st_mtime_ns for p in (data / "raw" / "rfb").rglob("*.parquet")}
+
+    def test_segunda_execucao_nao_reescreve_e_force_reescreve(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Ingestão AC 12 ligada ao CLI (R1-10; M4): o pulo não é só `precisa_reconverter`."""
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+        extra = ("--permitir-incompleto",)
+
+        assert cli.main(_args(origem_local, *extra)) == 0
+        primeiro = self._parquets(data)
+        assert primeiro
+
+        assert cli.main(_args(origem_local, *extra)) == 0
+        assert self._parquets(data) == primeiro  # nada reescrito
+        assert "pulada (sem mudanças)" in capsys.readouterr().out
+
+        assert cli.main(_args(origem_local, *extra, "--force")) == 0
+        depois = self._parquets(data)
+        assert set(depois) == set(primeiro)
+        assert all(depois[p] != primeiro[p] for p in primeiro)  # todos reescritos
+
+    def test_manifesto_do_cli_tem_o_sha256_real_dos_zips(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Ingestão AC 14 (M20): sha256 do manifesto == hashlib do zip de origem."""
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 0
+
+        manifesto = json.loads(
+            (data / "_manifests" / f"{gen_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+        )
+        assert manifesto["arquivos"]
+        for arquivo in manifesto["arquivos"]:
+            zip_origem = origem_local / "rfb" / gen_fixtures.MES_REFERENCIA / arquivo["nome"]
+            assert arquivo["sha256"] == hashlib.sha256(zip_origem.read_bytes()).hexdigest()
+            assert arquivo["bytes"] == zip_origem.stat().st_size
+
+    def test_entidade_vazia_sai_com_codigo_1_e_mensagem(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        origem_local, _ = _fixtures(tmp_path, monkeypatch)
+
+        def _vazia(*_a: object, **_k: object) -> None:
+            raise EntidadeVaziaError("estabelecimentos", ["Estabelecimentos3.zip"])
+
+        monkeypatch.setattr(cli, "converter_entidade_rfb", _vazia)
+
+        assert cli.main(_args(origem_local, "--permitir-incompleto")) == 1
+        erro = capsys.readouterr().err
+        assert "estabelecimentos" in erro
+        assert "0 linhas" in erro
+        assert "Estabelecimentos3.zip" in erro
