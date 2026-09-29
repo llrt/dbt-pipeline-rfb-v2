@@ -191,7 +191,15 @@ models:
       - name: pais_codigo
         description: Código do país (3 dígitos), só para estabelecimentos no exterior.
       - name: dat_inicio_atividade
-        description: Data de início de atividade.
+        description: >
+          Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a
+          menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste warn
+          abaixo as registra (spec Original AC 12, emenda R2-02).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: "date '1800-01-01'"
+              config: { severity: warn, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: cnae_principal
         description: Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).
         data_tests:

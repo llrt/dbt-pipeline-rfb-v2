@@ -121,3 +121,23 @@ def test_warn_de_trim_acusa_exatamente_g(linhas: dict[str, dict[str, object]]) -
     assert _falhas_armazenadas("bh_empresas_nome_alterado_por_trim") == [
         (cnpj_g, " ATACADO VITORIA TINTAS", "ATACADO VITORIA TINTAS")
     ]
+
+
+def test_idade_fora_de_faixa_avisa_e_so_falha_acima_de_100() -> None:
+    """Original AC 12 (emenda R2-02): 1..100 linhas fora de [0, 200] -> WARN; > 100 -> ERROR."""
+    manifesto = json.loads((RESULTADOS_DBT.parent / "manifest.json").read_text(encoding="utf-8"))
+    (config,) = [
+        no["config"]
+        for no in manifesto["nodes"].values()
+        if no["resource_type"] == "test"
+        and no.get("attached_node") == "model.rfb.bh_empresas"
+        and no.get("column_name") == "idade_atual"
+    ]
+    assert (config["severity"].lower(), config["warn_if"], config["error_if"]) == (
+        "error",
+        "!=0",
+        ">100",
+    )
+    status = _status_dos_testes()
+    (inicio_absurdo,) = [n for n in status if n.startswith("dbt_utils_accepted_range_stg_rfb")]
+    assert status[inicio_absurdo] == ("pass", 0)
