@@ -167,17 +167,101 @@ def test_simples_data_referencia_formato_simples(fixtures: Path, config: Config)
     assert {x["_data_referencia"] for x in _ler(r.parquet[0])} == {date(2026, 9, 12)}
 
 
-def test_schema_parquet_rfb(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
-    entidade = ENTIDADES_RFB["estabelecimentos"]
+# Contrato literal da camada raw (ARCHITECTURE.md §4.2), escrito aqui de propósito sem derivar de
+# `schemas.py`: uma coluna renomeada ou reordenada no código tem de quebrar este teste.
+_DOMINIO = ["codigo", "descricao"]
+_CONTRATO_RFB: dict[str, tuple[str, list[str]]] = {
+    "empresas": (
+        "Empresas0.zip",
+        [
+            "cnpj_raiz",
+            "razao_social",
+            "natureza_jur",
+            "qualificacao_resp",
+            "capital_soc",
+            "porte",
+            "ente_fed_resp",
+        ],
+    ),
+    "estabelecimentos": (
+        "Estabelecimentos0.zip",
+        [
+            "cnpj_raiz",
+            "cnpj_ordem",
+            "cnpj_dv",
+            "ind_matriz_filial",
+            "nome_fantasia",
+            "situacao",
+            "dat_situacao",
+            "mot_situacao",
+            "cidade_exterior",
+            "pais",
+            "dat_inicio_atividade",
+            "cnae_principal",
+            "cnaes_secundarios",
+            "tip_logradouro",
+            "logradouro",
+            "num_logradouro",
+            "compl_logradouro",
+            "bairro",
+            "cep",
+            "uf",
+            "municipio",
+            "ddd1",
+            "tel1",
+            "ddd2",
+            "tel2",
+            "ddd_fax",
+            "fax",
+            "email",
+            "sit_especial",
+            "dat_sit_especial",
+        ],
+    ),
+    "simples": (
+        "Simples.zip",
+        [
+            "cnpj_raiz",
+            "opcao_simples",
+            "dat_opcao_simples",
+            "dat_exclusao_simples",
+            "opcao_mei",
+            "dat_opcao_mei",
+            "dat_exclusao_mei",
+        ],
+    ),
+    "cnaes": ("Cnaes.zip", _DOMINIO),
+    "municipios": ("Municipios.zip", _DOMINIO),
+    "naturezas": ("Naturezas.zip", _DOMINIO),
+    "motivos": ("Motivos.zip", _DOMINIO),
+    "paises": ("Paises.zip", _DOMINIO),
+    "qualificacoes": ("Qualificacoes.zip", _DOMINIO),
+}
+_TECNICAS_RFB = [
+    ("_arquivo_origem", "VARCHAR"),
+    ("_mes_referencia", "VARCHAR"),
+    ("_data_referencia", "DATE"),
+    ("_ingerido_em", "TIMESTAMP"),
+]
 
-    assert _schema(r.parquet[0]) == {
-        **dict.fromkeys(entidade.colunas, "VARCHAR"),
-        "_arquivo_origem": "VARCHAR",
-        "_mes_referencia": "VARCHAR",
-        "_data_referencia": "DATE",
-        "_ingerido_em": "TIMESTAMP",
-    }
+
+def test_contrato_cobre_todas_as_entidades_rfb() -> None:
+    assert sorted(_CONTRATO_RFB) == sorted(ENTIDADES_RFB)
+
+
+@pytest.mark.parametrize("entidade", sorted(_CONTRATO_RFB))
+def test_contrato_de_colunas_rfb(fixtures: Path, config: Config, entidade: str) -> None:
+    zip_nome, colunas = _CONTRATO_RFB[entidade]
+    (r,) = _converter(fixtures, config, entidade, [zip_nome])
+
+    rel = duckdb.sql(f"SELECT * FROM read_parquet('{r.parquet[0]}', hive_partitioning=false)")
+    esperado = [(c, "VARCHAR") for c in colunas] + _TECNICAS_RFB
+    assert list(zip(rel.columns, (str(t) for t in rel.types), strict=True)) == esperado
+    assert r.linhas > 0
+
+
+def test_parquet_rfb_zstd(fixtures: Path, config: Config) -> None:
+    (r,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
     metadados = duckdb.sql(
         f"SELECT DISTINCT compression FROM parquet_metadata('{r.parquet[0]}')"
     ).fetchall()
@@ -508,9 +592,12 @@ def _zip_com_entrada(caminho: Path, nome_entrada: str) -> Path:
 
 
 @pytest.mark.parametrize(
-    "entrada", ["../evil.csv", "sub/../../evil.csv", "/tmp/evil-rfb-b3.csv", "..\\evil.csv"]
+    "entrada", ["../evil.csv", "sub/../../evil.csv", "{absoluto}", "..\\evil.csv"]
 )
 def test_zip_slip_recusado_sem_escrever(tmp_path: Path, entrada: str) -> None:
+    # Caminho absoluto dentro do tmp_path (fora do destino): uma regressão não suja a máquina.
+    absoluto = tmp_path / "fora" / "evil.csv"
+    entrada = entrada.format(absoluto=absoluto.as_posix())
     zip_path = _zip_com_entrada(tmp_path / "mal.zip", entrada)
     destino = tmp_path / "destino" / "extracao"
 
@@ -520,7 +607,8 @@ def test_zip_slip_recusado_sem_escrever(tmp_path: Path, entrada: str) -> None:
     assert exc.value.entrada == entrada
     assert list(destino.iterdir()) == []  # nem a entrada legítima é extraída
     assert not (tmp_path / "destino" / "evil.csv").exists()
-    assert not Path("/tmp/evil-rfb-b3.csv").exists()
+    assert not absoluto.exists()
+    assert not absoluto.parent.exists()
 
 
 def test_zip_slip_via_conversao_nao_escreve_em_raw(config: Config, tmp_path: Path) -> None:
