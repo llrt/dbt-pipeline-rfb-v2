@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import gzip
+import logging
 import sys
 import zipfile
 from datetime import date, datetime
@@ -10,6 +12,7 @@ import pytest
 
 from rfb_pipeline.config import Config
 from rfb_pipeline.convert import (
+    EntidadeVaziaError,
     ResultadoConversao,
     TaxaRejeitoExcedidaError,
     ZipCorrompidoError,
@@ -19,6 +22,7 @@ from rfb_pipeline.convert import (
     data_referencia_do_nome,
     extrair_zip_seguro,
 )
+from rfb_pipeline.errors import ErroIngestao
 from rfb_pipeline.schemas import ENTIDADES_RFB, TABELAS_BD
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -335,6 +339,103 @@ def test_falha_no_segundo_zip_nao_publica_nada(
 
     assert list((config.raw_dir / "rfb" / "empresas").iterdir()) == []
     assert not any((config.data_root / "_tmp").glob("extract-*"))
+
+
+# ------------------------------------------------------------------ contagem > 0
+
+
+def _zip_vazio(destino: Path, nome_zip: str, nome_interno: str) -> Path:
+    destino.mkdir(parents=True, exist_ok=True)
+    caminho = destino / nome_zip
+    with zipfile.ZipFile(caminho, "w") as zf:
+        zf.writestr(nome_interno, b"")
+    return caminho
+
+
+def test_entidade_com_zero_linhas_nao_e_publicada(
+    fixtures: Path, config: Config, tmp_path: Path
+) -> None:
+    (anterior,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
+    conteudo = anterior.parquet[0].read_bytes()
+    vazio = _zip_vazio(
+        tmp_path / "origem", "Estabelecimentos0.zip", "K3241.K03200Y0.D60912.ESTABELE"
+    )
+
+    with pytest.raises(EntidadeVaziaError) as exc:
+        converter_entidade_rfb(
+            [vazio], ENTIDADES_RFB["estabelecimentos"], MES, config, ingerido_em=INGERIDO_EM
+        )
+
+    assert exc.value.entidade == "estabelecimentos"
+    assert exc.value.arquivos == ["Estabelecimentos0.zip"]
+    assert isinstance(exc.value, ErroIngestao)
+    assert [p.name for p in _particao(config, "estabelecimentos").iterdir()] == [
+        "part-Estabelecimentos0.parquet"
+    ]
+    assert anterior.parquet[0].read_bytes() == conteudo
+    assert sorted(p.name for p in (config.raw_dir / "rfb" / "estabelecimentos").iterdir()) == [
+        f"mes_referencia={MES}"
+    ]
+    assert not any((config.data_root / "_tmp").glob("extract-*"))
+
+
+def test_dominio_pequeno_vazio_nao_e_publicado(config: Config, tmp_path: Path) -> None:
+    vazio = _zip_vazio(tmp_path / "origem", "Cnaes.zip", "F.K03200$Z.D60912.CNAECSV")
+
+    with pytest.raises(EntidadeVaziaError) as exc:
+        converter_entidade_rfb(
+            [vazio], ENTIDADES_RFB["cnaes"], MES, config, ingerido_em=INGERIDO_EM
+        )
+
+    assert exc.value.entidade == "cnaes"
+    assert list((config.raw_dir / "rfb" / "cnaes").iterdir()) == []
+
+
+def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
+    fixtures: Path, config: Config, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    (origem / "Empresas0.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
+    vazio = _zip_vazio(origem, "Empresas1.zip", "K3241.K03200Y1.D60912.EMPRECSV")
+
+    with caplog.at_level(logging.WARNING, logger="rfb_pipeline.convert"):
+        resultados = converter_entidade_rfb(
+            [origem / "Empresas0.zip", vazio],
+            ENTIDADES_RFB["empresas"],
+            MES,
+            config,
+            ingerido_em=INGERIDO_EM,
+        )
+
+    assert [(r.arquivo_origem, r.linhas) for r in resultados] == [
+        ("Empresas0.zip", 14),
+        ("Empresas1.zip", 0),
+    ]
+    assert all(r.parquet[0].is_file() for r in resultados)
+    avisos = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(avisos) == 1
+    assert "Empresas1.zip" in avisos[0].getMessage()
+    assert "0 linhas" in avisos[0].getMessage()
+
+
+def test_bd_sem_linhas_nao_e_publicada(fixtures: Path, config: Config, tmp_path: Path) -> None:
+    csv_gz = tmp_path / "municipio.csv.gz"
+    csv_gz.write_bytes(gzip.compress(b"id_municipio,id_municipio_rf,nome\n"))
+    anterior = converter_tabela_bd(
+        fixtures / "bd" / "municipio.csv.gz",
+        TABELAS_BD["municipio"],
+        config,
+        ingerido_em=INGERIDO_EM,
+    )
+    conteudo = anterior.parquet[0].read_bytes()
+
+    with pytest.raises(EntidadeVaziaError) as exc:
+        converter_tabela_bd(csv_gz, TABELAS_BD["municipio"], config, ingerido_em=INGERIDO_EM)
+
+    assert (exc.value.entidade, exc.value.arquivos) == ("municipio", ["municipio.csv.gz"])
+    assert anterior.parquet[0].read_bytes() == conteudo
+    assert sorted(p.name for p in (config.raw_dir / "bd").iterdir()) == ["municipio"]
 
 
 # ------------------------------------------------------------------------ zips

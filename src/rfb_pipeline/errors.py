@@ -82,6 +82,18 @@ class ConversaoError(ErroIngestao):
         super().__init__(f"falha ao converter {arquivo}: {motivo}")
 
 
+class EntidadeVaziaError(ErroIngestao):
+    """A conversão de uma entidade produziu 0 linhas no total; nada é publicado."""
+
+    def __init__(self, entidade: str, arquivos: list[str]) -> None:
+        self.entidade = entidade
+        self.arquivos = arquivos
+        super().__init__(
+            f"{entidade}: conversão produziu 0 linhas (arquivos: {', '.join(arquivos) or '-'}); "
+            "a partição anterior foi mantida"
+        )
+
+
 class CredenciaisS3FaltandoError(ErroIngestao):
     """`DATA_ROOT` é `s3://` mas faltam variáveis de ambiente obrigatórias."""
 
