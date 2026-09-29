@@ -141,3 +141,18 @@ def test_idade_fora_de_faixa_avisa_e_so_falha_acima_de_100() -> None:
     status = _status_dos_testes()
     (inicio_absurdo,) = [n for n in status if n.startswith("dbt_utils_accepted_range_stg_rfb")]
     assert status[inicio_absurdo] == ("pass", 0)
+
+
+def test_descartes_do_inner_join_sao_exatamente_k_l_m() -> None:
+    """Original AC 11 (R2-05): 3 descartes — K e M sem município BD, L sem CNAE BD."""
+    assert _status_dos_testes()["bh_empresas_descartes_inner_join"] == ("warn", 3)
+    descartes = {
+        cnpj[:8]: motivos
+        for cnpj, *motivos in _falhas_armazenadas("bh_empresas_descartes_inner_join")
+    }
+    # (sem_empresa, sem_natureza, sem_cnae_bd, sem_municipio_bd)
+    assert descartes == {
+        "13131313": [False, False, False, True],
+        "14141414": [False, False, True, False],
+        "15151515": [False, False, False, True],
+    }
