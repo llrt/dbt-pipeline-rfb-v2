@@ -103,6 +103,136 @@ models:
       - name: dat_exclusao_mei
         description: Data de exclusão do MEI; NULL se `00000000` no raw.
 
+  - name: stg_rfb__empresas
+    description: >
+      Empresas (CNPJ raiz) da RFB, tipadas e limpas, do mês de referência selecionado
+      (`filtro_mes_referencia`): códigos com zeros à esquerda (`lpad_codigo`), capital social em
+      DECIMAL (`decimal_rfb`), porte inteiro e textos vazios convertidos em NULL.
+    columns:
+      - name: cnpj_raiz
+        description: 8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).
+        data_tests:
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 8
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - name: razao_social
+        description: Razão social (nome oficial/jurídico) da empresa.
+      - name: natureza_juridica_codigo
+        description: Código da natureza jurídica, 4 dígitos (FK lógica para `stg_rfb__naturezas.codigo`).
+      - name: qualificacao_responsavel_codigo
+        description: Código de qualificação do responsável pela empresa perante a RFB, 2 dígitos.
+      - name: capital_social
+        description: Capital social declarado, DECIMAL(18,2) (`1000,50` -> 1000.50); inválido -> NULL.
+      - name: porte_codigo
+        description: "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 3, 5]
+                quote: false
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - name: ente_federativo_responsavel
+        description: Ente federativo responsável, preenchido só para órgãos/autarquias públicas.
+      - name: _mes_referencia
+        description: Mês de referência (`YYYY-MM`) do extrato RFB.
+      - name: _data_referencia
+        description: Data do extrato RFB (do nome interno do arquivo, ex. `D60912` -> 2026-09-12).
+
+  - name: stg_rfb__estabelecimentos
+    description: >
+      Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referência selecionado:
+      `cnpj_completo` com 14 dígitos, datas `YYYYMMDD` -> DATE (`0`, `00000000` e inválidas ->
+      NULL), códigos com zeros à esquerda, CNAEs secundários como texto original e como lista.
+      **Sem** colunas de contato (`email`, `ddd*`, `tel*`, `fax`) — ADR-0008.
+    columns:
+      - name: cnpj_raiz
+        description: 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - name: cnpj_ordem
+        description: Número do estabelecimento (4 dígitos; `0001` = matriz, em geral).
+      - name: cnpj_dv
+        description: Dígitos verificadores do CNPJ (2 dígitos).
+      - name: cnpj_completo
+        description: CNPJ completo com 14 dígitos = `cnpj_raiz || cnpj_ordem || cnpj_dv`.
+        data_tests:
+          - unique:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 14
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - name: matriz_filial_codigo
+        description: "1 = matriz, 2 = filial."
+      - name: nome_fantasia
+        description: Nome fantasia do estabelecimento; NULL se vazio.
+      - name: situacao_codigo
+        description: "Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 8]
+                quote: false
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - name: dat_situacao
+        description: Data da situação cadastral atual (para ativos, costuma ser a data de início).
+      - name: motivo_situacao_codigo
+        description: Código do motivo da situação cadastral (2 dígitos; FK lógica para `stg_rfb__motivos`).
+      - name: cidade_exterior
+        description: Cidade no exterior, só para estabelecimentos fora do Brasil.
+      - name: pais_codigo
+        description: Código do país (3 dígitos), só para estabelecimentos no exterior.
+      - name: dat_inicio_atividade
+        description: Data de início de atividade.
+      - name: cnae_principal
+        description: Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).
+        data_tests:
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - name: cnaes_secundarios
+        description: CNAEs secundários, texto original separado por vírgula; NULL se vazio.
+      - name: cnaes_secundarios_lista
+        description: CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver.
+      - name: tipo_logradouro
+        description: Tipo de logradouro (RUA, AVENIDA...).
+      - name: logradouro
+        description: Nome do logradouro.
+      - name: numero
+        description: Número no logradouro.
+      - name: complemento
+        description: Complemento do endereço.
+      - name: bairro
+        description: Bairro.
+      - name: cep
+        description: CEP (8 dígitos, texto).
+      - name: uf
+        description: Sigla da UF (`EX` para exterior).
+      - name: municipio_rfb_codigo
+        description: Código do município na classificação da RFB, 4 dígitos (não é o código IBGE).
+        data_tests:
+          - tamanho_exato:
+              arguments:
+                tamanho: 4
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - name: situacao_especial
+        description: Situação especial (ex. recuperação judicial), quando houver.
+      - name: dat_situacao_especial
+        description: Data da situação especial.
+      - name: _mes_referencia
+        description: Mês de referência (`YYYY-MM`) do extrato RFB.
+      - name: _data_referencia
+        description: Data do extrato RFB (do nome interno do arquivo).
+
 unit_tests:
   - name: test_stg_rfb__cnaes_lpad_e_texto_vazio
     description: "`lpad_codigo` preenche até 7 dígitos; `texto_ou_nulo` converte descrição vazia em NULL."
@@ -202,3 +332,146 @@ unit_tests:
           opcao_mei: false
           dat_opcao_mei: null
           dat_exclusao_mei: null
+
+  - name: test_stg_rfb__empresas_tipagem
+    description: "STG AC 11–13: capital `1000,50` -> 1000.50 (inválido -> NULL); porte inteiro (vazio -> NULL); texto vazio -> NULL; lpad dos códigos."
+    model: stg_rfb__empresas
+    given:
+      - input: source('rfb', 'empresas')
+        format: sql
+        rows: |
+          select
+              '1234' as cnpj_raiz, 'PINTE BEM' as razao_social, '62' as natureza_jur,
+              '5' as qualificacao_resp, '1000,50' as capital_soc, '01' as porte,
+              '' as ente_fed_resp, '2026-09' as _mes_referencia, date '2026-09-12' as _data_referencia
+          union all
+          select '22222222', '', '2062', '49', 'abc', '', ' ', '2026-09', date '2026-09-12'
+    expect:
+      rows:
+        - cnpj_raiz: "00001234"
+          razao_social: "PINTE BEM"
+          natureza_juridica_codigo: "0062"
+          qualificacao_responsavel_codigo: "05"
+          capital_social: 1000.50
+          porte_codigo: 1
+          ente_federativo_responsavel: null
+        - cnpj_raiz: "22222222"
+          razao_social: null
+          natureza_juridica_codigo: "2062"
+          qualificacao_responsavel_codigo: "49"
+          capital_social: null
+          porte_codigo: null
+          ente_federativo_responsavel: null
+
+  - name: test_stg_rfb__empresas_filtra_mes_mais_recente
+    description: "STG AC 15: sem a var `mes_referencia`, só o maior `_mes_referencia` disponível entra."
+    model: stg_rfb__empresas
+    given:
+      - input: source('rfb', 'empresas')
+        format: sql
+        rows: |
+          select
+              '11111111' as cnpj_raiz, 'NOVA' as razao_social, '2062' as natureza_jur,
+              '49' as qualificacao_resp, '1,00' as capital_soc, '01' as porte,
+              null::varchar as ente_fed_resp, '2026-09' as _mes_referencia,
+              date '2026-09-12' as _data_referencia
+          union all
+          select '11111111', 'ANTIGA', '2062', '49', '1,00', '01', null, '2026-08', date '2026-08-10'
+    expect:
+      rows:
+        - { cnpj_raiz: "11111111", razao_social: "NOVA", _mes_referencia: "2026-09" }
+
+  - name: test_stg_rfb__estabelecimentos_cnpj_e_codigos
+    description: "STG AC 9, 12, 13: `cnpj_completo` com zeros à esquerda (14 dígitos); CNAE `111301` -> `0111301`; município com 4 dígitos; texto vazio -> NULL."
+    model: stg_rfb__estabelecimentos
+    given:
+      - input: source('rfb', 'estabelecimentos')
+        format: sql
+        rows: |
+          select
+              '1234' as cnpj_raiz, '1' as cnpj_ordem, '5' as cnpj_dv, '1' as ind_matriz_filial,
+              '' as nome_fantasia, '02' as situacao, '20000229' as dat_situacao,
+              '0' as mot_situacao, '' as cidade_exterior, null::varchar as pais,
+              '20000229' as dat_inicio_atividade, '111301' as cnae_principal,
+              null::varchar as cnaes_secundarios, 'RUA' as tip_logradouro, 'A' as logradouro,
+              '10' as num_logradouro, '' as compl_logradouro, 'CENTRO' as bairro,
+              '29185000' as cep, 'ES' as uf, '643' as municipio, '' as sit_especial,
+              '' as dat_sit_especial, '2026-09' as _mes_referencia,
+              date '2026-09-12' as _data_referencia
+    expect:
+      rows:
+        - cnpj_raiz: "00001234"
+          cnpj_ordem: "0001"
+          cnpj_dv: "05"
+          cnpj_completo: "00001234000105"
+          matriz_filial_codigo: 1
+          nome_fantasia: null
+          situacao_codigo: 2
+          motivo_situacao_codigo: "00"
+          cidade_exterior: null
+          cnae_principal: "0111301"
+          complemento: null
+          municipio_rfb_codigo: "0643"
+          situacao_especial: null
+          dat_situacao_especial: null
+
+  - name: test_stg_rfb__estabelecimentos_datas
+    description: "STG AC 10: datas `0`, `00000000` e `20230230` (inexistente) -> NULL; `20000229` (ano bissexto) -> 2000-02-29."
+    model: stg_rfb__estabelecimentos
+    given:
+      - input: source('rfb', 'estabelecimentos')
+        format: sql
+        rows: |
+          with datas(cnpj_raiz, dat_inicio_atividade) as (
+              values ('1', '0'), ('2', '00000000'), ('3', '20230230'), ('4', '20000229')
+          )
+          select
+              cnpj_raiz, '0001' as cnpj_ordem, '00' as cnpj_dv, '1' as ind_matriz_filial,
+              null::varchar as nome_fantasia, '02' as situacao,
+              dat_inicio_atividade as dat_situacao, '00' as mot_situacao,
+              null::varchar as cidade_exterior, null::varchar as pais, dat_inicio_atividade,
+              '4741500' as cnae_principal, null::varchar as cnaes_secundarios,
+              null::varchar as tip_logradouro, null::varchar as logradouro,
+              null::varchar as num_logradouro, null::varchar as compl_logradouro,
+              null::varchar as bairro, null::varchar as cep, 'ES' as uf, '5643' as municipio,
+              null::varchar as sit_especial, dat_inicio_atividade as dat_sit_especial,
+              '2026-09' as _mes_referencia, date '2026-09-12' as _data_referencia
+          from datas
+    expect:
+      rows:
+        - { cnpj_raiz: "00000001", dat_inicio_atividade: null, dat_situacao: null, dat_situacao_especial: null }
+        - { cnpj_raiz: "00000002", dat_inicio_atividade: null, dat_situacao: null, dat_situacao_especial: null }
+        - { cnpj_raiz: "00000003", dat_inicio_atividade: null, dat_situacao: null, dat_situacao_especial: null }
+        - cnpj_raiz: "00000004"
+          dat_inicio_atividade: "2000-02-29"
+          dat_situacao: "2000-02-29"
+          dat_situacao_especial: "2000-02-29"
+
+  - name: test_stg_rfb__estabelecimentos_cnaes_secundarios
+    description: "`'4679699,4744099'` -> lista de 2; itens com espaço/sem zero à esquerda -> trim + 7 dígitos; vazio/NULL -> texto NULL e lista vazia."
+    model: stg_rfb__estabelecimentos
+    given:
+      - input: source('rfb', 'estabelecimentos')
+        format: sql
+        rows: |
+          with cnaes(cnpj_raiz, cnaes_secundarios) as (
+              values ('1', '4679699,4744099'), ('2', ' 4679699, 111301'), ('3', ''),
+              ('4', null::varchar)
+          )
+          select
+              cnpj_raiz, '0001' as cnpj_ordem, '00' as cnpj_dv, '1' as ind_matriz_filial,
+              null::varchar as nome_fantasia, '02' as situacao, '20200101' as dat_situacao,
+              '00' as mot_situacao, null::varchar as cidade_exterior, null::varchar as pais,
+              '20200101' as dat_inicio_atividade, '4741500' as cnae_principal,
+              cnaes_secundarios, null::varchar as tip_logradouro, null::varchar as logradouro,
+              null::varchar as num_logradouro, null::varchar as compl_logradouro,
+              null::varchar as bairro, null::varchar as cep, 'ES' as uf, '5643' as municipio,
+              null::varchar as sit_especial, null::varchar as dat_sit_especial,
+              '2026-09' as _mes_referencia, date '2026-09-12' as _data_referencia
+          from cnaes
+    expect:
+      rows:
+        - { cnpj_raiz: "00000001", cnaes_secundarios: "4679699,4744099", cnaes_secundarios_lista: ["4679699", "4744099"] }
+        - { cnpj_raiz: "00000002", cnaes_secundarios: "4679699, 111301", cnaes_secundarios_lista: ["4679699", "0111301"] }
+        - { cnpj_raiz: "00000003", cnaes_secundarios: null, cnaes_secundarios_lista: [] }
+        - { cnpj_raiz: "00000004", cnaes_secundarios: null, cnaes_secundarios_lista: [] }

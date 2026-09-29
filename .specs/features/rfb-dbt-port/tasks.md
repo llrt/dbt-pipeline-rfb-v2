@@ -387,8 +387,8 @@ T30 → T31
 **Classificação**: G/C
 
 **Done when**:
-- [ ] Unit tests cobrem ACs STG 9–14; AC 14 verificado por teste que falha se colunas de contato existirem
-- [ ] Gate full passa
+- [x] Unit tests cobrem ACs STG 9–14; AC 14 verificado por teste que falha se colunas de contato existirem
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests
 **Gate**: full

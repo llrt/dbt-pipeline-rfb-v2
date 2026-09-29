@@ -16,3 +16,11 @@ macros:
   - name: test_tamanho_exato
     description: "Teste genérico: valores não nulos da coluna têm exatamente `tamanho` caracteres."
     meta: { escopo: adicao }
+  - name: decimal_rfb
+    description: "Valor RFB com vírgula decimal -> DECIMAL(18,2) (`1000,50` -> 1000.50); inválido -> NULL."
+    meta: { escopo: adicao }
+  - name: data_referencia
+    description: >
+      Data de referência determinística (ADR-0004): var `data_referencia` ou `_data_referencia`
+      do mês selecionado. Substitui `now()`/`current_date` em todos os modelos.
+    meta: { escopo: adaptado }
