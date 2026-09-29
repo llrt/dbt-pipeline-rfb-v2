@@ -11,10 +11,14 @@ Contrato da camada raw: ARCHITECTURE.md §4.2. Pontos principais:
   partição anterior.
 - Rejeitos do parser (`store_rejects`) vão para `raw/_rejeitos/`; acima do limiar a entidade
   não é publicada.
+- Contagem > 0: uma entidade (ou tabela BD) que resulte em 0 linhas no total não é publicada
+  (`EntidadeVaziaError`); um arquivo vazio numa entidade com outros arquivos não vazios só gera
+  aviso no log.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import uuid
@@ -30,6 +34,7 @@ import duckdb
 from rfb_pipeline.config import Config
 from rfb_pipeline.errors import (
     ConversaoError,
+    EntidadeVaziaError,
     ErroIngestao,
     TaxaRejeitoExcedidaError,
     ZipCorrompidoError,
@@ -39,6 +44,7 @@ from rfb_pipeline.schemas import EntidadeRFB, TabelaBD
 
 __all__ = [
     "ConversaoError",
+    "EntidadeVaziaError",
     "ResultadoConversao",
     "TaxaRejeitoExcedidaError",
     "ZipCorrompidoError",
@@ -48,6 +54,8 @@ __all__ = [
     "data_referencia_do_nome",
     "extrair_zip_seguro",
 ]
+
+_log = logging.getLogger(__name__)
 
 _RE_MES = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 _RE_DATA_NOME = re.compile(r"(?:^|\.)D(\d)(\d{2})(\d{2})(?:\.|$)")
@@ -306,7 +314,9 @@ def converter_entidade_rfb(
     como NULL.
 
     Levanta `ZipInseguroError`, `ZipCorrompidoError`, `ConversaoError` ou
-    `TaxaRejeitoExcedidaError`; em qualquer falha a partição anterior permanece intacta.
+    `TaxaRejeitoExcedidaError`; se a entidade inteira resultar em 0 linhas gravadas, levanta
+    `EntidadeVaziaError` (um arquivo vazio entre outros não vazios só gera aviso).
+    Em qualquer falha a partição anterior permanece intacta.
     """
     if not _RE_MES.match(mes):
         raise ValueError(f"mes_referencia inválido: {mes!r} (esperado YYYY-MM)")
@@ -365,6 +375,17 @@ def converter_entidade_rfb(
             raise TaxaRejeitoExcedidaError(
                 entidade.nome, taxa, config.max_taxa_rejeito, str(rejeitos_path)
             )
+        if not total_linhas:
+            raise EntidadeVaziaError(entidade.nome, [p[0] for p in parciais])
+        for origem, interno, linhas, *_ in parciais:
+            if not linhas:
+                _log.warning(
+                    "%s: arquivo %s (%s) resultou em 0 linhas; demais arquivos da entidade "
+                    "não estão vazios",
+                    entidade.nome,
+                    origem,
+                    interno,
+                )
         if not total_rejeitadas:
             rejeitos_path.unlink(missing_ok=True)
 
@@ -399,7 +420,8 @@ def converter_tabela_bd(
 
     CSV UTF-8 com header, vírgula, aspas `"` (campos multilinha aceitos), todas as colunas
     VARCHAR, mais `_arquivo_origem` e `_ingerido_em`. Leitura estrita: qualquer erro de parsing
-    levanta `ConversaoError`. Mesma publicação atômica da RFB.
+    levanta `ConversaoError`; 0 linhas levanta `EntidadeVaziaError`. Mesma publicação atômica da
+    RFB.
     """
     final_dir = config.raw_dir / "bd" / tabela.nome
     final_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -419,6 +441,8 @@ def converter_tabela_bd(
             linha = con.execute(sql).fetchone()
         except duckdb.Error as exc:
             raise ConversaoError(csv_gz.name, str(exc)) from exc
+        if not (linha and linha[0]):
+            raise EntidadeVaziaError(tabela.nome, [csv_gz.name])
         _publicar(tmp_dir, final_dir)
     finally:
         if con is not None:

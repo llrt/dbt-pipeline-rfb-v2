@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import gzip
+import logging
 import sys
 import zipfile
 from datetime import date, datetime
@@ -10,6 +12,7 @@ import pytest
 
 from rfb_pipeline.config import Config
 from rfb_pipeline.convert import (
+    EntidadeVaziaError,
     ResultadoConversao,
     TaxaRejeitoExcedidaError,
     ZipCorrompidoError,
@@ -19,6 +22,7 @@ from rfb_pipeline.convert import (
     data_referencia_do_nome,
     extrair_zip_seguro,
 )
+from rfb_pipeline.errors import ErroIngestao
 from rfb_pipeline.schemas import ENTIDADES_RFB, TABELAS_BD
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
@@ -163,17 +167,101 @@ def test_simples_data_referencia_formato_simples(fixtures: Path, config: Config)
     assert {x["_data_referencia"] for x in _ler(r.parquet[0])} == {date(2026, 9, 12)}
 
 
-def test_schema_parquet_rfb(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
-    entidade = ENTIDADES_RFB["estabelecimentos"]
+# Contrato literal da camada raw (ARCHITECTURE.md §4.2), escrito aqui de propósito sem derivar de
+# `schemas.py`: uma coluna renomeada ou reordenada no código tem de quebrar este teste.
+_DOMINIO = ["codigo", "descricao"]
+_CONTRATO_RFB: dict[str, tuple[str, list[str]]] = {
+    "empresas": (
+        "Empresas0.zip",
+        [
+            "cnpj_raiz",
+            "razao_social",
+            "natureza_jur",
+            "qualificacao_resp",
+            "capital_soc",
+            "porte",
+            "ente_fed_resp",
+        ],
+    ),
+    "estabelecimentos": (
+        "Estabelecimentos0.zip",
+        [
+            "cnpj_raiz",
+            "cnpj_ordem",
+            "cnpj_dv",
+            "ind_matriz_filial",
+            "nome_fantasia",
+            "situacao",
+            "dat_situacao",
+            "mot_situacao",
+            "cidade_exterior",
+            "pais",
+            "dat_inicio_atividade",
+            "cnae_principal",
+            "cnaes_secundarios",
+            "tip_logradouro",
+            "logradouro",
+            "num_logradouro",
+            "compl_logradouro",
+            "bairro",
+            "cep",
+            "uf",
+            "municipio",
+            "ddd1",
+            "tel1",
+            "ddd2",
+            "tel2",
+            "ddd_fax",
+            "fax",
+            "email",
+            "sit_especial",
+            "dat_sit_especial",
+        ],
+    ),
+    "simples": (
+        "Simples.zip",
+        [
+            "cnpj_raiz",
+            "opcao_simples",
+            "dat_opcao_simples",
+            "dat_exclusao_simples",
+            "opcao_mei",
+            "dat_opcao_mei",
+            "dat_exclusao_mei",
+        ],
+    ),
+    "cnaes": ("Cnaes.zip", _DOMINIO),
+    "municipios": ("Municipios.zip", _DOMINIO),
+    "naturezas": ("Naturezas.zip", _DOMINIO),
+    "motivos": ("Motivos.zip", _DOMINIO),
+    "paises": ("Paises.zip", _DOMINIO),
+    "qualificacoes": ("Qualificacoes.zip", _DOMINIO),
+}
+_TECNICAS_RFB = [
+    ("_arquivo_origem", "VARCHAR"),
+    ("_mes_referencia", "VARCHAR"),
+    ("_data_referencia", "DATE"),
+    ("_ingerido_em", "TIMESTAMP"),
+]
 
-    assert _schema(r.parquet[0]) == {
-        **dict.fromkeys(entidade.colunas, "VARCHAR"),
-        "_arquivo_origem": "VARCHAR",
-        "_mes_referencia": "VARCHAR",
-        "_data_referencia": "DATE",
-        "_ingerido_em": "TIMESTAMP",
-    }
+
+def test_contrato_cobre_todas_as_entidades_rfb() -> None:
+    assert sorted(_CONTRATO_RFB) == sorted(ENTIDADES_RFB)
+
+
+@pytest.mark.parametrize("entidade", sorted(_CONTRATO_RFB))
+def test_contrato_de_colunas_rfb(fixtures: Path, config: Config, entidade: str) -> None:
+    zip_nome, colunas = _CONTRATO_RFB[entidade]
+    (r,) = _converter(fixtures, config, entidade, [zip_nome])
+
+    rel = duckdb.sql(f"SELECT * FROM read_parquet('{r.parquet[0]}', hive_partitioning=false)")
+    esperado = [(c, "VARCHAR") for c in colunas] + _TECNICAS_RFB
+    assert list(zip(rel.columns, (str(t) for t in rel.types), strict=True)) == esperado
+    assert r.linhas > 0
+
+
+def test_parquet_rfb_zstd(fixtures: Path, config: Config) -> None:
+    (r,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
     metadados = duckdb.sql(
         f"SELECT DISTINCT compression FROM parquet_metadata('{r.parquet[0]}')"
     ).fetchall()
@@ -337,6 +425,162 @@ def test_falha_no_segundo_zip_nao_publica_nada(
     assert not any((config.data_root / "_tmp").glob("extract-*"))
 
 
+def test_publicacao_atomica_falha_entre_renames_restaura_anterior(
+    fixtures: Path, config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Falha ao mover o temporário para o destino (depois de afastar a partição anterior)."""
+    (anterior,) = _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+    conteudo = anterior.parquet[0].read_bytes()
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    (origem / "Empresas1.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
+
+    rename_original = Path.rename
+    chamadas: list[tuple[str, str]] = []
+
+    def rename_falho(self: Path, alvo: Path) -> Path:
+        chamadas.append((self.name, Path(alvo).name))
+        if self.name.startswith(".tmp-") and Path(alvo).name == f"mes_referencia={MES}":
+            raise OSError("falha simulada no rename do temporário")
+        return rename_original(self, alvo)
+
+    monkeypatch.setattr(Path, "rename", rename_falho)
+
+    with pytest.raises(OSError, match="falha simulada"):
+        converter_entidade_rfb(
+            [origem / "Empresas1.zip"],
+            ENTIDADES_RFB["empresas"],
+            MES,
+            config,
+            ingerido_em=INGERIDO_EM,
+        )
+
+    # A falha ocorreu depois de a partição anterior ter sido afastada (2ª chamada a rename).
+    assert [a.startswith(".tmp-") for a, _ in chamadas[:2]] == [False, True]
+    # Ao término a partição existe e é a antiga, íntegra (sem arquivos da nova).
+    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas0.parquet"]
+    assert anterior.parquet[0].read_bytes() == conteudo
+    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+        f"mes_referencia={MES}"
+    ]
+
+
+def test_publicacao_atomica_sucesso_troca_inteira(
+    fixtures: Path, config: Config, tmp_path: Path
+) -> None:
+    _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    (origem / "Empresas1.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
+
+    converter_entidade_rfb(
+        [origem / "Empresas1.zip"], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+    )
+
+    # Nova íntegra, sem mistura com a anterior e sem sobras (.old-*/.tmp-*).
+    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas1.parquet"]
+    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+        f"mes_referencia={MES}"
+    ]
+
+
+# ------------------------------------------------------------------ contagem > 0
+
+
+def _zip_vazio(destino: Path, nome_zip: str, nome_interno: str) -> Path:
+    destino.mkdir(parents=True, exist_ok=True)
+    caminho = destino / nome_zip
+    with zipfile.ZipFile(caminho, "w") as zf:
+        zf.writestr(nome_interno, b"")
+    return caminho
+
+
+def test_entidade_com_zero_linhas_nao_e_publicada(
+    fixtures: Path, config: Config, tmp_path: Path
+) -> None:
+    (anterior,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
+    conteudo = anterior.parquet[0].read_bytes()
+    vazio = _zip_vazio(
+        tmp_path / "origem", "Estabelecimentos0.zip", "K3241.K03200Y0.D60912.ESTABELE"
+    )
+
+    with pytest.raises(EntidadeVaziaError) as exc:
+        converter_entidade_rfb(
+            [vazio], ENTIDADES_RFB["estabelecimentos"], MES, config, ingerido_em=INGERIDO_EM
+        )
+
+    assert exc.value.entidade == "estabelecimentos"
+    assert exc.value.arquivos == ["Estabelecimentos0.zip"]
+    assert isinstance(exc.value, ErroIngestao)
+    assert [p.name for p in _particao(config, "estabelecimentos").iterdir()] == [
+        "part-Estabelecimentos0.parquet"
+    ]
+    assert anterior.parquet[0].read_bytes() == conteudo
+    assert sorted(p.name for p in (config.raw_dir / "rfb" / "estabelecimentos").iterdir()) == [
+        f"mes_referencia={MES}"
+    ]
+    assert not any((config.data_root / "_tmp").glob("extract-*"))
+
+
+def test_dominio_pequeno_vazio_nao_e_publicado(config: Config, tmp_path: Path) -> None:
+    vazio = _zip_vazio(tmp_path / "origem", "Cnaes.zip", "F.K03200$Z.D60912.CNAECSV")
+
+    with pytest.raises(EntidadeVaziaError) as exc:
+        converter_entidade_rfb(
+            [vazio], ENTIDADES_RFB["cnaes"], MES, config, ingerido_em=INGERIDO_EM
+        )
+
+    assert exc.value.entidade == "cnaes"
+    assert list((config.raw_dir / "rfb" / "cnaes").iterdir()) == []
+
+
+def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
+    fixtures: Path, config: Config, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    (origem / "Empresas0.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
+    vazio = _zip_vazio(origem, "Empresas1.zip", "K3241.K03200Y1.D60912.EMPRECSV")
+
+    with caplog.at_level(logging.WARNING, logger="rfb_pipeline.convert"):
+        resultados = converter_entidade_rfb(
+            [origem / "Empresas0.zip", vazio],
+            ENTIDADES_RFB["empresas"],
+            MES,
+            config,
+            ingerido_em=INGERIDO_EM,
+        )
+
+    assert [(r.arquivo_origem, r.linhas) for r in resultados] == [
+        ("Empresas0.zip", 14),
+        ("Empresas1.zip", 0),
+    ]
+    assert all(r.parquet[0].is_file() for r in resultados)
+    avisos = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(avisos) == 1
+    assert "Empresas1.zip" in avisos[0].getMessage()
+    assert "0 linhas" in avisos[0].getMessage()
+
+
+def test_bd_sem_linhas_nao_e_publicada(fixtures: Path, config: Config, tmp_path: Path) -> None:
+    csv_gz = tmp_path / "municipio.csv.gz"
+    csv_gz.write_bytes(gzip.compress(b"id_municipio,id_municipio_rf,nome\n"))
+    anterior = converter_tabela_bd(
+        fixtures / "bd" / "municipio.csv.gz",
+        TABELAS_BD["municipio"],
+        config,
+        ingerido_em=INGERIDO_EM,
+    )
+    conteudo = anterior.parquet[0].read_bytes()
+
+    with pytest.raises(EntidadeVaziaError) as exc:
+        converter_tabela_bd(csv_gz, TABELAS_BD["municipio"], config, ingerido_em=INGERIDO_EM)
+
+    assert (exc.value.entidade, exc.value.arquivos) == ("municipio", ["municipio.csv.gz"])
+    assert anterior.parquet[0].read_bytes() == conteudo
+    assert sorted(p.name for p in (config.raw_dir / "bd").iterdir()) == ["municipio"]
+
+
 # ------------------------------------------------------------------------ zips
 
 
@@ -348,9 +592,12 @@ def _zip_com_entrada(caminho: Path, nome_entrada: str) -> Path:
 
 
 @pytest.mark.parametrize(
-    "entrada", ["../evil.csv", "sub/../../evil.csv", "/tmp/evil-rfb-b3.csv", "..\\evil.csv"]
+    "entrada", ["../evil.csv", "sub/../../evil.csv", "{absoluto}", "..\\evil.csv"]
 )
 def test_zip_slip_recusado_sem_escrever(tmp_path: Path, entrada: str) -> None:
+    # Caminho absoluto dentro do tmp_path (fora do destino): uma regressão não suja a máquina.
+    absoluto = tmp_path / "fora" / "evil.csv"
+    entrada = entrada.format(absoluto=absoluto.as_posix())
     zip_path = _zip_com_entrada(tmp_path / "mal.zip", entrada)
     destino = tmp_path / "destino" / "extracao"
 
@@ -360,7 +607,8 @@ def test_zip_slip_recusado_sem_escrever(tmp_path: Path, entrada: str) -> None:
     assert exc.value.entrada == entrada
     assert list(destino.iterdir()) == []  # nem a entrada legítima é extraída
     assert not (tmp_path / "destino" / "evil.csv").exists()
-    assert not Path("/tmp/evil-rfb-b3.csv").exists()
+    assert not absoluto.exists()
+    assert not absoluto.parent.exists()
 
 
 def test_zip_slip_via_conversao_nao_escreve_em_raw(config: Config, tmp_path: Path) -> None:
