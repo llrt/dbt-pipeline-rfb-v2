@@ -301,7 +301,7 @@ T30 → T31
 
 ### T10: CLI `rfb ingest` e alvo `make ci` (parte EL)
 
-**What**: `src/rfb_pipeline/cli.py` com `rfb ingest [--mes] [--origem-local DIR] [--force] [--data-root]` ligando cliente/BD/conversão/manifesto; `make ci` passa a: gerar fixtures → `rfb ingest --origem-local` em `DATA_ROOT` temporário → `dbt deps/build --target ci` → `pytest tests/integration`. Teste de integração da ingestão.
+**What**: `src/rfb_pipeline/cli.py` com `rfb ingest [--mes] [--origem-local DIR] [--force]` (`--data-root` removido: `DATA_ROOT` vem do ambiente — R1-27) ligando cliente/BD/conversão/manifesto; `make ci` passa a: gerar fixtures → `rfb ingest --origem-local` em `DATA_ROOT` temporário → `dbt deps/build --target ci` → `pytest tests/integration`. Teste de integração da ingestão.
 **Where**: `src/rfb_pipeline/cli.py`
 **Depends on**: T9
 **Reuses**: todos os módulos EL
