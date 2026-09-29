@@ -25,21 +25,23 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 
 ## Handoff
 
-**Retomado em 2026-09-29** após pausa do usuário em 2026-09-28. Verificação de retomada ok (árvore limpa em `8740585`; `make ci` PASS=45 WARN=1 ERROR=0; 90 unit verdes). R1 reativada no mesmo agente `a84e9afe` com o brief completo.
+**Pausado pelo usuário em 2026-09-29 (2ª pausa).** Nenhum agente em execução; `main` limpo.
 
-- **main** = `a3b2d38` (+ commit deste handoff), verde: 90 unit + 5 integração; `make ci` ≈ 7 s (dbt PASS=45 WARN=1 ERROR=0); `make lint` ok.
-- **Concluído e integrado:** P0, B1 (T1–T3), B2 (T4–T7), B3 (T8), B4 (T9–T13), B9a (T29). Status detalhado: `docs/PLANO.md`.
-- **Interrompido:** R1 (revisão fases 1–4). Agente `a84e9afe` (Claude Opus alto) **parado, não arquivado**, sem nenhum arquivo gravado; worktree `~/.traycer/worktrees/local__dbt-pipeline-rfb-v2__5a2294e72f/revisao-r1-fases-1-4`, branch `revisao/r1-fases-1-4` = `00af9fd` (código idêntico ao main atual; main só avançou em docs).
+- **main** = `7530018` (+ commit deste handoff), verde: 106 unit + 5 integração; `make ci` PASS=45 WARN=1 ERROR=0; lint ok.
+- **Integrado:** P0, B1, B2, B3, B4, B9a, **R1** (relatório `docs/revisoes/R1.md`, triagem `docs/revisoes/R1-triagem.md`) e **F1b** (R1-04, R1-10 parte convert, R1-23, R1-24).
+- **Interrompido: F1a** (correções R1 FX1–FX7; agente `eba62c6d`, Claude Sonnet médio, **parado, não arquivado**). Worktree `~/.traycer/worktrees/local__dbt-pipeline-rfb-v2__5a2294e72f/correcao-f1a-r1-ingestao-dbt`, branch `correcao/f1a-r1-ingestao-dbt` (base `a6ed57c`, **não** contém F1b):
+  - Commitados (ainda não verificados pelo líder): FX1 `d45ef8d` (R1-01/02/16/19), FX2 `fb53801` (R1-03/17/18/20), FX3 `7d66721` (R1-08/09/26, P7), FX4 `2a03c6e` (R1-07).
+  - **WIP** `622fbc9`: FX5 parcial (dbt: R1-05/06/12/13/15/25) salvo pelo líder na pausa — gates não rodados; deve ser revisado/completado e reescrito como `fix(dbt)` definitivo.
+  - Faltam: concluir FX5, **FX6** (testes que afirmam a spec — R1-10 exceto convert; re-rodar mutações M4, M14, M18/M19 em test_schemas, M20) e **FX7** (pre-commit sqlfluff — R1-14), e anotar "resolvido em" na triagem.
 
 ### Como retomar (líder)
-1. `git -C <repo> status` e `git log --oneline -5` (esperado: limpo, main no commit do handoff); `uv sync --all-extras && (cd transform && uv run dbt deps) && make ci` → deve reproduzir PASS=45 WARN=1.
-2. Retomar a R1: mandar mensagem ao agente `a84e9afe` pedindo que reinicie a revisão conforme o brief original (entregável `docs/revisoes/R1.md` + commit + resposta com veredito). Se o agente não estiver disponível, criar um Opus alto novo no mesmo worktree com o mesmo brief (escopo T1–T13, critérios: spec, robustez dados reais, segurança, ADRs, qualidade; confirmar/refutar P6/P7 de `docs/revisoes/pendencias.md`).
-3. Após a R1: triar achados → correções por agente novo no nível do lote de origem (Sonnet para B2/B4, Opus para B3) → merge → **B5** (T14–T15, Opus médio).
-4. Sequência restante: B5 → R2 → B6 (T32, T16–T18, T33, T19–T20) → B7 (T21–T27) → B7b (T34–T35) → R3 → B8 (T28, T36) ∥ B9b (T30–T31) → R4 (+ auditoria + Verifier) → R5 → RETRO.md + relatório de billing.
+1. `git status` (limpo) e `make ci` em `main` → PASS=45 WARN=1.
+2. Reativar o agente `eba62c6d` (mensagem com o brief original da F1a + este estado: FX1–FX4 feitos, FX5 em WIP `622fbc9`, faltam FX5/FX6/FX7; pedir para primeiro fazer `git rebase main` ou `merge main` para incorporar F1b, depois completar). Se indisponível, criar Sonnet médio novo no mesmo worktree com o mesmo brief + triagem do diff herdado.
+3. Verificar por evidência (make ci, make lint, mutações), integrar F1a, e disparar **B5** (T14–T15, Opus médio).
+4. Sequência restante: B5 → R2 → B6 (T32 + R1-11/21/22, T16–T18, T33, T19–T20) → B7 → B7b → R3 → B8 (T28, T36) ∥ B9b → R4 → R5 → RETRO + billing.
 
 ### Contexto importante para os próximos briefs
-- Roteamento vigente: AD-014 (médias → Sonnet médio). Melhorias do usuário: AD-015/ADR-0012 (atualização mensal) e AD-016/ADR-0013 (estrela para Power BI).
-- Pendências abertas: P1, P2 (guia → R5), P6, P7 (→ R1), P8 (→ B9b) em `docs/revisoes/pendencias.md`.
-- Lições para os briefs: workers devem escrever arquivos grandes incrementalmente (falha do DeepSeek no B2 por `finish=length`); unit tests dbt sobre fontes `external_location` exigem `format: sql`; tabelas de rejeitos do DuckDB acumulam por conexão; hive automático em caminhos `mes_referencia=` (fontes usam `hive_partitioning=false` + `_mes_referencia`).
-- Dados reais já validados em amostra (Empresas1/Estabelecimentos1 de 2026-09, 0 rejeitos). O WebDAV da RFB trava downloads — B8 deve monitorar.
-- Worktrees de lotes já integrados (b1, b2, b3, b4, b9a) podem ser removidos com `traycer-housekeeping` quando conveniente.
+- Roteamento: AD-014 (médias → Sonnet médio). Melhorias do usuário: AD-015/ADR-0012 (atualização mensal) e AD-016/ADR-0013 (estrela para Power BI).
+- Pendências: P1, P2 (guia → R5), P8 (→ B9b) em `docs/revisoes/pendencias.md`; R1-11, R1-21, R1-22 adiados para T32 (B6); teste de CLI para `EntidadeVaziaError` (F1b) ainda sem cobertura.
+- Lições: escrever arquivos grandes incrementalmente; unit tests dbt sobre fontes `external_location` exigem `format: sql`; rejeitos do DuckDB acumulam por conexão; hive automático em `mes_referencia=` (fontes usam `hive_partitioning=false` + `_mes_referencia`); `lpad` do DuckDB trunca; `strptime` falha em data inválida (usar `try_strptime`).
+- WebDAV da RFB trava downloads — B8 deve monitorar. Worktrees já integrados (b1, b2, b3, b4, b9a, r1, f1b) podem ser limpos com `traycer-housekeeping`.
