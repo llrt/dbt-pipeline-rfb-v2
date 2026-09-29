@@ -278,7 +278,7 @@ Materialização = **onde/como** o resultado do model é persistido.
 | `view` | uma visão no banco (barata; reconstrói a cada consulta) | staging (padrão) |
 | `table` | tabela física (dados copiados na execução) | intermediate, observability |
 | `incremental` | tabela física que só processa o delta (`is_incremental()`) | `dq_historico_testes` |
-| `ephemeral` | **não** cria artefato; vira CTE inline nos modelos que dependem dela | `paridade__bh_empresas_sql_original` |
+| `ephemeral` | **não** cria artefato; vira CTE inline nos modelos que dependem dela | `audit__bh_empresas_sql_original` |
 | `external` *(dbt-duckdb)* | **arquivo externo** (Parquet/CSV/JSON) em `location` — os dados não entram no .duckdb | marts original/core/analises (`gold/*.parquet`) |
 
 ```sql

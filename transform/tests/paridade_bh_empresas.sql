@@ -12,7 +12,7 @@ with bh as (
 ),
 
 original as (
-  select * from {{ ref('paridade__bh_empresas_sql_original') }}
+  select * from {{ ref('audit__bh_empresas_sql_original') }}
 ),
 
 somente_bh as (
