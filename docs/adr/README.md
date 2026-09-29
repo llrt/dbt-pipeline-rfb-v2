@@ -18,3 +18,4 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0011](0011-processo-equipe-agentes.md) | Processo: equipe de agentes, roteamento de modelos e lotes | aceita |
 | [0012](0012-atualizacao-mensal.md) | Atualização mensal: mês novo, completude, retenção, série histórica | aceita |
 | [0013](0013-modelo-estrela-bi.md) | Modelo estrela otimizado para BI (Power BI) | aceita |
+| [0014](0014-convencao-idioma.md) | Convenção de idioma: vocabulário dbt/ferramentas em inglês, resto em português | aceita |
