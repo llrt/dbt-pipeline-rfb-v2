@@ -13,7 +13,7 @@ setup:
 
 ## fixtures: gera fixtures sintéticas RFB/BD em tests/fixtures/generated
 fixtures:
-	uv run python scripts/gen_fixtures.py --saida tests/fixtures/generated
+	uv run python scripts/gerar_fixtures.py --saida tests/fixtures/generated
 
 ## ingest: ingesta os dados RFB/BD em DATA_ROOT (rede real, ou --origem-local via ORIGEM_LOCAL)
 ingest:
@@ -23,7 +23,7 @@ ingest:
 ci: DATA_ROOT := $(CURDIR)/.tmp/ci/data
 ci:
 	rm -rf .tmp/ci
-	uv run python scripts/gen_fixtures.py --saida .tmp/ci/fixtures
+	uv run python scripts/gerar_fixtures.py --saida .tmp/ci/fixtures
 	uv run rfb ingest --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
 	mkdir -p $(DATA_ROOT)/gold
 	cd transform && uv run dbt deps && uv run dbt build --target ci

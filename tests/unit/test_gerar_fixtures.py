@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-import gen_fixtures  # noqa: E402
+import gerar_fixtures  # noqa: E402
 
 
 def _hash_tree(root: Path) -> dict[str, str]:
@@ -22,7 +22,7 @@ def _hash_tree(root: Path) -> dict[str, str]:
 
 
 def _ler_zip_rfb(root: Path, nome_zip: str) -> tuple[str, list[list[str]]]:
-    with zipfile.ZipFile(root / "rfb" / gen_fixtures.MES_REFERENCIA / nome_zip) as zf:
+    with zipfile.ZipFile(root / "rfb" / gerar_fixtures.MES_REFERENCIA / nome_zip) as zf:
         nome_interno = zf.namelist()[0]
         texto = zf.read(nome_interno).decode("latin-1")
     linhas = list(csv.reader(io.StringIO(texto), delimiter=";", quotechar='"'))
@@ -32,17 +32,17 @@ def _ler_zip_rfb(root: Path, nome_zip: str) -> tuple[str, list[list[str]]]:
 def test_determinismo_bytes_identicos(tmp_path: Path) -> None:
     saida1 = tmp_path / "run1"
     saida2 = tmp_path / "run2"
-    gen_fixtures.gerar_fixtures(saida1)
-    gen_fixtures.gerar_fixtures(saida2)
+    gerar_fixtures.gerar_fixtures(saida1)
+    gerar_fixtures.gerar_fixtures(saida2)
 
     assert _hash_tree(saida1) == _hash_tree(saida2)
     assert len(_hash_tree(saida1)) > 0
 
 
 def test_encoding_latin1_contem_bytes_de_a_til(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
     with zipfile.ZipFile(
-        tmp_path / "rfb" / gen_fixtures.MES_REFERENCIA / "Estabelecimentos0.zip"
+        tmp_path / "rfb" / gerar_fixtures.MES_REFERENCIA / "Estabelecimentos0.zip"
     ) as zf:
         conteudo_bytes = zf.read(zf.namelist()[0])
 
@@ -52,8 +52,8 @@ def test_encoding_latin1_contem_bytes_de_a_til(tmp_path: Path) -> None:
 
 
 def test_linha_k_tem_barra_invertida_antes_da_aspa_de_fechamento(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
-    with zipfile.ZipFile(tmp_path / "rfb" / gen_fixtures.MES_REFERENCIA / "Empresas0.zip") as zf:
+    gerar_fixtures.gerar_fixtures(tmp_path)
+    with zipfile.ZipFile(tmp_path / "rfb" / gerar_fixtures.MES_REFERENCIA / "Empresas0.zip") as zf:
         texto = zf.read(zf.namelist()[0]).decode("latin-1")
 
     assert '"EMPRESA EXTERIOR LTDA\\";"2062"' in texto
@@ -64,9 +64,9 @@ def test_linha_k_tem_barra_invertida_antes_da_aspa_de_fechamento(tmp_path: Path)
 
 
 def test_linha_o_quebra_de_linha_dentro_de_aspas_mantem_registro_unico(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
     with zipfile.ZipFile(
-        tmp_path / "rfb" / gen_fixtures.MES_REFERENCIA / "Estabelecimentos0.zip"
+        tmp_path / "rfb" / gerar_fixtures.MES_REFERENCIA / "Estabelecimentos0.zip"
     ) as zf:
         texto = zf.read(zf.namelist()[0]).decode("latin-1")
 
@@ -78,7 +78,7 @@ def test_linha_o_quebra_de_linha_dentro_de_aspas_mantem_registro_unico(tmp_path:
 
 
 def test_contagem_estabelecimentos_e_empresas(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
 
     _, linhas_estab = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
     _, linhas_emp = _ler_zip_rfb(tmp_path, "Empresas0.zip")
@@ -88,13 +88,13 @@ def test_contagem_estabelecimentos_e_empresas(tmp_path: Path) -> None:
 
 
 def test_dv_valido_em_todos_exceto_l(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
     _, linhas = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
 
     # id L = cnpj_raiz 14141414
     for linha in linhas:
         raiz, ordem, dv = linha[0], linha[1], linha[2]
-        correto = gen_fixtures.calcular_dv_cnpj(raiz + ordem)
+        correto = gerar_fixtures.calcular_dv_cnpj(raiz + ordem)
         if raiz == "14141414":
             assert dv != correto
         else:
@@ -102,7 +102,7 @@ def test_dv_valido_em_todos_exceto_l(tmp_path: Path) -> None:
 
 
 def test_nomes_internos_dos_zips_seguem_o_padrao_real(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
 
     nome_empresas, _ = _ler_zip_rfb(tmp_path, "Empresas0.zip")
     nome_estab, _ = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
@@ -112,12 +112,12 @@ def test_nomes_internos_dos_zips_seguem_o_padrao_real(tmp_path: Path) -> None:
     assert nome_estab == "K3241.K03200Y0.D60912.ESTABELE"
     assert nome_cnaes == "F.K03200$Z.D60912.CNAECSV"
 
-    with zipfile.ZipFile(tmp_path / "rfb" / gen_fixtures.MES_REFERENCIA / "Simples.zip") as zf:
+    with zipfile.ZipFile(tmp_path / "rfb" / gerar_fixtures.MES_REFERENCIA / "Simples.zip") as zf:
         assert zf.namelist()[0] == "F.K03200$W.SIMPLES.CSV.D60912"
 
 
 def test_bd_csv_gz_utf8_com_header(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
 
     for nome_tabela, colunas_esperadas in [
         ("municipio", 27),
@@ -131,7 +131,7 @@ def test_bd_csv_gz_utf8_com_header(tmp_path: Path) -> None:
 
 
 def test_bd_municipio_8_registros_exceto_exterior_e_boa_esperanca(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
     with gzip.open(tmp_path / "bd" / "municipio.csv.gz", "rt", encoding="utf-8") as fh:
         linhas = list(csv.DictReader(fh))
 
@@ -142,7 +142,7 @@ def test_bd_municipio_8_registros_exceto_exterior_e_boa_esperanca(tmp_path: Path
 
 
 def test_dominio_rfb_municipios_sem_acento_maiusculo(tmp_path: Path) -> None:
-    gen_fixtures.gerar_fixtures(tmp_path)
+    gerar_fixtures.gerar_fixtures(tmp_path)
     _, linhas = _ler_zip_rfb(tmp_path, "Municipios.zip")
     mapa = {codigo: descricao for codigo, descricao in linhas}
 

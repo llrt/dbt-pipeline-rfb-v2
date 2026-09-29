@@ -6,14 +6,14 @@ import httpx
 import pytest
 
 from rfb_pipeline.basedosdados import baixar_tabelas_bd
-from rfb_pipeline.configuracao import Config
-from rfb_pipeline.erros import DownloadError
+from rfb_pipeline.configuracao import Configuracao
+from rfb_pipeline.erros import BaixaArquivoErro
 
 BD_HOST = "storage.googleapis.com"
 
 
-def _config() -> Config:
-    return Config(data_root=Path("/tmp/nao-usado"), data_root_uri="/tmp/nao-usado")
+def _configuracao() -> Configuracao:
+    return Configuracao(raiz_dados=Path("/tmp/nao-usado"), raiz_dados_uri="/tmp/nao-usado")
 
 
 def test_baixa_as_quatro_tabelas(tmp_path: Path) -> None:
@@ -26,7 +26,7 @@ def test_baixa_as_quatro_tabelas(tmp_path: Path) -> None:
     http = httpx.Client(transport=httpx.MockTransport(handler))
     destino_dir = tmp_path / "bd"
 
-    resultado = baixar_tabelas_bd(_config(), destino_dir, http=http)
+    resultado = baixar_tabelas_bd(_configuracao(), destino_dir, http=http)
 
     assert set(resultado) == {"municipio", "cnae_2", "populacao", "pib"}
     for nome, caminho in resultado.items():
@@ -43,8 +43,8 @@ def test_falha_persistente_nao_deixa_arquivo_parcial(tmp_path: Path) -> None:
     http = httpx.Client(transport=httpx.MockTransport(handler))
     destino_dir = tmp_path / "bd"
 
-    with pytest.raises(DownloadError):
-        baixar_tabelas_bd(_config(), destino_dir, http=http, dormir=lambda _s: None)
+    with pytest.raises(BaixaArquivoErro):
+        baixar_tabelas_bd(_configuracao(), destino_dir, http=http, dormir=lambda _s: None)
 
     arquivos_parciais = list(destino_dir.glob("*.part"))
     assert arquivos_parciais == []
@@ -70,7 +70,9 @@ def test_origem_local_copia_em_vez_de_baixar(tmp_path: Path) -> None:
     http = httpx.Client(transport=httpx.MockTransport(falha_se_chamado))
     destino_dir = tmp_path / "bd_destino"
 
-    resultado = baixar_tabelas_bd(_config(), destino_dir, http=http, origem_local=origem_local)
+    resultado = baixar_tabelas_bd(
+        _configuracao(), destino_dir, http=http, origem_local=origem_local
+    )
 
     for nome, conteudo in conteudos.items():
         assert resultado[nome].read_bytes() == conteudo

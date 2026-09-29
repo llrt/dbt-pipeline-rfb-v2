@@ -8,7 +8,7 @@ import pytest
 
 from rfb_pipeline import cli
 from rfb_pipeline.cliente_rfb import ArquivoRemoto
-from rfb_pipeline.erros import MesIncompletoError, MesInexistenteError
+from rfb_pipeline.erros import MesIncompletoErro, MesInexistenteErro
 from rfb_pipeline.esquemas import ARQUIVOS_ESPERADOS_MES, arquivos_faltantes
 
 COMPLETO = list(ARQUIVOS_ESPERADOS_MES)
@@ -70,13 +70,13 @@ class TestModos:
         assert "incompletos" in aviso
 
     def test_sem_mes_nenhum_completo_falha_listando_faltantes(self, tmp_path, origem) -> None:
-        with pytest.raises(MesIncompletoError) as exc:
+        with pytest.raises(MesIncompletoErro) as exc:
             self._resolver(tmp_path, origem, {"2026-09": PARCIAL})
         assert "Empresas1.zip" in str(exc.value)
         assert "Simples.zip" in str(exc.value)
 
     def test_mes_explicito_incompleto_falha(self, tmp_path, origem) -> None:
-        with pytest.raises(MesIncompletoError) as exc:
+        with pytest.raises(MesIncompletoErro) as exc:
             self._resolver(tmp_path, origem, {"2026-09": PARCIAL}, mes="2026-09")
         assert exc.value.mes == "2026-09"
         assert "Estabelecimentos9.zip" in exc.value.faltantes
@@ -91,13 +91,13 @@ class TestModos:
         assert self._resolver(tmp_path, origem, meses, permitir_incompleto=True) == "2026-09"
 
     def test_mes_inexistente(self, tmp_path, origem) -> None:
-        with pytest.raises(MesInexistenteError):
+        with pytest.raises(MesInexistenteErro):
             self._resolver(tmp_path, origem, {"2026-09": COMPLETO}, mes="2020-01")
 
     def test_sem_meses_disponiveis(self, tmp_path, origem) -> None:
         if origem == "local":
             (tmp_path / "rfb").mkdir()
-        with pytest.raises(MesInexistenteError):
+        with pytest.raises(MesInexistenteErro):
             if origem == "remoto":
                 cli._resolver_mes(None, ClienteFalso({}), None)
             else:

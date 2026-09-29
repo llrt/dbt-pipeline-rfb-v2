@@ -10,13 +10,13 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from rfb_pipeline.configuracao import Config
+from rfb_pipeline.configuracao import Configuracao
 from rfb_pipeline.conversao import (
-    EntidadeVaziaError,
+    EntidadeVaziaErro,
     ResultadoConversao,
-    TaxaRejeitoExcedidaError,
-    ZipCorrompidoError,
-    ZipInseguroError,
+    TaxaRejeitoExcedidaErro,
+    ZipCorrompidoErro,
+    ZipInseguroErro,
     converter_entidade_rfb,
     converter_tabela_bd,
     data_referencia_do_nome,
@@ -27,7 +27,7 @@ from rfb_pipeline.esquemas import ENTIDADES_RFB, TABELAS_BD
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
-import gen_fixtures  # noqa: E402
+import gerar_fixtures  # noqa: E402
 
 MES = "2026-09"
 INGERIDO_EM = datetime(2026, 9, 28, 10, 30, 0)
@@ -36,15 +36,15 @@ INGERIDO_EM = datetime(2026, 9, 28, 10, 30, 0)
 @pytest.fixture(scope="module")
 def fixtures(tmp_path_factory: pytest.TempPathFactory) -> Path:
     saida = tmp_path_factory.mktemp("fixtures")
-    gen_fixtures.gerar_fixtures(saida)
+    gerar_fixtures.gerar_fixtures(saida)
     return saida
 
 
 @pytest.fixture
-def config(tmp_path: Path) -> Config:
+def configuracao(tmp_path: Path) -> Configuracao:
     raiz = tmp_path / "data"
-    return Config(
-        data_root=raiz, data_root_uri=str(raiz), duckdb_memory_limit="1GB", duckdb_threads=2
+    return Configuracao(
+        raiz_dados=raiz, raiz_dados_uri=str(raiz), duckdb_memory_limit="1GB", duckdb_threads=2
     )
 
 
@@ -52,8 +52,8 @@ def _zip(fixtures: Path, nome: str) -> Path:
     return fixtures / "rfb" / MES / nome
 
 
-def _particao(config: Config, entidade: str) -> Path:
-    return config.raw_dir / "rfb" / entidade / f"mes_referencia={MES}"
+def _particao(configuracao: Configuracao, entidade: str) -> Path:
+    return configuracao.raw_dir / "rfb" / entidade / f"mes_referencia={MES}"
 
 
 def _ler(parquet: Path | str) -> list[dict]:
@@ -66,12 +66,12 @@ def _schema(parquet: Path) -> dict[str, str]:
     return dict(zip(rel.columns, (str(t) for t in rel.types), strict=True))
 
 
-def _converter(fixtures: Path, config: Config, entidade: str, zips: list[str]):
+def _converter(fixtures: Path, configuracao: Configuracao, entidade: str, zips: list[str]):
     return converter_entidade_rfb(
         [_zip(fixtures, z) for z in zips],
         ENTIDADES_RFB[entidade],
         MES,
-        config,
+        configuracao,
         ingerido_em=INGERIDO_EM,
     )
 
@@ -93,21 +93,23 @@ def _zip_malformado(destino: Path, nome_zip: str, validas: int, invalidas: int) 
 # ------------------------------------------------------------------ fixtures
 
 
-def test_empresas_e_estabelecimentos_contagens_da_spec(fixtures: Path, config: Config) -> None:
-    empresas = _converter(fixtures, config, "empresas", ["Empresas0.zip"])
-    estab = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
+def test_empresas_e_estabelecimentos_contagens_da_spec(
+    fixtures: Path, configuracao: Configuracao
+) -> None:
+    empresas = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
+    estab = _converter(fixtures, configuracao, "estabelecimentos", ["Estabelecimentos0.zip"])
 
     assert [(r.linhas, r.linhas_rejeitadas) for r in empresas] == [(14, 0)]
     assert [(r.linhas, r.linhas_rejeitadas) for r in estab] == [(15, 0)]
     assert len(_ler(empresas[0].parquet[0])) == 14
     assert len(_ler(estab[0].parquet[0])) == 15
-    assert not (config.rejeitos_dir / "empresas").exists()
+    assert not (configuracao.rejeitos_dir / "empresas").exists()
 
 
-def test_resultado_e_caminho_publicado(fixtures: Path, config: Config) -> None:
-    (resultado,) = _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+def test_resultado_e_caminho_publicado(fixtures: Path, configuracao: Configuracao) -> None:
+    (resultado,) = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
 
-    esperado = _particao(config, "empresas") / "part-Empresas0.parquet"
+    esperado = _particao(configuracao, "empresas") / "part-Empresas0.parquet"
     assert resultado == ResultadoConversao(
         entidade="empresas",
         arquivo_origem="Empresas0.zip",
@@ -119,21 +121,23 @@ def test_resultado_e_caminho_publicado(fixtures: Path, config: Config) -> None:
     )
     assert esperado.is_file()
     # Nenhum temporário ou CSV extraído sobra.
-    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+    assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
         f"mes_referencia={MES}"
     ]
-    assert not any((config.data_root / "_tmp").glob("extract-*"))
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
 
 
-def test_razao_social_terminada_em_barra_invertida(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+def test_razao_social_terminada_em_barra_invertida(
+    fixtures: Path, configuracao: Configuracao
+) -> None:
+    (r,) = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
     linhas = {x["cnpj_raiz"]: x for x in _ler(r.parquet[0])}
 
     assert linhas["13131313"]["razao_social"] == "EMPRESA EXTERIOR LTDA\\"
 
 
-def test_campo_multilinha_e_um_unico_registro(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
+def test_campo_multilinha_e_um_unico_registro(fixtures: Path, configuracao: Configuracao) -> None:
+    (r,) = _converter(fixtures, configuracao, "estabelecimentos", ["Estabelecimentos0.zip"])
     linhas = [
         x for x in _ler(r.parquet[0]) if (x["cnpj_raiz"], x["cnpj_ordem"]) == ("11111111", "0002")
     ]
@@ -142,8 +146,8 @@ def test_campo_multilinha_e_um_unico_registro(fixtures: Path, config: Config) ->
     assert linhas[0]["nome_fantasia"] == "TINTAS FUNDAO\nFILIAL SERRA"
 
 
-def test_colunas_tecnicas_e_cnae_texto(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
+def test_colunas_tecnicas_e_cnae_texto(fixtures: Path, configuracao: Configuracao) -> None:
+    (r,) = _converter(fixtures, configuracao, "estabelecimentos", ["Estabelecimentos0.zip"])
     linhas = _ler(r.parquet[0])
 
     assert {x["_data_referencia"] for x in linhas} == {date(2026, 9, 12)}
@@ -153,15 +157,17 @@ def test_colunas_tecnicas_e_cnae_texto(fixtures: Path, config: Config) -> None:
     assert "0111301" in {x["cnae_principal"] for x in linhas}
 
 
-def test_cnae_dominio_preserva_zero_a_esquerda(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "cnaes", ["Cnaes.zip"])
+def test_cnae_dominio_preserva_zero_a_esquerda(fixtures: Path, configuracao: Configuracao) -> None:
+    (r,) = _converter(fixtures, configuracao, "cnaes", ["Cnaes.zip"])
 
     assert "0111301" in {x["codigo"] for x in _ler(r.parquet[0])}
     assert r.data_referencia == date(2026, 9, 12)
 
 
-def test_simples_data_referencia_formato_simples(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "simples", ["Simples.zip"])
+def test_simples_data_referencia_formato_simples(
+    fixtures: Path, configuracao: Configuracao
+) -> None:
+    (r,) = _converter(fixtures, configuracao, "simples", ["Simples.zip"])
 
     assert r.arquivo_interno == "F.K03200$W.SIMPLES.CSV.D60912"
     assert {x["_data_referencia"] for x in _ler(r.parquet[0])} == {date(2026, 9, 12)}
@@ -250,9 +256,9 @@ def test_contrato_cobre_todas_as_entidades_rfb() -> None:
 
 
 @pytest.mark.parametrize("entidade", sorted(_CONTRATO_RFB))
-def test_contrato_de_colunas_rfb(fixtures: Path, config: Config, entidade: str) -> None:
+def test_contrato_de_colunas_rfb(fixtures: Path, configuracao: Configuracao, entidade: str) -> None:
     zip_nome, colunas = _CONTRATO_RFB[entidade]
-    (r,) = _converter(fixtures, config, entidade, [zip_nome])
+    (r,) = _converter(fixtures, configuracao, entidade, [zip_nome])
 
     rel = duckdb.sql(f"SELECT * FROM read_parquet('{r.parquet[0]}', hive_partitioning=false)")
     esperado = [(c, "VARCHAR") for c in colunas] + _TECNICAS_RFB
@@ -260,8 +266,8 @@ def test_contrato_de_colunas_rfb(fixtures: Path, config: Config, entidade: str) 
     assert r.linhas > 0
 
 
-def test_parquet_rfb_zstd(fixtures: Path, config: Config) -> None:
-    (r,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
+def test_parquet_rfb_zstd(fixtures: Path, configuracao: Configuracao) -> None:
+    (r,) = _converter(fixtures, configuracao, "estabelecimentos", ["Estabelecimentos0.zip"])
     metadados = duckdb.sql(
         f"SELECT DISTINCT compression FROM parquet_metadata('{r.parquet[0]}')"
     ).fetchall()
@@ -269,7 +275,7 @@ def test_parquet_rfb_zstd(fixtures: Path, config: Config) -> None:
 
 
 def test_varios_zips_da_entidade_um_parquet_cada(
-    fixtures: Path, config: Config, tmp_path: Path
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path
 ) -> None:
     origem = tmp_path / "origem"
     origem.mkdir()
@@ -280,16 +286,16 @@ def test_varios_zips_da_entidade_um_parquet_cada(
         [origem / "Empresas1.zip", origem / "Empresas0.zip"],
         ENTIDADES_RFB["empresas"],
         MES,
-        config,
+        configuracao,
         ingerido_em=INGERIDO_EM,
     )
 
     assert [r.arquivo_origem for r in resultados] == ["Empresas0.zip", "Empresas1.zip"]
-    assert sorted(p.name for p in _particao(config, "empresas").iterdir()) == [
+    assert sorted(p.name for p in _particao(configuracao, "empresas").iterdir()) == [
         "part-Empresas0.parquet",
         "part-Empresas1.parquet",
     ]
-    glob = config.raw_dir / "rfb" / "empresas" / "*" / "*.parquet"
+    glob = configuracao.raw_dir / "rfb" / "empresas" / "*" / "*.parquet"
     total = duckdb.sql(
         f"SELECT count(*), count(DISTINCT mes_referencia) "
         f"FROM read_parquet('{glob}', hive_partitioning=true)"
@@ -297,14 +303,16 @@ def test_varios_zips_da_entidade_um_parquet_cada(
     assert total == (28, 1)
 
 
-def test_reconversao_substitui_particao(fixtures: Path, config: Config) -> None:
-    _converter(fixtures, config, "empresas", ["Empresas0.zip"])
-    lixo = _particao(config, "empresas") / "part-Antigo.parquet"
+def test_reconversao_substitui_particao(fixtures: Path, configuracao: Configuracao) -> None:
+    _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
+    lixo = _particao(configuracao, "empresas") / "part-Antigo.parquet"
     lixo.write_bytes(b"x")
 
-    _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+    _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
 
-    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas0.parquet"]
+    assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
+        "part-Empresas0.parquet"
+    ]
 
 
 # --------------------------------------------------------------- data_referencia
@@ -331,30 +339,34 @@ def test_data_referencia_do_nome(nome: str, mes: str, esperado: date | None) -> 
 # ------------------------------------------------------------- limiar de rejeito
 
 
-def test_limiar_excedido_grava_rejeitos_e_nao_publica(config: Config, tmp_path: Path) -> None:
+def test_limiar_excedido_grava_rejeitos_e_nao_publica(
+    configuracao: Configuracao, tmp_path: Path
+) -> None:
     zip_ruim = _zip_malformado(tmp_path / "origem", "Empresas0.zip", validas=10, invalidas=2)
 
-    with pytest.raises(TaxaRejeitoExcedidaError) as exc:
+    with pytest.raises(TaxaRejeitoExcedidaErro) as exc:
         converter_entidade_rfb(
-            [zip_ruim], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+            [zip_ruim], ENTIDADES_RFB["empresas"], MES, configuracao, ingerido_em=INGERIDO_EM
         )
 
-    rejeitos = config.rejeitos_dir / "empresas" / f"mes_referencia={MES}" / "rejeitos.parquet"
+    rejeitos = configuracao.rejeitos_dir / "empresas" / f"mes_referencia={MES}" / "rejeitos.parquet"
     assert exc.value.entidade == "empresas"
     assert exc.value.taxa == pytest.approx(2 / 12)
-    assert exc.value.limiar == config.max_taxa_rejeito
+    assert exc.value.limiar == configuracao.max_taxa_rejeito
     assert exc.value.caminho_rejeitos == str(rejeitos)
     linhas_rej = _ler(rejeitos)
     assert {x["arquivo_origem"] for x in linhas_rej} == {"Empresas0.zip"}
     assert len({x["linha"] for x in linhas_rej}) == 2
-    assert not _particao(config, "empresas").exists()
-    assert list((config.raw_dir / "rfb" / "empresas").iterdir()) == []
+    assert not _particao(configuracao, "empresas").exists()
+    assert list((configuracao.raw_dir / "rfb" / "empresas").iterdir()) == []
 
 
-def test_rejeitos_abaixo_do_limiar_publica(config: Config, tmp_path: Path) -> None:
+def test_rejeitos_abaixo_do_limiar_publica(configuracao: Configuracao, tmp_path: Path) -> None:
     zip_ruim = _zip_malformado(tmp_path / "origem", "Empresas0.zip", validas=10, invalidas=1)
-    cfg = Config(
-        data_root=config.data_root, data_root_uri=config.data_root_uri, max_taxa_rejeito=0.5
+    cfg = Configuracao(
+        raiz_dados=configuracao.raiz_dados,
+        raiz_dados_uri=configuracao.raiz_dados_uri,
+        max_taxa_rejeito=0.5,
     )
 
     (r,) = converter_entidade_rfb(
@@ -365,15 +377,19 @@ def test_rejeitos_abaixo_do_limiar_publica(config: Config, tmp_path: Path) -> No
     assert (cfg.rejeitos_dir / "empresas" / f"mes_referencia={MES}" / "rejeitos.parquet").is_file()
 
 
-def test_rejeitos_contados_por_arquivo_sem_acumular(config: Config, tmp_path: Path) -> None:
+def test_rejeitos_contados_por_arquivo_sem_acumular(
+    configuracao: Configuracao, tmp_path: Path
+) -> None:
     origem = tmp_path / "origem"
     zips = [
         _zip_malformado(origem, "Empresas0.zip", validas=10, invalidas=1),
         _zip_malformado(origem, "Empresas1.zip", validas=5, invalidas=2),
         _zip_malformado(origem, "Empresas2.zip", validas=3, invalidas=0),
     ]
-    cfg = Config(
-        data_root=config.data_root, data_root_uri=config.data_root_uri, max_taxa_rejeito=0.5
+    cfg = Configuracao(
+        raiz_dados=configuracao.raiz_dados,
+        raiz_dados_uri=configuracao.raiz_dados_uri,
+        max_taxa_rejeito=0.5,
     )
 
     resultados = converter_entidade_rfb(
@@ -389,47 +405,51 @@ def test_rejeitos_contados_por_arquivo_sem_acumular(config: Config, tmp_path: Pa
     ]
 
 
-def test_falha_preserva_particao_anterior(fixtures: Path, config: Config, tmp_path: Path) -> None:
-    (anterior,) = _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+def test_falha_preserva_particao_anterior(
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path
+) -> None:
+    (anterior,) = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
     conteudo = anterior.parquet[0].read_bytes()
     zip_ruim = _zip_malformado(tmp_path / "origem", "Empresas0.zip", validas=1, invalidas=5)
 
-    with pytest.raises(TaxaRejeitoExcedidaError):
+    with pytest.raises(TaxaRejeitoExcedidaErro):
         converter_entidade_rfb(
-            [zip_ruim], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+            [zip_ruim], ENTIDADES_RFB["empresas"], MES, configuracao, ingerido_em=INGERIDO_EM
         )
 
-    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas0.parquet"]
+    assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
+        "part-Empresas0.parquet"
+    ]
     assert anterior.parquet[0].read_bytes() == conteudo
-    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+    assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
         f"mes_referencia={MES}"
     ]
 
 
 def test_falha_no_segundo_zip_nao_publica_nada(
-    fixtures: Path, config: Config, tmp_path: Path
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path
 ) -> None:
     corrompido = tmp_path / "Empresas1.zip"
     corrompido.write_bytes(b"isto nao e um zip")
 
-    with pytest.raises(ZipCorrompidoError):
+    with pytest.raises(ZipCorrompidoErro):
         converter_entidade_rfb(
             [_zip(fixtures, "Empresas0.zip"), corrompido],
             ENTIDADES_RFB["empresas"],
             MES,
-            config,
+            configuracao,
             ingerido_em=INGERIDO_EM,
         )
 
-    assert list((config.raw_dir / "rfb" / "empresas").iterdir()) == []
-    assert not any((config.data_root / "_tmp").glob("extract-*"))
+    assert list((configuracao.raw_dir / "rfb" / "empresas").iterdir()) == []
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
 
 
 def test_publicacao_atomica_falha_entre_renames_restaura_anterior(
-    fixtures: Path, config: Config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Falha ao mover o temporário para o destino (depois de afastar a partição anterior)."""
-    (anterior,) = _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+    (anterior,) = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
     conteudo = anterior.parquet[0].read_bytes()
     origem = tmp_path / "origem"
     origem.mkdir()
@@ -451,35 +471,43 @@ def test_publicacao_atomica_falha_entre_renames_restaura_anterior(
             [origem / "Empresas1.zip"],
             ENTIDADES_RFB["empresas"],
             MES,
-            config,
+            configuracao,
             ingerido_em=INGERIDO_EM,
         )
 
     # A falha ocorreu depois de a partição anterior ter sido afastada (2ª chamada a rename).
     assert [a.startswith(".tmp-") for a, _ in chamadas[:2]] == [False, True]
     # Ao término a partição existe e é a antiga, íntegra (sem arquivos da nova).
-    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas0.parquet"]
+    assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
+        "part-Empresas0.parquet"
+    ]
     assert anterior.parquet[0].read_bytes() == conteudo
-    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+    assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
         f"mes_referencia={MES}"
     ]
 
 
 def test_publicacao_atomica_sucesso_troca_inteira(
-    fixtures: Path, config: Config, tmp_path: Path
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path
 ) -> None:
-    _converter(fixtures, config, "empresas", ["Empresas0.zip"])
+    _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
     origem = tmp_path / "origem"
     origem.mkdir()
     (origem / "Empresas1.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
 
     converter_entidade_rfb(
-        [origem / "Empresas1.zip"], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+        [origem / "Empresas1.zip"],
+        ENTIDADES_RFB["empresas"],
+        MES,
+        configuracao,
+        ingerido_em=INGERIDO_EM,
     )
 
     # Nova íntegra, sem mistura com a anterior e sem sobras (.old-*/.tmp-*).
-    assert [p.name for p in _particao(config, "empresas").iterdir()] == ["part-Empresas1.parquet"]
-    assert sorted(p.name for p in (config.raw_dir / "rfb" / "empresas").iterdir()) == [
+    assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
+        "part-Empresas1.parquet"
+    ]
+    assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
         f"mes_referencia={MES}"
     ]
 
@@ -496,46 +524,46 @@ def _zip_vazio(destino: Path, nome_zip: str, nome_interno: str) -> Path:
 
 
 def test_entidade_com_zero_linhas_nao_e_publicada(
-    fixtures: Path, config: Config, tmp_path: Path
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path
 ) -> None:
-    (anterior,) = _converter(fixtures, config, "estabelecimentos", ["Estabelecimentos0.zip"])
+    (anterior,) = _converter(fixtures, configuracao, "estabelecimentos", ["Estabelecimentos0.zip"])
     conteudo = anterior.parquet[0].read_bytes()
     vazio = _zip_vazio(
         tmp_path / "origem", "Estabelecimentos0.zip", "K3241.K03200Y0.D60912.ESTABELE"
     )
 
-    with pytest.raises(EntidadeVaziaError) as exc:
+    with pytest.raises(EntidadeVaziaErro) as exc:
         converter_entidade_rfb(
-            [vazio], ENTIDADES_RFB["estabelecimentos"], MES, config, ingerido_em=INGERIDO_EM
+            [vazio], ENTIDADES_RFB["estabelecimentos"], MES, configuracao, ingerido_em=INGERIDO_EM
         )
 
     assert exc.value.entidade == "estabelecimentos"
     assert exc.value.arquivos == ["Estabelecimentos0.zip"]
     assert isinstance(exc.value, ErroIngestao)
-    assert [p.name for p in _particao(config, "estabelecimentos").iterdir()] == [
+    assert [p.name for p in _particao(configuracao, "estabelecimentos").iterdir()] == [
         "part-Estabelecimentos0.parquet"
     ]
     assert anterior.parquet[0].read_bytes() == conteudo
-    assert sorted(p.name for p in (config.raw_dir / "rfb" / "estabelecimentos").iterdir()) == [
-        f"mes_referencia={MES}"
-    ]
-    assert not any((config.data_root / "_tmp").glob("extract-*"))
+    assert sorted(
+        p.name for p in (configuracao.raw_dir / "rfb" / "estabelecimentos").iterdir()
+    ) == [f"mes_referencia={MES}"]
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
 
 
-def test_dominio_pequeno_vazio_nao_e_publicado(config: Config, tmp_path: Path) -> None:
+def test_dominio_pequeno_vazio_nao_e_publicado(configuracao: Configuracao, tmp_path: Path) -> None:
     vazio = _zip_vazio(tmp_path / "origem", "Cnaes.zip", "F.K03200$Z.D60912.CNAECSV")
 
-    with pytest.raises(EntidadeVaziaError) as exc:
+    with pytest.raises(EntidadeVaziaErro) as exc:
         converter_entidade_rfb(
-            [vazio], ENTIDADES_RFB["cnaes"], MES, config, ingerido_em=INGERIDO_EM
+            [vazio], ENTIDADES_RFB["cnaes"], MES, configuracao, ingerido_em=INGERIDO_EM
         )
 
     assert exc.value.entidade == "cnaes"
-    assert list((config.raw_dir / "rfb" / "cnaes").iterdir()) == []
+    assert list((configuracao.raw_dir / "rfb" / "cnaes").iterdir()) == []
 
 
 def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
-    fixtures: Path, config: Config, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     origem = tmp_path / "origem"
     origem.mkdir()
@@ -547,7 +575,7 @@ def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
             [origem / "Empresas0.zip", vazio],
             ENTIDADES_RFB["empresas"],
             MES,
-            config,
+            configuracao,
             ingerido_em=INGERIDO_EM,
         )
 
@@ -562,23 +590,25 @@ def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
     assert "0 linhas" in avisos[0].getMessage()
 
 
-def test_bd_sem_linhas_nao_e_publicada(fixtures: Path, config: Config, tmp_path: Path) -> None:
+def test_bd_sem_linhas_nao_e_publicada(
+    fixtures: Path, configuracao: Configuracao, tmp_path: Path
+) -> None:
     csv_gz = tmp_path / "municipio.csv.gz"
     csv_gz.write_bytes(gzip.compress(b"id_municipio,id_municipio_rf,nome\n"))
     anterior = converter_tabela_bd(
         fixtures / "bd" / "municipio.csv.gz",
         TABELAS_BD["municipio"],
-        config,
+        configuracao,
         ingerido_em=INGERIDO_EM,
     )
     conteudo = anterior.parquet[0].read_bytes()
 
-    with pytest.raises(EntidadeVaziaError) as exc:
-        converter_tabela_bd(csv_gz, TABELAS_BD["municipio"], config, ingerido_em=INGERIDO_EM)
+    with pytest.raises(EntidadeVaziaErro) as exc:
+        converter_tabela_bd(csv_gz, TABELAS_BD["municipio"], configuracao, ingerido_em=INGERIDO_EM)
 
     assert (exc.value.entidade, exc.value.arquivos) == ("municipio", ["municipio.csv.gz"])
     assert anterior.parquet[0].read_bytes() == conteudo
-    assert sorted(p.name for p in (config.raw_dir / "bd").iterdir()) == ["municipio"]
+    assert sorted(p.name for p in (configuracao.raw_dir / "bd").iterdir()) == ["municipio"]
 
 
 # ------------------------------------------------------------------------ zips
@@ -598,11 +628,11 @@ def test_zip_slip_recusado_sem_escrever(tmp_path: Path, entrada: str) -> None:
     # Caminho absoluto dentro do tmp_path (fora do destino): uma regressão não suja a máquina.
     absoluto = tmp_path / "fora" / "evil.csv"
     entrada = entrada.format(absoluto=absoluto.as_posix())
-    zip_path = _zip_com_entrada(tmp_path / "mal.zip", entrada)
+    caminho_zip = _zip_com_entrada(tmp_path / "mal.zip", entrada)
     destino = tmp_path / "destino" / "extracao"
 
-    with pytest.raises(ZipInseguroError) as exc:
-        extrair_zip_seguro(zip_path, destino)
+    with pytest.raises(ZipInseguroErro) as exc:
+        extrair_zip_seguro(caminho_zip, destino)
 
     assert exc.value.entrada == entrada
     assert list(destino.iterdir()) == []  # nem a entrada legítima é extraída
@@ -611,16 +641,18 @@ def test_zip_slip_recusado_sem_escrever(tmp_path: Path, entrada: str) -> None:
     assert not absoluto.parent.exists()
 
 
-def test_zip_slip_via_conversao_nao_escreve_em_raw(config: Config, tmp_path: Path) -> None:
-    zip_path = _zip_com_entrada(tmp_path / "Empresas0.zip", "../evil.csv")
+def test_zip_slip_via_conversao_nao_escreve_em_raw(
+    configuracao: Configuracao, tmp_path: Path
+) -> None:
+    caminho_zip = _zip_com_entrada(tmp_path / "Empresas0.zip", "../evil.csv")
 
-    with pytest.raises(ZipInseguroError):
+    with pytest.raises(ZipInseguroErro):
         converter_entidade_rfb(
-            [zip_path], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+            [caminho_zip], ENTIDADES_RFB["empresas"], MES, configuracao, ingerido_em=INGERIDO_EM
         )
 
-    assert list((config.raw_dir / "rfb" / "empresas").iterdir()) == []
-    assert not (config.data_root / "_tmp" / "evil.csv").exists()
+    assert list((configuracao.raw_dir / "rfb" / "empresas").iterdir()) == []
+    assert not (configuracao.raiz_dados / "_tmp" / "evil.csv").exists()
 
 
 def test_extracao_normal(fixtures: Path, tmp_path: Path) -> None:
@@ -630,19 +662,19 @@ def test_extracao_normal(fixtures: Path, tmp_path: Path) -> None:
     assert extraidos[0].read_bytes().startswith(b'"')
 
 
-def test_zip_ilegivel(config: Config, tmp_path: Path) -> None:
+def test_zip_ilegivel(configuracao: Configuracao, tmp_path: Path) -> None:
     ruim = tmp_path / "Empresas0.zip"
     ruim.write_bytes(b"PK\x03\x04 truncado")
 
-    with pytest.raises(ZipCorrompidoError):
+    with pytest.raises(ZipCorrompidoErro):
         converter_entidade_rfb(
-            [ruim], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+            [ruim], ENTIDADES_RFB["empresas"], MES, configuracao, ingerido_em=INGERIDO_EM
         )
 
-    assert list((config.raw_dir / "rfb" / "empresas").iterdir()) == []
+    assert list((configuracao.raw_dir / "rfb" / "empresas").iterdir()) == []
 
 
-def test_zip_com_crc_invalido(fixtures: Path, config: Config, tmp_path: Path) -> None:
+def test_zip_com_crc_invalido(fixtures: Path, configuracao: Configuracao, tmp_path: Path) -> None:
     ruim = tmp_path / "Empresas0.zip"
     with zipfile.ZipFile(ruim, "w", compression=zipfile.ZIP_STORED) as zf:
         zf.writestr("K3241.K03200Y0.D60912.EMPRECSV", b'"1";"2";"3";"4";"5";"6";"7"\n' * 50)
@@ -650,45 +682,48 @@ def test_zip_com_crc_invalido(fixtures: Path, config: Config, tmp_path: Path) ->
     dados[100] ^= 0xFF  # corrompe o conteúdo sem tocar nos cabeçalhos
     ruim.write_bytes(bytes(dados))
 
-    with pytest.raises(ZipCorrompidoError):
+    with pytest.raises(ZipCorrompidoErro):
         converter_entidade_rfb(
-            [ruim], ENTIDADES_RFB["empresas"], MES, config, ingerido_em=INGERIDO_EM
+            [ruim], ENTIDADES_RFB["empresas"], MES, configuracao, ingerido_em=INGERIDO_EM
         )
 
-    assert list((config.raw_dir / "rfb" / "empresas").iterdir()) == []
-    assert not any((config.data_root / "_tmp").glob("extract-*"))
+    assert list((configuracao.raw_dir / "rfb" / "empresas").iterdir()) == []
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
 
 
 # -------------------------------------------------------------------------- BD
 
 
-def test_bd_cnae2_multilinha_e_subclasse_texto(fixtures: Path, config: Config) -> None:
+def test_bd_cnae2_multilinha_e_subclasse_texto(fixtures: Path, configuracao: Configuracao) -> None:
     r = converter_tabela_bd(
-        fixtures / "bd" / "cnae_2.csv.gz", TABELAS_BD["cnae_2"], config, ingerido_em=INGERIDO_EM
+        fixtures / "bd" / "cnae_2.csv.gz",
+        TABELAS_BD["cnae_2"],
+        configuracao,
+        ingerido_em=INGERIDO_EM,
     )
 
-    destino = config.raw_dir / "bd" / "cnae_2" / "cnae_2.parquet"
+    destino = configuracao.raw_dir / "bd" / "cnae_2" / "cnae_2.parquet"
     assert r.parquet == (destino,)
     assert (r.entidade, r.arquivo_origem, r.arquivo_interno) == ("cnae_2", "cnae_2.csv.gz", None)
     linhas = _ler(destino)
-    assert r.linhas == len(linhas) == len(gen_fixtures._CNAE2_BD)
+    assert r.linhas == len(linhas) == len(gerar_fixtures._CNAE2_BD)
     assert "0111301" in {x["subclasse"] for x in linhas}
     assert any("\n" in v for x in linhas for v in x.values() if isinstance(v, str))
     assert _schema(destino) == {
-        **dict.fromkeys(gen_fixtures.HEADER_CNAE2_BD, "VARCHAR"),
+        **dict.fromkeys(gerar_fixtures.CABECALHO_CNAE2_BD, "VARCHAR"),
         "_arquivo_origem": "VARCHAR",
         "_ingerido_em": "TIMESTAMP",
     }
-    assert sorted(p.name for p in (config.raw_dir / "bd").iterdir()) == ["cnae_2"]
+    assert sorted(p.name for p in (configuracao.raw_dir / "bd").iterdir()) == ["cnae_2"]
 
 
-def test_bd_reconversao_substitui(fixtures: Path, config: Config) -> None:
+def test_bd_reconversao_substitui(fixtures: Path, configuracao: Configuracao) -> None:
     for _ in range(2):
         r = converter_tabela_bd(
             fixtures / "bd" / "municipio.csv.gz",
             TABELAS_BD["municipio"],
-            config,
+            configuracao,
             ingerido_em=INGERIDO_EM,
         )
     assert r.linhas == 8
-    assert sorted(p.name for p in (config.raw_dir / "bd").iterdir()) == ["municipio"]
+    assert sorted(p.name for p in (configuracao.raw_dir / "bd").iterdir()) == ["municipio"]

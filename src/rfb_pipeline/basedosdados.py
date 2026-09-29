@@ -9,13 +9,13 @@ from pathlib import Path
 
 import httpx
 
-from rfb_pipeline.cliente_rfb import baixar_com_retry
-from rfb_pipeline.configuracao import Config
+from rfb_pipeline.cliente_rfb import baixar_com_retentativas
+from rfb_pipeline.configuracao import Configuracao
 from rfb_pipeline.esquemas import TABELAS_BD
 
 
 def baixar_tabelas_bd(
-    config: Config,
+    configuracao: Configuracao,
     destino_dir: Path,
     http: httpx.Client | None = None,
     origem_local: Path | None = None,
@@ -29,7 +29,7 @@ def baixar_tabelas_bd(
     destino_dir.mkdir(parents=True, exist_ok=True)
     resultado: dict[str, Path] = {}
 
-    cliente_http = http if http is not None else httpx.Client(timeout=config.timeout_s)
+    cliente_http = http if http is not None else httpx.Client(timeout=configuracao.tempo_limite_s)
     try:
         for nome, tabela in TABELAS_BD.items():
             destino = destino_dir / f"{nome}.csv.gz"
@@ -37,17 +37,18 @@ def baixar_tabelas_bd(
                 origem = origem_local / "bd" / f"{nome}.csv.gz"
                 shutil.copyfile(origem, destino)
             else:
-                url = f"{config.bd_base_url}{tabela.dataset}/{tabela.tabela}/{tabela.tabela}.csv.gz"
-                baixar_com_retry(
+                caminho_remoto = f"{tabela.dataset}/{tabela.tabela}/{tabela.tabela}.csv.gz"
+                url = f"{configuracao.bd_base_url}{caminho_remoto}"
+                baixar_com_retentativas(
                     cliente_http,
                     url,
                     destino,
                     tamanho_esperado=None,
-                    tentativas=config.tentativas,
-                    hosts_permitidos=config.hosts_permitidos,
+                    tentativas=configuracao.tentativas,
+                    hosts_permitidos=configuracao.hosts_permitidos,
                     dormir=dormir,
-                    max_retomadas=config.max_retomadas,
-                    timeout_total_s=config.timeout_total_s,
+                    max_retomadas=configuracao.max_retomadas,
+                    tempo_limite_total_s=configuracao.tempo_limite_total_s,
                 )
             resultado[nome] = destino
     finally:

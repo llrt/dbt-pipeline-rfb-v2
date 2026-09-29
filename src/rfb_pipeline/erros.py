@@ -7,7 +7,7 @@ class ErroIngestao(Exception):
     """Erro base de todo o pacote."""
 
 
-class MesInexistenteError(ErroIngestao):
+class MesInexistenteErro(ErroIngestao):
     """O mês solicitado não existe no compartilhamento WebDAV da RFB."""
 
     def __init__(self, mes: str, disponiveis: list[str]) -> None:
@@ -17,7 +17,7 @@ class MesInexistenteError(ErroIngestao):
         super().__init__(f"mês {mes!r} não encontrado; meses disponíveis: {disponiveis_str}")
 
 
-class MesIncompletoError(ErroIngestao):
+class MesIncompletoErro(ErroIngestao):
     """A pasta do mês não tem todos os arquivos esperados (a RFB publica ao longo de dias)."""
 
     def __init__(self, mes: str, faltantes: list[str]) -> None:
@@ -30,15 +30,15 @@ class MesIncompletoError(ErroIngestao):
         )
 
 
-class ExecucaoEmAndamentoError(ErroIngestao):
-    """Outra execução de `rfb ingest` detém o lock de `DATA_ROOT/_estado/rfb.lock`."""
+class ExecucaoEmAndamentoErro(ErroIngestao):
+    """Outra execução de `rfb ingest` detém a trava de `DATA_ROOT/_estado/rfb.lock`."""
 
-    def __init__(self, lock: str) -> None:
-        self.lock = lock
-        super().__init__(f"execução em andamento (lock {lock} ocupado); tente novamente depois")
+    def __init__(self, trava: str) -> None:
+        self.trava = trava
+        super().__init__(f"execução em andamento (trava {trava} ocupada); tente novamente depois")
 
 
-class DownloadError(ErroIngestao):
+class BaixaArquivoErro(ErroIngestao):
     """Falha ao baixar um arquivo, após esgotar as tentativas configuradas."""
 
     def __init__(self, arquivo: str, motivo: str) -> None:
@@ -46,7 +46,7 @@ class DownloadError(ErroIngestao):
         super().__init__(f"falha ao baixar {arquivo}: {motivo}")
 
 
-class WebDAVIndisponivelError(ErroIngestao):
+class WebDAVIndisponivelErro(ErroIngestao):
     """Falha de rede/HTTP ao consultar o WebDAV (listagem), após esgotar as tentativas."""
 
     def __init__(self, url: str, motivo: str) -> None:
@@ -54,7 +54,7 @@ class WebDAVIndisponivelError(ErroIngestao):
         super().__init__(f"WebDAV indisponível em {url}: {motivo}")
 
 
-class TamanhoDivergenteError(DownloadError):
+class TamanhoDivergenteErro(BaixaArquivoErro):
     """O tamanho baixado não confere com o tamanho anunciado pelo servidor."""
 
     def __init__(self, arquivo: str, esperado: int, obtido: int) -> None:
@@ -63,7 +63,7 @@ class TamanhoDivergenteError(DownloadError):
         super().__init__(arquivo, f"tamanho divergente (esperado {esperado}, obtido {obtido})")
 
 
-class HostNaoPermitidoError(ErroIngestao):
+class HostNaoPermitidoErro(ErroIngestao):
     """O host de destino não está na allowlist configurada."""
 
     def __init__(self, host: str, hosts_permitidos: tuple[str, ...]) -> None:
@@ -72,25 +72,25 @@ class HostNaoPermitidoError(ErroIngestao):
         super().__init__(f"host {host!r} não está na allowlist {hosts_permitidos!r}")
 
 
-class ZipInseguroError(ErroIngestao):
+class ZipInseguroErro(ErroIngestao):
     """Entrada de zip com caminho absoluto ou que escapa do diretório de extração (zip-slip)."""
 
-    def __init__(self, zip_path: str, entrada: str) -> None:
-        self.zip_path = zip_path
+    def __init__(self, caminho_zip: str, entrada: str) -> None:
+        self.caminho_zip = caminho_zip
         self.entrada = entrada
-        super().__init__(f"zip {zip_path}: entrada insegura {entrada!r} recusada")
+        super().__init__(f"zip {caminho_zip}: entrada insegura {entrada!r} recusada")
 
 
-class ZipCorrompidoError(ErroIngestao):
+class ZipCorrompidoErro(ErroIngestao):
     """Zip ilegível ou com CRC inválido."""
 
-    def __init__(self, zip_path: str, motivo: str) -> None:
-        self.zip_path = zip_path
-        super().__init__(f"zip corrompido {zip_path}: {motivo}")
+    def __init__(self, caminho_zip: str, motivo: str) -> None:
+        self.caminho_zip = caminho_zip
+        super().__init__(f"zip corrompido {caminho_zip}: {motivo}")
 
 
-class TaxaRejeitoExcedidaError(ErroIngestao):
-    """A taxa de linhas rejeitadas pelo parser CSV excedeu o limiar configurado."""
+class TaxaRejeitoExcedidaErro(ErroIngestao):
+    """A taxa de linhas rejeitadas pelo analisador CSV excedeu o limiar configurado."""
 
     def __init__(self, entidade: str, taxa: float, limiar: float, caminho_rejeitos: str) -> None:
         self.entidade = entidade
@@ -103,7 +103,7 @@ class TaxaRejeitoExcedidaError(ErroIngestao):
         )
 
 
-class ConversaoError(ErroIngestao):
+class ConversaoErro(ErroIngestao):
     """Falha do DuckDB ao converter um arquivo para Parquet."""
 
     def __init__(self, arquivo: str, motivo: str) -> None:
@@ -111,7 +111,7 @@ class ConversaoError(ErroIngestao):
         super().__init__(f"falha ao converter {arquivo}: {motivo}")
 
 
-class EntidadeVaziaError(ErroIngestao):
+class EntidadeVaziaErro(ErroIngestao):
     """A conversão de uma entidade produziu 0 linhas no total; nada é publicado."""
 
     def __init__(self, entidade: str, arquivos: list[str]) -> None:
@@ -123,7 +123,7 @@ class EntidadeVaziaError(ErroIngestao):
         )
 
 
-class CredenciaisS3FaltandoError(ErroIngestao):
+class CredenciaisS3FaltandoErro(ErroIngestao):
     """`DATA_ROOT` é `s3://` mas faltam variáveis de ambiente obrigatórias."""
 
     def __init__(self, faltando: list[str]) -> None:
@@ -133,7 +133,7 @@ class CredenciaisS3FaltandoError(ErroIngestao):
         )
 
 
-class ConfiguracaoInvalidaError(ErroIngestao):
+class ConfiguracaoInvalidaErro(ErroIngestao):
     """Variável de ambiente com valor que não pode ser interpretado."""
 
     def __init__(self, variavel: str, valor: str, esperado: str) -> None:
