@@ -94,6 +94,7 @@ flowchart LR
 | B3 | concluído, verificado (67 testes; validação real: Empresas1 4.494.860 linhas/0 rejeitos/1,2 s; Estabelecimentos1 4.753.435/0/4,1 s) e integrado | 31f7d382 · Claude Opus médio | `ddc0731` |
 | B4 | concluído, verificado (90 unit + 5 integração; dbt PASS=45 WARN=1 ERROR=0; `make ci` 6,8 s) e integrado | c1dc175c · Claude Sonnet médio | `cf37463` `dc38939` `e72dc84` `f7d2603` `8bdbadc` `ea00fe5` `f109d49` |
 | R1 | concluída: APROVADO COM RESSALVAS (0 bloq., 10 imp., 14 menores, 3 sug.; 20 mutações) — triagem em `docs/revisoes/R1-triagem.md` | a84e9afe · Claude Opus alto (traycer-review) | `f5d3119` |
-| F1a | em andamento (retomado após 2ª pausa): FX1–FX4 commitados, concluindo FX5–FX7 | eba62c6d · Claude Sonnet médio | `d45ef8d` `fb53801` `7d66721` `2a03c6e` (+ WIP `622fbc9`) |
+| F1a | concluído, verificado (153 unit + 18 integração; dbt PASS=61 WARN=1 ERROR=0; `make ci` 19,9 s; pre-commit ok) e integrado — 20 achados da R1 + P7 | eba62c6d · Claude Sonnet médio | `d45ef8d` `fb53801` `7d66721` `2a03c6e` `f264d1f` `59b0480` `958d81a` |
+| B5 | em andamento | (Opus médio) | — |
 | F1b | concluído, verificado (106 unit; dbt PASS=45 WARN=1 ERROR=0) e integrado — R1-04, R1-10 (convert), R1-23, R1-24 | 89931ace · Claude Opus médio | `54368a4` `88f9312` `081d8be` |
 | B9a | concluído e integrado (1 achado p/ R5, ver docs/revisoes/pendencias.md) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | `c9a6dbc` |
