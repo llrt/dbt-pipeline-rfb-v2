@@ -28,25 +28,22 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 
 ## Handoff
 
-- **Lote RN (T37) concluído na branch `lote/rn-padronizacao-nomes`:** nomes padronizados conforme o ADR-0014 (pastas dbt, módulos/identificadores Python, CLI/Make, `RAIZ_DADOS*`, `_manifestos`/`_baixados`, `scripts/gerar_fixtures.py`); guarda em `tests/unit/test_convencao_nomes.py`.
+**3ª pausa, 2026-09-29 18:40 (pedido do usuário).** `main` limpo em `66d221f` (+ commit deste handoff); último verde: 164 unit + 22 integração; `make ci` PASS=92 WARN=2 ERROR=0; lint ok.
 
-**Retomado em 2026-09-29 após a 2ª pausa.** Verificação ok (`main` limpo em `86fa2e5`; `make ci` PASS=45 WARN=1 ERROR=0). F1a concluída e integrada (`b5012a6`). Próximo: B5 (T14–T15, Opus médio).
-
-- **main** = `7530018` (+ commit deste handoff), verde: 106 unit + 5 integração; `make ci` PASS=45 WARN=1 ERROR=0; lint ok.
-- **Integrado:** P0, B1, B2, B3, B4, B9a, **R1** (relatório `docs/revisoes/R1.md`, triagem `docs/revisoes/R1-triagem.md`) e **F1b** (R1-04, R1-10 parte convert, R1-23, R1-24).
-- **Interrompido: F1a** (correções R1 FX1–FX7; agente `eba62c6d`, Claude Sonnet médio, **parado, não arquivado**). Worktree `~/.traycer/worktrees/local__dbt-pipeline-rfb-v2__5a2294e72f/correcao-f1a-r1-ingestao-dbt`, branch `correcao/f1a-r1-ingestao-dbt` (base `a6ed57c`, **não** contém F1b):
-  - Commitados (ainda não verificados pelo líder): FX1 `d45ef8d` (R1-01/02/16/19), FX2 `fb53801` (R1-03/17/18/20), FX3 `7d66721` (R1-08/09/26, P7), FX4 `2a03c6e` (R1-07).
-  - **WIP** `622fbc9`: FX5 parcial (dbt: R1-05/06/12/13/15/25) salvo pelo líder na pausa — gates não rodados; deve ser revisado/completado e reescrito como `fix(dbt)` definitivo.
-  - Faltam: concluir FX5, **FX6** (testes que afirmam a spec — R1-10 exceto convert; re-rodar mutações M4, M14, M18/M19 em test_schemas, M20) e **FX7** (pre-commit sqlfluff — R1-14), e anotar "resolvido em" na triagem.
+- **Integrado:** P0, B1–B5, B9a, R1, F1a, F1b, RN, **R2** (relatório `docs/revisoes/R2.md`, triagem `docs/revisoes/R2-triagem.md`, emendas ADR-0005/0014/spec AC 12, AD-018/019).
+- **Interrompido: F2a** (correções R2 no dbt; agente `36922fe0`, Claude Opus médio, **parado, não arquivado**). Worktree `~/.traycer/worktrees/local__dbt-pipeline-rfb-v2__5a2294e72f/correcao-f2a-r2-dbt`, branch `correcao/f2a-r2-dbt` (base `3148b45`):
+  - Commitados pelo worker (gates rodados por ele a cada grupo; **ainda não verificados pelo líder**): `7660cad` P13 (`models/audit/`, `audit__`), `6469a40` R2-01 (trim adaptado + warn + fixture), `23c68d5` R2-02 (idade warn/error_if>100, warn <1800), `75ada4f` R2-03 (`not_null` `_data_referencia`), `381ec81` R2-04..07 (testes), `aade503` R2-12/13 (paridade por hash, limpezas).
+  - **WIP** `cee196e` (salvo pelo líder na pausa): triagem R2 com notas "resolvido em" parcial + 1 linha em branco removida no ADR-0014 — revisar e reescrever/squash no commit final.
+  - Faltam: **validação real fev/2025** (foi interrompida ~1 min após começar; ~24 GB RSS; raw do revisor em `/private/tmp/claude-501/-Users-llrt--traycer-worktrees-local--dbt-pipeline-rfb-v2--5a2294e72f-revisao-r2-b5-rn/3c78c3e8-ce3b-418d-b4d2-f6db20f5861c/scratchpad/real` — só leitura; se `/private/tmp` tiver sido limpo pelo reboot, reconverter do v1 `/Users/llrt/dev/workspaces/code-to-learn/vibe/traycer/dbt-pipeline-rfb/data/raw`, também só leitura), gates finais (`make lint && make ci`, `uvx pre-commit run --all-files`), commit final da triagem e relatório (hashes, PASS/WARN/ERROR, mutações D01/M06/M07b/M15, números reais: paridade PASS, warn trim ~752, idade 2, datas <1800 = 4, tempo/memória, custo da paridade por hash).
 
 ### Como retomar (líder)
-1. `git status` (limpo) e `make ci` em `main` → PASS=45 WARN=1.
-2. Reativar o agente `eba62c6d` (mensagem com o brief original da F1a + este estado: FX1–FX4 feitos, FX5 em WIP `622fbc9`, faltam FX5/FX6/FX7; pedir para primeiro fazer `git rebase main` ou `merge main` para incorporar F1b, depois completar). Se indisponível, criar Sonnet médio novo no mesmo worktree com o mesmo brief + triagem do diff herdado.
-3. Verificar por evidência (make ci, make lint, mutações), integrar F1a, e disparar **B5** (T14–T15, Opus médio).
-4. Sequência restante: B5 → R2 → B6 (T32 + R1-11/21/22, T16–T18, T33, T19–T20) → B7 → B7b → R3 → B8 (T28, T36) ∥ B9b → R4 → R5 → RETRO + billing.
+1. `git status` (limpo) e `make ci` em `main` → PASS=92 WARN=2.
+2. Reativar o agente `36922fe0` com: estado acima, pedir para conferir o WIP `cee196e`, rodar a validação real fev/2025 e os gates finais, e entregar o relatório. Se indisponível, Opus médio novo no mesmo worktree com o brief original (ver transcript) + este estado.
+3. Verificar por evidência (make ci, lint, mutações, números reais), integrar F2a, atualizar PLANO/triagem e disparar **F2b** (Sonnet médio: R2-09..11 — `data/`→`dados/`, `part-`→`parte-`, `extract-`→`extracao-`, `_rfb_rejeitos_scan`→`_rfb_rejeitos_varredura`, `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`, `_no_implementado`→`_nao_implementado`; guarda cobrindo env vars + regex do Make; erro se `DATA_ROOT`/`DATA_ROOT_LOCAL` definidos; manter `warehouse.duckdb` e targets dev/ci/s3).
+4. Sequência restante: F2b → B6 (T32 + R1-11/21/22, T16–T18, T33, T19–T20) → B7 → B7b → R3 → B8 (T28 + paridade numérica fev/2025 AD-018, P9–P12; T36) ∥ B9b → R4 → R5 → RETRO + billing.
 
 ### Contexto importante para os próximos briefs
 - Roteamento: AD-014 (médias → Sonnet médio). Melhorias do usuário: AD-015/ADR-0012 (atualização mensal) e AD-016/ADR-0013 (estrela para Power BI).
-- Pendências: P1, P2 (guia → R5), P8 (→ B9b) em `docs/revisoes/pendencias.md`; R1-11, R1-21, R1-22 adiados para T32 (B6); teste de CLI para `EntidadeVaziaErro` (F1b) ainda sem cobertura.
+- Pendências: P1, P2 (guia → R5), P8 (→ B9b), P9–P12 (→ B8), P13 (→ F2a) em `docs/revisoes/pendencias.md`; R1-11, R1-21, R1-22 adiados para T32 (B6); teste de CLI para `EntidadeVaziaErro` (F1b) ainda sem cobertura.
 - Lições: escrever arquivos grandes incrementalmente; unit tests dbt sobre fontes `external_location` exigem `format: sql`; rejeitos do DuckDB acumulam por conexão; hive automático em `mes_referencia=` (fontes usam `hive_partitioning=false` + `_mes_referencia`); `lpad` do DuckDB trunca; `strptime` falha em data inválida (usar `try_strptime`).
 - WebDAV da RFB trava downloads — B8 deve monitorar. Worktrees já integrados (b1, b2, b3, b4, b9a, r1, f1b) podem ser limpos com `traycer-housekeeping`.

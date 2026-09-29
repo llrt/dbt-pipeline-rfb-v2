@@ -99,7 +99,7 @@ flowchart LR
 | B5 | concluído, verificado (153 unit + 22 integração; dbt PASS=92 WARN=2 ERROR=0; `make ci` 16,9 s; **paridade = 0 diferenças**; mutação do líder detectada: FAIL 4) e integrado | 0c170aeb · Claude Opus médio | `90878b3` `57996fa` |
 | RN | concluído, verificado (164 unit + 22 integração; dbt PASS=92 WARN=2 ERROR=0; `make ci` 19,3 s; guarda de convenção falha com pasta indevida) e integrado — T37, ADR-0014 | 6fbac49c · Claude Sonnet médio | `aa17530` `74c800d` `92393ee` `ff94b22` `131b506` `e0801ff` `653a7a3` |
 | R2 | concluída: **REPROVADO** (1 bloqueante R2-01 em dados reais fev/2025; RN aprovado c/ ressalvas) — triagem em `docs/revisoes/R2-triagem.md` | c26d9ad4 · Claude Opus alto (traycer-review) | `5442f3d` |
-| F2a | em andamento — correções R2 no dbt (R2-01..07, 12, 13, P13) | 36922fe0 · Claude Opus médio | — |
+| F2a | **pausado** (pedido do usuário) — 6 commits de correção prontos + WIP `cee196e`; falta validação real fev/2025, gates finais e relatório | 36922fe0 · Claude Opus médio | — |
 | F2b | planejado — correções R2 de nomes (R2-09..11) | (Sonnet médio) | — |
 | F1b | concluído, verificado (106 unit; dbt PASS=45 WARN=1 ERROR=0) e integrado — R1-04, R1-10 (convert), R1-23, R1-24 | 89931ace · Claude Opus médio | `54368a4` `88f9312` `081d8be` |
 | B9a | concluído e integrado (1 achado p/ R5, ver docs/revisoes/pendencias.md) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | `c9a6dbc` |
