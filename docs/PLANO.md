@@ -30,8 +30,8 @@
 | T7 | Download Base dos Dados | M | NC | B2 |
 | T8 | Conversão zip/CSV → Parquet raw | **G** | **C** | B3 |
 | T9 | Manifesto + idempotência | M | NC | B4 |
-| T10 | CLI `rfb ingest` + `make ci` | M | NC | B4 |
-| T11 | Storage S3/Tigris + `rfb sync` | M | NC | B4 |
+| T10 | CLI `rfb ingerir` + `make ci` | M | NC | B4 |
+| T11 | Storage S3/Tigris + `rfb sincronizar` | M | NC | B4 |
 | T12 | Fontes dbt + checks do original + freshness | M | NC | B4 |
 | T13 | Staging de domínios/BD + macros | M | NC | B4 |
 | T14 | Staging empresas/estabelecimentos | **G** | **C** | B5 |

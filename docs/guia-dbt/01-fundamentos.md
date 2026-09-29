@@ -142,7 +142,7 @@ version: 2
 sources:
   - name: rfb
     meta:
-      external_location: "{{ env_var('DATA_ROOT') }}/raw/rfb/{name}/mes_referencia=2026-09/*.parquet"
+      external_location: "{{ env_var('RAIZ_DADOS') }}/raw/rfb/{name}/mes_referencia=2026-09/*.parquet"
     tables:
       - name: empresas
         description: "Parquet bruto all-VARCHAR de Empresas0.zip"
@@ -151,7 +151,7 @@ sources:
 
 No `dbt-duckdb`, o par `meta.external_location` + `config` diz ao adapter para ler **direto do Parquet**
 (vira um `read_parquet(...)`) em vez de esperar tabela no DuckDB. Neste projeto **todas** as fontes RFB e
-BD usam isso, derivando o caminho de `env_var('DATA_ROOT')` (arquivo em `data/` ou bucket `s3://`).
+BD usam isso, derivando o caminho de `env_var('RAIZ_DADOS')` (arquivo em `data/` ou bucket `s3://`).
 
 ### 3.3 Seeds
 
@@ -276,7 +276,7 @@ Materialização = **onde/como** o resultado do model é persistido.
 | Materialização | O que cria | Uso neste projeto |
 |---|---|---|
 | `view` | uma visão no banco (barata; reconstrói a cada consulta) | staging (padrão) |
-| `table` | tabela física (dados copiados na execução) | intermediate, observabilidade |
+| `table` | tabela física (dados copiados na execução) | intermediate, observability |
 | `incremental` | tabela física que só processa o delta (`is_incremental()`) | `dq_historico_testes` |
 | `ephemeral` | **não** cria artefato; vira CTE inline nos modelos que dependem dela | `paridade__bh_empresas_sql_original` |
 | `external` *(dbt-duckdb)* | **arquivo externo** (Parquet/CSV/JSON) em `location` — os dados não entram no .duckdb | marts original/core/analises (`gold/*.parquet`) |
@@ -326,20 +326,20 @@ rfb:
   outputs:
     ci:
       type: duckdb
-      path: "{{ env_var('DATA_ROOT') }}/ci.duckdb"
+      path: "{{ env_var('RAIZ_DADOS') }}/ci.duckdb"
       threads: 2
     dev:
       type: duckdb
-      path: "{{ env_var('DATA_ROOT') }}/warehouse.duckdb"
+      path: "{{ env_var('RAIZ_DADOS') }}/warehouse.duckdb"
     s3:
       type: duckdb
-      path: "{{ env_var('DATA_ROOT') }}/warehouse.duckdb"
+      path: "{{ env_var('RAIZ_DADOS') }}/warehouse.duckdb"
       external_root: "s3://..."
   target: dev
 ```
 
 - Escolher target: `--target ci` (ou `-t`). Bug comum: rodar em `dev` achando que é `prod`.
-- `env_var()` injeta variáveis de ambiente (ex.: `DATA_ROOT`) — sem segredos no repo.
+- `env_var()` injeta variáveis de ambiente (ex.: `RAIZ_DADOS`) — sem segredos no repo.
 - `dbt debug` valida profiles/conexão; é o primeiro comando a rodar quando algo "não conecta".
 
 ### 3.13 Docs (`description` e `dbt docs`)
@@ -466,7 +466,7 @@ transform/
 │   └── marts/
 │       ├── original/      # bh_empresas, agg_empresas      (external → gold/)
 │       ├── core/          # dim_*, fct_*, bridge_*         (external → gold/)
-│       └── analises/      # mart_*                         (external → gold/)
+│       └── analytics/      # mart_*                         (external → gold/)
 ├── macros/                # macros e testes genéricos customizados
 ├── tests/                 # testes singulares (.sql) e unit tests (em YAML junto aos models)
 ├── seeds/                 # parametrização estável (.csv): dominios, exceções
@@ -491,7 +491,7 @@ A recomendação oficial organiza o pipeline em camadas por *propósito*:
 |---|---|
 | staging 1:1, sem joins | ✅ segue (view; tipagem/limpeza apenas) |
 | intermediate para joins | ✅ segue (`int_municipios__conformados`, `int_estabelecimentos__enriquecidos`, `int_cnaes_secundarios__explodidos`) |
-| marts por domínio | ✅ segue (`original`, `core`, `analises`) |
+| marts por domínio | ✅ segue (`original`, `core`, `analytics`) |
 | tipagem no staging | ✅ segue (raw é all-VARCHAR por decisão, ADR-0002) |
 | materialização por camada | ✅ segue (view / table / external via config por pasta em `dbt_project.yml`) |
 | contratos nos marts | ✅ segue (original e core com `contract.enforced`) |
@@ -558,11 +558,11 @@ executa via `uv` — no repo: `uv run dbt <cmd>` (ou `cd transform && dbt <cmd>`
 | Comando | Faz | Equivale a |
 |---|---|---|
 | `make setup` | ambiente completo | `uv sync` + `dbt deps` |
-| `make fixtures` | gera fixtures sintéticas | `python scripts/gen_fixtures.py` (sem rede) |
-| `make ci` | CI local verde | `rfb ingest --origem-local` + `dbt build --target ci` + pytest |
-| `make pipeline MES=2026-09` | produção real | `rfb ingest` → `dbt source freshness` → `dbt build` → relatório |
+| `make fixtures` | gera fixtures sintéticas | `python scripts/gerar_fixtures.py` (sem rede) |
+| `make ci` | CI local verde | `rfb ingerir --origem-local` + `dbt build --target ci` + pytest |
+| `make pipeline MES=2026-09` | produção real | `rfb ingerir` → `dbt source freshness` → `dbt build` → relatório |
 | `make docs` | publicar docs | `dbt docs generate` + `dbt docs serve` |
-| `make sync` | enviar `raw/`+`gold/` ao S3 | `rfb sync` (Tigris) |
+| `make sincronizar` | enviar `raw/`+`gold/` ao S3 | `rfb sincronizar` (Tigris) |
 
 Exemplos diretos (dentro de `transform/`):
 

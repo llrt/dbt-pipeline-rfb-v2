@@ -18,7 +18,7 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Tabelas BD `municipio`, `cnae_2` | original | notebook 1, seção 2 |
 | Tabelas BD `populacao`, `pib`; RFB `simples`, `paises`, `qualificacoes` | adição | enriquecimento (densidade, MEI) |
 | Manifesto, idempotência, limiar de rejeitos | adição | — |
-| Upload para Tigris (`rfb sync`) | adaptado | `subir_arquivos_tigris.py` |
+| Upload para Tigris (`rfb sincronizar`) | adaptado | `subir_arquivos_tigris.py` |
 | Fontes dbt com testes de unicidade/completude/integridade/domínio | original | notebooks 2.1.1, 2.1.2, 2.2, 2.3 |
 | Freshness das fontes | adição | — |
 | Staging tipado | adição | original não tinha camada explícita |

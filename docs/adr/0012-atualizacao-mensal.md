@@ -8,7 +8,7 @@ comando para detectar novidade, checagem de completude, retenção, histórico n
 **Decisão.**
 1. **`rfb atualizar`** (e `make atualizar`): consulta o WebDAV, escolhe o **mês completo mais recente**
    (pasta com todos os arquivos esperados: `Empresas0–9`, `Estabelecimentos0–9`, `Simples` e os 6 domínios);
-   compara com o último mês processado com sucesso (`DATA_ROOT/_estado/ultima_execucao.json`, gravado só
+   compara com o último mês processado com sucesso (`RAIZ_DADOS/_estado/ultima_execucao.json`, gravado só
    após `dbt build` sem erro); se houver mês novo roda ingest → `dbt build --vars mes_referencia` →
    relatórios (→ `sync` se `s3://`); senão sai com 0 e "nenhum mês novo".
 2. **Retenção:** mantém as partições raw dos últimos `RFB_MESES_RETIDOS` meses (padrão 2 — o atual e o
