@@ -2,18 +2,24 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.9
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format
-  - repo: https://github.com/sqlfluff/sqlfluff
-    rev: 4.3.0
+  # sqlfluff usa o templater dbt (.sqlfluff), que precisa do projeto e do dbt-duckdb do venv: por
+  # isso hook local via `uv run`, e não o repo remoto do sqlfluff (ambiente isolado sem o templater).
+  # Regras vêm só do .sqlfluff (sem códigos legados L0xx). Macros são ignoradas pelo sqlfluff.
+  - repo: local
     hooks:
       - id: sqlfluff-lint
-        args: [--rules, L003,L009,L010,L016,L022,L023,L024,L025,L026,L027,L028,L029,L031,L034,L036,L038,L040,L042,L044,L046,L047,L048,L051,L054,L056,L058]
-        files: ^transform/models/.+\.(sql|sql\.jinja|jinja)$
+        name: sqlfluff lint (models + tests dbt)
+        entry: bash -c 'export DATA_ROOT="${DATA_ROOT:-$PWD/.tmp/lint}"; mkdir -p "$DATA_ROOT"; uv run sqlfluff lint transform/models transform/tests'
+        language: system
+        pass_filenames: false
+        files: ^(transform/(models|tests|macros)/.+\.sql|\.sqlfluff)$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: end-of-file-fixer
+        exclude: ^docs/referencia-original/
       - id: check-yaml
         exclude: ^transform/packages\.yml$

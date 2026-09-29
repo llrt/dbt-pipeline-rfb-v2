@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from rfb_pipeline.config import carregar_config, ler_credenciais_s3
-from rfb_pipeline.errors import CredenciaisS3FaltandoError
+from rfb_pipeline.errors import ConfiguracaoInvalidaError, CredenciaisS3FaltandoError
 
 
 def test_carregar_config_usa_padroes_sem_overrides(tmp_path: Path) -> None:
@@ -126,3 +126,78 @@ def test_config_dirs_derivados_de_data_root(tmp_path: Path) -> None:
     assert config.rejeitos_dir == tmp_path / "raw" / "_rejeitos"
     assert config.gold_dir == tmp_path / "gold"
     assert config.downloads_dir("2026-09") == tmp_path / "_downloads" / "2026-09"
+
+
+def test_variaveis_vazias_equivalem_a_ausentes(tmp_path: Path) -> None:
+    """`cp .env.example .env` com chaves vazias não pode quebrar nem desviar a ingestão."""
+    config = carregar_config(
+        env={
+            "DATA_ROOT": "",
+            "DATA_ROOT_LOCAL": "",
+            "DUCKDB_THREADS": "",
+            "DUCKDB_MEMORY_LIMIT": "  ",
+            "RFB_MAX_TAXA_REJEITO": "",
+            "RFB_VELOCIDADE_MINIMA_BPS": "",
+            "RFB_JANELA_LENTIDAO_S": "",
+            "RFB_MAX_RETOMADAS": "",
+            "RFB_TIMEOUT_TOTAL_S": "",
+        }
+    )
+
+    assert config.data_root == Path("./data").resolve()
+    assert config.data_root_s3 is None
+    assert config.duckdb_threads == 4
+    assert config.duckdb_memory_limit == "8GB"
+    assert config.max_taxa_rejeito == 0.0001
+    assert config.max_retomadas == 50
+    assert config.timeout_total_s == 3600.0
+
+
+def test_data_root_local_vazio_no_modo_s3_usa_o_padrao() -> None:
+    config = carregar_config(
+        env={
+            "DATA_ROOT": "s3://meu-bucket/prefixo",
+            "DATA_ROOT_LOCAL": "",
+            "AWS_ACCESS_KEY_ID": "id",
+            "AWS_SECRET_ACCESS_KEY": "secret",
+            "AWS_ENDPOINT_URL_S3": "https://fly.storage.tigris.dev",
+        }
+    )
+
+    assert config.data_root == Path("./data").resolve()
+
+
+def test_tetos_de_download_lidos_do_ambiente(tmp_path: Path) -> None:
+    config = carregar_config(
+        env={
+            "DATA_ROOT": str(tmp_path),
+            "RFB_MAX_RETOMADAS": "7",
+            "RFB_TIMEOUT_TOTAL_S": "120.5",
+        }
+    )
+
+    assert config.max_retomadas == 7
+    assert config.timeout_total_s == 120.5
+
+
+@pytest.mark.parametrize(
+    ("variavel", "valor"),
+    [("DUCKDB_THREADS", "muitas"), ("RFB_MAX_RETOMADAS", "1.5"), ("RFB_TIMEOUT_TOTAL_S", "x")],
+)
+def test_valor_numerico_invalido_vira_erro_de_ingestao(tmp_path: Path, variavel, valor) -> None:
+    with pytest.raises(ConfiguracaoInvalidaError) as exc_info:
+        carregar_config(env={"DATA_ROOT": str(tmp_path), variavel: valor})
+
+    assert variavel in str(exc_info.value)
+
+
+def test_env_example_carregado_como_esta_nao_quebra(tmp_path: Path) -> None:
+    """Regressão R1-09: valores de `.env.example` (sem edição) precisam ser aceitos."""
+    from dotenv import dotenv_values
+
+    exemplo = Path(__file__).resolve().parents[2] / ".env.example"
+    env = {k: v for k, v in dotenv_values(exemplo).items() if v is not None}
+
+    config = carregar_config(env=env)
+
+    assert config.data_root == Path("./data").resolve()

@@ -17,12 +17,41 @@ class MesInexistenteError(ErroIngestao):
         super().__init__(f"mês {mes!r} não encontrado; meses disponíveis: {disponiveis_str}")
 
 
+class MesIncompletoError(ErroIngestao):
+    """A pasta do mês não tem todos os arquivos esperados (a RFB publica ao longo de dias)."""
+
+    def __init__(self, mes: str, faltantes: list[str]) -> None:
+        self.mes = mes
+        self.faltantes = faltantes
+        super().__init__(
+            f"mês {mes!r} incompleto; faltam {len(faltantes)} arquivo(s): "
+            + ", ".join(faltantes)
+            + " (use --permitir-incompleto para ingerir mesmo assim)"
+        )
+
+
+class ExecucaoEmAndamentoError(ErroIngestao):
+    """Outra execução de `rfb ingest` detém o lock de `DATA_ROOT/_estado/rfb.lock`."""
+
+    def __init__(self, lock: str) -> None:
+        self.lock = lock
+        super().__init__(f"execução em andamento (lock {lock} ocupado); tente novamente depois")
+
+
 class DownloadError(ErroIngestao):
     """Falha ao baixar um arquivo, após esgotar as tentativas configuradas."""
 
     def __init__(self, arquivo: str, motivo: str) -> None:
         self.arquivo = arquivo
         super().__init__(f"falha ao baixar {arquivo}: {motivo}")
+
+
+class WebDAVIndisponivelError(ErroIngestao):
+    """Falha de rede/HTTP ao consultar o WebDAV (listagem), após esgotar as tentativas."""
+
+    def __init__(self, url: str, motivo: str) -> None:
+        self.url = url
+        super().__init__(f"WebDAV indisponível em {url}: {motivo}")
 
 
 class TamanhoDivergenteError(DownloadError):
@@ -102,3 +131,11 @@ class CredenciaisS3FaltandoError(ErroIngestao):
         super().__init__(
             "DATA_ROOT é s3:// mas faltam variáveis de ambiente: " + ", ".join(faltando)
         )
+
+
+class ConfiguracaoInvalidaError(ErroIngestao):
+    """Variável de ambiente com valor que não pode ser interpretado."""
+
+    def __init__(self, variavel: str, valor: str, esperado: str) -> None:
+        self.variavel = variavel
+        super().__init__(f"variável {variavel}={valor!r} inválida (esperado {esperado})")

@@ -151,12 +151,15 @@ mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
 
 | Cenário | Tratamento |
 |---|---|
-| Rede/timeout/5xx | 3 tentativas com backoff exponencial; download retoma via `Range` quando possível; depois falha com mensagem citando o arquivo |
+| Rede/timeout/5xx | Backoff exponencial entre tentativas (também após tentativas com progresso); download retoma via `Range` + `If-Range` (ETag/Last-Modified); encerra após 3 falhas seguidas sem progresso (`tentativas`), `RFB_MAX_RETOMADAS` (50) falhas no total ou `RFB_TIMEOUT_TOTAL_S` (3600 s), com mensagem citando arquivo e URL; PROPFIND usa o mesmo retry; exit 1 sem traceback |
 | Tamanho baixado ≠ `getcontentlength` do WebDAV | apaga o arquivo e falha (sem conversão) |
 | Zip corrompido | falha antes de converter; nada é escrito em `raw/` |
 | Mês inexistente | erro explícito listando os meses disponíveis |
 | Taxa de rejeito acima do limiar | falha; rejeitos ficam gravados para auditoria |
-| Credenciais S3 ausentes com `DATA_ROOT=s3://` | falha imediata com mensagem indicando as variáveis faltantes |
+| Credenciais S3 ausentes com `DATA_ROOT=s3://` | falha imediata com mensagem indicando as variáveis faltantes (também no dbt: o profile `s3` não tem padrão para `AWS_*`) |
+| Mês incompleto (faltam `Empresas0–9`, `Estabelecimentos0–9`, `Simples` ou um dos 6 domínios) | sem `--mes` usa o mais recente completo (avisa o ignorado); com `--mes` falha listando os faltantes; `--permitir-incompleto` aceita (usado no `make ci`) |
+| Segunda `rfb ingest` simultânea | falha com "execução em andamento" (lock `DATA_ROOT/_estado/rfb.lock`); a limpeza de resíduos só roda com o lock |
+| `_data_referencia` nula | aviso explícito por arquivo e ao fim; manifesto grava `data_referencia: null` |
 
 ### 4.5 Atualização mensal ([ADR-0012](docs/adr/0012-atualizacao-mensal.md)) — melhoria
 
@@ -195,7 +198,7 @@ flowchart LR
 - Todo modelo declara `meta: {escopo: original | adicao | adaptado}` e a tag correspondente
   (`escopo_original`, `escopo_adicao`, `escopo_adaptado`) — [ADR-0006](docs/adr/0006-marcacao-escopo.md).
 - Marts `original` e `core` têm **contrato** (`contract: enforced: true`) com tipos declarados.
-- `external_location` das fontes e `location` dos marts derivam de `env_var('DATA_ROOT')`.
+- `external_location` das fontes e `location` dos marts derivam de `env_var('DATA_ROOT', '../data')`.
 
 ### 5.2 Variáveis (`dbt_project.yml`)
 
@@ -311,7 +314,11 @@ Severidade: estrutura (PK, contratos, relacionamentos no core, paridade) = `erro
 | `make atualizar` | `rfb atualizar`: processa o mês novo mais recente, se houver (ADR-0012) |
 
 Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local),
-`s3` (`DATA_ROOT=s3://...`, secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente).
+`s3` (`DATA_ROOT=s3://...`; fontes e `gold/` no bucket, mas o `warehouse.duckdb` e os temporários ficam em
+`DATA_ROOT_LOCAL`; secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente, sem padrão).
+
+**Fluxo S3 (ADR-0007):** `rfb ingest` (local, `DATA_ROOT_LOCAL`) → `rfb sync` (`raw/` e `gold/`, comparação por
+tamanho + sha256) → `dbt build --target s3`. Variáveis vazias equivalem a ausentes; ver `.env.example`.
 
 ## 8. Segurança e privacidade
 

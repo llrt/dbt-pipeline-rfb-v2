@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rfb_pipeline.errors import CredenciaisS3FaltandoError
+from rfb_pipeline.errors import ConfiguracaoInvalidaError, CredenciaisS3FaltandoError
 
 DATA_ROOT_PADRAO = "./data"
 _VARS_S3_OBRIGATORIAS = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3")
@@ -68,6 +68,8 @@ class Config:
     max_taxa_rejeito: float = 0.0001
     timeout_s: float = 60.0
     tentativas: int = 3
+    max_retomadas: int = 50
+    timeout_total_s: float = 3600.0
     velocidade_minima_bps: float = 50 * 1024
     janela_lentidao_s: float = 60.0
     duckdb_memory_limit: str = "8GB"
@@ -93,10 +95,29 @@ class Config:
         return self.data_root / "gold"
 
 
+_OVERRIDES_NUMERICOS: tuple[tuple[str, str, type], ...] = (
+    ("RFB_MAX_TAXA_REJEITO", "max_taxa_rejeito", float),
+    ("RFB_VELOCIDADE_MINIMA_BPS", "velocidade_minima_bps", float),
+    ("RFB_JANELA_LENTIDAO_S", "janela_lentidao_s", float),
+    ("RFB_MAX_RETOMADAS", "max_retomadas", int),
+    ("RFB_TIMEOUT_TOTAL_S", "timeout_total_s", float),
+    ("DUCKDB_THREADS", "duckdb_threads", int),
+)
+
+
+def _texto(env: Mapping[str, str], variavel: str) -> str | None:
+    """Valor da variável, ou `None` se ausente ou vazia (variável vazia = padrão)."""
+    valor = env.get(variavel)
+    if valor is None or not valor.strip():
+        return None
+    return valor.strip()
+
+
 def carregar_config(env: Mapping[str, str] | None = None) -> Config:
     """Monta a `Config` a partir de variáveis de ambiente.
 
-    Quando `env` é `None`, carrega `.env` (via python-dotenv) e lê `os.environ`.
+    Quando `env` é `None`, carrega `.env` (via python-dotenv) e lê `os.environ`. Variável vazia
+    equivale a ausente (usa o padrão), para que `cp .env.example .env` não quebre nada.
 
     Quando `DATA_ROOT` é `s3://...` (ADR-0007), a ingestão (EL) continua lendo/escrevendo em um
     diretório **local**, `DATA_ROOT_LOCAL` (padrão `./data`): `config.data_root` sempre aponta
@@ -108,11 +129,11 @@ def carregar_config(env: Mapping[str, str] | None = None) -> Config:
         load_dotenv()
         env = os.environ
 
-    data_root_bruto = env.get("DATA_ROOT", DATA_ROOT_PADRAO)
+    data_root_bruto = _texto(env, "DATA_ROOT") or DATA_ROOT_PADRAO
     if data_root_bruto.startswith("s3://"):
         ler_credenciais_s3(env)
         data_root_s3 = data_root_bruto.rstrip("/")
-        data_root = Path(env.get("DATA_ROOT_LOCAL", DATA_ROOT_PADRAO)).resolve()
+        data_root = Path(_texto(env, "DATA_ROOT_LOCAL") or DATA_ROOT_PADRAO).resolve()
         data_root_uri = data_root_s3
     else:
         data_root_s3 = None
@@ -120,16 +141,18 @@ def carregar_config(env: Mapping[str, str] | None = None) -> Config:
         data_root_uri = str(data_root)
 
     overrides: dict[str, object] = {}
-    if "RFB_MAX_TAXA_REJEITO" in env:
-        overrides["max_taxa_rejeito"] = float(env["RFB_MAX_TAXA_REJEITO"])
-    if "RFB_VELOCIDADE_MINIMA_BPS" in env:
-        overrides["velocidade_minima_bps"] = float(env["RFB_VELOCIDADE_MINIMA_BPS"])
-    if "RFB_JANELA_LENTIDAO_S" in env:
-        overrides["janela_lentidao_s"] = float(env["RFB_JANELA_LENTIDAO_S"])
-    if "DUCKDB_MEMORY_LIMIT" in env:
-        overrides["duckdb_memory_limit"] = env["DUCKDB_MEMORY_LIMIT"]
-    if "DUCKDB_THREADS" in env:
-        overrides["duckdb_threads"] = int(env["DUCKDB_THREADS"])
+    for variavel, campo, tipo in _OVERRIDES_NUMERICOS:
+        valor = _texto(env, variavel)
+        if valor is not None:
+            try:
+                overrides[campo] = tipo(valor)
+            except ValueError:
+                raise ConfiguracaoInvalidaError(
+                    variavel, valor, "número inteiro" if tipo is int else "número"
+                ) from None
+    memoria = _texto(env, "DUCKDB_MEMORY_LIMIT")
+    if memoria is not None:
+        overrides["duckdb_memory_limit"] = memoria
 
     return Config(
         data_root=data_root, data_root_uri=data_root_uri, data_root_s3=data_root_s3, **overrides

@@ -17,14 +17,14 @@ fixtures:
 
 ## ingest: ingesta os dados RFB/BD em DATA_ROOT (rede real, ou --origem-local via ORIGEM_LOCAL)
 ingest:
-	uv run rfb ingest $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL))
+	uv run rfb ingest $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
 
 ## ci: pipeline local completo sobre fixtures sintéticas, sem rede, em < 120s
 ci: DATA_ROOT := $(CURDIR)/.tmp/ci/data
 ci:
 	rm -rf .tmp/ci
 	uv run python scripts/gen_fixtures.py --saida .tmp/ci/fixtures
-	uv run rfb ingest --origem-local .tmp/ci/fixtures --mes 2026-09
+	uv run rfb ingest --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
 	cd transform && uv run dbt deps && uv run dbt build --target ci
 	uv run pytest -q tests/integration
 
@@ -42,7 +42,7 @@ lint:
 	uv run ruff check .
 	uv run ruff format --check .
 	mkdir -p $(DATA_ROOT)
-	uv run sqlfluff lint transform/models
+	uv run sqlfluff lint transform/models transform/tests
 
 ## sync: envia raw/ e gold/ a s3:// (DATA_ROOT precisa ser s3://...; ver docs/adr/0007)
 sync:

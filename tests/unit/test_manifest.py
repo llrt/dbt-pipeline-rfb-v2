@@ -158,3 +158,18 @@ def test_precisa_reconverter_force_sempre_reconverte(tmp_path: Path) -> None:
         [("Empresas0.zip", 1, "x")],
         force=True,
     )
+
+
+def test_sha256_arquivo_valor_conhecido(tmp_path: Path) -> None:
+    """Valor fixo (FIPS 180 'abc'): o teste não espelha a implementação (R1-10; M20)."""
+    arquivo = tmp_path / "abc.bin"
+    arquivo.write_bytes(b"abc")
+
+    assert sha256_arquivo(arquivo) == (
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    )
+    vazio = tmp_path / "vazio.bin"
+    vazio.write_bytes(b"")
+    assert sha256_arquivo(vazio) == (
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
