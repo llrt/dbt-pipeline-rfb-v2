@@ -1,7 +1,8 @@
 """Armazenamento remoto S3/Tigris: sync de `raw/`/`gold/` e secret DuckDB (ADR-0007).
 
-A ingestão (EL) sempre lê/escreve localmente (`config.data_root`, ver `config.py`); este módulo
-só entra em jogo quando `DATA_ROOT` é `s3://...`, para publicar o que já foi gravado localmente
+A ingestão (EL) sempre lê/escreve localmente (`config.data_root`, ver `configuracao.py`);
+este módulo só entra em jogo quando `DATA_ROOT` é `s3://...`, para publicar o que já foi
+gravado localmente
 (`rfb sync`, via boto3, como o `subir_arquivos_tigris.py` original). O secret S3 do DuckDB no
 dbt vem do profile `s3` (`transform/profiles.yml`), não deste módulo (ADR-0007).
 """
@@ -14,9 +15,9 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
-from rfb_pipeline.config import Config, CredenciaisS3, ler_credenciais_s3
-from rfb_pipeline.errors import ErroIngestao
-from rfb_pipeline.manifest import sha256_arquivo
+from rfb_pipeline.configuracao import Config, CredenciaisS3, ler_credenciais_s3
+from rfb_pipeline.erros import ErroIngestao
+from rfb_pipeline.manifesto import sha256_arquivo
 
 __all__ = ["sincronizar"]
 

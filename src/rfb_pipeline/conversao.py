@@ -31,8 +31,8 @@ from pathlib import Path, PurePosixPath
 
 import duckdb
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import (
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.erros import (
     ConversaoError,
     EntidadeVaziaError,
     ErroIngestao,
@@ -40,7 +40,7 @@ from rfb_pipeline.errors import (
     ZipCorrompidoError,
     ZipInseguroError,
 )
-from rfb_pipeline.schemas import EntidadeRFB, TabelaBD
+from rfb_pipeline.esquemas import EntidadeRFB, TabelaBD
 
 __all__ = [
     "ConversaoError",

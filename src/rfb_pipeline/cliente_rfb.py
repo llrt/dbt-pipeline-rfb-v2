@@ -13,8 +13,8 @@ from pathlib import Path
 
 import httpx
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import (
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.erros import (
     DownloadError,
     ErroIngestao,
     HostNaoPermitidoError,

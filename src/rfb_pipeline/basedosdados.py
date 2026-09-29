@@ -9,9 +9,9 @@ from pathlib import Path
 
 import httpx
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.rfb_client import baixar_com_retry
-from rfb_pipeline.schemas import TABELAS_BD
+from rfb_pipeline.cliente_rfb import baixar_com_retry
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.esquemas import TABELAS_BD
 
 
 def baixar_tabelas_bd(

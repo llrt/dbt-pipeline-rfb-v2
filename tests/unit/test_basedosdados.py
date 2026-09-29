@@ -6,8 +6,8 @@ import httpx
 import pytest
 
 from rfb_pipeline.basedosdados import baixar_tabelas_bd
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import DownloadError
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.erros import DownloadError
 
 BD_HOST = "storage.googleapis.com"
 

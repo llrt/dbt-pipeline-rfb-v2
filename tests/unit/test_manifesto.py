@@ -4,8 +4,8 @@ import hashlib
 import time
 from pathlib import Path
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.manifest import (
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.manifesto import (
     ArquivoManifesto,
     Manifesto,
     caminho_manifesto,

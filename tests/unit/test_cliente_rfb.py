@@ -5,20 +5,20 @@ from pathlib import Path
 import httpx
 import pytest
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import (
-    DownloadError,
-    ErroIngestao,
-    HostNaoPermitidoError,
-    MesInexistenteError,
-    TamanhoDivergenteError,
-)
-from rfb_pipeline.rfb_client import (
+from rfb_pipeline.cliente_rfb import (
     ArquivoRemoto,
     ClienteRFB,
     VelocidadeBaixaError,
     WebDAVIndisponivelError,
     baixar_com_retry,
+)
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.erros import (
+    DownloadError,
+    ErroIngestao,
+    HostNaoPermitidoError,
+    MesInexistenteError,
+    TamanhoDivergenteError,
 )
 
 WEBDAV_URL = "https://arquivos.receitafederal.gov.br/public.php/webdav/"

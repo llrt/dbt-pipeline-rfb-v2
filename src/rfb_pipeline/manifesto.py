@@ -16,8 +16,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.errors import ExecucaoEmAndamentoError
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.erros import ExecucaoEmAndamentoError
 
 __all__ = [
     "VERSAO_PIPELINE",

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from rfb_pipeline.config import carregar_config, ler_credenciais_s3
-from rfb_pipeline.errors import ConfiguracaoInvalidaError, CredenciaisS3FaltandoError
+from rfb_pipeline.configuracao import carregar_config, ler_credenciais_s3
+from rfb_pipeline.erros import ConfiguracaoInvalidaError, CredenciaisS3FaltandoError
 
 
 def test_carregar_config_usa_padroes_sem_overrides(tmp_path: Path) -> None:

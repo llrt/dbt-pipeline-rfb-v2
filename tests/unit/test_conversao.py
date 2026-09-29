@@ -10,8 +10,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from rfb_pipeline.config import Config
-from rfb_pipeline.convert import (
+from rfb_pipeline.configuracao import Config
+from rfb_pipeline.conversao import (
     EntidadeVaziaError,
     ResultadoConversao,
     TaxaRejeitoExcedidaError,
@@ -22,8 +22,8 @@ from rfb_pipeline.convert import (
     data_referencia_do_nome,
     extrair_zip_seguro,
 )
-from rfb_pipeline.errors import ErroIngestao
-from rfb_pipeline.schemas import ENTIDADES_RFB, TABELAS_BD
+from rfb_pipeline.erros import ErroIngestao
+from rfb_pipeline.esquemas import ENTIDADES_RFB, TABELAS_BD
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
@@ -168,7 +168,7 @@ def test_simples_data_referencia_formato_simples(fixtures: Path, config: Config)
 
 
 # Contrato literal da camada raw (ARCHITECTURE.md §4.2), escrito aqui de propósito sem derivar de
-# `schemas.py`: uma coluna renomeada ou reordenada no código tem de quebrar este teste.
+# `esquemas.py`: uma coluna renomeada ou reordenada no código tem de quebrar este teste.
 _DOMINIO = ["codigo", "descricao"]
 _CONTRATO_RFB: dict[str, tuple[str, list[str]]] = {
     "empresas": (
@@ -542,7 +542,7 @@ def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
     (origem / "Empresas0.zip").write_bytes(_zip(fixtures, "Empresas0.zip").read_bytes())
     vazio = _zip_vazio(origem, "Empresas1.zip", "K3241.K03200Y1.D60912.EMPRECSV")
 
-    with caplog.at_level(logging.WARNING, logger="rfb_pipeline.convert"):
+    with caplog.at_level(logging.WARNING, logger="rfb_pipeline.conversao"):
         resultados = converter_entidade_rfb(
             [origem / "Empresas0.zip", vazio],
             ENTIDADES_RFB["empresas"],

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rfb_pipeline.errors import ConfiguracaoInvalidaError, CredenciaisS3FaltandoError
+from rfb_pipeline.erros import ConfiguracaoInvalidaError, CredenciaisS3FaltandoError
 
 DATA_ROOT_PADRAO = "./data"
 _VARS_S3_OBRIGATORIAS = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3")

@@ -9,9 +9,9 @@ import duckdb
 import pytest
 from moto.server import ThreadedMotoServer
 
-from rfb_pipeline.config import Config, ler_credenciais_s3
-from rfb_pipeline.errors import CredenciaisS3FaltandoError, ErroIngestao
-from rfb_pipeline.storage import sincronizar
+from rfb_pipeline.armazenamento import sincronizar
+from rfb_pipeline.configuracao import Config, ler_credenciais_s3
+from rfb_pipeline.erros import CredenciaisS3FaltandoError, ErroIngestao
 
 BUCKET = "meu-bucket"
 
@@ -55,7 +55,7 @@ def _config_s3(data_root_local: Path, endpoint: str, *, prefixo: str = "prefixo"
         "DATA_ROOT_LOCAL": str(data_root_local),
         "DATA_ROOT": f"s3://{BUCKET}/{prefixo}",
     }
-    from rfb_pipeline.config import carregar_config
+    from rfb_pipeline.configuracao import carregar_config
 
     return carregar_config(env=env)
 
@@ -69,7 +69,7 @@ def _criar_parquet(caminho: Path, valor: int) -> None:
 
 class TestCredenciaisFaltando:
     def test_config_recusa_data_root_s3_sem_credenciais(self, tmp_path: Path) -> None:
-        from rfb_pipeline.config import carregar_config
+        from rfb_pipeline.configuracao import carregar_config
 
         with pytest.raises(CredenciaisS3FaltandoError) as exc_info:
             carregar_config(env={"DATA_ROOT": f"s3://{BUCKET}/prefixo"})

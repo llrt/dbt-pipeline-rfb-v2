@@ -16,11 +16,20 @@ from pathlib import Path
 
 import httpx
 
+from rfb_pipeline.armazenamento import sincronizar
 from rfb_pipeline.basedosdados import baixar_tabelas_bd
-from rfb_pipeline.config import Config, carregar_config
-from rfb_pipeline.convert import converter_entidade_rfb, converter_tabela_bd
-from rfb_pipeline.errors import ErroIngestao, MesIncompletoError, MesInexistenteError
-from rfb_pipeline.manifest import (
+from rfb_pipeline.cliente_rfb import ArquivoRemoto, ClienteRFB
+from rfb_pipeline.configuracao import Config, carregar_config
+from rfb_pipeline.conversao import converter_entidade_rfb, converter_tabela_bd
+from rfb_pipeline.erros import ErroIngestao, MesIncompletoError, MesInexistenteError
+from rfb_pipeline.esquemas import (
+    ENTIDADES_RFB,
+    TABELAS_BD,
+    EntidadeRFB,
+    arquivos_faltantes,
+    entidade_do_zip,
+)
+from rfb_pipeline.manifesto import (
     ArquivoManifesto,
     Manifesto,
     escrever_manifesto,
@@ -29,15 +38,6 @@ from rfb_pipeline.manifest import (
     precisa_reconverter,
     sha256_arquivo,
 )
-from rfb_pipeline.rfb_client import ArquivoRemoto, ClienteRFB
-from rfb_pipeline.schemas import (
-    ENTIDADES_RFB,
-    TABELAS_BD,
-    EntidadeRFB,
-    arquivos_faltantes,
-    entidade_do_zip,
-)
-from rfb_pipeline.storage import sincronizar
 
 EXIT_NO_IMPL = 2
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")

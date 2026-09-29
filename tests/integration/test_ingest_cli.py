@@ -19,8 +19,8 @@ from pathlib import Path
 import pytest
 
 from rfb_pipeline import cli
-from rfb_pipeline.errors import EntidadeVaziaError, TaxaRejeitoExcedidaError
-from rfb_pipeline.schemas import ENTIDADES_RFB, TABELAS_BD
+from rfb_pipeline.erros import EntidadeVaziaError, TaxaRejeitoExcedidaError
+from rfb_pipeline.esquemas import ENTIDADES_RFB, TABELAS_BD
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
@@ -114,7 +114,7 @@ class TestRedeIndisponivel:
     ) -> None:
         import httpx
 
-        from rfb_pipeline import rfb_client
+        from rfb_pipeline import cliente_rfb
 
         def _fora_do_ar(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("[Errno 8] sem rede", request=request)
@@ -125,8 +125,8 @@ class TestRedeIndisponivel:
             kwargs["transport"] = httpx.MockTransport(_fora_do_ar)
             return original(*args, **kwargs)
 
-        monkeypatch.setattr(rfb_client.httpx, "Client", _cliente)
-        monkeypatch.setattr(rfb_client.time, "sleep", lambda _s: None)
+        monkeypatch.setattr(cliente_rfb.httpx, "Client", _cliente)
+        monkeypatch.setattr(cliente_rfb.time, "sleep", lambda _s: None)
         monkeypatch.setenv("DATA_ROOT", str(tmp_path / "data"))
 
         codigo = cli.main(["ingest"])

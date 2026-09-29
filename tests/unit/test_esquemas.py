@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from rfb_pipeline.schemas import COLUNAS_TECNICAS, ENTIDADES_RFB, entidade_do_zip
+from rfb_pipeline.esquemas import COLUNAS_TECNICAS, ENTIDADES_RFB, entidade_do_zip
 
-# Lista LITERAL de ARCHITECTURE.md §4.2 (não derivada de schemas.py): renomear/reordenar uma
-# coluna em schemas.py precisa quebrar este teste (R1-10; mutações M18/M19).
+# Lista LITERAL de ARCHITECTURE.md §4.2 (não derivada de esquemas.py): renomear/reordenar uma
+# coluna em esquemas.py precisa quebrar este teste (R1-10; mutações M18/M19).
 COLUNAS_SPEC = {
     "empresas": "cnpj_raiz razao_social natureza_jur qualificacao_resp capital_soc porte "
     "ente_fed_resp",

@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from rfb_pipeline import cli
-from rfb_pipeline.errors import MesIncompletoError, MesInexistenteError
-from rfb_pipeline.rfb_client import ArquivoRemoto
-from rfb_pipeline.schemas import ARQUIVOS_ESPERADOS_MES, arquivos_faltantes
+from rfb_pipeline.cliente_rfb import ArquivoRemoto
+from rfb_pipeline.erros import MesIncompletoError, MesInexistenteError
+from rfb_pipeline.esquemas import ARQUIVOS_ESPERADOS_MES, arquivos_faltantes
 
 COMPLETO = list(ARQUIVOS_ESPERADOS_MES)
 PARCIAL = ["Empresas0.zip", "Estabelecimentos0.zip", "Estabelecimentos1.zip"]
