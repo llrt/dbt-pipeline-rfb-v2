@@ -57,10 +57,10 @@ Responsável por extrair zips da Receita Federal e CSVs da Base dos Dados e conv
 | **Antes** | Ausência de path traversal (`..`, `/` absoluto) no ZIP | Python (`extrair_zip_seguro` / `_entrada_insegura`) | `error` | `src/rfb_pipeline/conversao.py` (L79) e `src/rfb_pipeline/erros.py` (L77, `ZipInseguroErro`) |
 | **Antes** | Integridade estrutural do arquivo ZIP baixado | Python (`zipfile.ZipFile.testzip`) | `error` | `src/rfb_pipeline/conversao.py` (L115) e `src/rfb_pipeline/erros.py` (L86, `ZipCorrompidoErro`) |
 | **Antes** | Bloqueio de arquivos pessoais (`Socios*`) e colunas LGPD | Python (`ClienteRFB.listar_arquivos` e `src/rfb_pipeline/esquemas.py`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L318) e `src/rfb_pipeline/esquemas.py` (L114) |
-| **Depois** | Tamanho baixado confere com o anunciado pelo WebDAV | Python (`baixar_com_retentativas`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L238) e `src/rfb_pipeline/erros.py` (L59, `TamanhoDivergenteErro`) |
+| **Depois** | Tamanho baixado confere com o anunciado pelo WebDAV | Python (`baixar_com_retentativas`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L242) e `src/rfb_pipeline/erros.py` (L59, `TamanhoDivergenteErro`) |
 | **Depois** | Hash SHA-256 gravado no manifesto atômico do mês | Python (`sha256_arquivo` / `escrever_manifesto`) | `error` | `src/rfb_pipeline/manifesto.py` (L38, L141) |
-| **Depois** | Taxa de rejeito de linhas CSV ≤ limite configurado | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L366) e `src/rfb_pipeline/erros.py` (L94, `TaxaRejeitoExcedidaErro`) |
-| **Depois** | Contagem total de linhas gravadas > 0 (não vazia) | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L386) e `tests/integration/test_ingerir_cli.py` |
+| **Depois** | Taxa de rejeito de linhas CSV ≤ limite configurado | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L375) e `src/rfb_pipeline/erros.py` (L94, `TaxaRejeitoExcedidaErro`) |
+| **Depois** | Contagem total de linhas gravadas > 0 (não vazia) | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L379) e `tests/integration/test_ingerir_cli.py` |
 | **Depois** | Download atômico (`.part` → rename) e Parquet atômico | Python (`Path.replace` e `_publicar`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L244) e `src/rfb_pipeline/conversao.py` (L169) |
 
 ---

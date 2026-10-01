@@ -99,7 +99,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
       b_relation=ref('audit__bh_empresas_sql_original')
   ) }}
   ```
-- **Uso neste projeto**: **NÃO**. Por quê? No ambiente DuckDB local, o teste singular customizado com `hash(*columns(*))` e `EXCEPT ALL` (`tests/paridade_bh_empresas.sql`) é ordens de magnitude mais rápido (~3,4× mais veloz em 60M+ linhas reais) e não exige macros intermediárias de comparação estática.
+- **Uso neste projeto**: **NÃO**. Por quê? No ambiente DuckDB local, o teste singular customizado com `hash(*columns(*))` e `EXCEPT ALL` (`transform/tests/paridade_bh_empresas.sql`) é ordens de magnitude mais rápido (~3,4× mais veloz em 60M+ linhas reais) e não exige macros intermediárias de comparação estática.
 - **Documentação oficial**: https://hub.getdbt.com/dbt-labs/audit_helper/latest/
 
 ---

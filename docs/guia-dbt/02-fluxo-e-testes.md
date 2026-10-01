@@ -77,7 +77,7 @@ Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por 
 - **Como é processado**: O módulo Python `src/rfb_pipeline/` faz streaming da rede e converte os dados diretamente para Parquet particionado sob a pasta `dados/raw/` (ou bucket S3/Tigris).
 - **Decisões arquiteturais fundamentais (ADR-0002, ADR-0008)**:
   - **All-VARCHAR**: Para evitar descartes silenciosos ou conversões corrompidas durante o carregamento de CSVs legados, todas as colunas de dados são gravadas como texto puro (`VARCHAR`). A tipagem forte e higienização são delegadas integralmente à camada de transformação dbt.
-  - **Minimização de Dados Pessoais (LGPD)**: Arquivos de Sócios (`Socios*.zip`) e colunas com nomes de pessoas físicas ou dados de contato são descartados no momento da ingestão e jamais entram no warehouse. O teste singular `tests/sem_colunas_de_contato.sql` valida continuamente essa barreira.
+  - **Minimização de Dados Pessoais (LGPD)**: Arquivos de Sócios (`Socios*.zip`) e colunas com nomes de pessoas físicas ou dados de contato são descartados no momento da ingestão e jamais entram no warehouse. O teste singular `transform/tests/sem_colunas_de_contato.sql` valida continuamente essa barreira.
   - **Metadados Técnicos**: A ingestão anexa quatro colunas de rastreabilidade a cada linha: `_arquivo_origem`, `_mes_referencia`, `_data_referencia` e `_ingerido_em`.
 - **Contagem nas fixtures**: 15 estabelecimentos e 14 empresas no extrato de `2026-09`.
 
@@ -225,7 +225,7 @@ inner join cnaes_bd as cnae on est.cnae_principal = cnae.subclasse
 inner join municipios_bd as mun on est.municipio_rfb_codigo = mun.id_municipio_rf
 ```
 
-- **Contagem nas fixtures**: De 15 estabelecimentos originais, **apenas 12 linhas chegam em `bh_empresas`**. Três estabelecimentos foram descartados pelos inner joins devido à falta de correspondência exata nos domínios. Esse comportamento é monitorado e alertado pelo teste singular `tests/bh_empresas_descartes_inner_join.sql`.
+- **Contagem nas fixtures**: De 15 estabelecimentos originais, **apenas 12 linhas chegam em `bh_empresas`**. Três estabelecimentos foram descartados pelos inner joins devido à falta de correspondência exata nos domínios. Esse comportamento é monitorado e alertado pelo teste singular `transform/tests/bh_empresas_descartes_inner_join.sql`.
 
 ---
 
@@ -345,7 +345,7 @@ Testes singulares são arquivos `.sql` independentes localizados em `transform/t
 
 **Contrato**: O SQL de um teste singular deve ser uma query que retorne as **linhas que violam a regra**. Se retornar 0 linhas, o teste passa (PASS); se retornar ≥ 1 linha, o teste falha (FAIL ou WARN).
 
-#### Exemplo 1: Teste de Paridade com EXCEPT ALL (`tests/paridade_bh_empresas.sql`)
+#### Exemplo 1: Teste de Paridade com EXCEPT ALL (`transform/tests/paridade_bh_empresas.sql`)
 Valida se a tabela refatorada `bh_empresas` é 100% idêntica, linha por linha (com multiplicidade), à execução literal do SQL do notebook original:
 
 ```sql
@@ -367,7 +367,7 @@ union all
 select 'somente_sql_original' as lado, cnpj_completo, hash_linha from somente_original
 ```
 
-#### Exemplo 2: Reconciliação Fato vs. Staging (`tests/fct_estabelecimentos_reconciliacao.sql`)
+#### Exemplo 2: Reconciliação Fato vs. Staging (`transform/tests/fct_estabelecimentos_reconciliacao.sql`)
 Garante que a tabela fato preserve exatamente a mesma contagem de estabelecimentos do staging e que as chaves `-1` correspondam perfeitamente às flags `tem_*` do intermediate:
 
 ```sql
@@ -555,8 +555,8 @@ Garantem a confiabilidade corporativa entre todas as camadas do warehouse:
 
 | Categoria | Teste Real no Projeto | O que assegura |
 |---|---|---|
-| **Paridade Estrita** | `tests/paridade_bh_empresas.sql` | `bh_empresas` possui exatamente as mesmas linhas da tradução PySpark original |
-| **Conservação de Linhas** | `tests/fct_estabelecimentos_reconciliacao.sql` | `count(*)` de `fct_estabelecimentos` == `count(*)` de `stg_rfb__estabelecimentos` |
-| **Reconciliação de Agregações** | `tests/agg_empresas_reconciliacao.sql` | Soma de empresas em `agg_empresas` bate com a soma de registros de `bh_empresas` |
-| **Integridade de Coortes** | `tests/sobrevivencia_invariantes.sql` | Taxa de sobrevivência de 5 anos é sempre ≤ taxa de 3 anos e ≤ taxa de 1 ano |
-| **Cobertura Geográfica** | `tests/cobertura_municipio_rfb_bd.sql` | Municípios presentes no cadastro RFB possuem correspondente no IBGE/BD |
+| **Paridade Estrita** | `transform/tests/paridade_bh_empresas.sql` | `bh_empresas` possui exatamente as mesmas linhas da tradução PySpark original |
+| **Conservação de Linhas** | `transform/tests/fct_estabelecimentos_reconciliacao.sql` | `count(*)` de `fct_estabelecimentos` == `count(*)` de `stg_rfb__estabelecimentos` |
+| **Reconciliação de Agregações** | `transform/tests/agg_empresas_reconciliacao.sql` | Soma de empresas em `agg_empresas` bate com a soma de registros de `bh_empresas` |
+| **Integridade de Coortes** | `transform/tests/sobrevivencia_invariantes.sql` | Taxa de sobrevivência de 5 anos é sempre ≤ taxa de 3 anos e ≤ taxa de 1 ano |
+| **Cobertura Geográfica** | `transform/tests/cobertura_municipio_rfb_bd.sql` | Municípios presentes no cadastro RFB possuem correspondente no IBGE/BD |
