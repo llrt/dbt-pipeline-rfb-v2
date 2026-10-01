@@ -231,8 +231,12 @@ models:
         data_type: varchar
         data_tests: [unique, not_null]
       - name: nome
-        description: Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008).
+        description: >
+          Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do
+          empresário individual/MEI mascarado como `***.***.***-**` (`mascarar_cpf_no_nome`; ADR-0008,
+          emenda R4-01).
         data_type: varchar
+        data_tests: [sem_cpf_no_nome]
       - name: sk_cnae
         description: Chave de `dim_cnae` do CNAE fornecido (R3-20); `-1` se o CNAE não existe na dimensão.
         data_type: integer

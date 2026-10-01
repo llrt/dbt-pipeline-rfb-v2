@@ -7,3 +7,9 @@ macros:
       mês antigo (P22) usa um `external_root` temporário, e só a partição de `fct_resumo_mensal` e o
       histórico de DQ (RBP-12) gravam aqui.
     meta: { escopo: adicao }
+  - name: mascarar_cpf_no_nome
+    description: >
+      Troca todo trecho de exatamente 11 dígitos de um nome (o CPF do empresário individual/MEI na
+      razão social) por `***.***.***-**`. Adaptação declarada (ADR-0008, emenda R4-01, decisão do
+      usuário), aplicada em `bh_empresas`, `mart_fornecedores_proximos` e no alinhamento da paridade.
+    meta: { escopo: adaptado }

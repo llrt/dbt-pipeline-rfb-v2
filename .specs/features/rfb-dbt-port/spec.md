@@ -82,7 +82,7 @@ Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão
 |---|---|---|---|---|---|---|---|---|---|---|
 | A | 11111111/0001 | TINTAS FUNDAO LTDA | 2135 | 01 | 5643 | 4741500 | 02 | 20221015 | — | nome_fantasia `TINTAS FUNDÃO` |
 | B | 22222222/0001 | COLORIR TINTAS | 2062 | 03 | 5643 | 4741500 | 08 | 20150301 | 20190510 | |
-| C | 33333333/0001 | PINTE BEM | 2135 | 01 | 5643 | 4741500 | 08 | 20200110 | 20210815 | capital `1000,50` |
+| C | 33333333/0001 | PINTE BEM 52998224725 | 2135 | 01 | 5643 | 4741500 | 08 | 20200110 | 20210815 | capital `1000,50`; **emenda R4-01**: razão social de EI com CPF sintético (DV válido) depois de um espaço → `bh_empresas.nome` = `PINTE BEM ***.***.***-**` |
 | D | 44444444/0001 | CASA DAS CORES | 2062 | 05 | 5643 | 4741500 | 04 | 20100601 | 20230101 | |
 | E | 55555555/0001 | TINTAS CAPIXABA | 2305 | (vazio) | 5643 | 4741500 | 08 | 20180101 | 20240301 | nome_fantasia vazio |
 | F | 66666666/0001 | FABRICA DE TINTAS SERRA SA | 2062 | 05 | 5699 | 2071100 | 02 | 20000101 | — | |
@@ -95,7 +95,7 @@ Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão
 | M | 15151515/0001 | BOA ESPERANCA COMERCIO | 2135 | 01 | 1182 | 4711302 | 02 | 20231201 | `00000000` | município sem par no BD |
 | N | 16161616/0001 | AGRO FUNDAO | 2135 | 00 | 5643 | 0111301 | 02 | 20000229 | — | CNAE com zero à esquerda |
 | O | 11111111/0002 | (filial de A) | — | — | 5699 | 4741500 | 02 | 20240115 | — | matriz_filial 2; nome_fantasia multilinha |
-| P | 17171717/0001 | TINTAS ARACRUZ IND | 2062 | 03 | 5611 | 2071100 | 02 | 20180301 | — | **emenda R3-04**: fabricante ativo na microrregião de Fundão (Linhares), fora do município |
+| P | 17171717/0001 | TINTAS ARACRUZ IND11144477735 | 2062 | 03 | 5611 | 2071100 | 02 | 20180301 | — | **emenda R3-04**: fabricante ativo na microrregião de Fundão (Linhares), fora do município; **emenda R4-01**: CPF sintético colado ao nome → `mart_fornecedores_proximos.nome` = `TINTAS ARACRUZ IND***.***.***-**` |
 
 Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
 

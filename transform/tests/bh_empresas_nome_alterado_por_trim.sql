@@ -38,7 +38,7 @@ nome_literal as (
 
 select
   bh.cnpj_completo,
-  lit.nome_original,
+  {{ mascarar_cpf_no_nome('lit.nome_original') }} as nome_original,  -- store_failures sem CPF (R4-01)
   bh.nome
 from {{ ref('bh_empresas') }} as bh
 inner join nome_literal as lit on bh.cnpj_completo = lit.cnpj_completo

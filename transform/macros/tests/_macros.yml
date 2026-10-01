@@ -25,3 +25,8 @@ macros:
       Teste genérico (RBP-02): proporção de valores raw não vazios (`coluna_raw` da fonte) que viraram NULL
       na coluna tipada do staging. Aviso acima de 0,1%, erro acima de 5% (`error()` do DuckDB).
     meta: { escopo: adicao }
+  - name: test_sem_cpf_no_nome
+    description: >
+      Teste genérico (ADR-0008, emenda R4-01): nenhum trecho de 11 dígitos com DV de CPF válido na
+      coluna de nome do gold. A falha mostra o nome com o CPF trocado por `<cpf>`.
+    meta: { escopo: adicao }

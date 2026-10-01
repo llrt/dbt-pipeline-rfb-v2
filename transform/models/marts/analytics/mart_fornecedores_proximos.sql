@@ -66,7 +66,7 @@ fornecedores as (
 
 select
   frn.cnpj_completo,
-  coalesce(est.nome_fantasia, emp.razao_social) as nome,
+  {{ mascarar_cpf_no_nome('coalesce(est.nome_fantasia, emp.razao_social)') }} as nome,
   coalesce(cnae.sk_cnae, -1) as sk_cnae,
   frn.cnae_fornecido,
   frn.via,

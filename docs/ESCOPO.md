@@ -27,6 +27,7 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Staging tipado | adição | original não tinha camada explícita |
 | `bh_empresas` | original | notebook 3 |
 | `bh_empresas.idade_atual` relativa a `data_referencia` | adaptado | notebook 3 usava `now()` (ADR-0004) |
+| CPF mascarado nos nomes do gold (`bh_empresas.nome`, `mart_fornecedores_proximos.nome`): todo trecho de exatamente 11 dígitos vira `***.***.***-**` (`mascarar_cpf_no_nome`); a paridade aplica a mesma máscara no alinhamento final; teste `sem_cpf_no_nome` (error) | adaptado | a razão social do empresário individual/MEI termina com o CPF do titular (12,5 M nomes em 2026-09); o original o expunha. Decisão do usuário (ADR-0008, emenda R4-01) |
 | Uma linha por `cnpj_raiz` nas Empresas (`empresa_preferida_por_raiz` no staging e na leitura da paridade) | adaptado | o extrato real de 2026-09 traz a raiz 08314885 duas vezes (uma linha "fantasma" sem razão social, natureza 0000); o SQL original duplicaria os 51 estabelecimentos dela. O teste de unicidade da fonte vira `warn` com `store_failures` (B8, `docs/EXECUCAO_REAL.md`) |
 | Conversão de CSV com bytes 0x80–0x9F (transcodificação latin-1 → UTF-8 em Python antes do DuckDB) | adaptado | o leitor latin-1 do DuckDB recusa esses bytes, que o extrato real 2026-09 traz em 5 campos; o Spark do original os lia como latin-1 (B8) |
 | `agg_empresas` | original | notebook 3 |

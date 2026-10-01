@@ -465,7 +465,9 @@ _ESTABELECIMENTOS_RAW = [
 _EMPRESA_POR_RAIZ = {
     "11111111": ("TINTAS FUNDAO LTDA", "2135", "01", "1000,00"),  # A
     "22222222": ("COLORIR TINTAS", "2062", "03", "1000,00"),  # B
-    "33333333": ("PINTE BEM", "2135", "01", "1000,50"),  # C
+    # Empresário individual: razão social "NOME + CPF" (CPF sintético com DV válido; ADR-0008,
+    # emenda R4-01): `nome` sai mascarado em `bh_empresas`. Com espaço antes do CPF.
+    "33333333": ("PINTE BEM 52998224725", "2135", "01", "1000,50"),  # C
     "44444444": ("CASA DAS CORES", "2062", "05", "1000,00"),  # D
     "55555555": ("TINTAS CAPIXABA", "2305", "", "1000,00"),  # E
     "66666666": ("FABRICA DE TINTAS SERRA SA", "2062", "05", "1000,00"),  # F
@@ -479,7 +481,8 @@ _EMPRESA_POR_RAIZ = {
     "14141414": ("ENERGIA NOVA", "2062", "05", "1000,00"),  # L
     "15151515": ("BOA ESPERANCA COMERCIO", "2135", "01", "1000,00"),  # M
     "16161616": ("AGRO FUNDAO", "2135", "00", "1000,00"),  # N
-    "17171717": ("TINTAS ARACRUZ IND", "2062", "03", "1000,00"),  # P
+    # CPF colado ao nome (sem espaço; R4-01): exercita a máscara em `mart_fornecedores_proximos`.
+    "17171717": ("TINTAS ARACRUZ IND11144477735", "2062", "03", "1000,00"),  # P
 }
 
 # Raízes optantes pelo MEI/Simples (A e C); demais N; toda raiz é optante do Simples.

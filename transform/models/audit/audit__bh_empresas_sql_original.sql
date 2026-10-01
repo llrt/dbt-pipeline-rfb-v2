@@ -121,11 +121,13 @@ sql_original as (
 -- * `nome` (trim, ADR-0005 emenda R2-01): o Spark do original lia sem `trim`
 --   (`ignoreLeadingWhiteSpace=false`); `bh_empresas.nome` herda o `trim` do staging (adaptação
 --   declarada). O teste `bh_empresas_nome_alterado_por_trim` (warn) mede quantas linhas isso muda.
+-- * `nome` (CPF mascarado, ADR-0008 emenda R4-01): `bh_empresas` troca o CPF do empresário
+--   individual por `***.***.***-**` (`mascarar_cpf_no_nome`, adaptação declarada).
 -- Todas as outras colunas saem exatamente como no SQL original.
 select
   cnpj_raiz,
   cnpj_completo,
-  nullif(trim(nome), '') as nome,
+  {{ mascarar_cpf_no_nome("nullif(trim(nome), '')") }} as nome,
   natureza_juridica,
   porte,
   lpad(cnae_principal::varchar, 7, '0') as cnae_principal,

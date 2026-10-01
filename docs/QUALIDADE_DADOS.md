@@ -32,9 +32,9 @@
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
 | Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (79 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
-| Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (72 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (54 testes) |
+| Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (13 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (73 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (55 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
@@ -197,6 +197,7 @@
 | `bh_empresas.cnpj_completo` | `not_null` | error | original | 3 |
 | `bh_empresas.cnpj_completo` | `unique` | error | original | 3 |
 | `bh_empresas.idade_atual` | `accepted_range` {"min_value": 0, "max_value": 200} | error | original | 3 |
+| `bh_empresas.nome` | `sem_cpf_no_nome` | error | adicao | — |
 | `bh_empresas.porte` | `accepted_values` {"values": ["N/A", "MICRO", "PEQUENA", "DEMAIS"]} | error | original | 3 |
 | `bh_empresas.situacao` | `accepted_values` {"values": ["ATIVA", "INATIVA"]} | error | original | 3 |
 | `empresas` | ADR-0005, emenda R2-01: `bh_empresas.nome` sai com `trim` (staging); o original, não. | warn | adicao | — |
@@ -277,6 +278,7 @@
 | `fct_resumo_mensal.sk_porte` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.sk_situacao_cadastral` | `not_null` | error | adicao | — |
 | `mart_concorrencia_area_mercado` | incremento: enriquecimento_bd. | error | adicao | — |
+| `—` | ADR-0008, emenda R4-01: casos conhecidos da máscara `mascarar_cpf_no_nome` (CPFs sintéticos com DV válido). | error | adicao | — |
 
 ### Análises (Depois)
 
@@ -323,6 +325,7 @@
 | `mart_fornecedores_proximos.cnpj_completo` | `unique` | error | adicao | — |
 | `mart_fornecedores_proximos.distancia_km` | `accepted_range` {"min_value": 0} | error | adicao | — |
 | `mart_fornecedores_proximos.distancia_km` | `not_null` | error | adicao | — |
+| `mart_fornecedores_proximos.nome` | `sem_cpf_no_nome` | error | adicao | — |
 | `mart_fornecedores_proximos.sk_cnae` | `not_null` | error | adicao | — |
 | `mart_fornecedores_proximos.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `mart_fornecedores_proximos.sk_municipio` | `not_null` | error | adicao | — |
