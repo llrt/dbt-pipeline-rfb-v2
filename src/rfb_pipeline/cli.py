@@ -1,7 +1,8 @@
 """CLI de linha de comando do pipeline RFB/CNPJ.
 
 `rfb ingerir` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sincronizar` publica
-raw/gold no S3/Tigris (T11). `pipeline` e `relatorio` ainda são stubs (T28, T27).
+raw/gold no S3/Tigris (T11). `rfb relatorio` gera o relatório do estudo de caso (T27);
+`pipeline` ainda é stub (T28).
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from rfb_pipeline.manifesto import (
     sha256_arquivo,
     trava_execucao,
 )
+from rfb_pipeline.relatorio import SAIDA_PADRAO, gerar_relatorio
 
 SAIDA_NAO_IMPLEMENTADA = 2
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")
@@ -354,8 +356,11 @@ def _cmd_pipeline(_argumentos: argparse.Namespace) -> None:
     _nao_implementado("pipeline")
 
 
-def _cmd_relatorio(_argumentos: argparse.Namespace) -> None:
-    _nao_implementado("relatorio")
+def _cmd_relatorio(argumentos: argparse.Namespace) -> int:
+    configuracao = carregar_configuracao()
+    saida = gerar_relatorio(configuracao, saida=argumentos.saida, target=argumentos.target)
+    print(f"relatório escrito em {saida}")
+    return 0
 
 
 def _construir_analisador() -> argparse.ArgumentParser:
@@ -394,7 +399,13 @@ def _construir_analisador() -> argparse.ArgumentParser:
     p_pipeline.set_defaults(func=_cmd_pipeline)
 
     p_relatorio = sub.add_parser(
-        "relatorio", help="Gera o relatório do estudo de caso (não implementado)."
+        "relatorio", help="Gera o relatório do estudo de caso (docs/RELATORIO_ESTUDO_CASO.md)."
+    )
+    p_relatorio.add_argument(
+        "--saida", type=Path, default=SAIDA_PADRAO, help="Arquivo Markdown de saída."
+    )
+    p_relatorio.add_argument(
+        "--target", default=None, help="Target dbt das analyses (padrão: o do profile)."
     )
     p_relatorio.set_defaults(func=_cmd_relatorio)
 

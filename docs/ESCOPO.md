@@ -29,9 +29,11 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Teste de paridade com SQL original | adição | — |
 | Star schema (`dim_*`, `fct_estabelecimentos`, bridge) | adição | "trabalhos futuros" do notebook 5 |
 | `mart_concorrencia_municipio`, `mart_sobrevivencia_coorte`, `mart_dinamica_mercado`, `mart_fornecedores_proximos` | adição | aprofundam as perguntas do notebook 0/4 |
-| Análises do estudo de caso Fundão/ES (`analyses/`) | original | notebook 4 |
-| Relatório gerado do estudo de caso | adição | — |
-| Testes CNPJ-DV, data não futura, reconciliação, histórico DQ | adição | — |
+| Análises do estudo de caso Fundão/ES (`analyses/estudo_caso_q1..q4*`) | original | notebook 4 (perguntas 1–4, parametrizadas por `caso_*`) |
+| Análises das adições no estudo de caso (`analyses/estudo_caso_adicao_*`, `estudo_caso_parametros`) | adição | usam os 4 marts novos |
+| Relatório gerado do estudo de caso (`rfb relatorio`, `src/rfb_pipeline/relatorio.py`) | adição | — |
+| Testes genéricos `cnpj_dv_valido` e `data_nao_futura`, `store_failures` nos testes warn, guarda de escopo (`test_escopo_meta.py`) | adição | — |
+| Histórico de testes (`dq_historico_testes`, `dq_resumo_execucao`) e catálogo `docs/QUALIDADE_DADOS.md` | adição | — |
 | Atualização mensal (`rfb atualizar`, completude do mês, retenção, estado) | adição (pedido do usuário) | original era carga estática única (notebook 0, "Observações") — ADR-0012 |
 | Série histórica `fct_resumo_mensal` particionada por mês | adição (pedido do usuário) | ADR-0012/0013 |
 | Modelo estrela otimizado para Power BI (`sk_*` inteiras, `dim_data`, hierarquias, fato agregada, guia + exposure) | adição (pedido do usuário) | "modelo estrela/snowflake para self-service" citado como trabalho futuro no notebook 5 — ADR-0013 |

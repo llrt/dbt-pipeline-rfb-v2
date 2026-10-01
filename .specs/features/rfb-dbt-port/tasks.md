@@ -585,8 +585,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Integração: (4741500, Fundão) → 1 / 4 / 0.5
-- [ ] Gate full passa
+- [x] Integração: (4741500, Fundão) → 1 / 4 / 0.5
+- [x] Gate full passa
 
 **Tests**: dbt data tests + integration
 **Gate**: full
@@ -604,9 +604,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Integração: (4741500, ES) somado → 6/6, 5/4, 4/2
-- [ ] Unit test dbt da regra de elegibilidade/sobrevivência
-- [ ] Gate full passa
+- [x] Integração: (4741500, ES) somado → 6/6, 5/4, 4/2
+- [x] Unit test dbt da regra de elegibilidade/sobrevivência
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full
@@ -624,8 +624,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Integração: anos da spec para (4741500, Fundão)
-- [ ] Gate full passa
+- [x] Integração: anos da spec para (4741500, Fundão)
+- [x] Gate full passa
 
 **Tests**: dbt data tests + integration
 **Gate**: full
@@ -643,9 +643,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Integração: exatamente F (18.66 ± 0.5 km, principal) e H (73.68 ± 0.5 km, secundário)
-- [ ] Unit test dbt da macro haversine
-- [ ] Gate full passa
+- [x] Integração: exatamente F (18.66 ± 0.5 km, principal) e H (73.68 ± 0.5 km, secundário)
+- [x] Unit test dbt da macro haversine
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full
@@ -663,8 +663,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `cnpj_dv_valido` acusa exatamente 1 falha (L) nas fixtures; teste de escopo passa
-- [ ] Gate full passa
+- [x] `cnpj_dv_valido` acusa exatamente 1 falha (L) nas fixtures; teste de escopo passa
+- [x] Gate full passa
 
 **Tests**: dbt data tests + integration
 **Gate**: full
@@ -682,8 +682,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Após `make ci`, `dq_historico_testes` tem uma linha por teste executado; duas execuções acumulam
-- [ ] Gate full passa
+- [x] Após `make ci`, `dq_historico_testes` tem uma linha por teste executado; duas execuções acumulam
+- [x] Gate full passa
 
 **Tests**: integration
 **Gate**: full
@@ -693,16 +693,16 @@ T30 → T31
 
 ### T27: Estudo de caso e relatório
 
-**What**: `transform/analyses/estudo_caso_q1..q4*.sql` reproduzindo cada consulta do notebook 4 (parametrizadas por vars `caso_*`) + análises das adições; `src/rfb_pipeline/report.py` + `rfb relatorio` gerando `docs/RELATORIO_ESTUDO_CASO.md` (com seção de DQ da última execução).
-**Where**: `src/rfb_pipeline/report.py`
+**What**: `transform/analyses/estudo_caso_q1..q4*.sql` reproduzindo cada consulta do notebook 4 (parametrizadas por vars `caso_*`) + análises das adições; `src/rfb_pipeline/relatorio.py` + `rfb relatorio` gerando `docs/RELATORIO_ESTUDO_CASO.md` (com seção de DQ da última execução).
+**Where**: `src/rfb_pipeline/relatorio.py`
 **Depends on**: T24
 **Reuses**: `docs/referencia-original/4_An_lise_de_Dados.md`
 **Requirement**: CASE-01
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Integração: relatório nas fixtures afirma 1 concorrente ativo e 4 inativos
-- [ ] Gate full passa
+- [x] Integração: relatório nas fixtures afirma 1 concorrente ativo e 4 inativos
+- [x] Gate full passa
 
 **Tests**: integration
 **Gate**: full

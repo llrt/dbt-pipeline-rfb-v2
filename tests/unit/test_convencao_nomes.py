@@ -48,6 +48,7 @@ MODULOS_ESPERADOS = {
     "erros",
     "esquemas",
     "manifesto",
+    "relatorio",
 }
 SUBCOMANDOS_ESPERADOS = {"ingerir", "sincronizar", "pipeline", "relatorio", "atualizar"}
 ALVOS_MAKE_ESPERADOS = {
