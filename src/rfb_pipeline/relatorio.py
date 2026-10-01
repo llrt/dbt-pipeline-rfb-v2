@@ -273,8 +273,46 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
     ]
     if not proximos:
         linhas += ["_Nenhum fornecedor ativo dentro do raio._", ""]
+    linhas += _secao_area_mercado(resultados, caso, local)  # incremento: enriquecimento_bd
     linhas += _secao_qualidade(qualidade)
     return "\n".join(linhas).rstrip("\n") + "\n"
+
+
+# incremento: enriquecimento_bd
+def _secao_area_mercado(resultados: dict[str, Tabela], caso: dict, local: str) -> list[str]:
+    """Área de mercado (município, vizinhos, região metropolitana); vazia sem a analysis."""
+    tabela = resultados.get(f"{PREFIXO_ANALISES}enriquecimento_area_mercado")
+    if tabela is None:
+        return []
+    linhas = [
+        "## Área de mercado (enriquecimento com a Base dos Dados)",
+        "",
+        f"Concorrência no CNAE {caso['cnae_alvo']} em {local}, nos municípios vizinhos e na região "
+        "metropolitana (Censo 2022 e vizinhança da Base dos Dados; incremento "
+        "`enriquecimento_bd`).",
+        "",
+    ]
+    dados = _como_dict(tabela)
+    if not dados:
+        return [*linhas, f"_{local} não tem estabelecimentos deste CNAE na base._", ""]
+    d = dados[0]
+    rm = d["nome_regiao_metropolitana"]
+    linhas += [
+        "| Escopo | Ativos | Inativos |",
+        "|---|---|---|",
+        f"| {local} | {_numero(d['ativos'])} | {_numero(d['inativos'])} |",
+        f"| {_numero(d['qtd_vizinhos'])} {_plural(d['qtd_vizinhos'], 'vizinho', 'vizinhos')} "
+        f"| {_numero(d['ativos_vizinhos'])} | {_numero(d['inativos_vizinhos'])} |",
+        f"| Região metropolitana ({rm}) | {_numero(d['ativos_regiao_metropolitana'])} "
+        f"| {_numero(d['inativos_regiao_metropolitana'])} |",
+        "",
+        f"Indicadores de {local}: **{_numero(d['ativos_por_mil_domicilios'], 4)}** ativos por mil "
+        f"domicílios e **{_numero(d['ativos_por_km2'], 6)}** por km²; na área de mercado "
+        f"(município + vizinhos): **{_numero(d['ativos_area_por_mil_domicilios'], 4)}** por mil "
+        f"domicílios e **{_numero(d['ativos_area_por_km2'], 6)}** por km².",
+        "",
+    ]
+    return linhas
 
 
 def _secao_qualidade(qualidade: tuple[dict, list[tuple]] | None) -> list[str]:

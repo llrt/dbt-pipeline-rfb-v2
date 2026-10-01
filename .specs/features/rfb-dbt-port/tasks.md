@@ -789,9 +789,9 @@ T30 → T31
 **Incremento**: enriquecimento BD (ADR-0015)
 
 **Done when**:
-- [ ] Unit tests com `httpx.MockTransport` cobrem URL/base64, sucesso, erro HTTP e conteúdo não gzip
-- [ ] Nenhuma referência ao caminho legado no código
-- [ ] Gate full passa
+- [x] Unit tests com `httpx.MockTransport` cobrem URL/base64, sucesso, erro HTTP e conteúdo não gzip
+- [x] Nenhuma referência ao caminho legado no código
+- [x] Gate full passa
 
 **Tests**: unit
 **Gate**: full
@@ -810,8 +810,8 @@ T30 → T31
 **Incremento**: enriquecimento BD (ADR-0015)
 
 **Done when**:
-- [ ] `make ci` ingere as três tabelas; testes do gerador cobrem as linhas novas
-- [ ] Gate full passa
+- [x] `make ci` ingere as três tabelas; testes do gerador cobrem as linhas novas
+- [x] Gate full passa
 
 **Tests**: unit + dbt data tests + dbt unit tests
 **Gate**: full
@@ -830,8 +830,8 @@ T30 → T31
 **Incremento**: enriquecimento BD (ADR-0015)
 
 **Done when**:
-- [ ] Integração: atributos de Fundão iguais aos da fixture; vizinhos de Fundão = os da fixture
-- [ ] Gate full passa
+- [x] Integração: atributos de Fundão iguais aos da fixture; vizinhos de Fundão = os da fixture
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full
@@ -850,8 +850,8 @@ T30 → T31
 **Incremento**: enriquecimento BD (ADR-0015)
 
 **Done when**:
-- [ ] Integração: indicadores de Fundão/4741500 iguais aos da tabela do cenário; relatório traz a área de mercado
-- [ ] Gate full passa
+- [x] Integração: indicadores de Fundão/4741500 iguais aos da tabela do cenário; relatório traz a área de mercado
+- [x] Gate full passa
 
 **Tests**: dbt data tests + integration
 **Gate**: full

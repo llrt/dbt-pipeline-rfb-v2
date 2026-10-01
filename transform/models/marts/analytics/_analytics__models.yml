@@ -198,6 +198,103 @@ models:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
 
+  - name: mart_concorrencia_area_mercado
+    description: >
+      ENR-03 (incremento `enriquecimento_bd`, ADR-0015): concorrência na área de mercado por CNAE
+      principal × município (mesmos pares de `mart_concorrencia_municipio`). Traz ativos e inativos
+      no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município
+      incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo
+      2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta
+      o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em
+      `gold/mart_concorrencia_area_mercado.parquet`.
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sk_cnae, sk_municipio]
+          config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+    columns:
+      - name: sk_cnae
+        description: Chave de `dim_cnae`; `-1` para CNAE sem par no BD.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: cnae_principal
+        description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+      - name: desc_cnae_principal
+        description: Descrição da subclasse (Base dos Dados).
+      - name: sk_municipio
+        description: Chave de `dim_municipio`; `-1` para município sem par no BD.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: municipio
+        description: Nome do município (acentuado, Base dos Dados).
+      - name: uf
+        description: Sigla da UF.
+      - name: nome_regiao_metropolitana
+        description: Região metropolitana do município; `NÃO PERTENCE` fora de região metropolitana.
+      - name: domicilios_2022
+        description: Domicílios do município (Censo 2022); NULL sem dado.
+      - name: area_km2
+        description: Área do município em km² (Censo 2022); NULL sem dado.
+      - name: ativos
+        description: Estabelecimentos ativos do CNAE no município.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: inativos
+        description: Estabelecimentos inativos do CNAE no município.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: qtd_vizinhos
+        description: Municípios vizinhos do município (0 se nenhum).
+      - name: ativos_vizinhos
+        description: Estabelecimentos ativos do CNAE nos municípios vizinhos (o município fica fora).
+      - name: inativos_vizinhos
+        description: Estabelecimentos inativos do CNAE nos municípios vizinhos.
+      - name: ativos_regiao_metropolitana
+        description: Ativos do CNAE na região metropolitana do município (ele incluído); NULL fora de região metropolitana.
+      - name: inativos_regiao_metropolitana
+        description: Inativos do CNAE na região metropolitana do município (ele incluído); NULL fora de região metropolitana.
+      - name: ativos_por_mil_domicilios
+        description: Ativos do município por mil domicílios (6 casas); NULL sem domicílios.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: ativos_por_km2
+        description: Ativos do município por km² (6 casas); NULL sem área.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: ativos_area_por_mil_domicilios
+        description: Ativos do município e dos vizinhos por mil domicílios dos mesmos municípios; NULL se algum não tem Censo.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: ativos_area_por_km2
+        description: Ativos do município e dos vizinhos por km² dos mesmos municípios; NULL se algum não tem Censo.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+
 unit_tests:
   - name: test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia
     description: >
@@ -336,3 +433,36 @@ unit_tests:
         # R3-08: CNAE de fornecedor no principal e no secundário -> principal; dois secundários -> o menor
         - { cnpj_completo: "00000000000005", nome: "P", sk_cnae: 2071100, sk_municipio: 2, cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
         - { cnpj_completo: "00000000000006", nome: "S", sk_cnae: 2071100, sk_municipio: 2, cnae_fornecido: "2071100", via: "secundario", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
+
+  - name: test_mart_concorrencia_area_mercado_vizinhos_e_regiao
+    description: >
+      ENR-03: A (RM X, 1 ativo, 2000 dom., 100 km²) vizinha de B (RM X, 2 ativos, 3000 dom.,
+      200 km²) e de C (sem RM, 0 ativos mas 1 inativo, sem Censo). Município: A 0,5 por mil
+      domicílios; área de A (A+B) = 3 ativos / 5000 dom.; C sem Censo → indicadores NULL; RM só
+      para A e B (ativos 3 = 1 + 2).
+    model: mart_concorrencia_area_mercado
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    given:
+      - input: ref('mart_concorrencia_municipio')
+        rows:
+          - { sk_cnae: 1, cnae_principal: "1", desc_cnae_principal: "x", sk_municipio: 10, municipio: "A", uf: "ES", ativos: 1, inativos: 0 }
+          - { sk_cnae: 1, cnae_principal: "1", desc_cnae_principal: "x", sk_municipio: 20, municipio: "B", uf: "ES", ativos: 2, inativos: 1 }
+          - { sk_cnae: 1, cnae_principal: "1", desc_cnae_principal: "x", sk_municipio: 30, municipio: "C", uf: "ES", ativos: 0, inativos: 1 }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 10, nome_regiao_metropolitana: "RM X", domicilios_2022: 2000, area_km2: 100.0 }
+          - { sk_municipio: 20, nome_regiao_metropolitana: "RM X", domicilios_2022: 3000, area_km2: 200.0 }
+          - { sk_municipio: 30, nome_regiao_metropolitana: "NÃO PERTENCE", domicilios_2022: null, area_km2: null }
+      - input: ref('bridge_municipio_vizinho')
+        rows:
+          - { sk_municipio: 10, sk_municipio_vizinho: 20 }
+          - { sk_municipio: 20, sk_municipio_vizinho: 10 }
+          - { sk_municipio: 20, sk_municipio_vizinho: 30 }
+          - { sk_municipio: 30, sk_municipio_vizinho: 20 }
+    expect:
+      rows:
+        - { sk_municipio: 10, qtd_vizinhos: 1, ativos_vizinhos: 2, inativos_vizinhos: 1, ativos_regiao_metropolitana: 3, inativos_regiao_metropolitana: 1, ativos_por_mil_domicilios: 0.5, ativos_por_km2: 0.01, ativos_area_por_mil_domicilios: 0.6, ativos_area_por_km2: 0.01 }
+        - { sk_municipio: 20, qtd_vizinhos: 2, ativos_vizinhos: 1, inativos_vizinhos: 1, ativos_regiao_metropolitana: 3, inativos_regiao_metropolitana: 1, ativos_por_mil_domicilios: 0.666667, ativos_por_km2: 0.01, ativos_area_por_mil_domicilios: null, ativos_area_por_km2: null }
+        - { sk_municipio: 30, qtd_vizinhos: 1, ativos_vizinhos: 2, inativos_vizinhos: 1, ativos_regiao_metropolitana: null, inativos_regiao_metropolitana: null, ativos_por_mil_domicilios: null, ativos_por_km2: null, ativos_area_por_mil_domicilios: null, ativos_area_por_km2: null }

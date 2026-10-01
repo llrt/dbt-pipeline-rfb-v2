@@ -66,3 +66,37 @@ def test_vizinhanca_simetrica_sem_autopar_e_so_ano_recente(consultar) -> None:
     assert all(a != b for a, b in pares)
     assert (3202207, 3203205) not in pares  # Fundão–Linhares só existe em 2019
     assert len(pares) == 8  # Fundão–Aracruz/Serra, Serra–Vitória, Aracruz–Linhares (x2 sentidos)
+
+
+# incremento: enriquecimento_bd
+def test_area_de_mercado_de_fundao_para_tintas(consultar) -> None:
+    (linha,) = consultar(
+        "select ativos, inativos, qtd_vizinhos, ativos_vizinhos, inativos_vizinhos, "
+        "ativos_regiao_metropolitana, inativos_regiao_metropolitana, "
+        "ativos_por_mil_domicilios, ativos_por_km2, ativos_area_por_mil_domicilios, "
+        "ativos_area_por_km2 from {mart_concorrencia_area_mercado} "
+        "where cnae_principal = '4741500' and sk_municipio = 3202207"
+    )
+    assert linha[:7] == (1, 4, 2, 1, 0, 2, 4)
+    assert linha[7:] == pytest.approx((0.14892, 0.003484, 0.009675, 0.000879), abs=1e-6)
+
+
+# incremento: enriquecimento_bd
+def test_area_de_mercado_fora_de_rm_tem_rm_nula(consultar) -> None:
+    linhas = consultar(
+        "select municipio, ativos_regiao_metropolitana from {mart_concorrencia_area_mercado} "
+        "where nome_regiao_metropolitana in ('NÃO PERTENCE', 'NÃO INFORMADO')"
+    )
+    assert {m for m, _ in linhas} >= {"Linhares", "Aracruz", "NÃO INFORMADO"}
+    assert all(rm is None for _, rm in linhas)
+
+
+# incremento: enriquecimento_bd
+def test_area_de_mercado_sem_censo_tem_indicadores_nulos(consultar) -> None:
+    linhas = consultar(
+        "select ativos_por_mil_domicilios, ativos_por_km2, ativos_area_por_mil_domicilios, "
+        "ativos_area_por_km2 from {mart_concorrencia_area_mercado} "
+        "where domicilios_2022 is null"
+    )
+    assert linhas, "o membro -1 (sem município no BD) não tem Censo"
+    assert all(linha == (None, None, None, None) for linha in linhas)

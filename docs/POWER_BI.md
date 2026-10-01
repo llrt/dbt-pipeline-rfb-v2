@@ -68,6 +68,8 @@ direção "ambos": ela cria ambiguidade e deixa o modelo lento.
 | demais `dim_*[sk_*]` | `fct_estabelecimentos[sk_*]` | sim |
 | `fct_estabelecimentos[cnpj_completo]` | `bridge_estabelecimento_cnae_secundario[cnpj_completo]` | opcional |
 | `dim_cnae_secundario[sk_cnae]` (cópia de `dim_cnae`) | `bridge_estabelecimento_cnae_secundario[sk_cnae]` | opcional |
+| `dim_municipio[sk_municipio]` | `bridge_municipio_vizinho[sk_municipio]` | opcional (**incremento enriquecimento BD**) |
+| `dim_municipio_vizinho[sk_municipio]` (cópia de `dim_municipio`) | `bridge_municipio_vizinho[sk_municipio_vizinho]` | opcional (**incremento enriquecimento BD**) |
 
 - **Bridge sem caminho ambíguo.** Se `dim_cnae` se relacionasse com a bridge e com a fato, haveria dois
   caminhos entre `dim_cnae` e a bridge (direto e via `fct_estabelecimentos`) e o Power BI desativaria um
@@ -171,6 +173,14 @@ VAR Populacao =
 RETURN
     DIVIDE ( [Qtd Ativos] * 10000, Populacao )
 
+-- Incremento enriquecimento BD (ADR-0015): atributos do Censo 2022 em dim_municipio. Os domicílios
+-- repetem por linha da fato: some uma vez por município, como na população.
+Ativos por mil domicílios =
+VAR Domicilios =
+    SUMX ( VALUES ( dim_municipio[sk_municipio] ), CALCULATE ( MAX ( dim_municipio[domicilios_2022] ) ) )
+RETURN
+    DIVIDE ( [Qtd Ativos] * 1000, Domicilios )
+
 -- Mês anterior: dim_mes marcada como tabela de datas; a fato só tem o dia 1 de cada mês.
 Qtd Ativos Mês Anterior =
 CALCULATE ( [Qtd Ativos], DATEADD ( dim_mes[data], -1, MONTH ) )
@@ -200,6 +210,11 @@ Cuidados:
 - **Não some meses.** `fct_resumo_mensal` é uma fotografia por mês: somar `Qtd Ativos` de vários meses
   conta o mesmo estabelecimento várias vezes. Em cartões, filtre um mês (segmentação em `dim_mes[ano_mes]`)
   ou use `Qtd Ativos Mês Mais Recente`.
+- **Colunas novas em `dim_municipio` (incremento enriquecimento BD, ADR-0015):** `populacao_censo_2022`,
+  `domicilios_2022`, `area_km2`, `densidade_hab_km2`, `taxa_alfabetizacao` (fração 0–1), `idade_mediana`,
+  `indice_envelhecimento`, `razao_sexo` e `nome_regiao_metropolitana` (`NÃO PERTENCE` fora de região
+  metropolitana; `NÃO INFORMADO` no membro `-1`). Município sem Censo tem os atributos vazios. Para a
+  área de mercado importe `mart_concorrencia_area_mercado` (relaciona-se por `sk_municipio`/`sk_cnae`).
 - A `Idade Média` considera só ativos (`soma_idade_anos` é a soma da idade dos ativos).
 - O resumo **não** tem ano de início nem natureza jurídica. Para coorte use `mart_sobrevivencia_coorte`
   (ou `fct_estabelecimentos` via DuckDB); em `fct_estabelecimentos`, `sk_data_inicio_atividade = -1` é data
