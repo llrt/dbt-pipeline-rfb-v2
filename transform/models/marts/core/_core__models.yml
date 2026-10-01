@@ -421,6 +421,53 @@ models:
         description: Verdadeiro para situação cadastral ativa (código 2).
         data_type: boolean
 
+  - name: int_cnaes_secundarios__explodidos
+    description: >
+      Uma linha por (estabelecimento, CNAE secundário), a partir de `cnaes_secundarios_lista`.
+    columns:
+      - name: cnpj_completo
+        description: CNPJ completo do estabelecimento.
+      - name: codigo_cnae_secundario
+        description: Subclasse CNAE secundária (7 dígitos).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cnpj_completo, codigo_cnae_secundario]
+
+  - name: bridge_estabelecimento_cnae_secundario
+    description: >
+      Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos entre
+      `fct_estabelecimentos` e `dim_cnae`). Lista vazia não gera linhas. Opcional no BI.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cnpj_completo, codigo_cnae_secundario]
+    columns:
+      - name: cnpj_completo
+        description: CNPJ completo; FK para `fct_estabelecimentos.cnpj_completo`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_estabelecimentos')
+                field: cnpj_completo
+      - name: sk_cnae
+        description: Chave de `dim_cnae` (CNAE secundário); `-1` quando sem par na Base dos Dados.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
+      - name: codigo_cnae_secundario
+        description: Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda.
+        data_type: varchar
+
 unit_tests:
   - name: test_int_municipios_conformados_ano_mais_recente
     description: "CORE-01: sem a var `ano_populacao`, usa o último ano de população (2024: 20000, não 2023: 19000); PIB do último ano."
@@ -598,3 +645,35 @@ unit_tests:
       rows:
         - { cnpj_completo: "A", sk_municipio: 3202207, sk_cnae: 4741500, sk_natureza_juridica: 2135, sk_porte: 1, sk_situacao_cadastral: 2, sk_data_inicio_atividade: 20221015, sk_data_situacao: 20221015, idade_anos: 3.9, opcao_mei: true, eh_matriz: true, eh_ativa: true }
         - { cnpj_completo: "M", sk_municipio: -1, sk_cnae: -1, sk_natureza_juridica: -1, sk_porte: -1, sk_situacao_cadastral: 8, sk_data_inicio_atividade: 20231201, sk_data_situacao: -1, idade_anos: null, opcao_mei: false, eh_matriz: false, eh_ativa: false }
+
+  - name: test_int_cnaes_secundarios_explodidos
+    description: "CORE-01: lista com 2 códigos gera 2 linhas; lista vazia gera 0; código repetido conta uma vez."
+    model: int_cnaes_secundarios__explodidos
+    given:
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows:
+          - { cnpj_completo: "H", cnaes_secundarios_lista: ["4679699", "4744099"] }
+          - { cnpj_completo: "X", cnaes_secundarios_lista: [] }
+          - { cnpj_completo: "Y", cnaes_secundarios_lista: ["0111301", "0111301"] }
+    expect:
+      rows:
+        - { cnpj_completo: "H", codigo_cnae_secundario: "4679699" }
+        - { cnpj_completo: "H", codigo_cnae_secundario: "4744099" }
+        - { cnpj_completo: "Y", codigo_cnae_secundario: "0111301" }
+
+  - name: test_bridge_estabelecimento_cnae_secundario_sk_e_menos_um
+    description: "ADR-0013: `sk_cnae` vem de `dim_cnae`; CNAE secundário sem par recebe `-1` mantendo o código original."
+    model: bridge_estabelecimento_cnae_secundario
+    given:
+      - input: ref('int_cnaes_secundarios__explodidos')
+        rows:
+          - { cnpj_completo: "H", codigo_cnae_secundario: "4679699" }
+          - { cnpj_completo: "H", codigo_cnae_secundario: "3511500" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4679699, codigo_subclasse: "4679699" }
+          - { sk_cnae: -1, codigo_subclasse: "-1" }
+    expect:
+      rows:
+        - { cnpj_completo: "H", sk_cnae: 4679699, codigo_cnae_secundario: "4679699" }
+        - { cnpj_completo: "H", sk_cnae: -1, codigo_cnae_secundario: "3511500" }

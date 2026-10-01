@@ -431,8 +431,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Teste de integração e reconciliação passam
-- [ ] Gate full passa
+- [x] Teste de integração e reconciliação passam
+- [x] Gate full passa
 
 **Tests**: dbt data tests + integration
 **Gate**: full
@@ -450,8 +450,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Fundão com população 20000 (ano 2024) nas fixtures; membro −1 existe; teste de unicidade de chave
-- [ ] Gate full passa
+- [x] Fundão com população 20000 (ano 2024) nas fixtures; membro −1 existe; teste de unicidade de chave
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests
 **Gate**: full
@@ -469,8 +469,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes de unicidade/not_null nas chaves; seeds carregados; `0111301` presente em `dim_cnae`
-- [ ] Gate full passa
+- [x] Testes de unicidade/not_null nas chaves; seeds carregados; `0111301` presente em `dim_cnae`
+- [x] Gate full passa
 
 **Tests**: dbt data tests
 **Gate**: full
@@ -508,9 +508,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes do gerador cobrem o mês 2026-08 (14 estabelecimentos, `D60810`, determinismo)
-- [ ] `make ci` verde com dois meses no raw; números de 2026-09 inalterados
-- [ ] Gate full passa
+- [x] Testes do gerador cobrem o mês 2026-08 (14 estabelecimentos, `D60810`, determinismo)
+- [x] `make ci` verde com dois meses no raw; números de 2026-09 inalterados
+- [x] Gate full passa
 
 **Tests**: unit + integration
 **Gate**: full
@@ -528,8 +528,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Testes dbt de unicidade/not_null da chave e presença das datas da spec
-- [ ] Gate full passa
+- [x] Testes dbt de unicidade/not_null da chave e presença das datas da spec
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests
 **Gate**: full
@@ -547,8 +547,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Integração: 15 linhas; K/L/M presentes com −1 na dimensão faltante; A e C com `opcao_mei = true`
-- [ ] Gate full passa
+- [x] Integração: 15 linhas; K/L/M presentes com −1 na dimensão faltante; A e C com `opcao_mei = true`
+- [x] Gate full passa
 
 **Tests**: dbt data tests + integration
 **Gate**: full
@@ -566,8 +566,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] H gera 2 linhas; lista vazia gera 0; relacionamentos passam
-- [ ] Gate full passa
+- [x] H gera 2 linhas; lista vazia gera 0; relacionamentos passam
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests
 **Gate**: full

@@ -21,6 +21,7 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Upload para Tigris (`rfb sincronizar`) | adaptado | `subir_arquivos_tigris.py` |
 | Fontes dbt com testes de unicidade/completude/integridade/domínio | original | notebooks 2.1.1, 2.1.2, 2.2, 2.3 |
 | Freshness das fontes | adição | — |
+| `relationships` das fontes (natureza/CNAE/município) avaliados por mês (`relacionamentos_fontes_por_mes`) | adaptado | original tinha um único mês; com meses retidos o `relationships` genérico cruzaria todos (R1-22) |
 | Staging tipado | adição | original não tinha camada explícita |
 | `bh_empresas` | original | notebook 3 |
 | `bh_empresas.idade_atual` relativa a `data_referencia` | adaptado | notebook 3 usava `now()` (ADR-0004) |

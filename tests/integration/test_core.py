@@ -197,3 +197,14 @@ def test_fato_linha_o_e_filial() -> None:
         f"select eh_matriz, eh_ativa from {{fct_estabelecimentos}} where cnpj_completo = '{CNPJ_O}'"
     )
     assert linha == (False, True)
+
+
+def test_bridge_h_tem_duas_linhas_e_o_resto_nenhuma() -> None:
+    linhas = _consultar(
+        "select cnpj_completo, codigo_cnae_secundario, sk_cnae "
+        "from {bridge_estabelecimento_cnae_secundario} order by 2"
+    )
+    assert linhas == [
+        ("88888888000191", "4679699", 4679699),
+        ("88888888000191", "4744099", 4744099),
+    ]
