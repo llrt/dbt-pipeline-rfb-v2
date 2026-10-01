@@ -106,13 +106,18 @@ sql_original as (
   inner join municipio_bd as mun on mun.id_municipio_rf = est.municipio
 )
 
--- Alinhamento de tipo, não de regra: o Spark inferiu `CNAE_principal` como inteiro (`0111301`
--- saía `111301`), mas o catálogo do notebook 3 o declara texto de 7 dígitos, que é o contrato de
--- `bh_empresas`. Todas as outras colunas saem exatamente como no SQL original.
+-- Alinhamentos, não regras (as CTEs acima seguem literais):
+-- * `cnae_principal` (tipo): o Spark inferiu `CNAE_principal` como inteiro (`0111301` saía
+--   `111301`), mas o catálogo do notebook 3 o declara texto de 7 dígitos, que é o contrato de
+--   `bh_empresas`.
+-- * `nome` (trim, ADR-0005 emenda R2-01): o Spark do original lia sem `trim`
+--   (`ignoreLeadingWhiteSpace=false`); `bh_empresas.nome` herda o `trim` do staging (adaptação
+--   declarada). O teste `bh_empresas_nome_alterado_por_trim` (warn) mede quantas linhas isso muda.
+-- Todas as outras colunas saem exatamente como no SQL original.
 select
   cnpj_raiz,
   cnpj_completo,
-  nome,
+  nullif(trim(nome), '') as nome,
   natureza_juridica,
   porte,
   lpad(cnae_principal::varchar, 7, '0') as cnae_principal,

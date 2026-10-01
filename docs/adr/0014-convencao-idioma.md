@@ -46,4 +46,3 @@ aprendizado. Documentos anteriores são atualizados para os novos nomes.
 passa a `transform/models/audit/` e o modelo a `audit__bh_empresas_sql_original`. Nomes de **testes** singulares
 continuam em português (ex.: `paridade_bh_empresas`), como os demais testes do projeto. Regra prática para casos
 novos: **pasta ou prefixo = estrutura (inglês, lista acima); nome após o prefixo, colunas, testes e macros = português.**
-

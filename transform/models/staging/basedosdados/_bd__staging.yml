@@ -4,7 +4,8 @@ models:
   - name: stg_bd__municipios
     description: >
       Municípios da Base dos Dados, tipado e limpo: ids como texto (`texto_ou_nulo`),
-      `latitude`/`longitude` extraídos do WKT `centroide` (`POINT(longitude latitude)`).
+      `id_municipio_rf` com 4 dígitos (`lpad_codigo`, como o código RFB), `latitude`/`longitude`
+      extraídos do WKT `centroide` (`POINT(longitude latitude)`).
     columns:
       - name: id_municipio
         description: Código IBGE do município (7 dígitos).
@@ -15,8 +16,15 @@ models:
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: id_municipio_rf
         description: >
-          Código do município na classificação da RFB; usado para casar com
-          `stg_rfb__municipios.codigo` (ver cobertura em `tests/cobertura_municipio_rfb_bd.sql`).
+          Código do município na classificação da RFB, 4 dígitos (o BD pode trazê-lo sem zeros à
+          esquerda); casa direto com `stg_rfb__municipios.codigo` e
+          `stg_rfb__estabelecimentos.municipio_rfb_codigo` (ver cobertura em
+          `tests/cobertura_municipio_rfb_bd.sql`).
+        data_tests:
+          - tamanho_exato:
+              arguments:
+                tamanho: 4
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: nome
         description: Nome do município, acentuado.
       - name: sigla_uf
@@ -159,3 +167,22 @@ unit_tests:
           nome_regiao_intermediaria: "Vitória"
           longitude: -40.3557928987053
           latitude: -19.9687204052472
+
+  - name: test_stg_bd__municipios_lpad_id_municipio_rf
+    description: "R2-13: `id_municipio_rf` sem zeros à esquerda no BD (`643`) sai com 4 dígitos (`0643`), casando com o código RFB."
+    model: stg_bd__municipios
+    given:
+      - input: source('basedosdados', 'municipio')
+        format: sql
+        rows: |
+          select
+              '3200409' as id_municipio, '643' as id_municipio_rf, 'Alegre' as nome,
+              'ES' as sigla_uf, null::varchar as nome_uf, null::varchar as nome_regiao,
+              null::varchar as id_microrregiao, null::varchar as nome_microrregiao,
+              null::varchar as id_mesorregiao, null::varchar as nome_mesorregiao,
+              null::varchar as id_regiao_imediata, null::varchar as nome_regiao_imediata,
+              null::varchar as id_regiao_intermediaria, null::varchar as nome_regiao_intermediaria,
+              null::varchar as centroide
+    expect:
+      rows:
+        - { id_municipio: "3200409", id_municipio_rf: "0643" }

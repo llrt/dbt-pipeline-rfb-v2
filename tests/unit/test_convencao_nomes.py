@@ -28,9 +28,9 @@ SUBPASTAS_MODELS = {
     "marts/core",
     "marts/analytics",
     "observability",
-    "paridade",
+    "audit",
 }
-PREFIXOS_MODELOS = ("stg_", "int_", "dim_", "fct_", "bridge_", "mart_", "dq_", "paridade__")
+PREFIXOS_MODELOS = ("stg_", "int_", "dim_", "fct_", "bridge_", "mart_", "dq_", "audit__")
 MODELOS_ORIGINAIS_MVP = {"bh_empresas", "agg_empresas"}
 MODULOS_ESPERADOS = {
     "__init__",
@@ -117,6 +117,7 @@ def test_alvos_do_make_seguem_a_convencao() -> None:
     [
         ("marts/analises", "marts/analises"),
         ("observabilidade", "observabilidade"),
+        ("paridade", "paridade"),
         ("staging/rfb/extra", "staging/rfb/extra"),
     ],
 )
@@ -132,9 +133,13 @@ def test_guarda_detecta_subpasta_fora_da_convencao(
 
 def test_guarda_detecta_modelo_sem_prefixo_permitido(tmp_path: Path) -> None:
     (tmp_path / "companies.sql").write_text("select 1")
+    (tmp_path / "paridade__bh_empresas_sql_original.sql").write_text("select 1")
     (tmp_path / "stg_rfb__ok.sql").write_text("select 1")
     (tmp_path / "bh_empresas.sql").write_text("select 1")
-    assert modelos_fora_da_convencao(tmp_path) == ["companies.sql"]
+    assert modelos_fora_da_convencao(tmp_path) == [
+        "companies.sql",
+        "paridade__bh_empresas_sql_original.sql",
+    ]
 
 
 def test_guarda_detecta_modulo_fora_da_lista(tmp_path: Path) -> None:

@@ -1,7 +1,8 @@
 -- Flat table granular do notebook 3 (ADR-0005): mesmas 15 colunas e regras, com os mesmos inner
 -- joins (estabelecimentos sem empresa, natureza, CNAE BD ou município BD saem — ver o teste
--- `bh_empresas_descartes_inner_join`). Única diferença intencional: `idade_atual` relativa a
--- `data_referencia` em vez de `now()` (ADR-0004).
+-- `bh_empresas_descartes_inner_join`). Diferenças intencionais: `idade_atual` relativa a
+-- `data_referencia` em vez de `now()` (ADR-0004) e `nome` sem espaços nas bordas (trim do staging;
+-- ADR-0005, emenda R2-01).
 with estabelecimentos as (
   select * from {{ ref('stg_rfb__estabelecimentos') }}
 ),
@@ -59,4 +60,4 @@ inner join naturezas as nat
 inner join cnaes_bd as cnae
   on est.cnae_principal = cnae.subclasse
 inner join municipios_bd as mun
-  on est.municipio_rfb_codigo = lpad(mun.id_municipio_rf, 4, '0')
+  on est.municipio_rfb_codigo = mun.id_municipio_rf

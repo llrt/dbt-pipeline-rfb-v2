@@ -436,7 +436,8 @@ _EMPRESA_POR_RAIZ = {
     "44444444": ("CASA DAS CORES", "2062", "05", "1000,00"),  # D
     "55555555": ("TINTAS CAPIXABA", "2305", "", "1000,00"),  # E
     "66666666": ("FABRICA DE TINTAS SERRA SA", "2062", "05", "1000,00"),  # F
-    "77777777": ("ATACADO VITORIA TINTAS", "2062", "03", "1000,00"),  # G
+    # Espaço à esquerda e sem nome fantasia (R2-01): o staging aplica trim; o original não.
+    "77777777": (" ATACADO VITORIA TINTAS", "2062", "03", "1000,00"),  # G
     "88888888": ("MERCADO LINHARES", "2062", "03", "1000,00"),  # H
     "99999999": ("ATACADO ARACRUZ", "2062", "01", "1000,00"),  # I
     "12121212": ("TINTAS SERTAO", "2062", "01", "1000,00"),  # J

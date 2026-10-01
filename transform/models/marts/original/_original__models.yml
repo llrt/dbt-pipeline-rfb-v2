@@ -8,7 +8,7 @@ models:
       município da Base dos Dados) já juntados e humanizados. Mesmas regras e mesmos **inner
       joins** do SQL original — estabelecimentos sem par em algum domínio ficam de fora (teste
       `bh_empresas_descartes_inner_join`). Paridade verificada contra a tradução literal do SQL
-      original (`paridade__bh_empresas_sql_original`, teste `paridade_bh_empresas`). Parquet em
+      original (`audit__bh_empresas_sql_original`, teste `paridade_bh_empresas`). Parquet em
       `gold/bh_empresas.parquet`.
     config:
       contract:
@@ -32,8 +32,13 @@ models:
       - name: nome
         description: >
           Nome da empresa. Linhagem: `estabelecimentos.nome_fantasia`; `empresas.razao_social`
-          apenas se `nome_fantasia` for null; upper case para padronizar.
+          apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005,
+          emenda R2-01): sem espaços nas bordas (`trim` do staging), que o original mantinha
+          (fev/2025: ~752 razões sociais com espaço à esquerda); o teste
+          `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas.
         data_type: varchar
+        meta:
+          escopo: adaptado
       - name: natureza_juridica
         description: >
           Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais).
@@ -110,16 +115,24 @@ models:
           Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem:
           `estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`.
           **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do
-          extrato (`data_referencia`), para ser determinística. Não se esperam idades > 200 anos.
+          extrato (`data_referencia`), para ser determinística. Fora de [0, 200] anos é dado absurdo
+          da RFB (fev/2025: 2 ativos, inícios em 1199 e 1601): avisa (warn) e só falha acima de 100
+          linhas (spec Original AC 12, emenda R2-02). A data não é anulada no staging, para manter
+          a paridade.
         data_type: double
         meta:
           escopo: adaptado
         data_tests:
+          # warn_if/error_if só valem com severity error (padrão): 1..100 linhas -> WARN, >100 -> ERROR.
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
                 max_value: 200
-              config: { meta: { escopo: original }, tags: [escopo_original] }
+              config:
+                warn_if: "!=0"
+                error_if: ">100"
+                meta: { escopo: original }
+                tags: [escopo_original]
 
 unit_tests:
   - name: test_bh_empresas_porte

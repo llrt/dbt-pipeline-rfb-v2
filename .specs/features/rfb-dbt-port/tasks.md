@@ -404,7 +404,7 @@ T30 → T31
 
 ### T15: `bh_empresas` com paridade ★ crítica
 
-**What**: `models/marts/original/bh_empresas.sql` (+ yml com contrato, catálogo do notebook 3, `meta.escopo: original`, coluna `idade_atual` `adaptado`), `paridade__bh_empresas_sql_original` (SQL do notebook 3 traduzido literalmente, `now()` → `data_referencia`), teste singular de paridade (diferença zero, error), teste de descartes do inner join (warn, fixtures = 3), teste idade ∈ [0,200], unit tests das regras ORI 3–6, teste de integração com os valores da spec (12 linhas; linha A).
+**What**: `models/marts/original/bh_empresas.sql` (+ yml com contrato, catálogo do notebook 3, `meta.escopo: original`, coluna `idade_atual` `adaptado`), `audit__bh_empresas_sql_original` (SQL do notebook 3 traduzido literalmente, `now()` → `data_referencia`), teste singular de paridade (diferença zero, error), teste de descartes do inner join (warn, fixtures = 3), teste idade ∈ [0,200], unit tests das regras ORI 3–6, teste de integração com os valores da spec (12 linhas; linha A).
 **Where**: `transform/models/marts/original/bh_empresas.sql`
 **Depends on**: T14
 **Reuses**: `docs/referencia-original/3_Modelo_de_Dados.md`

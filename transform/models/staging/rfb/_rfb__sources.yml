@@ -62,6 +62,13 @@ sources:
                     tags: [escopo_original]
           - name: ente_fed_resp
             description: Ente federativo responsável, preenchido só para órgãos/autarquias públicas.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: estabelecimentos
         description: >
@@ -168,6 +175,13 @@ sources:
             description: Situação especial (ex. falência, recuperação judicial); raramente preenchida.
           - name: dat_sit_especial
             description: Data da situação especial (`YYYYMMDD`); raramente preenchida.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: simples
         description: >
@@ -194,6 +208,13 @@ sources:
             description: Data de opção pelo MEI (`YYYYMMDD`; `00000000` se não aplicável).
           - name: dat_exclusao_mei
             description: Data de exclusão do MEI (`YYYYMMDD`; `00000000` se não aplicável).
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: cnaes
         description: >
@@ -219,6 +240,13 @@ sources:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
             description: Descrição textual da atividade econômica.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: municipios
         description: >
@@ -244,6 +272,13 @@ sources:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
             description: Nome do município, sem acentos, conforme grafia da RFB.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: naturezas
         description: "Tabela de domínio: código e descrição de cada natureza jurídica (notebook 2.1.1)."
@@ -267,6 +302,13 @@ sources:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
             description: Descrição da natureza jurídica.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: motivos
         description: "Tabela de domínio: código e descrição de cada motivo de situação cadastral (notebook 2.1.1)."
@@ -290,6 +332,13 @@ sources:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
             description: Descrição do motivo de situação cadastral.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: paises
         description: >
@@ -306,6 +355,13 @@ sources:
             description: Código do país segundo a tabela da RFB.
           - name: descricao
             description: Nome do país.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
       - name: qualificacoes
         description: >
@@ -322,3 +378,10 @@ sources:
             description: Código de qualificação do responsável.
           - name: descricao
             description: Descrição da qualificação do responsável.
+          - name: _data_referencia
+            description: >
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
+              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+            data_tests:
+              - not_null:
+                  config: { meta: { escopo: adicao }, tags: [escopo_adicao] }

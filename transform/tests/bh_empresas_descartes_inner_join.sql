@@ -1,5 +1,6 @@
 {{ config(
     severity='warn',
+    store_failures=true,
     tags=['escopo_adicao'],
     meta={'escopo': 'adicao'}
 ) }}
@@ -29,7 +30,7 @@ left join {{ ref('stg_rfb__naturezas') }} as nat
 left join {{ ref('stg_bd__cnaes') }} as cnae
   on est.cnae_principal = cnae.subclasse
 left join {{ ref('stg_bd__municipios') }} as mun
-  on est.municipio_rfb_codigo = lpad(mun.id_municipio_rf, 4, '0')
+  on est.municipio_rfb_codigo = mun.id_municipio_rf
 where not exists (
   select 1 from bh
   where bh.cnpj_completo = est.cnpj_completo

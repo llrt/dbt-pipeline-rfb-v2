@@ -191,7 +191,15 @@ models:
       - name: pais_codigo
         description: Código do país (3 dígitos), só para estabelecimentos no exterior.
       - name: dat_inicio_atividade
-        description: Data de início de atividade.
+        description: >
+          Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a
+          menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste warn
+          abaixo as registra (spec Original AC 12, emenda R2-02).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: "date '1800-01-01'"
+              config: { severity: warn, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: cnae_principal
         description: Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).
         data_tests:
@@ -231,7 +239,12 @@ models:
       - name: _mes_referencia
         description: Mês de referência (`YYYY-MM`) do extrato RFB.
       - name: _data_referencia
-        description: Data do extrato RFB (do nome interno do arquivo).
+        description: >
+          Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto,
+          de `idade_atual`: NULL falha (R2-03).
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
 
 unit_tests:
   - name: test_stg_rfb__cnaes_lpad_e_texto_vazio
@@ -475,3 +488,29 @@ unit_tests:
         - { cnpj_raiz: "00000002", cnaes_secundarios: "4679699, 111301", cnaes_secundarios_lista: ["4679699", "0111301"] }
         - { cnpj_raiz: "00000003", cnaes_secundarios: null, cnaes_secundarios_lista: [] }
         - { cnpj_raiz: "00000004", cnaes_secundarios: null, cnaes_secundarios_lista: [] }
+
+  - name: test_stg_rfb__estabelecimentos_filtra_mes_mais_recente
+    description: "STG AC 15 (R2-04): sem a var `mes_referencia`, só o maior `_mes_referencia` disponível entra."
+    model: stg_rfb__estabelecimentos
+    given:
+      - input: source('rfb', 'estabelecimentos')
+        format: sql
+        rows: |
+          with meses(nome_fantasia, _mes_referencia, _data_referencia) as (
+              values ('NOVO', '2026-09', date '2026-09-12'), ('ANTIGO', '2026-08', date '2026-08-10')
+          )
+          select
+              '11111111' as cnpj_raiz, '0001' as cnpj_ordem, '91' as cnpj_dv,
+              '1' as ind_matriz_filial, nome_fantasia, '02' as situacao,
+              '20221015' as dat_situacao, '00' as mot_situacao, null::varchar as cidade_exterior,
+              null::varchar as pais, '20221015' as dat_inicio_atividade,
+              '4741500' as cnae_principal, null::varchar as cnaes_secundarios,
+              null::varchar as tip_logradouro, null::varchar as logradouro,
+              null::varchar as num_logradouro, null::varchar as compl_logradouro,
+              null::varchar as bairro, null::varchar as cep, 'ES' as uf, '5643' as municipio,
+              null::varchar as sit_especial, null::varchar as dat_sit_especial,
+              _mes_referencia, _data_referencia
+          from meses
+    expect:
+      rows:
+        - { cnpj_completo: "11111111000191", nome_fantasia: "NOVO", _mes_referencia: "2026-09", _data_referencia: "2026-09-12" }

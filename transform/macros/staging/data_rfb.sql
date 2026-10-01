@@ -1,3 +1,3 @@
 {% macro data_rfb(coluna) -%}
-try_strptime(nullif(trim({{ coluna }}), '0'), '%Y%m%d')::date
+try_strptime(trim({{ coluna }}), '%Y%m%d')::date
 {%- endmacro %}

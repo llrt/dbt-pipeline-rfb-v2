@@ -89,10 +89,11 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   ├── models/
 │   │   ├── staging/rfb/  staging/basedosdados/
 │   │   ├── intermediate/
-│   │   ├── marts/original/     # bh_empresas, agg_empresas (+ paridade)
+│   │   ├── marts/original/     # bh_empresas, agg_empresas
 │   │   ├── marts/core/         # dims, fato, bridge            (adição)
 │   │   ├── marts/analytics/     # marts analíticos              (adição)
-│   │   └── observability/    # histórico e resumo de DQ      (adição)
+│   │   ├── observability/    # histórico e resumo de DQ      (adição)
+│   │   └── audit/            # tradução literal do SQL original (paridade; efêmero)
 │   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso)
 ├── data/ (gitignored)          # RAIZ_DADOS padrão
 │   ├── raw/rfb/<entidade>/mes_referencia=YYYY-MM/*.parquet
@@ -236,7 +237,7 @@ flowchart LR
   `situacao` ATIVA/INATIVA, `idade_atual` em anos com 1 casa, só para ATIVA). Diferença intencional única:
   idade relativa a `data_referencia` em vez de `now()` (marcada `escopo: adaptado`).
 - `agg_empresas`: `group by` das 10 dimensões; `qtd_empresas`, `media_idade`.
-- `paridade__bh_empresas_sql_original` (modelo efêmero de teste): o SQL do notebook 3 traduzido literalmente
+- `audit__bh_empresas_sql_original` (modelo efêmero de teste): o SQL do notebook 3 traduzido literalmente
   para DuckDB; um teste singular exige diferença zero contra `bh_empresas`.
 
 **Core — modelo estrela otimizado para BI (adição/melhoria, [ADR-0013](docs/adr/0013-modelo-estrela-bi.md)):**
