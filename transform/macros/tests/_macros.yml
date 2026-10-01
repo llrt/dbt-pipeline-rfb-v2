@@ -1,0 +1,11 @@
+version: 2
+
+macros:
+  - name: test_cnpj_dv_valido
+    description: >
+      Teste genérico: valida os dois dígitos verificadores do CNPJ (módulo 11; aceita CNPJ
+      alfanumérico). Falha com erro se a fração de inválidos passar de `limiar_erro` (padrão 0,1%).
+    meta: { escopo: adicao }
+  - name: test_data_nao_futura
+    description: "Teste genérico: a data da coluna não pode ser posterior a `data_referencia`."
+    meta: { escopo: adicao }

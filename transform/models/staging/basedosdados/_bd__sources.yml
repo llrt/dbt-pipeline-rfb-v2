@@ -28,7 +28,7 @@ sources:
               zeros à esquerda aqui). Duplicata multiplicaria linhas nos joins.
             data_tests:
               - unique:
-                  config: { severity: warn, meta: { escopo: original }, tags: [escopo_original] }
+                  config: { severity: warn, store_failures: true, meta: { escopo: original }, tags: [escopo_original] }
           - name: nome
             description: Nome do município, acentuado.
           - name: sigla_uf

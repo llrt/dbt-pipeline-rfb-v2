@@ -1,5 +1,6 @@
 {{ config(
     severity='warn',
+    store_failures=true,
     tags=['escopo_original'],
     meta={'escopo': 'original'}
 ) }}

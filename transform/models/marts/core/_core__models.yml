@@ -13,7 +13,7 @@ models:
         description: Código RFB do município; único (duplicata multiplicaria linhas da fato).
         data_tests:
           - unique:
-              config: { severity: warn }
+              config: { severity: warn, store_failures: true }
 
   - name: dim_municipio
     description: >
@@ -40,7 +40,7 @@ models:
         data_tests:
           - not_null
           - unique:
-              config: { severity: warn }
+              config: { severity: warn, store_failures: true }
       - name: nome_municipio
         description: >
           Nome do município (acentuado, Base dos Dados).
