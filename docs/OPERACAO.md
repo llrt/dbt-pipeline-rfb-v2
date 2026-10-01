@@ -40,6 +40,16 @@ Cada etapa imprime `== etapa <nome>: <segundos>s` e o fim do mês imprime o resu
 - O teste `fct_resumo_mensal_gold_corrente` (warn) acusa um gold corrente **atrasado**: se a série
   mensal tem um mês mais novo que o do build, alguém rodou um mês antigo por cima do corrente (por exemplo,
   `dbt build --vars mes_referencia` à mão). Correção: reprocesse o mês mais novo.
+- **Gold misto (R4-03).** Os marts `external` são regravados um a um durante o `dbt build` do mês
+  corrente, e um teste `error` só pula os **filhos** do modelo testado. Se o build falhar no meio, parte
+  do gold fica com o mês novo e parte com o anterior (por exemplo, `bh_empresas` novo e `agg_empresas`
+  antigo), e a partição nova do resumo pode já estar gravada. Para isso não passar calado, o pipeline
+  grava `_estado/em_andamento.json` (mês e hora) **antes** do `dbt build` e o apaga **só** quando ele
+  termina bem. Enquanto o marcador existir, `rfb relatorio` e `rfb publicar` (e a publicação no fim de um
+  backfill) recusam rodar com uma mensagem que diz o mês. **Como sair:** corrija a causa e rode
+  `rfb pipeline --mes <mês do marcador>` de novo até concluir; o build completo regrava todo o gold e
+  apaga o marcador. Um BI que leia o gold nessa janela pode misturar dois meses: agende a atualização
+  do BI depois do pipeline, não durante.
 - Um `flock` em `_estado/pipeline.lock` impede dois `pipeline`/`atualizar` simultâneos na mesma
   `RAIZ_DADOS` (a ingestão tem a sua trava, `_estado/rfb.lock`).
 
@@ -59,7 +69,10 @@ Após um `rfb atualizar` bem-sucedido:
 
 - **MotherDuck (P25, ADR-0016):** com `MOTHERDUCK_TOKEN` **e** `MOTHERDUCK_BANCO` definidos, o
   pipeline publica o gold no fim (`rfb publicar --destino motherduck`); no backfill publica só
-  `fct_resumo_mensal`. Sem as duas variáveis imprime `MotherDuck não configurado; nada publicado`.
+  `fct_resumo_mensal`. Todas as tabelas são recriadas numa **única transação** (`BEGIN … COMMIT` na
+  conexão DuckDB com o banco anexado): uma falha no meio desfaz tudo e o MotherDuck fica com a
+  publicação anterior inteira (R4-03). Testado com destino `.duckdb` local (`test_publicacao.py`); o
+  MotherDuck aceita transações com DDL, mas isso só é confirmado na 1ª publicação real (P25). Sem as duas variáveis imprime `MotherDuck não configurado; nada publicado`.
   `--sem-publicar` desliga. A publicação lê o gold **local**: com `RAIZ_DADOS=s3://` ela é pulada com
   aviso.
 - **S3/Tigris (ADR-0007):** com `RAIZ_DADOS=s3://…` o pipeline ingere em `RAIZ_DADOS_LOCAL`, roda

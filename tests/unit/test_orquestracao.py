@@ -305,6 +305,57 @@ def test_falha_do_relatorio_nao_grava_estado(
     assert ler_estado(configuracao) is None
 
 
+# ---------------------------------------------------------------------------- gold misto (R4-03)
+
+
+def _marcador(configuracao: Configuracao) -> Path:
+    return configuracao.raiz_dados / orquestracao.ARQUIVO_EM_ANDAMENTO
+
+
+def test_marcador_existe_durante_o_build_e_sai_no_sucesso(tmp_path: Path, ingeridos: list) -> None:
+    configuracao = _config(tmp_path)
+    vistos: list[tuple[str, bool]] = []
+    executor = ExecutorFalso()
+
+    def _dbt(argumentos: Sequence[str], ambiente: Mapping[str, str]) -> int:
+        vistos.append((argumentos[0], _marcador(configuracao).is_file()))
+        return executor(argumentos, ambiente)
+
+    executar_pipeline(configuracao, ["2026-09"], _opcoes(), executor=_dbt)
+    assert vistos == [("source", False), ("build", True)]
+    assert not _marcador(configuracao).exists()
+    orquestracao.verificar_gold_consistente(configuracao, "relatorio")  # não levanta
+
+
+def test_build_que_falha_deixa_o_marcador_e_relatorio_e_publicar_recusam(
+    tmp_path: Path, ingeridos: list, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    configuracao = _config(tmp_path)
+    gravar_estado(configuracao, Estado("2026-08", None, "x"))
+    with pytest.raises(PipelineErro, match="dbt build"):
+        executar_pipeline(
+            configuracao, ["2026-09"], _opcoes(), executor=ExecutorFalso(falhar=["build"])
+        )
+    assert json.loads(_marcador(configuracao).read_text())["mes_referencia"] == "2026-09"
+    assert ler_estado(configuracao).mes_referencia == "2026-08"
+
+    monkeypatch.setenv("RAIZ_DADOS", str(configuracao.raiz_dados))
+    monkeypatch.setattr(cli, "gerar_relatorio", lambda *a, **k: pytest.fail("gerou relatório"))
+    assert cli.main(["relatorio", "--saida", str(tmp_path / "r.md")]) == 1
+    assert "rfb relatorio recusado: o gold pode estar misto" in capsys.readouterr().err
+    monkeypatch.setenv("MOTHERDUCK_TOKEN", "t")
+    monkeypatch.setenv("MOTHERDUCK_BANCO", "rfb")
+    nao_publica = lambda *a, **k: pytest.fail("publicou")  # noqa: E731
+    monkeypatch.setattr(orquestracao, "publicar_motherduck", nao_publica)
+    with pytest.raises(ErroIngestao, match="rfb publicar recusado"):
+        orquestracao._publicar_se_configurado(configuracao, ["fct_resumo_mensal"])
+
+    # rodar o mesmo mês de novo até concluir tira o gold do estado misto
+    executar_pipeline(configuracao, ["2026-09"], _opcoes(publicar=False), executor=ExecutorFalso())
+    assert not _marcador(configuracao).exists()
+    assert ler_estado(configuracao).mes_referencia == "2026-09"
+
+
 def test_backfill_em_s3_envia_a_particao_movida_ao_bucket(
     tmp_path: Path, ingeridos: list, monkeypatch: pytest.MonkeyPatch
 ) -> None:

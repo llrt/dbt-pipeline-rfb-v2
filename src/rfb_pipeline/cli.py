@@ -39,7 +39,12 @@ from rfb_pipeline.manifesto import (
     sha256_arquivo,
     trava_execucao,
 )
-from rfb_pipeline.orquestracao import OpcoesPipeline, atualizar, executar_pipeline
+from rfb_pipeline.orquestracao import (
+    OpcoesPipeline,
+    atualizar,
+    executar_pipeline,
+    verificar_gold_consistente,
+)
 from rfb_pipeline.publicacao import publicar_motherduck
 from rfb_pipeline.relatorio import SAIDA_PADRAO, gerar_relatorio
 
@@ -355,6 +360,7 @@ def _cmd_publicar(argumentos: argparse.Namespace) -> int:
         if argumentos.tabelas
         else None
     )
+    verificar_gold_consistente(configuracao, "publicar")  # R4-03
     publicar_motherduck(configuracao, tabelas=tabelas)
     return 0
 
@@ -388,6 +394,7 @@ def _cmd_atualizar(argumentos: argparse.Namespace) -> int:
 
 def _cmd_relatorio(argumentos: argparse.Namespace) -> int:
     configuracao = carregar_configuracao()
+    verificar_gold_consistente(configuracao, "relatorio")  # R4-03
     saida = gerar_relatorio(configuracao, saida=argumentos.saida, target=argumentos.target)
     print(f"relatório escrito em {saida}")
     return 0

@@ -55,6 +55,8 @@ def test_ac1_mes_novo_processado_e_registrado_no_estado() -> None:
     assert estado["mes_referencia"] == "2026-09"
     assert estado["data_referencia"] == "2026-09-12"
     assert estado["concluido_em"]
+    # R4-03: o marcador de build em andamento sai quando o build termina bem
+    assert not (_raiz() / "_estado" / "em_andamento.json").exists()
 
 
 def test_ac2_segunda_chamada_e_no_op_sem_baixar_nem_rodar_dbt() -> None:

@@ -12,6 +12,10 @@ gravada noutra raiz temporária (`RFB_RAIZ_SERIE`) e, só depois de todos os tes
 `+fct_resumo_mensal` passarem, é movida para `gold/fct_resumo_mensal/` (R4-02). Vários meses numa
 chamada são processados do mais antigo ao mais novo.
 
+Gold misto (R4-03): os marts `external` são regravados um a um durante o `dbt build` do mês
+corrente; se ele falhar no meio, parte do gold fica no mês novo e parte no antigo. O marcador
+`_estado/em_andamento.json` é gravado antes do build e apagado só quando ele termina bem; enquanto
+existir, `rfb relatorio` e `rfb publicar` recusam rodar (`verificar_gold_consistente`).
 """
 
 from __future__ import annotations
@@ -36,6 +40,7 @@ from rfb_pipeline.publicacao import ler_destino_motherduck, publicar_motherduck
 from rfb_pipeline.relatorio import DIR_TRANSFORM, SAIDA_PADRAO, gerar_relatorio
 
 ARQUIVO_ESTADO = Path("_estado") / "ultima_execucao.json"
+ARQUIVO_EM_ANDAMENTO = Path("_estado") / "em_andamento.json"
 SELETOR_BACKFILL = "backfill_resumo_mensal"
 DATASET_SERIE = "fct_resumo_mensal"
 
@@ -95,11 +100,47 @@ def ler_estado(configuracao: Configuracao) -> Estado | None:
 def gravar_estado(configuracao: Configuracao, estado: Estado) -> Path:
     """Grava o estado atomicamente (temp + rename)."""
     destino = configuracao.raiz_dados / ARQUIVO_ESTADO
+    _gravar_json_atomico(destino, asdict(estado))
+    return destino
+
+
+# ---------------------------------------------------------------- gold em andamento (R4-03)
+
+
+def _gravar_json_atomico(destino: Path, dados: dict) -> None:
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_name(f".tmp-{destino.name}-{uuid.uuid4().hex}")
-    tmp.write_text(json.dumps(asdict(estado), ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(destino)
+
+
+def marcar_em_andamento(configuracao: Configuracao, mes: str) -> Path:
+    """Marca o gold como em reconstrução (antes do `dbt build` do mês corrente)."""
+    destino = configuracao.raiz_dados / ARQUIVO_EM_ANDAMENTO
+    _gravar_json_atomico(
+        destino, {"mes_referencia": mes, "iniciado_em": datetime.now(UTC).isoformat()}
+    )
     return destino
+
+
+def desmarcar_em_andamento(configuracao: Configuracao) -> None:
+    (configuracao.raiz_dados / ARQUIVO_EM_ANDAMENTO).unlink(missing_ok=True)
+
+
+def verificar_gold_consistente(configuracao: Configuracao, comando: str) -> None:
+    """Recusa `rfb <comando>` enquanto um build do mês corrente não terminou bem (R4-03)."""
+    marcador = configuracao.raiz_dados / ARQUIVO_EM_ANDAMENTO
+    if not marcador.is_file():
+        return
+    try:
+        mes = json.loads(marcador.read_text(encoding="utf-8")).get("mes_referencia", "?")
+    except (json.JSONDecodeError, AttributeError):
+        mes = "?"
+    raise ErroIngestao(
+        f"rfb {comando} recusado: o gold pode estar misto (o build de {mes} começou e não "
+        f"terminou bem; marcador {marcador}). Rode `rfb pipeline --mes {mes}` de novo até concluir "
+        '(ver docs/OPERACAO.md, "Gold misto")'
+    )
 
 
 # ---------------------------------------------------------------------------- dbt
@@ -207,10 +248,13 @@ def _processar_corrente(
         "freshness",
         lambda: _dbt_ou_falha(executor, "freshness", ["source", "freshness", *target], ambiente),
     )
+    # R4-03: um build que falha no meio deixa o gold misto; o marcador só sai no sucesso
+    marcar_em_andamento(configuracao, mes)
     cron.medir(
         "dbt_build",
         lambda: _dbt_ou_falha(executor, "dbt build", ["build", *target, *_vars(mes)], ambiente),
     )
+    desmarcar_em_andamento(configuracao)
     if opcoes.saida_relatorio is not None:
         saida = opcoes.saida_relatorio
         cron.medir(
@@ -304,6 +348,7 @@ def _publicar_se_configurado(configuracao: Configuracao, tabelas: list[str] | No
     if configuracao.raiz_dados_s3 is not None:
         print("aviso: RAIZ_DADOS é s3://; publicação no MotherDuck pulada (lê o gold local)")
         return
+    verificar_gold_consistente(configuracao, "publicar")
     publicar_motherduck(configuracao, tabelas=tabelas)
 
 
