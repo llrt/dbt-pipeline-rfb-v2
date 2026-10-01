@@ -123,3 +123,77 @@ def test_dim_data_vai_do_menor_dia_das_fatos_a_data_de_referencia_sem_lacunas() 
     assert str(ultimo) == "2026-09-12"
     assert dias == (ultimo - primeiro).days + 1
     assert _consultar("select count(*) from {dim_data} where sk_data = -1")[0][0] == 1
+
+
+# cnpj_completo do cenário (spec): raiz + ordem + DV.
+CNPJ_A = "11111111000191"
+CNPJ_C = "33333333000191"
+CNPJ_K = "13131313000120"
+CNPJ_L = "14141414000155"  # DV inválido (proposital)
+CNPJ_M = "15151515000160"
+CNPJ_O = "11111111000272"
+
+
+def test_fato_tem_15_linhas_sem_descartes() -> None:
+    assert _consultar(
+        "select count(*), count(distinct cnpj_completo) from {fct_estabelecimentos}"
+    ) == [(15, 15)]
+
+
+def test_fato_k_l_m_presentes_com_menos_um_na_dimensao_faltante() -> None:
+    linhas = {
+        r[0]: r[1:]
+        for r in _consultar(
+            "select cnpj_completo, sk_municipio, sk_cnae, sk_natureza_juridica "
+            "from {fct_estabelecimentos} where cnpj_completo in ('13131313000120', "
+            "'14141414000155', '15151515000160')"
+        )
+    }
+    assert set(linhas) == {CNPJ_K, CNPJ_L, CNPJ_M}
+    # K: município EXTERIOR (9707) sem par no BD; L: CNAE 3511500 sem par no BD (e DV inválido);
+    # M: município 1182 sem par no BD. Nas demais dimensões têm par.
+    assert linhas[CNPJ_K][0] == -1 and linhas[CNPJ_K][1] != -1
+    assert linhas[CNPJ_L][1] == -1 and linhas[CNPJ_L][0] != -1
+    assert linhas[CNPJ_M][0] == -1 and linhas[CNPJ_M][1] != -1
+    assert all(linha[2] != -1 for linha in linhas.values())
+
+
+def test_fato_m_tem_data_da_situacao_nula_como_menos_um() -> None:
+    (linha,) = _consultar(
+        "select sk_data_inicio_atividade, sk_data_situacao from {fct_estabelecimentos} "
+        f"where cnpj_completo = '{CNPJ_M}'"
+    )
+    assert linha == (20231201, -1)
+
+
+def test_fato_a_e_c_sao_mei() -> None:
+    mei = {
+        r[0] for r in _consultar("select cnpj_completo from {fct_estabelecimentos} where opcao_mei")
+    }
+    # A e a filial O (mesma raiz, a opção é da empresa) e C.
+    assert mei == {CNPJ_A, CNPJ_O, CNPJ_C}
+
+
+def test_fato_linha_a_atributos() -> None:
+    (linha,) = _consultar(
+        "select f.idade_anos, f.eh_matriz, f.eh_ativa, f.opcao_simples, f.capital_social, "
+        "m.nome_municipio, c.codigo_subclasse, n.codigo_natureza_juridica, p.rotulo_porte, "
+        "s.rotulo_situacao_cadastral, d.data "
+        "from {fct_estabelecimentos} f "
+        "join {dim_municipio} m using (sk_municipio) join {dim_cnae} c using (sk_cnae) "
+        "join {dim_natureza_juridica} n using (sk_natureza_juridica) "
+        "join {dim_porte} p using (sk_porte) "
+        "join {dim_situacao_cadastral} s using (sk_situacao_cadastral) "
+        "join {dim_data} d on d.sk_data = f.sk_data_inicio_atividade "
+        f"where f.cnpj_completo = '{CNPJ_A}'"
+    )
+    assert linha[:4] == (3.9, True, True, True)
+    assert linha[5:10] == ("Fundão", "4741500", "2135", "MICRO", "ATIVA")
+    assert str(linha[10]) == "2022-10-15"
+
+
+def test_fato_linha_o_e_filial() -> None:
+    (linha,) = _consultar(
+        f"select eh_matriz, eh_ativa from {{fct_estabelecimentos}} where cnpj_completo = '{CNPJ_O}'"
+    )
+    assert linha == (False, True)

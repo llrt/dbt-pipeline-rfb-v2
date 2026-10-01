@@ -298,6 +298,129 @@ models:
           Nome do dia da semana em português (segunda-feira … domingo).
         data_type: varchar
 
+  - name: int_estabelecimentos__enriquecidos
+    description: >
+      Estabelecimentos do mês selecionado com empresa, Simples/MEI e pares nos domínios, por LEFT
+      JOIN: nada é descartado (diferente dos inner joins de `bh_empresas`); a ausência de par vira
+      as flags `tem_*`. Base da fato e da bridge de CNAEs secundários.
+    columns:
+      - name: cnpj_completo
+        description: CNPJ de 14 dígitos; único por mês.
+        data_tests: [unique, not_null]
+      - name: matriz_filial_codigo
+        description: Indicador matriz (1) / filial (2); validado contra o seed `dominio_matriz_filial`.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dominio_matriz_filial')
+                field: codigo
+              config: { where: "matriz_filial_codigo is not null" }
+
+  - name: fct_estabelecimentos
+    description: >
+      Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimensão
+      degenerada), só com chaves inteiras para as dimensões, flags e medidas. Sem descartes
+      silenciosos: estabelecimento sem par numa dimensão fica com a chave `-1`. Parquet em
+      `gold/fct_estabelecimentos.parquet`; para o Power BI use `fct_resumo_mensal` (modo Import).
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: cnpj_completo
+        description: CNPJ completo (14 dígitos); dimensão degenerada e chave da linha.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: sk_municipio
+        description: >
+          Chave de `dim_municipio`; `-1` quando o município RFB não tem par na Base dos Dados (exterior, município novo).
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+      - name: sk_cnae
+        description: >
+          Chave de `dim_cnae` (CNAE principal); `-1` quando o CNAE não tem par na Base dos Dados.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
+      - name: sk_natureza_juridica
+        description: >
+          Chave de `dim_natureza_juridica`; `-1` quando a empresa não tem natureza no domínio.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_natureza_juridica')
+                field: sk_natureza_juridica
+      - name: sk_porte
+        description: >
+          Chave de `dim_porte`; `-1` quando o porte está vazio ou fora do domínio.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_porte')
+                field: sk_porte
+      - name: sk_situacao_cadastral
+        description: >
+          Chave de `dim_situacao_cadastral`; `-1` quando o código está fora do domínio.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_situacao_cadastral')
+                field: sk_situacao_cadastral
+      - name: sk_data_inicio_atividade
+        description: >
+          Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula ou inválida.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_data')
+                field: sk_data
+      - name: sk_data_situacao
+        description: >
+          Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`).
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_data')
+                field: sk_data
+      - name: idade_anos
+        description: >
+          Idade do estabelecimento em anos (1 casa), relativa a `data_referencia`, só para ativos
+          (NULL nos demais), como `bh_empresas.idade_atual`. Aditiva via soma, para médias no BI.
+        data_type: double
+      - name: opcao_simples
+        description: Optante pelo Simples Nacional na empresa (false quando não há registro).
+        data_type: boolean
+      - name: opcao_mei
+        description: Optante pelo MEI na empresa (false quando não há registro).
+        data_type: boolean
+      - name: capital_social
+        description: Capital social da empresa (R$); NULL quando o estabelecimento não tem empresa.
+        data_type: decimal(18,2)
+      - name: eh_matriz
+        description: Verdadeiro para matriz (`ind_matriz_filial = 1`).
+        data_type: boolean
+      - name: eh_ativa
+        description: Verdadeiro para situação cadastral ativa (código 2).
+        data_type: boolean
+
 unit_tests:
   - name: test_int_municipios_conformados_ano_mais_recente
     description: "CORE-01: sem a var `ano_populacao`, usa o último ano de população (2024: 20000, não 2023: 19000); PIB do último ano."
@@ -396,3 +519,82 @@ unit_tests:
         - { sk_data: 20000301, data: "2000-03-01", ano: 2000, semestre: 1, trimestre: 1, mes: 3, nome_mes: "março", ano_mes: "2000-03", dia: 1, dia_semana_numero: 3, dia_semana: "quarta-feira" }
         - { sk_data: 20000302, data: "2000-03-02", ano: 2000, semestre: 1, trimestre: 1, mes: 3, nome_mes: "março", ano_mes: "2000-03", dia: 2, dia_semana_numero: 4, dia_semana: "quinta-feira" }
         - { sk_data: -1, data: null, ano: null, semestre: null, trimestre: null, mes: null, nome_mes: "NÃO INFORMADO", ano_mes: "NÃO INFORMADO", dia: null, dia_semana_numero: null, dia_semana: "NÃO INFORMADO" }
+
+  - name: test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado
+    description: >
+      CORE-01: LEFT JOINs — estabelecimento sem empresa, sem CNAE no BD ou sem município no BD
+      permanece, com a flag `tem_*` falsa; Simples ausente vira `opcao_*` false.
+    model: int_estabelecimentos__enriquecidos
+    given:
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { cnpj_completo: "11111111000191", cnpj_raiz: "11111111", cnae_principal: "4741500", municipio_rfb_codigo: "5643" }
+          - { cnpj_completo: "14141414000100", cnpj_raiz: "14141414", cnae_principal: "3511500", municipio_rfb_codigo: "5699" }
+          - { cnpj_completo: "15151515000100", cnpj_raiz: "15151515", cnae_principal: "4711302", municipio_rfb_codigo: "1182" }
+          - { cnpj_completo: "99999999000100", cnpj_raiz: "99999999", cnae_principal: "4741500", municipio_rfb_codigo: "5643" }
+      - input: ref('stg_rfb__empresas')
+        rows:
+          - { cnpj_raiz: "11111111", natureza_juridica_codigo: "2135", porte_codigo: 1 }
+          - { cnpj_raiz: "14141414", natureza_juridica_codigo: "2062", porte_codigo: 5 }
+          - { cnpj_raiz: "15151515", natureza_juridica_codigo: "2135", porte_codigo: 1 }
+      - input: ref('stg_rfb__simples')
+        rows:
+          - { cnpj_raiz: "11111111", opcao_simples: true, opcao_mei: true }
+      - input: ref('stg_rfb__naturezas')
+        rows:
+          - { codigo: "2135", descricao: "Empresário (Individual)" }
+          - { codigo: "2062", descricao: "Sociedade Empresária Limitada" }
+      - input: ref('stg_bd__cnaes')
+        rows:
+          - { subclasse: "4741500" }
+          - { subclasse: "4711302" }
+      - input: ref('int_municipios__conformados')
+        rows:
+          - { id_municipio_ibge: "3202207", codigo_rfb: "5643" }
+          - { id_municipio_ibge: "3205002", codigo_rfb: "5699" }
+    expect:
+      rows:
+        - { cnpj_completo: "11111111000191", id_municipio_ibge: "3202207", opcao_mei: true, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: true }
+        - { cnpj_completo: "14141414000100", id_municipio_ibge: "3205002", opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: false, tem_municipio_bd: true }
+        - { cnpj_completo: "15151515000100", id_municipio_ibge: null, opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: false }
+        - { cnpj_completo: "99999999000100", id_municipio_ibge: "3202207", opcao_mei: false, tem_empresa: false, tem_natureza: false, tem_cnae_bd: true, tem_municipio_bd: true }
+
+  - name: test_fct_estabelecimentos_chaves_inteiras_e_menos_um
+    description: >
+      CORE-01/BI-01: sk's vêm das dimensões, `-1` quando falta par ou a data é nula; `idade_anos`
+      só para ativa (início 2022-10-15, referência 2026-09-12 → 3.9); flags `eh_matriz`/`eh_ativa`.
+    model: fct_estabelecimentos
+    given:
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows:
+          - { cnpj_completo: "A", matriz_filial_codigo: 1, situacao_codigo: 2, dat_inicio_atividade: "2022-10-15", dat_situacao: "2022-10-15", cnae_principal: "4741500", id_municipio_ibge: "3202207", natureza_juridica_codigo: "2135", porte_codigo: 1, opcao_simples: false, opcao_mei: true, _data_referencia: "2026-09-12" }
+          - { cnpj_completo: "M", matriz_filial_codigo: 2, situacao_codigo: 8, dat_inicio_atividade: "2023-12-01", dat_situacao: null, cnae_principal: "3511500", id_municipio_ibge: null, natureza_juridica_codigo: "9999", porte_codigo: null, opcao_simples: false, opcao_mei: false, _data_referencia: "2026-09-12" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 3202207, id_municipio_ibge: "3202207" }
+          - { sk_municipio: -1, id_municipio_ibge: "-1" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4741500, codigo_subclasse: "4741500" }
+          - { sk_cnae: -1, codigo_subclasse: "-1" }
+      - input: ref('dim_natureza_juridica')
+        rows:
+          - { sk_natureza_juridica: 2135, codigo_natureza_juridica: "2135" }
+          - { sk_natureza_juridica: -1, codigo_natureza_juridica: "-1" }
+      - input: ref('dim_porte')
+        rows:
+          - { sk_porte: 1 }
+          - { sk_porte: -1 }
+      - input: ref('dim_situacao_cadastral')
+        rows:
+          - { sk_situacao_cadastral: 2 }
+          - { sk_situacao_cadastral: 8 }
+      - input: ref('dim_data')
+        rows:
+          - { sk_data: 20221015, data: "2022-10-15" }
+          - { sk_data: 20231201, data: "2023-12-01" }
+          - { sk_data: -1, data: null }
+    expect:
+      rows:
+        - { cnpj_completo: "A", sk_municipio: 3202207, sk_cnae: 4741500, sk_natureza_juridica: 2135, sk_porte: 1, sk_situacao_cadastral: 2, sk_data_inicio_atividade: 20221015, sk_data_situacao: 20221015, idade_anos: 3.9, opcao_mei: true, eh_matriz: true, eh_ativa: true }
+        - { cnpj_completo: "M", sk_municipio: -1, sk_cnae: -1, sk_natureza_juridica: -1, sk_porte: -1, sk_situacao_cadastral: 8, sk_data_inicio_atividade: 20231201, sk_data_situacao: -1, idade_anos: null, opcao_mei: false, eh_matriz: false, eh_ativa: false }
