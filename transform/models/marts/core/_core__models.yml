@@ -382,6 +382,11 @@ models:
       contract:
         enforced: true
     data_tests:
+      # RBP-13: MEI exige a opção pelo Simples (N20).
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "not opcao_mei or opcao_simples"
+          config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 1
@@ -763,7 +768,8 @@ unit_tests:
   - name: test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado
     description: >
       CORE-01: LEFT JOINs — estabelecimento sem empresa, sem CNAE no BD ou sem município no BD
-      permanece, com a flag `tem_*` falsa; Simples ausente vira `opcao_*` false.
+      permanece, com a flag `tem_*` falsa; Simples ausente vira `opcao_*` false; optante do Simples que não é MEI
+      fica `opcao_simples` true e `opcao_mei` false (RBP-13, N20).
     model: int_estabelecimentos__enriquecidos
     given:
       - input: ref('stg_rfb__estabelecimentos')
@@ -780,6 +786,7 @@ unit_tests:
       - input: ref('stg_rfb__simples')
         rows:
           - { cnpj_raiz: "11111111", opcao_simples: true, opcao_mei: true }
+          - { cnpj_raiz: "14141414", opcao_simples: true, opcao_mei: false }
       - input: ref('stg_rfb__naturezas')
         rows:
           - { codigo: "2135", descricao: "Empresário (Individual)" }
@@ -794,10 +801,10 @@ unit_tests:
           - { id_municipio_ibge: "3205002", codigo_rfb: "5699" }
     expect:
       rows:
-        - { cnpj_completo: "11111111000191", id_municipio_ibge: "3202207", opcao_mei: true, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: true }
-        - { cnpj_completo: "14141414000100", id_municipio_ibge: "3205002", opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: false, tem_municipio_bd: true }
-        - { cnpj_completo: "15151515000100", id_municipio_ibge: null, opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: false }
-        - { cnpj_completo: "99999999000100", id_municipio_ibge: "3202207", opcao_mei: false, tem_empresa: false, tem_natureza: false, tem_cnae_bd: true, tem_municipio_bd: true }
+        - { cnpj_completo: "11111111000191", id_municipio_ibge: "3202207", opcao_simples: true, opcao_mei: true, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: true }
+        - { cnpj_completo: "14141414000100", id_municipio_ibge: "3205002", opcao_simples: true, opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: false, tem_municipio_bd: true }
+        - { cnpj_completo: "15151515000100", id_municipio_ibge: null, opcao_simples: false, opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: false }
+        - { cnpj_completo: "99999999000100", id_municipio_ibge: "3202207", opcao_simples: false, opcao_mei: false, tem_empresa: false, tem_natureza: false, tem_cnae_bd: true, tem_municipio_bd: true }
 
   - name: test_fct_estabelecimentos_chaves_inteiras_e_menos_um
     description: >

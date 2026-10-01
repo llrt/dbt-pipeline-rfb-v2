@@ -30,11 +30,11 @@
 |---|---|---|
 | Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (35 testes) |
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
-| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (78 testes) |
+| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (79 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (70 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (53 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (71 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (54 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
@@ -133,6 +133,7 @@
 | `stg_rfb__empresas.porte_codigo` | `accepted_values` {"values": [0, 1, 3, 5], "quote": false} | error | adicao | — |
 | `stg_rfb__empresas.porte_codigo` | `taxa_conversao_tipada` {"coluna_raw": "porte", "entidade": "empresas"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos` | Staging AC 14 / ADR-0008: nenhum modelo de staging, intermediate ou marts expõe dados de contato. | error | adicao | — |
+| `stg_rfb__estabelecimentos` | `expression_is_true` {"expression": "dat_situacao is null or dat_inicio_atividade is null or dat_situacao >= dat_inicio_atividade"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos._data_referencia` | `not_null` | error | adicao | — |
 | `stg_rfb__estabelecimentos.cnae_principal` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__estabelecimentos.cnpj_completo` | `cnpj_dv_valido` | warn | adicao | — |
@@ -242,6 +243,7 @@
 | `dim_situacao_cadastral.sk_situacao_cadastral` | `unique` | error | adicao | — |
 | `fct_estabelecimentos` | CORE-01: a fato não descarta nem duplica estabelecimentos (mesma contagem do staging do mês) e usa a chave -1 exatamente onde falta par na dimensão (flags `tem_*` da camada intermediate). | error | adicao | — |
 | `fct_estabelecimentos` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
+| `fct_estabelecimentos` | `expression_is_true` {"expression": "not opcao_mei or opcao_simples"} | warn | adicao | — |
 | `fct_estabelecimentos.cnpj_completo` | `not_null` | error | adicao | — |
 | `fct_estabelecimentos.cnpj_completo` | `unique` | error | adicao | — |
 | `fct_estabelecimentos.sk_cnae` | `not_null` | error | adicao | — |
@@ -293,6 +295,7 @@
 | `mart_concorrencia_area_mercado.sk_municipio` | `not_null` | error | adicao | — |
 | `mart_concorrencia_area_mercado.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `mart_concorrencia_municipio` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
+| `mart_concorrencia_municipio` | `expression_is_true` {"expression": "coalesce(populacao, 0) = 0 or ativos_por_10k_hab = round(ativos * 10000.0 / populacao, 2)"} | error | adicao | — |
 | `mart_concorrencia_municipio` | `unique_combination_of_columns` {"combination_of_columns": ["cnae_principal", "sk_municipio"]} | error | adicao | — |
 | `mart_concorrencia_municipio.ativos` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio.ativos_por_10k_hab` | `accepted_range` {"min_value": 0} | error | adicao | — |
@@ -364,6 +367,8 @@
 | `int_municipios__conformados` | `test_int_municipios_conformados_ano_mais_recente` | adicao |
 | `int_municipios__conformados` | `test_int_municipios_conformados_var_ano_populacao` | adicao |
 | `mart_concorrencia_area_mercado` | `test_mart_concorrencia_area_mercado_vizinhos_e_regiao` | adicao |
+| `mart_concorrencia_municipio` | `test_mart_concorrencia_municipio_densidade_por_10k_e_ranking` | adicao |
+| `mart_dinamica_mercado` | `test_mart_dinamica_mercado_aberturas_encerramentos_e_saldo` | adicao |
 | `mart_fornecedores_proximos` | `test_mart_fornecedores_proximos_haversine_e_via` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario` | adicao |

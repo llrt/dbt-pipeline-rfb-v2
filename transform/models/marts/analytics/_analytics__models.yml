@@ -8,6 +8,10 @@ models:
       população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e
       CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.
     data_tests:
+      # RBP-13: a densidade é por 10 mil habitantes (N11).
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "coalesce(populacao, 0) = 0 or ativos_por_10k_hab = round(ativos * 10000.0 / populacao, 2)"
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 1
@@ -564,3 +568,63 @@ unit_tests:
         - { sk_municipio: 10, qtd_vizinhos: 1, ativos_vizinhos: 2, inativos_vizinhos: 1, ativos_regiao_metropolitana: 3, inativos_regiao_metropolitana: 1, ativos_por_mil_domicilios: 0.5, ativos_por_km2: 0.01, ativos_area_por_mil_domicilios: 0.6, ativos_area_por_km2: 0.01 }
         - { sk_municipio: 20, qtd_vizinhos: 2, ativos_vizinhos: 1, inativos_vizinhos: 1, ativos_regiao_metropolitana: 3, inativos_regiao_metropolitana: 1, ativos_por_mil_domicilios: 0.666667, ativos_por_km2: 0.01, ativos_area_por_mil_domicilios: null, ativos_area_por_km2: null }
         - { sk_municipio: 30, qtd_vizinhos: 1, ativos_vizinhos: 2, inativos_vizinhos: 1, ativos_regiao_metropolitana: null, inativos_regiao_metropolitana: null, ativos_por_mil_domicilios: null, ativos_por_km2: null, ativos_area_por_mil_domicilios: null, ativos_area_por_km2: null }
+
+  - name: test_mart_concorrencia_municipio_densidade_por_10k_e_ranking
+    description: >
+      RBP-13 (N11): densidade = ativos × 10 000 / população (arredondada a 2 casas); município sem
+      população fica sem densidade e sem ranking; `ranking_uf` ordena a densidade dentro da UF e do CNAE.
+    model: mart_concorrencia_municipio
+    given:
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: true }
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: true }
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: true }
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: false }
+          - { sk_cnae: 1, sk_municipio: 2, eh_ativa: true }
+          - { sk_cnae: 1, sk_municipio: 3, eh_ativa: true }
+          - { sk_cnae: 1, sk_municipio: 3, eh_ativa: true }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 1, codigo_subclasse: "4741500", descricao_subclasse: "Tintas" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 1, nome_municipio: "Alfa", sigla_uf: "ES", populacao: 20000 }
+          - { sk_municipio: 2, nome_municipio: "Beta", sigla_uf: "ES", populacao: null }
+          - { sk_municipio: 3, nome_municipio: "Gama", sigla_uf: "ES", populacao: 30000 }
+    expect:
+      rows:
+        - { sk_municipio: 1, ativos: 3, inativos: 1, populacao: 20000, ativos_por_10k_hab: 1.5, ranking_uf: 1 }
+        - { sk_municipio: 2, ativos: 1, inativos: 0, populacao: null, ativos_por_10k_hab: null, ranking_uf: null }
+        - { sk_municipio: 3, ativos: 2, inativos: 0, populacao: 30000, ativos_por_10k_hab: 0.67, ranking_uf: 2 }
+
+  - name: test_mart_dinamica_mercado_aberturas_encerramentos_e_saldo
+    description: >
+      RBP-13: abertura no ano de início; encerramento no ano da situação só de inativos; data sem ano
+      (`-1`) não gera evento; `saldo` = aberturas − encerramentos.
+    model: mart_dinamica_mercado
+    given:
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: true, sk_data_inicio_atividade: 20200101, sk_data_situacao: 20200101 }
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: false, sk_data_inicio_atividade: 20200505, sk_data_situacao: 20220301 }
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: false, sk_data_inicio_atividade: 20210101, sk_data_situacao: 20220301 }
+          - { sk_cnae: 1, sk_municipio: 1, eh_ativa: true, sk_data_inicio_atividade: -1, sk_data_situacao: -1 }
+      - input: ref('dim_data')
+        rows:
+          - { sk_data: 20200101, ano: 2020 }
+          - { sk_data: 20200505, ano: 2020 }
+          - { sk_data: 20210101, ano: 2021 }
+          - { sk_data: 20220301, ano: 2022 }
+          - { sk_data: -1, ano: null }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 1, codigo_subclasse: "4741500", descricao_subclasse: "Tintas" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 1, nome_municipio: "Alfa", sigla_uf: "ES" }
+    expect:
+      rows:
+        - { ano: 2020, aberturas: 2, encerramentos: 0, saldo: 2 }
+        - { ano: 2021, aberturas: 1, encerramentos: 0, saldo: 1 }
+        - { ano: 2022, aberturas: 0, encerramentos: 2, saldo: -2 }

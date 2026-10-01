@@ -196,6 +196,12 @@ models:
       `cnpj_completo` com 14 dígitos, datas `YYYYMMDD` -> DATE (`0`, `00000000` e inválidas ->
       NULL), códigos com zeros à esquerda, CNAEs secundários como texto original e como lista.
       **Sem** colunas de contato (`email`, `ddd*`, `tel*`, `fax`) — ADR-0008.
+    data_tests:
+      # RBP-13: a situação atual não pode ser anterior ao início da atividade (datas nulas ficam de fora).
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "dat_situacao is null or dat_inicio_atividade is null or dat_situacao >= dat_inicio_atividade"
+          config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
     columns:
       - name: cnpj_raiz
         description: 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).
@@ -516,25 +522,27 @@ unit_tests:
           dat_situacao_especial: null
 
   - name: test_stg_rfb__estabelecimentos_datas
-    description: "STG AC 10: datas `0`, `00000000` e `20230230` (inexistente) -> NULL; `20000229` (ano bissexto) -> 2000-02-29."
+    description: "STG AC 10: datas `0`, `00000000` e `20230230` (inexistente) -> NULL; `20000229` (ano bissexto) -> 2000-02-29; cada coluna de data lê o próprio campo raw (RBP-13, N19)."
     model: stg_rfb__estabelecimentos
     given:
       - input: source('rfb', 'estabelecimentos')
         format: sql
         rows: |
-          with datas(cnpj_raiz, dat_inicio_atividade) as (
-              values ('1', '0'), ('2', '00000000'), ('3', '20230230'), ('4', '20000229')
+          with datas(cnpj_raiz, dat_inicio_atividade, dat_situacao, dat_sit_especial) as (
+              values
+                  ('1', '0', '0', '0'), ('2', '00000000', '00000000', '00000000'),
+                  ('3', '20230230', '20230230', '20230230'), ('4', '20000229', '20010301', '20020415')
           )
           select
               cnpj_raiz, '0001' as cnpj_ordem, '00' as cnpj_dv, '1' as ind_matriz_filial,
               null::varchar as nome_fantasia, '02' as situacao,
-              dat_inicio_atividade as dat_situacao, '00' as mot_situacao,
+              dat_situacao, '00' as mot_situacao,
               null::varchar as cidade_exterior, null::varchar as pais, dat_inicio_atividade,
               '4741500' as cnae_principal, null::varchar as cnaes_secundarios,
               null::varchar as tip_logradouro, null::varchar as logradouro,
               null::varchar as num_logradouro, null::varchar as compl_logradouro,
               null::varchar as bairro, null::varchar as cep, 'ES' as uf, '5643' as municipio,
-              null::varchar as sit_especial, dat_inicio_atividade as dat_sit_especial,
+              null::varchar as sit_especial, dat_sit_especial,
               '2026-09' as _mes_referencia, date '2026-09-12' as _data_referencia
           from datas
     expect:
@@ -544,8 +552,8 @@ unit_tests:
         - { cnpj_raiz: "00000003", dat_inicio_atividade: null, dat_situacao: null, dat_situacao_especial: null }
         - cnpj_raiz: "00000004"
           dat_inicio_atividade: "2000-02-29"
-          dat_situacao: "2000-02-29"
-          dat_situacao_especial: "2000-02-29"
+          dat_situacao: "2001-03-01"
+          dat_situacao_especial: "2002-04-15"
 
   - name: test_stg_rfb__estabelecimentos_cnaes_secundarios
     description: "`'4679699,4744099'` -> lista de 2; itens com espaço/sem zero à esquerda -> trim + 7 dígitos; vazio/NULL -> texto NULL e lista vazia."
