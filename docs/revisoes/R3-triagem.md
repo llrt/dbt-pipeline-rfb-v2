@@ -16,7 +16,7 @@ estabelecimentos) passou verde em 275 s (PASS=251 WARN=7 ERROR=0, pico de RSS 24
 | **R3-03** `dim_data` (P16 + P21) | Adotado o desenho da R3: calendário de **1900-01-01** até `greatest(data_referencia, maior data válida)`; membro **−2 "DATA INVÁLIDA"** para datas anteriores a 1900 (na fato; `bh_empresas` intocado por causa da paridade); datas sentinela contíguas **−1 → 1899-12-31**, **−2 → 1899-12-30** (`ano`/`mes` NULL); `accepted_range` de início passa a 1900 (warn). Guia: marcar `dim_data` como tabela de datas. | F3a | `910af26`, `f823b44` |
 | **R3-04** notebook 4 × caixa de texto | Manter a correção (`upper` dos dois lados) como **`adaptado`** (bug latente do original: as buscas por micro e mesorregião sempre davam 0, daí "nada nas imediações"). Comentário na analysis, linha no ESCOPO, nota no relatório; fixture com um fabricante 2071100 ATIVO na microrregião de Linhares para matar M21. | F3b | `2155921`, `bfceca1` |
 | **R3-05** `DUCKDB_THREADS` | Variáveis separadas: `DBT_THREADS` (paralelismo de nós, `as_number`) e `DUCKDB_THREADS` (vai em `settings.threads` do DuckDB). Teste de `dbt debug` com as duas definidas. P14 passa a ser medida com a variável certa no B8. | F3a | `b2309eb` |
-| **R3-06** `rfb relatorio` com `s3://` (P19) | Para o B8 (T28/T36): httpfs + secret na conexão do relatório, URI S3 no `dbt compile`, teste unitário. | B8 | — |
+| **R3-06** `rfb relatorio` com `s3://` (P19) | Para o B8 (T28/T36): httpfs + secret na conexão do relatório, URI S3 no `dbt compile`, teste unitário. | B8 | `0a375af` (B8) |
 | **R3-07** limites da sobrevivência | unit test com coorte elegível a 1 ano e não a 3, e baixa exatamente no aniversário. | F3b | `7635347` |
 | **R3-08** prioridade da `via` | unit test com CNAE de fornecedor no principal e no secundário, e com dois secundários. | F3b | `7635347` |
 | **R3-09** casos positivos de DQ | CNPJ alfanumérico válido e inválido; data futura num estabelecimento. | F3b | `f623e29` |
@@ -32,7 +32,7 @@ estabelecimentos) passou verde em 275 s (PASS=251 WARN=7 ERROR=0, pico de RSS 24
 | **R3-19** "ativa" ≠ em operação | nota de interpretação no relatório e no guia. | F3b | `8d58da0` |
 | **R3-20** marts sem `sk_*` | expor `sk_municipio`/`sk_cnae` nos marts de analytics. | F3b | `00c2a6e` |
 | **P18** grafias de município | manter; documentar no `POWER_BI.md` e no ESCOPO (`upper(nome_municipio)` + UF para cruzar com os marts do original). | F3a | `51cb2d8` |
-| **P22** ordem de meses | para o B8, com as três medidas da R3 (ordem garantida, `external_root` temporário no backfill, teste de gold "corrente"). | B8 | — |
+| **P22** ordem de meses | para o B8, com as três medidas da R3 (ordem garantida, `external_root` temporário no backfill, teste de gold "corrente"). | B8 | `ea97413`, `0583f3a` (B8) |
 
 Execução: **F3a** (Claude Sonnet médio, nível de origem dos lotes B6/B7b) primeiro, por mexer no modelo estrela
 e no guia; **F3b** (Claude Sonnet médio, nível do B7) em seguida, sobre DQ, analyses, relatório e testes.

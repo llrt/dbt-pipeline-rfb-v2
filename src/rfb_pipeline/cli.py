@@ -1,8 +1,8 @@
 """CLI de linha de comando do pipeline RFB/CNPJ.
 
 `rfb ingerir` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sincronizar` publica
-raw/gold no S3/Tigris (T11). `rfb relatorio` gera o relatório do estudo de caso (T27);
-`pipeline` ainda é stub (T28).
+raw/gold no S3/Tigris (T11). `rfb relatorio` gera o relatório do estudo de caso (T27).
+`rfb pipeline` (T28) e `rfb atualizar` (T36) orquestram tudo (ver `orquestracao.py`).
 """
 
 from __future__ import annotations
@@ -39,16 +39,11 @@ from rfb_pipeline.manifesto import (
     sha256_arquivo,
     trava_execucao,
 )
+from rfb_pipeline.orquestracao import OpcoesPipeline, atualizar, executar_pipeline
 from rfb_pipeline.publicacao import publicar_motherduck
 from rfb_pipeline.relatorio import SAIDA_PADRAO, gerar_relatorio
 
-SAIDA_NAO_IMPLEMENTADA = 2
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")
-
-
-def _nao_implementado(nome: str) -> None:
-    print(f"{nome}: não implementado")
-    sys.exit(SAIDA_NAO_IMPLEMENTADA)
 
 
 # ---------------------------------------------------------------------------- ingerir
@@ -364,8 +359,31 @@ def _cmd_publicar(argumentos: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_pipeline(_argumentos: argparse.Namespace) -> None:
-    _nao_implementado("pipeline")
+def _opcoes_pipeline(argumentos: argparse.Namespace) -> OpcoesPipeline:
+    return OpcoesPipeline(
+        origem_local=argumentos.origem_local,
+        permitir_incompleto=argumentos.permitir_incompleto,
+        forcar=argumentos.forcar,
+        ingerir=not getattr(argumentos, "sem_ingestao", False),
+        target=argumentos.target,
+        saida_relatorio=None if argumentos.sem_relatorio else argumentos.saida_relatorio,
+        publicar=not argumentos.sem_publicar,
+    )
+
+
+def _cmd_pipeline(argumentos: argparse.Namespace) -> int:
+    configuracao = carregar_configuracao()
+    for mes in argumentos.mes or []:
+        if not _RE_MES.match(mes):
+            raise ErroIngestao(f"--mes inválido: {mes!r} (formato AAAA-MM)")
+    executar_pipeline(configuracao, argumentos.mes, _opcoes_pipeline(argumentos))
+    return 0
+
+
+def _cmd_atualizar(argumentos: argparse.Namespace) -> int:
+    configuracao = carregar_configuracao()
+    atualizar(configuracao, _opcoes_pipeline(argumentos))
+    return 0
 
 
 def _cmd_relatorio(argumentos: argparse.Namespace) -> int:
@@ -373,6 +391,44 @@ def _cmd_relatorio(argumentos: argparse.Namespace) -> int:
     saida = gerar_relatorio(configuracao, saida=argumentos.saida, target=argumentos.target)
     print(f"relatório escrito em {saida}")
     return 0
+
+
+def _argumentos_orquestracao(analisador: argparse.ArgumentParser) -> None:
+    analisador.add_argument(
+        "--origem-local",
+        dest="origem_local",
+        type=Path,
+        default=None,
+        help="Usa fixtures locais em vez da rede (layout <dir>/rfb, <dir>/bd).",
+    )
+    analisador.add_argument(
+        "--permitir-incompleto",
+        dest="permitir_incompleto",
+        action="store_true",
+        help="Aceita mês sem todos os arquivos esperados.",
+    )
+    analisador.add_argument(
+        "--forcar", action="store_true", help="Reconverte mesmo se o manifesto não mudou."
+    )
+    analisador.add_argument(
+        "--target", default=None, help="Target dbt (padrão: o do profile; `s3` com s3://)."
+    )
+    analisador.add_argument(
+        "--saida-relatorio",
+        dest="saida_relatorio",
+        type=Path,
+        default=SAIDA_PADRAO,
+        help="Arquivo Markdown do relatório (padrão: docs/RELATORIO_ESTUDO_CASO.md).",
+    )
+    analisador.add_argument(
+        "--sem-relatorio", dest="sem_relatorio", action="store_true", help="Não gera o relatório."
+    )
+    analisador.add_argument(
+        "--sem-publicar",
+        dest="sem_publicar",
+        action="store_true",
+        help="Não publica no MotherDuck mesmo se configurado.",
+    )
 
 
 def _construir_analisador() -> argparse.ArgumentParser:
@@ -421,8 +477,41 @@ def _construir_analisador() -> argparse.ArgumentParser:
     )
     p_publicar.set_defaults(func=_cmd_publicar)
 
-    p_pipeline = sub.add_parser("pipeline", help="Pipeline ponta a ponta (não implementado).")
+    p_pipeline = sub.add_parser(
+        "pipeline",
+        help="Ponta a ponta: ingestão, freshness, dbt build, relatório, publicação (T28).",
+        description=(
+            "Processa os meses do mais antigo ao mais novo. Um mês anterior ao gold corrente "
+            "(_estado/ultima_execucao.json) roda como backfill: só a partição dele em "
+            "gold/fct_resumo_mensal é gravada no gold."
+        ),
+    )
+    p_pipeline.add_argument(
+        "--mes",
+        action="append",
+        default=None,
+        help="Mês AAAA-MM (repetível; padrão: o mais recente completo).",
+    )
+    p_pipeline.add_argument(
+        "--sem-ingestao",
+        dest="sem_ingestao",
+        action="store_true",
+        help="Usa o raw já presente em RAIZ_DADOS (exige --mes).",
+    )
+    _argumentos_orquestracao(p_pipeline)
     p_pipeline.set_defaults(func=_cmd_pipeline)
+
+    p_atualizar = sub.add_parser(
+        "atualizar",
+        help="Atualização mensal: processa o mês completo mais recente se for novo (T36).",
+        description=(
+            "Compara o mês completo mais recente da origem com _estado/ultima_execucao.json; se "
+            "for novo roda o pipeline e aplica a retenção (RFB_MESES_RETIDOS, RFB_MANTER_ZIPS); "
+            "senão imprime 'nenhum mês novo' e sai com 0 sem baixar nada."
+        ),
+    )
+    _argumentos_orquestracao(p_atualizar)
+    p_atualizar.set_defaults(func=_cmd_atualizar)
 
     p_relatorio = sub.add_parser(
         "relatorio", help="Gera o relatório do estudo de caso (docs/RELATORIO_ESTUDO_CASO.md)."

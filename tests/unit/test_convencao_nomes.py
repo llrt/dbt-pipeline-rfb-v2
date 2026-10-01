@@ -48,6 +48,7 @@ MODULOS_ESPERADOS = {
     "erros",
     "esquemas",
     "manifesto",
+    "orquestracao",
     "publicacao",
     "relatorio",
 }

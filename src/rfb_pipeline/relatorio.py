@@ -2,8 +2,10 @@
 
 Fluxo: `dbt compile` das analyses (resolve `ref()` e as vars `caso_*`) -> consulta cada SQL
 compilado no `warehouse.duckdb` (as views dos marts apontam para o Parquet em `gold/`) -> renderiza
-`docs/RELATORIO_ESTUDO_CASO.md`. O corpo é determinístico; só a linha `> Execução dbt` do cabeçalho
-da seção de qualidade carrega identificador e horário da última execução.
+`docs/RELATORIO_ESTUDO_CASO.md`. Com `RAIZ_DADOS=s3://` (R3-06/P19) as analyses são compiladas com a
+URI S3 e target `s3`, e a conexão de leitura carrega `httpfs` e cria um secret S3 temporário (as
+views dos marts apontam para `s3://…/gold`). O corpo é determinístico; só a linha `> Execução dbt`
+do cabeçalho da seção de qualidade carrega identificador e horário da última execução.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from pathlib import Path
 
 import duckdb
 
-from rfb_pipeline.configuracao import Configuracao
+from rfb_pipeline.configuracao import Configuracao, CredenciaisS3, ler_credenciais_s3
 from rfb_pipeline.erros import ErroIngestao
 
 RAIZ_REPO = Path(__file__).resolve().parents[2]
@@ -44,11 +46,18 @@ def _executavel_dbt() -> list[str]:
     raise RelatorioErro("executável `dbt` não encontrado; rode `make setup`")
 
 
-def compilar_analises(dir_transform: Path, raiz_dados: Path, target: str | None) -> dict[str, str]:
+def compilar_analises(
+    dir_transform: Path,
+    raiz_dados: Path | str,
+    target: str | None,
+    raiz_dados_local: Path | None = None,
+) -> dict[str, str]:
     """Roda `dbt compile` nas analyses do estudo de caso e devolve `{nome: SQL compilado}`.
 
-    Compila num `--target-path` temporário: o `target/` do projeto guarda o `run_results.json` do
-    último build, que outras ferramentas e testes leem (R3-16).
+    `raiz_dados` é o `RAIZ_DADOS` do dbt: caminho local ou URI `s3://` (nesse caso
+    `raiz_dados_local` vira `RAIZ_DADOS_LOCAL`, onde o profile `s3` acha o `.duckdb`). Compila num
+    `--target-path` temporário: o `target/` do projeto guarda o `run_results.json` do último build,
+    que outras ferramentas e testes leem (R3-16).
     """
     with tempfile.TemporaryDirectory(prefix="rfb-relatorio-") as temporario:
         comando = [
@@ -66,6 +75,8 @@ def compilar_analises(dir_transform: Path, raiz_dados: Path, target: str | None)
             "RAIZ_DADOS": str(raiz_dados),
             "DBT_PROFILES_DIR": os.environ.get("DBT_PROFILES_DIR", str(dir_transform)),
         }
+        if raiz_dados_local is not None:
+            ambiente["RAIZ_DADOS_LOCAL"] = str(raiz_dados_local)
         resultado = subprocess.run(
             comando, cwd=dir_transform, env=ambiente, capture_output=True, text=True, check=False
         )
@@ -81,12 +92,56 @@ def compilar_analises(dir_transform: Path, raiz_dados: Path, target: str | None)
     return sqls
 
 
-def executar_analises(warehouse: Path, sqls: dict[str, str]) -> dict[str, Tabela]:
-    """Executa os SQLs compilados no warehouse (somente leitura)."""
+def _literal(texto: str) -> str:
+    return "'" + texto.replace("'", "''") + "'"
+
+
+def sql_conexao_s3(credenciais: CredenciaisS3) -> list[str]:
+    """Comandos que preparam a conexão do relatório para ler o gold em S3 (R3-06).
+
+    Espelha o profile `s3` (`transform/profiles.yml`): `httpfs` e um secret S3 **temporário** (só
+    desta conexão; não é gravado no `.duckdb`, que é aberto somente leitura).
+    """
+    opcoes = [
+        "TYPE s3",
+        f"KEY_ID {_literal(credenciais.access_key_id)}",
+        f"SECRET {_literal(credenciais.secret_access_key)}",
+        f"ENDPOINT {_literal(credenciais.endpoint_sem_esquema)}",
+        f"REGION {_literal(credenciais.regiao)}",
+        f"URL_STYLE {_literal(credenciais.url_style)}",
+        f"USE_SSL {'true' if credenciais.usa_ssl else 'false'}",
+    ]
+    return [
+        "INSTALL httpfs",
+        "LOAD httpfs",
+        "CREATE OR REPLACE TEMPORARY SECRET rfb_relatorio_s3 (" + ", ".join(opcoes) + ")",
+    ]
+
+
+def executar_analises(
+    warehouse: Path,
+    sqls: dict[str, str],
+    preparo: list[str] | None = None,
+    segredos: tuple[str, ...] = (),
+) -> dict[str, Tabela]:
+    """Executa os SQLs compilados no warehouse (somente leitura), após os comandos de `preparo`.
+
+    Mensagens de erro do preparo saem com os `segredos` mascarados.
+    """
     if not warehouse.is_file():
         raise RelatorioErro(f"warehouse não encontrado em {warehouse}; rode `dbt build` antes")
     resultados: dict[str, Tabela] = {}
     with duckdb.connect(str(warehouse), read_only=True) as con:
+        for comando in preparo or []:
+            try:
+                con.execute(comando)
+            except duckdb.Error as exc:  # sem o comando na mensagem: ele contém o secret
+                mensagem = str(exc)
+                for segredo in segredos:
+                    mensagem = mensagem.replace(segredo, "***")
+                raise RelatorioErro(
+                    f"falha ao preparar a conexão S3 do relatório: {mensagem}"
+                ) from None
         for nome, sql in sqls.items():
             try:
                 cursor = con.execute(sql)
@@ -350,8 +405,18 @@ def gerar_relatorio(
     warehouse = Path(
         os.environ.get("CAMINHO_DUCKDB") or configuracao.raiz_dados / "warehouse.duckdb"
     )
-    sqls = compilar_analises(dir_transform, configuracao.raiz_dados, target)
-    resultados = executar_analises(warehouse, sqls)
+    preparo: list[str] = []
+    segredos: tuple[str, ...] = ()
+    if configuracao.raiz_dados_s3 is not None:
+        credenciais = ler_credenciais_s3()
+        preparo = sql_conexao_s3(credenciais)
+        segredos = (credenciais.secret_access_key, credenciais.access_key_id)
+        sqls = compilar_analises(
+            dir_transform, configuracao.raiz_dados_s3, target or "s3", configuracao.raiz_dados
+        )
+    else:
+        sqls = compilar_analises(dir_transform, configuracao.raiz_dados, target)
+    resultados = executar_analises(warehouse, sqls, preparo, segredos)
     texto = renderizar(resultados, ler_qualidade(warehouse))
     saida.parent.mkdir(parents=True, exist_ok=True)
     saida.write_text(texto, encoding="utf-8")

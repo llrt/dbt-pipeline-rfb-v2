@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import sys
 import uuid
 import zipfile
 import zlib
@@ -203,6 +204,7 @@ def _sql_copia_rfb(
     mes: str,
     data_ref: date | None,
     ingerido_em: datetime,
+    encoding: str = "latin-1",
 ) -> str:
     colunas = ", ".join(_identificador(c) for c in entidade.colunas)
     tecnicas = (
@@ -219,7 +221,7 @@ def _sql_copia_rfb(
         struct = ", ".join(f"{_literal(c)}: 'VARCHAR'" for c in entidade.colunas)
         origem = (
             f"read_csv({_literal(str(csv))}, delim=';', quote='\"', escape='\"', header=false, "
-            f"encoding='latin-1', all_varchar=true, columns={{{struct}}}, "
+            f"encoding={_literal(encoding)}, all_varchar=true, columns={{{struct}}}, "
             f"store_rejects=true, rejects_table='{_TABELA_REJEITOS}', "
             f"rejects_scan='{_TABELA_REJEITOS_VARREDURA}')"
         )
@@ -227,6 +229,20 @@ def _sql_copia_rfb(
         f"COPY (SELECT {colunas}, {tecnicas} FROM {origem}) "
         f"TO {_literal(str(parquet))} (FORMAT parquet, COMPRESSION zstd)"
     )
+
+
+_MSG_NAO_LATIN1 = "not latin-1 encoded"
+_BLOCO_TRANSCODIFICACAO = 64 * 1024 * 1024
+
+
+def _transcodificar_latin1_para_utf8(origem: Path, destino: Path) -> int:
+    """Copia `origem` (latin-1) para `destino` em UTF-8; devolve quantos bytes 0x80–0x9F havia."""
+    controles = 0
+    with origem.open("rb") as entrada, destino.open("wb") as saida:
+        while bloco := entrada.read(_BLOCO_TRANSCODIFICACAO):
+            controles += sum(bloco.count(bytes([b])) for b in range(0x80, 0xA0))
+            saida.write(bloco.decode("latin-1").encode("utf-8"))
+    return controles
 
 
 def _existe_tabela(con: duckdb.DuckDBPyConnection, nome: str) -> bool:
@@ -251,13 +267,36 @@ def _converter_csv_rfb(
     As tabelas de rejeitos do DuckDB acumulam entre scans, então são descartadas antes de cada
     arquivo; os rejeitos deste arquivo são copiados para a tabela da entidade.
     """
-    con.execute(f"DROP TABLE IF EXISTS {_TABELA_REJEITOS}")
-    con.execute(f"DROP TABLE IF EXISTS {_TABELA_REJEITOS_VARREDURA}")
-    sql = _sql_copia_rfb(csv, parquet, entidade, arquivo_origem, mes, data_ref, ingerido_em)
+
+    def _copiar(origem: Path, encoding: str) -> tuple | None:
+        con.execute(f"DROP TABLE IF EXISTS {_TABELA_REJEITOS}")
+        con.execute(f"DROP TABLE IF EXISTS {_TABELA_REJEITOS_VARREDURA}")
+        sql = _sql_copia_rfb(
+            origem, parquet, entidade, arquivo_origem, mes, data_ref, ingerido_em, encoding
+        )
+        return con.execute(sql).fetchone()
+
     try:
-        linha = con.execute(sql).fetchone()
+        linha = _copiar(csv, "latin-1")
     except duckdb.Error as exc:
-        raise ConversaoErro(f"{arquivo_origem}/{csv.name}", str(exc)) from exc
+        if _MSG_NAO_LATIN1 not in str(exc):
+            raise ConversaoErro(f"{arquivo_origem}/{csv.name}", str(exc)) from exc
+        # O decodificador latin-1 do DuckDB recusa os bytes 0x80–0x9F (controles C1), que o
+        # extrato real traz em raros campos (ex.: 2026-09, Estabelecimentos0: dois bytes 0x8F).
+        # ISO-8859-1 mapeia todo byte para U+0000–U+00FF: transcodifica em Python e relê em UTF-8.
+        utf8 = csv.with_name(csv.name + ".utf8")
+        try:
+            controles = _transcodificar_latin1_para_utf8(csv, utf8)
+            print(
+                f"aviso: {arquivo_origem}/{csv.name}: {controles} byte(s) 0x80–0x9F; "
+                "relido após transcodificar latin-1 -> UTF-8",
+                file=sys.stderr,
+            )
+            linha = _copiar(utf8, "utf-8")
+        except duckdb.Error as exc2:
+            raise ConversaoErro(f"{arquivo_origem}/{csv.name}", str(exc2)) from exc2
+        finally:
+            utf8.unlink(missing_ok=True)
     linhas = int(linha[0]) if linha else 0
 
     if not _existe_tabela(con, _TABELA_REJEITOS):

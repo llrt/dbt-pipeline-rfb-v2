@@ -1,10 +1,12 @@
 # Seleções nomeadas (RBP-14, adição): documentam a intenção e evitam que o `make ci` e o
 # `rfb atualizar` divirjam por flags repetidas. Uso: `dbt <comando> --selector <nome>`.
+# Os dois `backfill_*` são usados pelo `rfb pipeline` (src/rfb_pipeline/orquestracao.py) para um mês
+# mais antigo que o gold corrente (P22), com `RFB_EXTERNAL_ROOT` e `.duckdb` temporários.
 selectors:
-  - name: ci_mes_antigo
+  - name: backfill_resumo_mensal
     description: >
       Constrói só o necessário para `fct_resumo_mensal` (modelos e seeds a montante, sem testes), no
-      mês antigo do `make ci`: a série histórica precisa da partição do mês anterior.
+      backfill de mês antigo: a série histórica ganha a partição do mês sem regravar o gold corrente.
     definition:
       union:
         - method: fqn
@@ -16,11 +18,21 @@ selectors:
             - method: resource_type
               value: unit_test
 
-  - name: ci_resumo_mes_antigo
-    description: Testes do resumo mensal sobre o mês antigo (integridade histórica entre as duas partições).
+  - name: backfill_resumo_mensal_testes
+    description: >
+      Testes do resumo mensal sobre o mês do backfill (unicidade, reconciliação e relacionamentos do
+      mês), menos os que comparam com o gold corrente e por definição divergem no backfill: o de gold
+      corrente e o de integridade histórica (as dimensões do backfill são as do mês antigo; o próximo
+      build do mês corrente confere todas as partições contra as dimensões atuais).
     definition:
-      method: fqn
-      value: fct_resumo_mensal
+      union:
+        - method: fqn
+          value: fct_resumo_mensal
+        - exclude:
+            - method: fqn
+              value: fct_resumo_mensal_gold_corrente
+            - method: fqn
+              value: fct_resumo_mensal_integridade_historica
 
   - name: original
     description: Nós do escopo `original` (port dos notebooks 0–5), com os testes.

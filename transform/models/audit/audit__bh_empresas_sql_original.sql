@@ -7,24 +7,32 @@
 -- SQL do notebook 3 (`bh_empresas`) traduzido literalmente para DuckDB, lendo as fontes RAW (não o
 -- staging), para o teste `paridade_bh_empresas` (ADR-0005). Emula a leitura do original
 -- (`spark.read.csv(..., inferSchema=True)`): os códigos que o Spark inferiu como inteiro entram
--- com `try_cast(... as bigint)` antes dos joins e dos `case`; o resto fica texto como veio.
+-- com `try_cast(... as bigint)` antes dos joins e dos `case`; o resto fica texto como veio. Os
+-- componentes do CNPJ (raiz, ordem) usam `inferschema_inteiro_ou_texto`: com CNPJ alfanumérico no
+-- mês (desde 2026-09) o Spark os leria como texto (B8).
 -- Traduções: `nvl` -> `coalesce`; `lpad(x, n, 0)` sobre inteiro -> `lpad(x::varchar, n, '0')`;
 -- `datediff(fim, ini)` -> `datediff('day', ini, fim)`; `to_date(x, 'yyyyMMdd')` -> `try_strptime`;
 -- `now()` -> `data_referencia()` (ADR-0004).
 with empresas as (
   select
-    try_cast(cnpj_raiz as bigint) as cnpj_raiz,
+    {{ inferschema_inteiro_ou_texto('cnpj_raiz', source('rfb', 'empresas'), filtro_mes_referencia(source('rfb', 'empresas'))) }}
+      as cnpj_raiz,
     razao_social,
     try_cast(natureza_jur as bigint) as natureza_jur,
     try_cast(porte as bigint) as porte
   from {{ source('rfb', 'empresas') }}
   where {{ filtro_mes_referencia(source('rfb', 'empresas')) }}
+  -- emula a adaptação do staging (raiz duplicada no extrato real; ver `empresa_preferida_por_raiz`)
+  qualify {{ empresa_preferida_por_raiz() }}
 ),
 
 estabelecimentos as (
+  -- CNPJ: inteiro ou texto conforme o mês (CNPJ alfanumérico; ver `inferschema_inteiro_ou_texto`)
   select
-    try_cast(cnpj_raiz as bigint) as cnpj_raiz,
-    try_cast(cnpj_ordem as bigint) as cnpj_ordem,
+    {{ inferschema_inteiro_ou_texto('cnpj_raiz', source('rfb', 'estabelecimentos'), filtro_mes_referencia(source('rfb', 'estabelecimentos'))) }}
+      as cnpj_raiz,
+    {{ inferschema_inteiro_ou_texto('cnpj_ordem', source('rfb', 'estabelecimentos'), filtro_mes_referencia(source('rfb', 'estabelecimentos'))) }}
+      as cnpj_ordem,
     try_cast(cnpj_dv as bigint) as cnpj_dv,
     nome_fantasia,
     try_cast(situacao as bigint) as situacao,

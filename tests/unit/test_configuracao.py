@@ -222,3 +222,20 @@ def test_carregar_configuracao_rejeita_variavel_antiga_com_instrucao(
         carregar_configuracao(env={antiga: "/x"})
     assert antiga in str(excecao.value)
     assert f"renomeie {antiga} para {nova}" in str(excecao.value)
+
+
+def test_retencao_padrao_e_sobrescritas() -> None:
+    padrao = carregar_configuracao({})
+    assert (padrao.meses_retidos, padrao.manter_zips) == (2, False)
+    c = carregar_configuracao({"RFB_MESES_RETIDOS": "3", "RFB_MANTER_ZIPS": "True"})
+    assert (c.meses_retidos, c.manter_zips) == (3, True)
+    assert carregar_configuracao({"RFB_MANTER_ZIPS": "false"}).manter_zips is False
+
+
+@pytest.mark.parametrize(
+    ("variavel", "valor"),
+    [("RFB_MESES_RETIDOS", "0"), ("RFB_MESES_RETIDOS", "dois"), ("RFB_MANTER_ZIPS", "talvez")],
+)
+def test_retencao_invalida_falha_citando_a_variavel(variavel: str, valor: str) -> None:
+    with pytest.raises(ConfiguracaoInvalidaErro, match=variavel):
+        carregar_configuracao({variavel: valor})

@@ -727,3 +727,24 @@ def test_bd_reconversao_substitui(fixtures: Path, configuracao: Configuracao) ->
         )
     assert r.linhas == 8
     assert sorted(p.name for p in (configuracao.raw_dir / "bd").iterdir()) == ["municipio"]
+
+
+def test_bytes_de_controle_c1_sao_relidos_em_utf8(
+    configuracao: Configuracao, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Extrato real 2026-09: o DuckDB recusa 0x80–0x9F como latin-1; a conversão transcodifica."""
+    caminho = tmp_path / "Empresas0.zip"
+    linhas = [
+        b'"00000001";"ACENTUA\xc7\xc3O";"2062";"05";"1000,00";"01";""',
+        b'"00000002";"CONTROLE \x8f C1";"2062";"05";"1000,00";"01";""',
+    ]
+    with zipfile.ZipFile(caminho, "w") as zf:
+        zf.writestr("K3241.K03200Y0.D60912.EMPRECSV", b"\n".join(linhas) + b"\n")
+    (resultado,) = converter_entidade_rfb(
+        [caminho], ENTIDADES_RFB["empresas"], MES, configuracao, ingerido_em=INGERIDO_EM
+    )
+    assert (resultado.linhas, resultado.linhas_rejeitadas) == (2, 0)
+    nomes = sorted(r["razao_social"] for r in _ler(resultado.parquet[0]))
+    assert nomes == ["ACENTUAÇÃO", "CONTROLE \x8f C1"]
+    assert "1 byte(s) 0x80–0x9F" in capsys.readouterr().err
+    assert not list(tmp_path.rglob("*.utf8"))

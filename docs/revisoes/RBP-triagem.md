@@ -21,7 +21,7 @@ de `settings`), RBP-03 (`make ci` sem `pytest tests/unit` nem lint) e RBP-10 (ne
 | **RBP-09** colunas sem descrição (87,3 %) | descrever as colunas dos intermediários; guarda de cobertura (≥ 98 % das colunas reais com `description`) | FBPa | `4f24bd5` (FBPa) |
 | **RBP-10** `dbt_expectations` instalado e não usado | **usar** (decisão): é o pacote dos checks de volume/distribuição pedidos no RBP-02 e exemplo vivo para o guia | FBPa | `a7b65ef` (FBPa) |
 | **RBP-11** versões | `require-dbt-version: [">=1.10.5", "<2.0.0"]`; faixas de versão no `pyproject.toml` | FBPa | `76536ab` (FBPa) |
-| **RBP-12** histórico de DQ só no `.duckdb` | exportar o histórico também para `gold/dq_historico_testes/` (Parquet) no `on-run-end`, para sobreviver ao descarte do warehouse | B8 | — |
+| **RBP-12** histórico de DQ só no `.duckdb` | exportar o histórico também para `gold/dq_historico_testes/` (Parquet) no `on-run-end`, para sobreviver ao descarte do warehouse | B8 | `16b031a` (B8) |
 | **RBP-13** regras protegidas só por fixtures | invariantes `warn`: `dat_situacao >= dat_inicio_atividade`, MEI ⇒ Simples; unit tests de `mart_concorrencia_municipio` e `mart_dinamica_mercado` (N11, N19, N20 devem morrer no dbt) | FBPa | `6b2eb47` (FBPa) |
 | **RBP-14** seleção complexa no Makefile | adotar `selectors.yml` (seletores `ci_mes_antigo`, `original`, `adicao`, `incremento_enriquecimento_bd`) — **adição** | FBPa | `8dcca6a` (FBPa) |
 | **RBP-15** groups/access | não agora: projeto único, sem consumidores dbt externos; registrado como sugestão no guia | — | — |

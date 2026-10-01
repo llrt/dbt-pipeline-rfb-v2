@@ -1,4 +1,5 @@
 {{ config(
+    location=raiz_gold() ~ '/fct_resumo_mensal',
     options={'partition_by': 'mes_referencia', 'overwrite_or_ignore': true}
 ) }}
 -- Fato agregada para BI (ADR-0012/0013). Grão = mês × município × CNAE × porte × situação × MEI
@@ -10,6 +11,8 @@
 -- `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: o build de um mês só reescreve a partição dele
 -- (`overwrite_or_ignore`), então o histórico sobrevive ao `warehouse.duckdb`. O dbt-duckdb cria a
 -- visão desta relação sobre TODAS as partições do disco; é ela que o BI e as análises consomem.
+-- Localização fixa no gold real (`raiz_gold`), mesmo com `RFB_EXTERNAL_ROOT` temporário: é assim que o
+-- backfill de mês antigo grava só esta partição no gold sem sobrescrever o resto (P22).
 -- `sk_mes_referencia` = 1º dia do mês como `yyyymm01`, a mesma chave de `dim_data.sk_data`.
 with mes as (
   select max(_mes_referencia) as mes_referencia

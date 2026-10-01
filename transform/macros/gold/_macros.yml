@@ -1,0 +1,9 @@
+version: 2
+
+macros:
+  - name: raiz_gold
+    description: >
+      Raiz do gold real (`RAIZ_DADOS/gold`), independente do `external_root` do target: o backfill de
+      mês antigo (P22) usa um `external_root` temporário, e só a partição de `fct_resumo_mensal` e o
+      histórico de DQ (RBP-12) gravam aqui.
+    meta: { escopo: adicao }

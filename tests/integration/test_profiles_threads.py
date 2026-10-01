@@ -43,7 +43,12 @@ def test_duckdb_threads_chega_ao_motor_e_dbt_threads_ao_dbt(
 
 
 def test_temp_directory_do_profile_chega_ao_motor(tmp_path: Path) -> None:
-    """RBP-01: `temp_directory` no topo do profile é ignorado; só vale dentro de `settings`."""
+    """RBP-01: `temp_directory` no topo do profile é ignorado; vale em `config_options` (B8).
+
+    Em `settings`, o dbt-duckdb reaplica `SET temp_directory` a cada cursor novo, e o DuckDB recusa
+    ("Cannot switch temporary directory after the current one has been used") depois do 1º spill —
+    observado no build real de 2026-09 com seleção parcial e 8 threads.
+    """
     resultado = _dbt(
         tmp_path,
         "show", "--inline", "select current_setting('temp_directory') like '%/_tmp' as ok",

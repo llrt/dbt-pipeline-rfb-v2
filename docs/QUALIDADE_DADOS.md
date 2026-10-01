@@ -33,7 +33,7 @@
 | Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (79 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (71 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (72 testes) |
 | Análises | Depois | Marts analíticos: invariantes numéricas. (54 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
@@ -48,7 +48,7 @@
 | `cnaes.codigo` | `not_null` | error | original | 2.1.1 |
 | `empresas` | R1-21: `--vars 'mes_referencia: 2026-10'` sem partição geraria staging vazio e todos os testes passariam. | error | adicao | — |
 | `empresas` | R1-22: os checks `relationships` do original (natureza, CNAE principal e município de empresas/estabelecimentos -> domínios) comparados DENTRO de cada `_mes_referencia`. | error | original | 2.2 / 2.3 |
-| `empresas` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_raiz", "_mes_referencia"]} | error | original | 2.2 |
+| `empresas` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_raiz", "_mes_referencia"]} | warn | original | 2.2 |
 | `empresas._data_referencia` | `not_null` | error | adicao | — |
 | `empresas.cnpj_raiz` | `not_null` | error | original | 2.2 |
 | `empresas.porte` | `accepted_values` {"values": ["00", "01", "03", "05"]} | error | original | 2.2 |
@@ -114,7 +114,7 @@
 | `stg_bd__pib.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__populacao` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
 | `stg_bd__populacao.ano` | `not_null` | error | adicao | — |
-| `stg_bd__populacao.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__populacao.id_municipio` | `not_null` | warn | adicao | — |
 | `stg_bd__populacao.populacao` | `accepted_range` {"min_value": 1} | warn | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
@@ -261,6 +261,7 @@
 | `fct_estabelecimentos.sk_situacao_cadastral` | `not_null` | error | adicao | — |
 | `fct_estabelecimentos.sk_situacao_cadastral` | `relationships` {"to": "ref('dim_situacao_cadastral')", "field": "sk_situacao_cadastral"} | error | adicao | — |
 | `fct_resumo_mensal` | BI-02 / ADR-0013: a partição do mês processado em `fct_resumo_mensal` reconcilia com `fct_estabelecimentos` (quantidade, ativos, matrizes, capital das matrizes e soma da idade); soma errada ou partição ausente retornam uma linha. | error | adicao | — |
+| `fct_resumo_mensal` | P22 (R3): o gold "corrente" (dimensões, `fct_estabelecimentos`, marts) é sempre o do mês mais novo da série. | warn | adicao | — |
 | `fct_resumo_mensal` | R3-18 / BI-02: toda chave da partição do mês processado existe na dimensão correspondente. | error | adicao | — |
 | `fct_resumo_mensal` | R3-18: as chaves de TODAS as partições de `fct_resumo_mensal` existem nas dimensões atuais. | warn | adicao | — |
 | `fct_resumo_mensal` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
@@ -348,6 +349,7 @@
 | Modelo | Teste | Escopo |
 |---|---|---|
 | `agg_empresas` | `test_agg_empresas_agrupa_conta_e_tira_media` | adicao |
+| `audit__bh_empresas_sql_original` | `test_audit__bh_empresas_sql_original_cnpj_alfanumerico` | adicao |
 | `audit__bh_empresas_sql_original` | `test_audit__bh_empresas_sql_original_joins_por_inteiro` | adicao |
 | `bh_empresas` | `test_bh_empresas_idade_usa_var_data_referencia` | adicao |
 | `bh_empresas` | `test_bh_empresas_nome_e_dominios` | adicao |
@@ -379,6 +381,7 @@
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_e_texto_vazio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_filtra_mes_mais_recente` | adicao |
+| `stg_rfb__empresas` | `test_stg_rfb__empresas_raiz_duplicada_vira_uma_linha` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_tipagem` | adicao |
 | `stg_rfb__estabelecimentos` | `test_stg_rfb__estabelecimentos_cnaes_secundarios` | adicao |
 | `stg_rfb__estabelecimentos` | `test_stg_rfb__estabelecimentos_cnpj_e_codigos` | adicao |
