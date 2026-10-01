@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from rfb_pipeline.erros import ConfiguracaoInvalidaErro, CredenciaisS3FaltandoErro
 
-RAIZ_DADOS_PADRAO = "./data"
+RAIZ_DADOS_PADRAO = "./dados"
 _VARS_S3_OBRIGATORIAS = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3")
 
 
@@ -120,7 +120,7 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
     equivale a ausente (usa o padrão), para que `cp .env.example .env` não quebre nada.
 
     Quando `RAIZ_DADOS` é `s3://...` (ADR-0007), a ingestão (EL) continua lendo/escrevendo em um
-    diretório **local**, `RAIZ_DADOS_LOCAL` (padrão `./data`): `configuracao.raiz_dados` sempre
+    diretório **local**, `RAIZ_DADOS_LOCAL` (padrão `./dados`): `configuracao.raiz_dados` sempre
     aponta para esse diretório local, e `configuracao.raiz_dados_s3` guarda a URI remota (usada por
     `rfb sincronizar` e pelo secret do DuckDB). Credenciais S3 são validadas já aqui, cedo,
     citando as variáveis faltantes.

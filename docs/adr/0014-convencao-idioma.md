@@ -34,6 +34,8 @@ do projeto, variáveis de ambiente do projeto, diretórios de dados próprios, m
 | Make `ingest` / `sync` / `report` | `ingerir` / `sincronizar` / `relatorio` |
 | `DATA_ROOT`, `DATA_ROOT_LOCAL` | `RAIZ_DADOS`, `RAIZ_DADOS_LOCAL` |
 | `DATA_ROOT/_manifests`, `_downloads` | `_manifestos`, `_baixados` |
+| `data/` (diretório padrão de `RAIZ_DADOS`), `part-<zip>.parquet`, `extract-<entidade>-*`, `_rfb_rejeitos_scan`, `_no_implementado` | `dados/`, `parte-<zip>.parquet`, `extracao-<entidade>-*`, `_rfb_rejeitos_varredura`, `_nao_implementado` (R2-09) |
+| `DBT_DUCKDB_PATH` (variável do projeto com prefixo de terceiros) | `CAMINHO_DUCKDB` (R2-09) |
 | identificadores Python com palavras em inglês (ex.: `lock_execucao`, `sha`) | equivalentes em português (`trava_execucao`, `sha256_arquivo`…) |
 
 **Consequências.** Um teste automatizado (`tests/unit/test_convencao_nomes.py`) protege a regra nas partes

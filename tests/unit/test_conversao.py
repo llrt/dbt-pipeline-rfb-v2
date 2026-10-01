@@ -42,7 +42,7 @@ def fixtures(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture
 def configuracao(tmp_path: Path) -> Configuracao:
-    raiz = tmp_path / "data"
+    raiz = tmp_path / "dados"
     return Configuracao(
         raiz_dados=raiz, raiz_dados_uri=str(raiz), duckdb_memory_limit="1GB", duckdb_threads=2
     )
@@ -109,7 +109,7 @@ def test_empresas_e_estabelecimentos_contagens_da_spec(
 def test_resultado_e_caminho_publicado(fixtures: Path, configuracao: Configuracao) -> None:
     (resultado,) = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
 
-    esperado = _particao(configuracao, "empresas") / "part-Empresas0.parquet"
+    esperado = _particao(configuracao, "empresas") / "parte-Empresas0.parquet"
     assert resultado == ResultadoConversao(
         entidade="empresas",
         arquivo_origem="Empresas0.zip",
@@ -124,7 +124,7 @@ def test_resultado_e_caminho_publicado(fixtures: Path, configuracao: Configuraca
     assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
         f"mes_referencia={MES}"
     ]
-    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extracao-*"))
 
 
 def test_razao_social_terminada_em_barra_invertida(
@@ -292,8 +292,8 @@ def test_varios_zips_da_entidade_um_parquet_cada(
 
     assert [r.arquivo_origem for r in resultados] == ["Empresas0.zip", "Empresas1.zip"]
     assert sorted(p.name for p in _particao(configuracao, "empresas").iterdir()) == [
-        "part-Empresas0.parquet",
-        "part-Empresas1.parquet",
+        "parte-Empresas0.parquet",
+        "parte-Empresas1.parquet",
     ]
     glob = configuracao.raw_dir / "rfb" / "empresas" / "*" / "*.parquet"
     total = duckdb.sql(
@@ -305,13 +305,13 @@ def test_varios_zips_da_entidade_um_parquet_cada(
 
 def test_reconversao_substitui_particao(fixtures: Path, configuracao: Configuracao) -> None:
     _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
-    lixo = _particao(configuracao, "empresas") / "part-Antigo.parquet"
+    lixo = _particao(configuracao, "empresas") / "parte-Antigo.parquet"
     lixo.write_bytes(b"x")
 
     _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
 
     assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
-        "part-Empresas0.parquet"
+        "parte-Empresas0.parquet"
     ]
 
 
@@ -418,7 +418,7 @@ def test_falha_preserva_particao_anterior(
         )
 
     assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
-        "part-Empresas0.parquet"
+        "parte-Empresas0.parquet"
     ]
     assert anterior.parquet[0].read_bytes() == conteudo
     assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
@@ -442,7 +442,7 @@ def test_falha_no_segundo_zip_nao_publica_nada(
         )
 
     assert list((configuracao.raw_dir / "rfb" / "empresas").iterdir()) == []
-    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extracao-*"))
 
 
 def test_publicacao_atomica_falha_entre_renames_restaura_anterior(
@@ -479,7 +479,7 @@ def test_publicacao_atomica_falha_entre_renames_restaura_anterior(
     assert [a.startswith(".tmp-") for a, _ in chamadas[:2]] == [False, True]
     # Ao término a partição existe e é a antiga, íntegra (sem arquivos da nova).
     assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
-        "part-Empresas0.parquet"
+        "parte-Empresas0.parquet"
     ]
     assert anterior.parquet[0].read_bytes() == conteudo
     assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
@@ -505,7 +505,7 @@ def test_publicacao_atomica_sucesso_troca_inteira(
 
     # Nova íntegra, sem mistura com a anterior e sem sobras (.old-*/.tmp-*).
     assert [p.name for p in _particao(configuracao, "empresas").iterdir()] == [
-        "part-Empresas1.parquet"
+        "parte-Empresas1.parquet"
     ]
     assert sorted(p.name for p in (configuracao.raw_dir / "rfb" / "empresas").iterdir()) == [
         f"mes_referencia={MES}"
@@ -541,13 +541,13 @@ def test_entidade_com_zero_linhas_nao_e_publicada(
     assert exc.value.arquivos == ["Estabelecimentos0.zip"]
     assert isinstance(exc.value, ErroIngestao)
     assert [p.name for p in _particao(configuracao, "estabelecimentos").iterdir()] == [
-        "part-Estabelecimentos0.parquet"
+        "parte-Estabelecimentos0.parquet"
     ]
     assert anterior.parquet[0].read_bytes() == conteudo
     assert sorted(
         p.name for p in (configuracao.raw_dir / "rfb" / "estabelecimentos").iterdir()
     ) == [f"mes_referencia={MES}"]
-    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extracao-*"))
 
 
 def test_dominio_pequeno_vazio_nao_e_publicado(configuracao: Configuracao, tmp_path: Path) -> None:
@@ -688,7 +688,7 @@ def test_zip_com_crc_invalido(fixtures: Path, configuracao: Configuracao, tmp_pa
         )
 
     assert list((configuracao.raw_dir / "rfb" / "empresas").iterdir()) == []
-    assert not any((configuracao.raiz_dados / "_tmp").glob("extract-*"))
+    assert not any((configuracao.raiz_dados / "_tmp").glob("extracao-*"))
 
 
 # -------------------------------------------------------------------------- BD

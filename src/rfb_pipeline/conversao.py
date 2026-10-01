@@ -191,7 +191,7 @@ def _dir_temporario(final_dir: Path) -> Path:
 # -------------------------------------------------------------------------- RFB
 
 _TABELA_REJEITOS = "_rfb_rejeitos"
-_TABELA_REJEITOS_VARREDURA = "_rfb_rejeitos_scan"
+_TABELA_REJEITOS_VARREDURA = "_rfb_rejeitos_varredura"
 _TABELA_REJEITOS_ENTIDADE = "_rfb_rejeitos_entidade"
 
 
@@ -305,7 +305,7 @@ def converter_entidade_rfb(
 ) -> list[ResultadoConversao]:
     """Converte todos os zips de uma entidade RFB e publica a partição do mês atomicamente.
 
-    Cada zip vira `part-<nome do zip sem extensão>.parquet` em
+    Cada zip vira `parte-<nome do zip sem extensão>.parquet` em
     `raw/rfb/<entidade>/mes_referencia=<mes>/`. A conversão ocorre num diretório temporário irmão
     e só é publicada (substituindo a partição anterior) quando todos os zips foram convertidos e a
     taxa de rejeito da entidade, `rejeitadas / (gravadas + rejeitadas)`, não excede
@@ -327,7 +327,7 @@ def converter_entidade_rfb(
     )
     final_dir.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = _dir_temporario(final_dir)
-    extracao_dir = configuracao.raiz_dados / "_tmp" / f"extract-{entidade.nome}-{uuid.uuid4().hex}"
+    extracao_dir = configuracao.raiz_dados / "_tmp" / f"extracao-{entidade.nome}-{uuid.uuid4().hex}"
 
     parciais: list[tuple[str, str, int, int, str, date | None]] = []
     con: duckdb.DuckDBPyConnection | None = None
@@ -346,7 +346,7 @@ def converter_entidade_rfb(
             csv = _unico_arquivo(caminho_zip, extrair_zip_seguro(caminho_zip, extracao_dir))
             nome_interno = csv.relative_to(extracao_dir.resolve()).as_posix()
             data_ref = data_referencia_do_nome(nome_interno, mes)
-            nome_parquet = f"part-{caminho_zip.stem}.parquet"
+            nome_parquet = f"parte-{caminho_zip.stem}.parquet"
             try:
                 linhas, rejeitadas = _converter_csv_rfb(
                     con,

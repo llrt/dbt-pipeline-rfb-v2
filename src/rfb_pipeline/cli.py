@@ -43,7 +43,7 @@ SAIDA_NAO_IMPLEMENTADA = 2
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")
 
 
-def _no_implementado(nome: str) -> None:
+def _nao_implementado(nome: str) -> None:
     print(f"{nome}: não implementado")
     sys.exit(SAIDA_NAO_IMPLEMENTADA)
 
@@ -65,7 +65,7 @@ def _limpar_residuos(configuracao: Configuracao) -> None:
         residuos.extend(configuracao.manifestos_dir.glob(".tmp-*"))
     tmp_dir = configuracao.raiz_dados / "_tmp"
     if tmp_dir.is_dir():
-        residuos.extend(tmp_dir.glob("extract-*"))
+        residuos.extend(tmp_dir.glob("extracao-*"))
     for residuo in residuos:
         if residuo.is_dir():
             shutil.rmtree(residuo, ignore_errors=True)
@@ -351,11 +351,11 @@ def _cmd_sincronizar(_argumentos: argparse.Namespace) -> int:
 
 
 def _cmd_pipeline(_argumentos: argparse.Namespace) -> None:
-    _no_implementado("pipeline")
+    _nao_implementado("pipeline")
 
 
 def _cmd_relatorio(_argumentos: argparse.Namespace) -> None:
-    _no_implementado("relatorio")
+    _nao_implementado("relatorio")
 
 
 def _construir_analisador() -> argparse.ArgumentParser:

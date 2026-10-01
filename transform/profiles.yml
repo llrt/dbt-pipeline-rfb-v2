@@ -3,18 +3,18 @@ rfb:
   outputs:
     ci:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', env_var('RAIZ_DADOS', '../data') ~ '/warehouse.duckdb') }}"
-      external_root: "{{ env_var('RAIZ_DADOS', '../data') }}/gold"
+      path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
       threads: "{{ env_var('DUCKDB_THREADS', 4) }}"
-      temp_directory: "{{ env_var('RAIZ_DADOS', '../data') }}/_tmp"
+      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '2GB') }}"
     dev:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', env_var('RAIZ_DADOS', '../data') ~ '/warehouse.duckdb') }}"
-      external_root: "{{ env_var('RAIZ_DADOS', '../data') }}/gold"
+      path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
       threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
-      temp_directory: "{{ env_var('RAIZ_DADOS', '../data') }}/_tmp"
+      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
     # Modo S3 (ADR-0007): fontes e gold em RAIZ_DADOS (s3://...); o arquivo .duckdb e os temporários
@@ -22,10 +22,10 @@ rfb:
     # Sem valor padrão nas credenciais: dbt falha nomeando a variável que faltar.
     s3:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', env_var('RAIZ_DADOS_LOCAL', '../data') ~ '/warehouse.duckdb') }}"
-      external_root: "{{ env_var('RAIZ_DADOS', '../data') }}/gold"
+      path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS_LOCAL', '../dados') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
       threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
-      temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../data') }}/_tmp"
+      temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"
       extensions:
         - httpfs
       settings:

@@ -9,9 +9,9 @@ from rfb_pipeline.erros import ConfiguracaoInvalidaErro, CredenciaisS3FaltandoEr
 
 
 def test_carregar_configuracao_usa_padroes_sem_sobrescritas(tmp_path: Path) -> None:
-    configuracao = carregar_configuracao(env={"RAIZ_DADOS": str(tmp_path / "data")})
+    configuracao = carregar_configuracao(env={"RAIZ_DADOS": str(tmp_path / "dados")})
 
-    assert configuracao.raiz_dados == (tmp_path / "data").resolve()
+    assert configuracao.raiz_dados == (tmp_path / "dados").resolve()
     assert configuracao.max_taxa_rejeito == 0.0001
     assert configuracao.velocidade_minima_bps == 50 * 1024
     assert configuracao.janela_lentidao_s == 60.0
@@ -21,7 +21,7 @@ def test_carregar_configuracao_usa_padroes_sem_sobrescritas(tmp_path: Path) -> N
 
 def test_carregar_configuracao_le_sobrescritas_do_ambiente(tmp_path: Path) -> None:
     env = {
-        "RAIZ_DADOS": str(tmp_path / "data"),
+        "RAIZ_DADOS": str(tmp_path / "dados"),
         "RFB_MAX_TAXA_REJEITO": "0.05",
         "RFB_VELOCIDADE_MINIMA_BPS": "1000",
         "RFB_JANELA_LENTIDAO_S": "30",
@@ -75,7 +75,7 @@ def test_carregar_configuracao_raiz_dados_local_padrao_quando_nao_definido() -> 
         }
     )
 
-    assert configuracao.raiz_dados == Path("./data").resolve()
+    assert configuracao.raiz_dados == Path("./dados").resolve()
 
 
 def test_ler_credenciais_s3_deriva_endpoint_sem_esquema_e_ssl() -> None:
@@ -144,7 +144,7 @@ def test_variaveis_vazias_equivalem_a_ausentes(tmp_path: Path) -> None:
         }
     )
 
-    assert configuracao.raiz_dados == Path("./data").resolve()
+    assert configuracao.raiz_dados == Path("./dados").resolve()
     assert configuracao.raiz_dados_s3 is None
     assert configuracao.duckdb_threads == 4
     assert configuracao.duckdb_memory_limit == "8GB"
@@ -164,7 +164,7 @@ def test_raiz_dados_local_vazio_no_modo_s3_usa_o_padrao() -> None:
         }
     )
 
-    assert configuracao.raiz_dados == Path("./data").resolve()
+    assert configuracao.raiz_dados == Path("./dados").resolve()
 
 
 def test_tetos_de_baixa_lidos_do_ambiente(tmp_path: Path) -> None:
@@ -200,4 +200,4 @@ def test_env_example_carregado_como_esta_nao_quebra(tmp_path: Path) -> None:
 
     configuracao = carregar_configuracao(env=env)
 
-    assert configuracao.raiz_dados == Path("./data").resolve()
+    assert configuracao.raiz_dados == Path("./dados").resolve()

@@ -95,7 +95,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   │   ├── observability/    # histórico e resumo de DQ      (adição)
 │   │   └── audit/            # tradução literal do SQL original (paridade; efêmero)
 │   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso)
-├── data/ (gitignored)          # RAIZ_DADOS padrão
+├── dados/ (gitignored)          # RAIZ_DADOS padrão
 │   ├── raw/rfb/<entidade>/mes_referencia=YYYY-MM/*.parquet
 │   ├── raw/bd/<tabela>/*.parquet
 │   ├── raw/_rejeitos/  _manifestos/  _baixados/ (cache de zips)
@@ -199,7 +199,7 @@ flowchart LR
 - Todo modelo declara `meta: {escopo: original | adicao | adaptado}` e a tag correspondente
   (`escopo_original`, `escopo_adicao`, `escopo_adaptado`) — [ADR-0006](docs/adr/0006-marcacao-escopo.md).
 - Marts `original` e `core` têm **contrato** (`contract: enforced: true`) com tipos declarados.
-- `external_location` das fontes e `location` dos marts derivam de `env_var('RAIZ_DADOS', '../data')`.
+- `external_location` das fontes e `location` dos marts derivam de `env_var('RAIZ_DADOS', '../dados')`.
 
 ### 5.2 Variáveis (`dbt_project.yml`)
 
