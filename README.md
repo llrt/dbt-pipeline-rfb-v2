@@ -40,6 +40,7 @@ make setup                 # uv sync + dbt deps
 make ci                    # fluxo completo sobre fixtures sintéticas (sem rede)
 make pipeline MES=2026-09  # dados reais: ingestão → dbt build → relatórios
 make atualizar             # processa o mês mais recente publicado pela RFB, se houver novidade
+make publicar              # opcional: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO)
 make docs                  # dbt docs
 ```
 

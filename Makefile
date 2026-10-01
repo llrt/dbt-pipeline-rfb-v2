@@ -4,7 +4,7 @@ MES ?=
 export RAIZ_DADOS
 export DBT_PROFILES_DIR = $(CURDIR)/transform
 
-.PHONY: setup fixtures ingerir ci pipeline docs lint sincronizar relatorio clean
+.PHONY: setup fixtures ingerir ci pipeline docs lint sincronizar relatorio publicar clean
 
 ## setup: sincroniza dependências Python e pacotes dbt
 setup:
@@ -56,6 +56,10 @@ sincronizar:
 ## relatorio: gera docs/RELATORIO_ESTUDO_CASO.md (requer `dbt build` prévio sobre RAIZ_DADOS)
 relatorio:
 	uv run rfb relatorio
+
+## publicar: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO; sem eles não faz nada)
+publicar:
+	uv run rfb publicar --destino motherduck $(if $(TABELAS),--tabelas $(TABELAS))
 
 ## clean: remove artefactos temporais e de build
 clean:
