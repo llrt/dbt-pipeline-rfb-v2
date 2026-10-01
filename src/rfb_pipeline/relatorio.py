@@ -198,7 +198,7 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
         "> **Nota (adaptado):** o notebook 4 original retornava 0 nas buscas por microrregião e "
         "mesorregião porque comparava nomes em MAIÚSCULAS com a grafia mista da Base dos Dados. "
         "Com a comparação corrigida (`upper()` dos dois lados), essas buscas passam a achar "
-        "fornecedores onde o original concluía \"nada nas imediações\".",
+        'fornecedores onde o original concluía "nada nas imediações".',
         "",
         "Estabelecimentos ativos da UF com o CNAE de fornecedor entre os secundários:",
         "",
