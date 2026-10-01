@@ -1,0 +1,679 @@
+version: 2
+
+models:
+  - name: int_municipios__conformados
+    description: >
+      Município conformado (Base dos Dados + população do `ano_populacao` + PIB do último ano), uma
+      linha por município IBGE. Base de `dim_municipio`; não inclui o membro `-1`.
+    columns:
+      - name: sk_municipio
+        description: Código IBGE como inteiro (chave substituta determinística).
+        data_tests: [unique, not_null]
+      - name: codigo_rfb
+        description: Código RFB do município; único (duplicata multiplicaria linhas da fato).
+        data_tests:
+          - unique:
+              config: { severity: warn }
+
+  - name: dim_municipio
+    description: >
+      Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias
+      geográficas em colunas, centroide, população e PIB. Membro `-1` "NÃO INFORMADO" para
+      estabelecimentos sem município na Base dos Dados (exterior, município criado após a base).
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_municipio
+        description: >
+          Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: id_municipio_ibge
+        description: >
+          Código IBGE do município (7 dígitos). Linhagem: `stg_bd__municipios.id_municipio`.
+        data_type: varchar
+      - name: codigo_rfb
+        description: >
+          Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - unique:
+              config: { severity: warn }
+      - name: nome_municipio
+        description: >
+          Nome do município (acentuado, Base dos Dados).
+        data_type: varchar
+      - name: sigla_uf
+        description: >
+          Sigla da UF do município.
+        data_type: varchar
+      - name: nome_uf
+        description: >
+          Nome da UF.
+        data_type: varchar
+      - name: nome_regiao
+        description: >
+          Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
+        data_type: varchar
+      - name: id_mesorregiao
+        description: >
+          Código IBGE da mesorregião.
+        data_type: varchar
+      - name: nome_mesorregiao
+        description: >
+          Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município).
+        data_type: varchar
+      - name: id_microrregiao
+        description: >
+          Código IBGE da microrregião.
+        data_type: varchar
+      - name: nome_microrregiao
+        description: >
+          Nome da microrregião.
+        data_type: varchar
+      - name: id_regiao_intermediaria
+        description: >
+          Código IBGE da região geográfica intermediária.
+        data_type: varchar
+      - name: nome_regiao_intermediaria
+        description: >
+          Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata).
+        data_type: varchar
+      - name: id_regiao_imediata
+        description: >
+          Código IBGE da região geográfica imediata.
+        data_type: varchar
+      - name: nome_regiao_imediata
+        description: >
+          Nome da região geográfica imediata.
+        data_type: varchar
+      - name: latitude
+        description: >
+          Latitude do centroide do município (graus decimais).
+        data_type: double
+      - name: longitude
+        description: >
+          Longitude do centroide do município (graus decimais).
+        data_type: double
+      - name: ano_populacao
+        description: >
+          Ano da população usada: var `ano_populacao` ou o último ano disponível.
+        data_type: integer
+      - name: populacao
+        description: >
+          População estimada do município no `ano_populacao`; NULL sem dado.
+        data_type: bigint
+      - name: ano_pib
+        description: >
+          Ano do PIB usado (último ano disponível).
+        data_type: integer
+      - name: pib
+        description: >
+          PIB do município (R$ mil) em `ano_pib`; NULL sem dado.
+        data_type: double
+
+  - name: dim_cnae
+    description: >
+      Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo → classe → subclasse (Base dos Dados), código e descrição em colunas separadas. Membro `-1` para CNAE sem par no BD.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_cnae
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Subclasse como inteiro.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_secao
+        description: >
+          Código da seção (letra).
+        data_type: varchar
+      - name: descricao_secao
+        description: >
+          Descrição da seção.
+        data_type: varchar
+      - name: codigo_divisao
+        description: >
+          Código da divisão (2 dígitos).
+        data_type: varchar
+      - name: descricao_divisao
+        description: >
+          Descrição da divisão.
+        data_type: varchar
+      - name: codigo_grupo
+        description: >
+          Código do grupo (3 dígitos).
+        data_type: varchar
+      - name: descricao_grupo
+        description: >
+          Descrição do grupo.
+        data_type: varchar
+      - name: codigo_classe
+        description: >
+          Código da classe (5 dígitos).
+        data_type: varchar
+      - name: descricao_classe
+        description: >
+          Descrição da classe.
+        data_type: varchar
+      - name: codigo_subclasse
+        description: >
+          Código da subclasse (7 dígitos, com zeros à esquerda).
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: descricao_subclasse
+        description: >
+          Descrição da subclasse.
+        data_type: varchar
+
+  - name: dim_natureza_juridica
+    description: >
+      Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_natureza_juridica
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código como inteiro.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_natureza_juridica
+        description: >
+          Código da natureza jurídica (4 dígitos).
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: descricao_natureza_juridica
+        description: >
+          Descrição da natureza jurídica.
+        data_type: varchar
+
+  - name: dim_porte
+    description: >
+      Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_porte
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_porte
+        description: >
+          Código RFB do porte.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: rotulo_porte
+        description: >
+          Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS).
+        data_type: varchar
+      - name: descricao_porte
+        description: >
+          Descrição por extenso.
+        data_type: varchar
+
+  - name: dim_situacao_cadastral
+    description: >
+      Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-1` para código fora do domínio.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_situacao_cadastral
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_situacao_cadastral
+        description: >
+          Código RFB da situação.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: rotulo_situacao_cadastral
+        description: >
+          Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA).
+        data_type: varchar
+      - name: descricao_situacao_cadastral
+        description: >
+          Descrição por extenso.
+        data_type: varchar
+
+  - name: dim_data
+    description: >
+      Calendário (ADR-0013): uma linha por dia do menor dia referenciado pelas fatos até
+      `data_referencia` (ou a maior data observada, se maior), com `sk_data = yyyymmdd`. Dimensão
+      de papel duplo na fato (`sk_data_inicio_atividade`, `sk_data_situacao`). Membro `-1` para
+      datas nulas.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_data
+        description: >
+          Chave substituta inteira no formato yyyymmdd (ex.: 20000229); `-1` é o membro NÃO INFORMADO (data nula).
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: data
+        description: >
+          Data do calendário; NULL só no membro `-1`.
+        data_type: date
+      - name: ano
+        description: >
+          Ano (4 dígitos).
+        data_type: integer
+      - name: semestre
+        description: >
+          Semestre do ano (1 ou 2).
+        data_type: integer
+      - name: trimestre
+        description: >
+          Trimestre do ano (1 a 4).
+        data_type: integer
+      - name: mes
+        description: >
+          Mês do ano (1 a 12).
+        data_type: integer
+      - name: nome_mes
+        description: >
+          Nome do mês em português (janeiro … dezembro).
+        data_type: varchar
+      - name: ano_mes
+        description: >
+          Ano e mês no formato `AAAA-MM`, usado como rótulo/ordenação mensal e igual a `_mes_referencia`.
+        data_type: varchar
+      - name: dia
+        description: >
+          Dia do mês (1 a 31).
+        data_type: integer
+      - name: dia_semana_numero
+        description: >
+          Dia da semana ISO (1 segunda … 7 domingo), para ordenar `dia_semana` no BI.
+        data_type: integer
+      - name: dia_semana
+        description: >
+          Nome do dia da semana em português (segunda-feira … domingo).
+        data_type: varchar
+
+  - name: int_estabelecimentos__enriquecidos
+    description: >
+      Estabelecimentos do mês selecionado com empresa, Simples/MEI e pares nos domínios, por LEFT
+      JOIN: nada é descartado (diferente dos inner joins de `bh_empresas`); a ausência de par vira
+      as flags `tem_*`. Base da fato e da bridge de CNAEs secundários.
+    columns:
+      - name: cnpj_completo
+        description: CNPJ de 14 dígitos; único por mês.
+        data_tests: [unique, not_null]
+      - name: matriz_filial_codigo
+        description: Indicador matriz (1) / filial (2); validado contra o seed `dominio_matriz_filial`.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dominio_matriz_filial')
+                field: codigo
+              config: { where: "matriz_filial_codigo is not null" }
+
+  - name: fct_estabelecimentos
+    description: >
+      Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimensão
+      degenerada), só com chaves inteiras para as dimensões, flags e medidas. Sem descartes
+      silenciosos: estabelecimento sem par numa dimensão fica com a chave `-1`. Parquet em
+      `gold/fct_estabelecimentos.parquet`; para o Power BI use `fct_resumo_mensal` (modo Import).
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: cnpj_completo
+        description: CNPJ completo (14 dígitos); dimensão degenerada e chave da linha.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: sk_municipio
+        description: >
+          Chave de `dim_municipio`; `-1` quando o município RFB não tem par na Base dos Dados (exterior, município novo).
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+      - name: sk_cnae
+        description: >
+          Chave de `dim_cnae` (CNAE principal); `-1` quando o CNAE não tem par na Base dos Dados.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
+      - name: sk_natureza_juridica
+        description: >
+          Chave de `dim_natureza_juridica`; `-1` quando a empresa não tem natureza no domínio.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_natureza_juridica')
+                field: sk_natureza_juridica
+      - name: sk_porte
+        description: >
+          Chave de `dim_porte`; `-1` quando o porte está vazio ou fora do domínio.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_porte')
+                field: sk_porte
+      - name: sk_situacao_cadastral
+        description: >
+          Chave de `dim_situacao_cadastral`; `-1` quando o código está fora do domínio.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_situacao_cadastral')
+                field: sk_situacao_cadastral
+      - name: sk_data_inicio_atividade
+        description: >
+          Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula ou inválida.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_data')
+                field: sk_data
+      - name: sk_data_situacao
+        description: >
+          Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`).
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_data')
+                field: sk_data
+      - name: idade_anos
+        description: >
+          Idade do estabelecimento em anos (1 casa), relativa a `data_referencia`, só para ativos
+          (NULL nos demais), como `bh_empresas.idade_atual`. Aditiva via soma, para médias no BI.
+        data_type: double
+      - name: opcao_simples
+        description: Optante pelo Simples Nacional na empresa (false quando não há registro).
+        data_type: boolean
+      - name: opcao_mei
+        description: Optante pelo MEI na empresa (false quando não há registro).
+        data_type: boolean
+      - name: capital_social
+        description: Capital social da empresa (R$); NULL quando o estabelecimento não tem empresa.
+        data_type: decimal(18,2)
+      - name: eh_matriz
+        description: Verdadeiro para matriz (`ind_matriz_filial = 1`).
+        data_type: boolean
+      - name: eh_ativa
+        description: Verdadeiro para situação cadastral ativa (código 2).
+        data_type: boolean
+
+  - name: int_cnaes_secundarios__explodidos
+    description: >
+      Uma linha por (estabelecimento, CNAE secundário), a partir de `cnaes_secundarios_lista`.
+    columns:
+      - name: cnpj_completo
+        description: CNPJ completo do estabelecimento.
+      - name: codigo_cnae_secundario
+        description: Subclasse CNAE secundária (7 dígitos).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cnpj_completo, codigo_cnae_secundario]
+
+  - name: bridge_estabelecimento_cnae_secundario
+    description: >
+      Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos entre
+      `fct_estabelecimentos` e `dim_cnae`). Lista vazia não gera linhas. Opcional no BI.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cnpj_completo, codigo_cnae_secundario]
+    columns:
+      - name: cnpj_completo
+        description: CNPJ completo; FK para `fct_estabelecimentos.cnpj_completo`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_estabelecimentos')
+                field: cnpj_completo
+      - name: sk_cnae
+        description: Chave de `dim_cnae` (CNAE secundário); `-1` quando sem par na Base dos Dados.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
+      - name: codigo_cnae_secundario
+        description: Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda.
+        data_type: varchar
+
+unit_tests:
+  - name: test_int_municipios_conformados_ano_mais_recente
+    description: "CORE-01: sem a var `ano_populacao`, usa o último ano de população (2024: 20000, não 2023: 19000); PIB do último ano."
+    model: int_municipios__conformados
+    given:
+      - input: ref('stg_bd__municipios')
+        rows:
+          - { id_municipio: "3202207", id_municipio_rf: "5643", nome: "Fundão", sigla_uf: "ES" }
+          - { id_municipio: "3203205", id_municipio_rf: "5663", nome: "Linhares", sigla_uf: "ES" }
+      - input: ref('stg_bd__populacao')
+        rows:
+          - { id_municipio: "3202207", ano: 2023, populacao: 19000 }
+          - { id_municipio: "3202207", ano: 2024, populacao: 20000 }
+          - { id_municipio: "3203205", ano: 2023, populacao: 170000 }
+      - input: ref('stg_bd__pib')
+        rows:
+          - { id_municipio: "3202207", ano: 2020, pib: 1.0 }
+          - { id_municipio: "3202207", ano: 2021, pib: 350000.0 }
+    expect:
+      rows:
+        - { sk_municipio: 3202207, codigo_rfb: "5643", ano_populacao: 2024, populacao: 20000, ano_pib: 2021, pib: 350000.0 }
+        - { sk_municipio: 3203205, codigo_rfb: "5663", ano_populacao: null, populacao: null, ano_pib: null, pib: null }
+
+  - name: test_int_municipios_conformados_var_ano_populacao
+    description: "CORE-01: a var `ano_populacao` sobrescreve o último ano (2023: 19000)."
+    model: int_municipios__conformados
+    overrides:
+      vars:
+        ano_populacao: 2023
+    given:
+      - input: ref('stg_bd__municipios')
+        rows:
+          - { id_municipio: "3202207", id_municipio_rf: "5643", nome: "Fundão", sigla_uf: "ES" }
+      - input: ref('stg_bd__populacao')
+        rows:
+          - { id_municipio: "3202207", ano: 2023, populacao: 19000 }
+          - { id_municipio: "3202207", ano: 2024, populacao: 20000 }
+      - input: ref('stg_bd__pib')
+        rows:
+          - { id_municipio: "3202207", ano: 2021, pib: 350000.0 }
+    expect:
+      rows:
+        - { sk_municipio: 3202207, ano_populacao: 2023, populacao: 19000 }
+
+  - name: test_dim_municipio_membro_nao_informado
+    description: "ADR-0013: além dos municípios, existe o membro `-1` NÃO INFORMADO (nunca nulo nas chaves e hierarquias)."
+    model: dim_municipio
+    given:
+      - input: ref('int_municipios__conformados')
+        rows:
+          - { sk_municipio: 3202207, id_municipio_ibge: "3202207", codigo_rfb: "5643", nome_municipio: "Fundão", sigla_uf: "ES", populacao: 20000 }
+    expect:
+      rows:
+        - { sk_municipio: 3202207, codigo_rfb: "5643", nome_municipio: "Fundão", sigla_uf: "ES", nome_uf: null, populacao: 20000 }
+        - { sk_municipio: -1, codigo_rfb: "-1", nome_municipio: "NÃO INFORMADO", sigla_uf: "NI", nome_uf: "NÃO INFORMADO", populacao: null }
+
+  - name: test_dim_cnae_sk_inteira_e_membro_nao_informado
+    description: "ADR-0013: `sk_cnae` é a subclasse como inteiro ('0111301' → 111301, zero à esquerda preservado em `codigo_subclasse`) e existe o membro `-1`."
+    model: dim_cnae
+    given:
+      - input: ref('stg_bd__cnaes')
+        rows:
+          - { subclasse: "0111301", descricao_subclasse: "Cultivo de arroz", classe: "01113", grupo: "011", divisao: "01", secao: "A" }
+    expect:
+      rows:
+        - { sk_cnae: 111301, codigo_subclasse: "0111301", codigo_classe: "01113", codigo_grupo: "011", codigo_divisao: "01", codigo_secao: "A" }
+        - { sk_cnae: -1, codigo_subclasse: "-1", codigo_classe: "-1", codigo_grupo: "-1", codigo_divisao: "-1", codigo_secao: "-1" }
+
+  - name: test_dim_natureza_juridica_sk_e_membro_nao_informado
+    description: "ADR-0013: `sk_natureza_juridica` = código inteiro (`0000` → 0) e existe o membro `-1`."
+    model: dim_natureza_juridica
+    given:
+      - input: ref('stg_rfb__naturezas')
+        rows:
+          - { codigo: "2062", descricao: "Sociedade Empresária Limitada" }
+          - { codigo: "0000", descricao: "Natureza Jurídica não informada" }
+    expect:
+      rows:
+        - { sk_natureza_juridica: 2062, codigo_natureza_juridica: "2062" }
+        - { sk_natureza_juridica: 0, codigo_natureza_juridica: "0000" }
+        - { sk_natureza_juridica: -1, codigo_natureza_juridica: "-1" }
+
+  - name: test_dim_data_calendario_continuo_com_atributos_em_portugues
+    description: >
+      BI-01: uma linha por dia do menor dia referenciado (2000-02-29, bissexto) até
+      `data_referencia` (2000-03-02), `sk_data = yyyymmdd`, nomes em português; mais o membro `-1`.
+    model: dim_data
+    given:
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { dat_inicio_atividade: "2000-02-29", dat_situacao: "2000-03-01", _data_referencia: "2000-03-02" }
+          - { dat_inicio_atividade: "2000-03-01", dat_situacao: null, _data_referencia: "2000-03-02" }
+    expect:
+      rows:
+        - { sk_data: 20000229, data: "2000-02-29", ano: 2000, semestre: 1, trimestre: 1, mes: 2, nome_mes: "fevereiro", ano_mes: "2000-02", dia: 29, dia_semana_numero: 2, dia_semana: "terça-feira" }
+        - { sk_data: 20000301, data: "2000-03-01", ano: 2000, semestre: 1, trimestre: 1, mes: 3, nome_mes: "março", ano_mes: "2000-03", dia: 1, dia_semana_numero: 3, dia_semana: "quarta-feira" }
+        - { sk_data: 20000302, data: "2000-03-02", ano: 2000, semestre: 1, trimestre: 1, mes: 3, nome_mes: "março", ano_mes: "2000-03", dia: 2, dia_semana_numero: 4, dia_semana: "quinta-feira" }
+        - { sk_data: -1, data: null, ano: null, semestre: null, trimestre: null, mes: null, nome_mes: "NÃO INFORMADO", ano_mes: "NÃO INFORMADO", dia: null, dia_semana_numero: null, dia_semana: "NÃO INFORMADO" }
+
+  - name: test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado
+    description: >
+      CORE-01: LEFT JOINs — estabelecimento sem empresa, sem CNAE no BD ou sem município no BD
+      permanece, com a flag `tem_*` falsa; Simples ausente vira `opcao_*` false.
+    model: int_estabelecimentos__enriquecidos
+    given:
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { cnpj_completo: "11111111000191", cnpj_raiz: "11111111", cnae_principal: "4741500", municipio_rfb_codigo: "5643" }
+          - { cnpj_completo: "14141414000100", cnpj_raiz: "14141414", cnae_principal: "3511500", municipio_rfb_codigo: "5699" }
+          - { cnpj_completo: "15151515000100", cnpj_raiz: "15151515", cnae_principal: "4711302", municipio_rfb_codigo: "1182" }
+          - { cnpj_completo: "99999999000100", cnpj_raiz: "99999999", cnae_principal: "4741500", municipio_rfb_codigo: "5643" }
+      - input: ref('stg_rfb__empresas')
+        rows:
+          - { cnpj_raiz: "11111111", natureza_juridica_codigo: "2135", porte_codigo: 1 }
+          - { cnpj_raiz: "14141414", natureza_juridica_codigo: "2062", porte_codigo: 5 }
+          - { cnpj_raiz: "15151515", natureza_juridica_codigo: "2135", porte_codigo: 1 }
+      - input: ref('stg_rfb__simples')
+        rows:
+          - { cnpj_raiz: "11111111", opcao_simples: true, opcao_mei: true }
+      - input: ref('stg_rfb__naturezas')
+        rows:
+          - { codigo: "2135", descricao: "Empresário (Individual)" }
+          - { codigo: "2062", descricao: "Sociedade Empresária Limitada" }
+      - input: ref('stg_bd__cnaes')
+        rows:
+          - { subclasse: "4741500" }
+          - { subclasse: "4711302" }
+      - input: ref('int_municipios__conformados')
+        rows:
+          - { id_municipio_ibge: "3202207", codigo_rfb: "5643" }
+          - { id_municipio_ibge: "3205002", codigo_rfb: "5699" }
+    expect:
+      rows:
+        - { cnpj_completo: "11111111000191", id_municipio_ibge: "3202207", opcao_mei: true, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: true }
+        - { cnpj_completo: "14141414000100", id_municipio_ibge: "3205002", opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: false, tem_municipio_bd: true }
+        - { cnpj_completo: "15151515000100", id_municipio_ibge: null, opcao_mei: false, tem_empresa: true, tem_natureza: true, tem_cnae_bd: true, tem_municipio_bd: false }
+        - { cnpj_completo: "99999999000100", id_municipio_ibge: "3202207", opcao_mei: false, tem_empresa: false, tem_natureza: false, tem_cnae_bd: true, tem_municipio_bd: true }
+
+  - name: test_fct_estabelecimentos_chaves_inteiras_e_menos_um
+    description: >
+      CORE-01/BI-01: sk's vêm das dimensões, `-1` quando falta par ou a data é nula; `idade_anos`
+      só para ativa (início 2022-10-15, referência 2026-09-12 → 3.9); flags `eh_matriz`/`eh_ativa`.
+    model: fct_estabelecimentos
+    given:
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows:
+          - { cnpj_completo: "A", matriz_filial_codigo: 1, situacao_codigo: 2, dat_inicio_atividade: "2022-10-15", dat_situacao: "2022-10-15", cnae_principal: "4741500", id_municipio_ibge: "3202207", natureza_juridica_codigo: "2135", porte_codigo: 1, opcao_simples: false, opcao_mei: true, _data_referencia: "2026-09-12" }
+          - { cnpj_completo: "M", matriz_filial_codigo: 2, situacao_codigo: 8, dat_inicio_atividade: "2023-12-01", dat_situacao: null, cnae_principal: "3511500", id_municipio_ibge: null, natureza_juridica_codigo: "9999", porte_codigo: null, opcao_simples: false, opcao_mei: false, _data_referencia: "2026-09-12" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 3202207, id_municipio_ibge: "3202207" }
+          - { sk_municipio: -1, id_municipio_ibge: "-1" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4741500, codigo_subclasse: "4741500" }
+          - { sk_cnae: -1, codigo_subclasse: "-1" }
+      - input: ref('dim_natureza_juridica')
+        rows:
+          - { sk_natureza_juridica: 2135, codigo_natureza_juridica: "2135" }
+          - { sk_natureza_juridica: -1, codigo_natureza_juridica: "-1" }
+      - input: ref('dim_porte')
+        rows:
+          - { sk_porte: 1 }
+          - { sk_porte: -1 }
+      - input: ref('dim_situacao_cadastral')
+        rows:
+          - { sk_situacao_cadastral: 2 }
+          - { sk_situacao_cadastral: 8 }
+      - input: ref('dim_data')
+        rows:
+          - { sk_data: 20221015, data: "2022-10-15" }
+          - { sk_data: 20231201, data: "2023-12-01" }
+          - { sk_data: -1, data: null }
+    expect:
+      rows:
+        - { cnpj_completo: "A", sk_municipio: 3202207, sk_cnae: 4741500, sk_natureza_juridica: 2135, sk_porte: 1, sk_situacao_cadastral: 2, sk_data_inicio_atividade: 20221015, sk_data_situacao: 20221015, idade_anos: 3.9, opcao_mei: true, eh_matriz: true, eh_ativa: true }
+        - { cnpj_completo: "M", sk_municipio: -1, sk_cnae: -1, sk_natureza_juridica: -1, sk_porte: -1, sk_situacao_cadastral: 8, sk_data_inicio_atividade: 20231201, sk_data_situacao: -1, idade_anos: null, opcao_mei: false, eh_matriz: false, eh_ativa: false }
+
+  - name: test_int_cnaes_secundarios_explodidos
+    description: "CORE-01: lista com 2 códigos gera 2 linhas; lista vazia gera 0; código repetido conta uma vez."
+    model: int_cnaes_secundarios__explodidos
+    given:
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows:
+          - { cnpj_completo: "H", cnaes_secundarios_lista: ["4679699", "4744099"] }
+          - { cnpj_completo: "X", cnaes_secundarios_lista: [] }
+          - { cnpj_completo: "Y", cnaes_secundarios_lista: ["0111301", "0111301"] }
+    expect:
+      rows:
+        - { cnpj_completo: "H", codigo_cnae_secundario: "4679699" }
+        - { cnpj_completo: "H", codigo_cnae_secundario: "4744099" }
+        - { cnpj_completo: "Y", codigo_cnae_secundario: "0111301" }
+
+  - name: test_bridge_estabelecimento_cnae_secundario_sk_e_menos_um
+    description: "ADR-0013: `sk_cnae` vem de `dim_cnae`; CNAE secundário sem par recebe `-1` mantendo o código original."
+    model: bridge_estabelecimento_cnae_secundario
+    given:
+      - input: ref('int_cnaes_secundarios__explodidos')
+        rows:
+          - { cnpj_completo: "H", codigo_cnae_secundario: "4679699" }
+          - { cnpj_completo: "H", codigo_cnae_secundario: "3511500" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4679699, codigo_subclasse: "4679699" }
+          - { sk_cnae: -1, codigo_subclasse: "-1" }
+    expect:
+      rows:
+        - { cnpj_completo: "H", sk_cnae: 4679699, codigo_cnae_secundario: "4679699" }
+        - { cnpj_completo: "H", sk_cnae: -1, codigo_cnae_secundario: "3511500" }

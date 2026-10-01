@@ -21,8 +21,10 @@ def _hash_tree(root: Path) -> dict[str, str]:
     return hashes
 
 
-def _ler_zip_rfb(root: Path, nome_zip: str) -> tuple[str, list[list[str]]]:
-    with zipfile.ZipFile(root / "rfb" / gerar_fixtures.MES_REFERENCIA / nome_zip) as zf:
+def _ler_zip_rfb(
+    root: Path, nome_zip: str, mes: str = gerar_fixtures.MES_REFERENCIA
+) -> tuple[str, list[list[str]]]:
+    with zipfile.ZipFile(root / "rfb" / mes / nome_zip) as zf:
         nome_interno = zf.namelist()[0]
         texto = zf.read(nome_interno).decode("latin-1")
     linhas = list(csv.reader(io.StringIO(texto), delimiter=";", quotechar='"'))
@@ -149,3 +151,41 @@ def test_dominio_rfb_municipios_sem_acento_maiusculo(tmp_path: Path) -> None:
     assert mapa["5643"] == "FUNDAO"
     assert mapa["9707"] == "EXTERIOR"
     assert mapa["1182"] == "BOA ESPERANCA DO NORTE"
+
+
+def test_mes_anterior_tem_14_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path)
+    _, atual = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
+    _, anterior = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip", gerar_fixtures.MES_ANTERIOR)
+
+    assert len(atual) == 15
+    assert len(anterior) == 14
+    # O é a filial de A (raiz 11111111, ordem 0002): só existe em 2026-09.
+    assert ("11111111", "0002") in {(linha[0], linha[1]) for linha in atual}
+    assert ("11111111", "0002") not in {(linha[0], linha[1]) for linha in anterior}
+    assert {(linha[0], linha[1]) for linha in anterior} < {(linha[0], linha[1]) for linha in atual}
+
+
+def test_mes_anterior_tem_14_empresas_e_nomes_internos_d60810(tmp_path: Path) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path)
+    mes = gerar_fixtures.MES_ANTERIOR
+
+    nome_empresas, empresas = _ler_zip_rfb(tmp_path, "Empresas0.zip", mes)
+    nome_estab, _ = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip", mes)
+    nome_cnaes, _ = _ler_zip_rfb(tmp_path, "Cnaes.zip", mes)
+    nome_simples, _ = _ler_zip_rfb(tmp_path, "Simples.zip", mes)
+
+    assert len(empresas) == 14
+    assert nome_empresas == "K3241.K03200Y0.D60810.EMPRECSV"
+    assert nome_estab == "K3241.K03200Y0.D60810.ESTABELE"
+    assert nome_cnaes == "F.K03200$Z.D60810.CNAECSV"
+    assert nome_simples == "F.K03200$W.SIMPLES.CSV.D60810"
+
+
+def test_mes_anterior_tem_todos_os_zips_do_mes_atual(tmp_path: Path) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path)
+    atual = {p.name for p in (tmp_path / "rfb" / gerar_fixtures.MES_REFERENCIA).iterdir()}
+    anterior = {p.name for p in (tmp_path / "rfb" / gerar_fixtures.MES_ANTERIOR).iterdir()}
+
+    assert atual == anterior
+    assert len(atual) == 9

@@ -1,0 +1,45 @@
+version: 2
+
+seeds:
+  - name: dominio_porte
+    description: >
+      Domínio de porte da empresa (metadados RFB): `rotulo` reproduz os valores de
+      `bh_empresas.porte`. Base de `dim_porte`.
+    config:
+      column_types: { codigo: integer, rotulo: varchar, descricao: varchar }
+    columns:
+      - name: codigo
+        description: Código de porte da RFB (0, 1, 3, 5).
+        data_tests: [unique, not_null]
+      - name: rotulo
+        description: Rótulo curto do porte (N/A, MICRO, PEQUENA, DEMAIS).
+      - name: descricao
+        description: Descrição por extenso do porte.
+
+  - name: dominio_situacao_cadastral
+    description: Domínio de situação cadastral do estabelecimento (metadados RFB). Base de `dim_situacao_cadastral`.
+    config:
+      column_types: { codigo: integer, rotulo: varchar, descricao: varchar }
+    columns:
+      - name: codigo
+        description: Código da situação cadastral (1, 2, 3, 4, 8).
+        data_tests: [unique, not_null]
+      - name: rotulo
+        description: Rótulo curto da situação (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA).
+      - name: descricao
+        description: Descrição por extenso da situação.
+
+  - name: dominio_matriz_filial
+    description: >
+      Domínio do indicador matriz/filial do estabelecimento. A fato usa só a flag `eh_matriz`;
+      o seed documenta o domínio e valida `matriz_filial_codigo`.
+    config:
+      column_types: { codigo: integer, rotulo: varchar, descricao: varchar }
+    columns:
+      - name: codigo
+        description: Código do indicador (1 matriz, 2 filial).
+        data_tests: [unique, not_null]
+      - name: rotulo
+        description: Rótulo curto (MATRIZ, FILIAL).
+      - name: descricao
+        description: Descrição por extenso.

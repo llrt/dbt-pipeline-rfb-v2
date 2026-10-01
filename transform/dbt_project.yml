@@ -63,6 +63,13 @@ seeds:
       escopo: adicao
     +tags: ["escopo_adicao"]
 
+# Testes de dados sem escopo explícito são adição; os do original declaram `meta.escopo: original`
+# (e a tag) no próprio teste.
+data_tests:
+  rfb:
+    +meta:
+      escopo: adicao
+
 unit_tests:
   rfb:
     +meta:

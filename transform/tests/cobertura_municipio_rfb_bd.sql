@@ -9,15 +9,14 @@
 -- sem zeros à esquerda no BD, enquanto o domínio RFB sempre tem 4 dígitos. Exclui os casos
 -- documentados no seed `excecoes_conhecidas_municipio` (EXTERIOR e municípios criados após a
 -- base BD); qualquer outro código sem par é uma falha (severidade error).
--- O raw retém múltiplos meses (atualização mensal): a checagem considera só o mês mais recente.
+-- O raw retém múltiplos meses (atualização mensal): a checagem considera só o mês selecionado (`filtro_mes_referencia`:
+-- var `mes_referencia` ou o mês mais recente).
 with municipios_rfb as (
   select
     codigo,
     descricao
   from {{ source('rfb', 'municipios') }}
-  where _mes_referencia = (
-    select max(mais_recente._mes_referencia) from {{ source('rfb', 'municipios') }} as mais_recente
-  )
+  where {{ filtro_mes_referencia(source('rfb', 'municipios')) }}
 )
 
 select

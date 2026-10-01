@@ -514,3 +514,39 @@ unit_tests:
     expect:
       rows:
         - { cnpj_completo: "11111111000191", nome_fantasia: "NOVO", _mes_referencia: "2026-09", _data_referencia: "2026-09-12" }
+
+  - name: test_stg_rfb__municipios_var_nula_usa_o_maior_mes
+    description: "Com `mes_referencia` nula, o staging lê só o maior mês retido no raw (Staging AC 15)."
+    model: stg_rfb__municipios
+    given:
+      - input: source('rfb', 'municipios')
+        format: sql
+        rows: |
+          select '5643' as codigo, 'FUNDAO ANTIGO' as descricao, '2026-08' as _mes_referencia
+          union all
+          select '5643', 'FUNDAO', '2026-09'
+          union all
+          select '5699', 'SERRA', '2026-09'
+    expect:
+      rows:
+        - { codigo: "5643", descricao: "FUNDAO" }
+        - { codigo: "5699", descricao: "SERRA" }
+
+  - name: test_stg_rfb__municipios_var_explicita_usa_o_mes_pedido
+    description: "Com `mes_referencia` explícita, o staging lê o mês pedido, mesmo havendo um mês maior."
+    model: stg_rfb__municipios
+    overrides:
+      vars:
+        mes_referencia: "2026-08"
+    given:
+      - input: source('rfb', 'municipios')
+        format: sql
+        rows: |
+          select '5643' as codigo, 'FUNDAO ANTIGO' as descricao, '2026-08' as _mes_referencia
+          union all
+          select '5643', 'FUNDAO', '2026-09'
+          union all
+          select '5699', 'SERRA', '2026-09'
+    expect:
+      rows:
+        - { codigo: "5643", descricao: "FUNDAO ANTIGO" }
