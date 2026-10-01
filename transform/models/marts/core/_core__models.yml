@@ -113,6 +113,58 @@ models:
         description: >
           PIB do município (R$) em `ano_pib`; NULL sem dado.
         data_type: double
+      - name: populacao_censo_2022
+        description: >
+          População residente do Censo 2022; NULL sem dado do Censo.
+        data_type: bigint
+        meta: { incremento: enriquecimento_bd }
+      - name: domicilios_2022
+        description: >
+          Domicílios do Censo 2022 (denominador de ativos por mil domicílios); NULL sem dado.
+        data_type: bigint
+        meta: { incremento: enriquecimento_bd }
+      - name: area_km2
+        description: >
+          Área territorial do município em km² (Censo 2022); NULL sem dado.
+        data_type: double
+        meta: { incremento: enriquecimento_bd }
+      - name: densidade_hab_km2
+        description: >
+          População do Censo 2022 por km² (2 casas); NULL sem Censo ou sem área, nunca zero.
+        data_type: double
+        meta: { incremento: enriquecimento_bd }
+      - name: taxa_alfabetizacao
+        description: >
+          Taxa de alfabetização do Censo 2022 (fração de 0 a 1).
+        data_type: double
+        meta: { incremento: enriquecimento_bd }
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0, max_value: 1 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: idade_mediana
+        description: >
+          Idade mediana em anos (Censo 2022).
+        data_type: double
+        meta: { incremento: enriquecimento_bd }
+      - name: indice_envelhecimento
+        description: >
+          Índice de envelhecimento (idosos por 100 jovens) do Censo 2022.
+        data_type: double
+        meta: { incremento: enriquecimento_bd }
+      - name: razao_sexo
+        description: >
+          Razão de sexo (homens por 100 mulheres) do Censo 2022.
+        data_type: double
+        meta: { incremento: enriquecimento_bd }
+      - name: nome_regiao_metropolitana
+        description: >
+          Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1.
+        data_type: varchar
+        meta: { incremento: enriquecimento_bd }
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
 
   - name: dim_cnae
     description: >
@@ -550,6 +602,45 @@ models:
         description: Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda.
         data_type: varchar
 
+  - name: bridge_municipio_vizinho
+    description: >
+      Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares
+      (`sk_municipio`, `sk_municipio_vizinho`) do ano mais recente da Base dos Dados, simétricos,
+      sem autopares nem duplicatas. Base de `mart_concorrencia_area_mercado`; opcional no BI.
+    config:
+      contract:
+        enforced: true
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sk_municipio, sk_municipio_vizinho]
+          config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+    columns:
+      - name: sk_municipio
+        description: Município; FK para `dim_municipio.sk_municipio`.
+        data_type: integer
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: sk_municipio_vizinho
+        description: Município vizinho; FK para `dim_municipio.sk_municipio`.
+        data_type: integer
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+
 unit_tests:
   - name: test_int_municipios_conformados_ano_mais_recente
     description: "CORE-01: sem a var `ano_populacao`, usa o último ano de população (2024: 20000, não 2023: 19000); PIB do último ano."
@@ -601,6 +692,11 @@ unit_tests:
       - input: ref('int_municipios__conformados')
         rows:
           - { sk_municipio: 3202207, id_municipio_ibge: "3202207", codigo_rfb: "5643", nome_municipio: "Fundão", sigla_uf: "ES", populacao: 20000 }
+      # incremento: enriquecimento_bd — entradas novas do `dim_municipio`, sem linhas neste teste
+      - input: ref('stg_bd__censo_2022_municipio')
+        rows: []
+      - input: ref('stg_bd__regioes_metropolitanas')
+        rows: []
     expect:
       rows:
         - { sk_municipio: 3202207, codigo_rfb: "5643", nome_municipio: "Fundão", sigla_uf: "ES", nome_uf: null, populacao: 20000 }
@@ -787,3 +883,54 @@ unit_tests:
       rows:
         - { mes_referencia: "2026-09", sk_mes_referencia: 20260901, sk_situacao_cadastral: 2, qtd_estabelecimentos: 2, qtd_ativos: 2, soma_idade_anos: 6.5, qtd_matrizes: 1, soma_capital_social_matrizes: 1000.00 }
         - { mes_referencia: "2026-09", sk_mes_referencia: 20260901, sk_situacao_cadastral: 8, qtd_estabelecimentos: 1, qtd_ativos: 0, soma_idade_anos: 0.0, qtd_matrizes: 1, soma_capital_social_matrizes: 500.50 }
+
+  - name: test_bridge_municipio_vizinho_simetrica_ano_recente
+    description: >
+      AC 4 (ADR-0015): só o ano mais recente; pares de um sentido ganham o inverso; autopar e
+      duplicata somem; par com município fora de `dim_municipio` é descartado.
+    model: bridge_municipio_vizinho
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    given:
+      - input: ref('stg_bd__vizinhanca')
+        rows:
+          - { ano: 2019, id_municipio_1: "A", id_municipio_2: "C" }
+          - { ano: 2020, id_municipio_1: "A", id_municipio_2: "B" }
+          - { ano: 2020, id_municipio_1: "A", id_municipio_2: "B" }
+          - { ano: 2020, id_municipio_1: "B", id_municipio_2: "B" }
+          - { ano: 2020, id_municipio_1: "B", id_municipio_2: "Z" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 1, id_municipio_ibge: "A" }
+          - { sk_municipio: 2, id_municipio_ibge: "B" }
+          - { sk_municipio: 3, id_municipio_ibge: "C" }
+    expect:
+      rows:
+        - { sk_municipio: 1, sk_municipio_vizinho: 2 }
+        - { sk_municipio: 2, sk_municipio_vizinho: 1 }
+
+  - name: test_dim_municipio_censo_2022_e_regiao_metropolitana
+    description: >
+      AC 3 (ADR-0015): atributos do Censo 2022 de Fundão, densidade = 17951/287, RM do GeoBR; sem
+      Censo/RM os atributos ficam NULL e a RM vira `NÃO PERTENCE`; membro -1 `NÃO INFORMADO`.
+    model: dim_municipio
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    given:
+      - input: ref('int_municipios__conformados')
+        rows:
+          - { sk_municipio: 3202207, id_municipio_ibge: "3202207", nome_municipio: "Fundão" }
+          - { sk_municipio: 3203205, id_municipio_ibge: "3203205", nome_municipio: "Linhares" }
+      - input: ref('stg_bd__censo_2022_municipio')
+        rows:
+          - { id_municipio: "3202207", domicilios: 6715, populacao: 17951, area_km2: 287.0, taxa_alfabetizacao: 0.93371, idade_mediana: 37.0, razao_sexo: 97.67, indice_envelhecimento: 67.68 }
+      - input: ref('stg_bd__regioes_metropolitanas')
+        rows:
+          - { id_municipio: "3202207", nome_regiao_metropolitana: "RM Grande Vitória" }
+    expect:
+      rows:
+        - { sk_municipio: 3202207, populacao_censo_2022: 17951, domicilios_2022: 6715, area_km2: 287.0, densidade_hab_km2: 62.55, taxa_alfabetizacao: 0.93371, idade_mediana: 37.0, razao_sexo: 97.67, indice_envelhecimento: 67.68, nome_regiao_metropolitana: "RM Grande Vitória" }
+        - { sk_municipio: 3203205, populacao_censo_2022: null, domicilios_2022: null, area_km2: null, densidade_hab_km2: null, taxa_alfabetizacao: null, idade_mediana: null, razao_sexo: null, indice_envelhecimento: null, nome_regiao_metropolitana: "NÃO PERTENCE" }
+        - { sk_municipio: -1, populacao_censo_2022: null, domicilios_2022: null, area_km2: null, densidade_hab_km2: null, taxa_alfabetizacao: null, idade_mediana: null, razao_sexo: null, indice_envelhecimento: null, nome_regiao_metropolitana: "NÃO INFORMADO" }

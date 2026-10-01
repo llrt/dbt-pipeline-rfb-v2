@@ -33,7 +33,7 @@
 | Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (58 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (59 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (67 testes) |
 | Análises | Depois | Marts analíticos: invariantes numéricas. (37 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
@@ -189,6 +189,12 @@
 | `bridge_estabelecimento_cnae_secundario.cnpj_completo` | `relationships` {"to": "ref('fct_estabelecimentos')", "field": "cnpj_completo"} | error | adicao | — |
 | `bridge_estabelecimento_cnae_secundario.sk_cnae` | `not_null` | error | adicao | — |
 | `bridge_estabelecimento_cnae_secundario.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
+| `bridge_municipio_vizinho` | `unique_combination_of_columns` {"combination_of_columns": ["sk_municipio", "sk_municipio_vizinho"]} | error | adicao | — |
+| `bridge_municipio_vizinho` | incremento: enriquecimento_bd. | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio` | `not_null` | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio_vizinho` | `not_null` | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio_vizinho` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `dim_cnae.codigo_subclasse` | `not_null` | error | adicao | — |
 | `dim_cnae.codigo_subclasse` | `unique` | error | adicao | — |
 | `dim_cnae.sk_cnae` | `not_null` | error | adicao | — |
@@ -198,8 +204,10 @@
 | `dim_data.sk_data` | `unique` | error | adicao | — |
 | `dim_municipio.codigo_rfb` | `not_null` | error | adicao | — |
 | `dim_municipio.codigo_rfb` | `unique` | warn | adicao | — |
+| `dim_municipio.nome_regiao_metropolitana` | `not_null` | error | adicao | — |
 | `dim_municipio.sk_municipio` | `not_null` | error | adicao | — |
 | `dim_municipio.sk_municipio` | `unique` | error | adicao | — |
+| `dim_municipio.taxa_alfabetizacao` | `accepted_range` {"min_value": 0, "max_value": 1} | error | adicao | — |
 | `dim_natureza_juridica.codigo_natureza_juridica` | `not_null` | error | adicao | — |
 | `dim_natureza_juridica.codigo_natureza_juridica` | `unique` | error | adicao | — |
 | `dim_natureza_juridica.sk_natureza_juridica` | `not_null` | error | adicao | — |
@@ -304,8 +312,10 @@
 | `bh_empresas` | `test_bh_empresas_porte` | adicao |
 | `bh_empresas` | `test_bh_empresas_situacao_e_idade` | adicao |
 | `bridge_estabelecimento_cnae_secundario` | `test_bridge_estabelecimento_cnae_secundario_sk_e_menos_um` | adicao |
+| `bridge_municipio_vizinho` | `test_bridge_municipio_vizinho_simetrica_ano_recente` | adicao |
 | `dim_cnae` | `test_dim_cnae_sk_inteira_e_membro_nao_informado` | adicao |
 | `dim_data` | `test_dim_data_calendario_continuo_com_atributos_em_portugues` | adicao |
+| `dim_municipio` | `test_dim_municipio_censo_2022_e_regiao_metropolitana` | adicao |
 | `dim_municipio` | `test_dim_municipio_membro_nao_informado` | adicao |
 | `dim_natureza_juridica` | `test_dim_natureza_juridica_sk_e_membro_nao_informado` | adicao |
 | `fct_estabelecimentos` | `test_fct_estabelecimentos_chaves_inteiras_e_menos_um` | adicao |
