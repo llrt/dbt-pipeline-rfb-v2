@@ -32,7 +32,7 @@ Fase 2 (tabelas que só saem de graça via BigQuery).
   - documentação: coluna/selo **"Incremento: enriquecimento BD"** em `docs/ESCOPO.md`, nas tarefas T38–T41 e
     no `ARCHITECTURE.md`.
 
-**Fora (Fase 2, adiada pelo usuário).** Pirâmide etária municipal, RAIS, CAGED, exportadoras/importadoras,
+**Fora (Fase 2, adiada pelo usuário para depois da entrega da v1 — AD-029).** Pirâmide etária municipal, RAIS, CAGED, exportadoras/importadoras,
 diretório de CEP — exigem BigQuery (conta Google Cloud).
 
 **Consequências.** Dados de população/PIB atualizados mudam números reais (densidade por 10 mil hab. passa a

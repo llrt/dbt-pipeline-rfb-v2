@@ -33,6 +33,8 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-025 | Pedido do usuário: publicação opcional no MotherDuck (`rfb publicar --destino motherduck`, desacoplada do dbt, só com `MOTHERDUCK_TOKEN`+`MOTHERDUCK_BANCO`; sem token configurado hoje) e seção "Como o Power BI acessa os dados" (Parquet × DuckDB local/ODBC × MotherDuck/Postgres endpoint) — ADR-0016, PUB-01/02, T42–T43, lote B11 (Sonnet médio) antes do B8; 1ª publicação real só com OK do usuário | active | 2026-10-01 |
 | AD-026 | Meta do `make ci` passa de < 120 s para < 180 s (spec, critério de sucesso): o CI agora roda unit + lint + freshness + 105 testes de integração (117 s medidos após FBPa); paralelizar a integração fica como opção futura | active | 2026-10-01 |
 | AD-027 | R4: pronto para entrega com ressalvas. Usuário decidiu **mascarar o CPF** no fim da razão social (R4-01; ADR-0008 emendado). Correções F4 (Opus médio, nível do B8): Fix 1–4, 6, 7 + R4-05, 06, 08, 09, 10; Fix 5 (spec) pelo líder | active | 2026-10-01 |
+| AD-028 | Pedido do usuário: corrigir a P23 (opção 1) — `mart_concorrencia_area_mercado` passa a incluir pares sem estabelecimento local quando vizinhos/RM têm ativos (vazios de mercado); lote pequeno B12 (Sonnet médio, nível do B10), depois do F4 e antes do RETRO; incremento `enriquecimento_bd` | active | 2026-10-01 |
+| AD-029 | Usuário: Fase 2 da Base dos Dados (BigQuery: pirâmide etária, RAIS, exportadoras) fica para **pós-entrega**; a v1 fecha com o escopo atual (até B12, RETRO e relatório de custo). Estimativa registrada: construir ≈ US$ 28–36 equivalente de API (R$ 150–190; R$ 0 real na assinatura), operar ≈ R$ 0/mês (< 10 GB/mês dentro da faixa gratuita do BigQuery) | active | 2026-10-01 |
 
 ## Handoff
 
