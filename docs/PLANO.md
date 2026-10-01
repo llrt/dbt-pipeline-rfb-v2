@@ -58,6 +58,8 @@
 | T39 | Novas tabelas BD no raw + fixtures — incremento enriquecimento BD | M | NC | B10 |
 | T40 | `dim_municipio` enriquecida + vizinhança — incremento enriquecimento BD | M | NC | B10 |
 | T41 | Concorrência na área de mercado + estudo de caso — incremento enriquecimento BD | M | NC | B10 |
+| T42 | `rfb publicar --destino motherduck` (opcional) — melhoria | M | NC | B11 |
+| T43 | Guia Power BI: como acessar os dados — melhoria | M | NC | B11 |
 | T36 | `rfb atualizar` (mês novo, completude, retenção, agendamento) — melhoria | M | NC (E2E → Opus) | B8 |
 | T29 | Guia dbt — fundamentos | M | NC | B9a (paralelo) |
 | T30 | Guia dbt — fluxo, testes, DQ | M | NC | B9b |
@@ -112,6 +114,7 @@ flowchart LR
 | F3a | concluído, verificado (181 unit + 76 integração; dbt PASS=250 WARN=4 ERROR=0; real fev/2025: resumo 5,44 M linhas/55 MB por mês, `dim_data` 45.697 dias contínuos 1899-12-30→2025-02-08 sem NULL, −2 em 8+2 datas; M17 morta) e integrado — R3-01, 02, 03, 05, 10, 14, 18, P16, P18, P21 | 21086135 · Claude Sonnet médio | 11 commits `0b22904`…`1d26fb9` |
 | RBP | concluída: guia **aprovado c/ ressalvas** (43 erros, 8 imp.; P2 reaberta) e projeto **aprovado c/ ressalvas** (0 bloq., 4 imp., 9 menores, 2 sug.; 23 mutações, 5 sobreviventes) — triagem em `docs/revisoes/RBP-triagem.md` | 98a4dc3f · Claude Opus alto (traycer-review) | `45afc02` |
 | FBPg | em andamento — correções do guia RBP-G01..G43 + P2/P9 | 080e5291 · Gemini 3.8 Flash high (`openrouter`) | — |
+| B11 | em andamento — publicação MotherDuck opcional + acesso do Power BI (T42–T43; ADR-0016, AD-025), paralelo ao FBPa/FBPg | (Sonnet médio) | — |
 | FBPa | em andamento — correções do projeto RBP-01..11, 13, 14 | e1238e92 · Claude Sonnet médio | — |
 | B10 | concluído, verificado (194 unit + 89 integração; dbt PASS=313 WARN=4 ERROR=0; 50 nós com a tag `incremento_enriquecimento_bd`; mutação do líder no indicador por mil domicílios detectada; real: população até 2025, PIB até 2023, Fundão na RM Grande Vitória com 5 vizinhos) e integrado — T38–T41, ADR-0015 | 11ae6890 · Claude Sonnet médio | `a0dcf8e` `6611f04` `a7248f2` `544b9e2` `8541f37` |
 | F3b | concluído, verificado (184 unit + 80 integração; dbt PASS=267 WARN=4 ERROR=0; M03/M04/M08/M11/M13/M21 mortas — M21 refeita pelo líder; fixture P emenda ANA-04 AC 5; real: relatório 159 linhas, `cnpj_dv_valido` 18 s) e integrado — R3-04, 07–09, 11–13, 15–17, 19, 20 | 688cd14e · Claude Sonnet médio | 11 commits `2155921`…`0cc60bc` |
