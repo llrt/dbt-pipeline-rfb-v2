@@ -28,9 +28,9 @@
 
 | Etapa | Momento | O que valida |
 |---|---|---|
-| Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (34 testes) |
+| Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (35 testes) |
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
-| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (43 testes) |
+| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (58 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
 | Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (59 testes) |
@@ -41,6 +41,7 @@
 
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
+| `censo_2022_municipio.id_municipio` | `unique` | error | adicao | — |
 | `cnaes` | Reproduz o check do notebook 2.1.2 (qualidade dos domínios): CNAEs RFB sem par na Base dos Dados. | warn | original | 2.1.2 |
 | `cnaes` | `unique_combination_of_columns` {"combination_of_columns": ["codigo", "_mes_referencia"]} | error | original | 2.1.1 |
 | `cnaes._data_referencia` | `not_null` | error | adicao | — |
@@ -92,12 +93,27 @@
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
 | `estabelecimentos` | DQ-01 / R3-09: casos conhecidos do teste `data_nao_futura`. | error | adicao | — |
+| `stg_bd__censo_2022_municipio.area_km2` | `accepted_range` {"min_value": 0, "inclusive": false} | error | adicao | — |
+| `stg_bd__censo_2022_municipio.area_km2` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.domicilios` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_bd__censo_2022_municipio.id_municipio` | `unique` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.populacao` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.taxa_alfabetizacao` | `accepted_range` {"min_value": 0, "max_value": 1} | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `not_null` | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio_rf` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.id_municipio` | `unique` | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.nome_regiao_metropolitana` | `not_null` | error | adicao | — |
+| `stg_bd__vizinhanca.ano` | `not_null` | error | adicao | — |
+| `stg_bd__vizinhanca.id_municipio_1` | `not_null` | error | adicao | — |
+| `stg_bd__vizinhanca.id_municipio_2` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `unique` | error | adicao | — |
@@ -301,8 +317,10 @@
 | `mart_fornecedores_proximos` | `test_mart_fornecedores_proximos_haversine_e_via` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario` | adicao |
+| `stg_bd__censo_2022_municipio` | `test_stg_bd__censo_2022_municipio_tipagem` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_lpad_id_municipio_rf` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_parse_centroide` | adicao |
+| `stg_bd__regioes_metropolitanas` | `test_stg_bd__regioes_metropolitanas_uma_por_municipio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_e_texto_vazio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_filtra_mes_mais_recente` | adicao |

@@ -123,6 +123,127 @@ models:
       - name: va_adespss
         description: Valor adicionado da administração, defesa, educação e saúde públicas, em R$.
 
+  # --- incremento: enriquecimento_bd (ADR-0015) ---
+  - name: stg_bd__censo_2022_municipio
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    description: >
+      Censo 2022 por município, tipado: contagens `bigint`, taxas `double`; `area` vira
+      `area_km2`. Uma linha por município.
+    columns:
+      - name: id_municipio
+        description: Código IBGE do município (7 dígitos).
+        data_tests:
+          - unique:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: sigla_uf
+        description: Sigla da UF do município.
+      - name: domicilios
+        description: Domicílios (Censo 2022).
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: populacao
+        description: População residente (Censo 2022).
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: area_km2
+        description: Área territorial em km².
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0, inclusive: false }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: taxa_alfabetizacao
+        description: Taxa de alfabetização (fração de 0 a 1).
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0, max_value: 1 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: idade_mediana
+        description: Idade mediana, em anos.
+      - name: razao_sexo
+        description: Razão de sexo (homens por 100 mulheres).
+      - name: indice_envelhecimento
+        description: Índice de envelhecimento (idosos por 100 jovens).
+      - name: populacao_indigena
+        description: População indígena.
+      - name: populacao_indigena_terra_indigena
+        description: População indígena residente em terras indígenas.
+      - name: populacao_quilombola
+        description: População quilombola.
+      - name: populacao_quilombola_territorio_quilombola
+        description: População quilombola residente em territórios quilombolas.
+
+  - name: stg_bd__regioes_metropolitanas
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    description: >
+      Região metropolitana de cada município, uma linha por município (a fonte pode listar um
+      município em mais de uma região: fica a de tipo `RM`, depois a de menor nome). A `geometria`
+      da fonte é descartada.
+    columns:
+      - name: id_municipio
+        description: Código IBGE do município (7 dígitos).
+        data_tests:
+          - unique:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: sigla_uf
+        description: Sigla da UF do município.
+      - name: nome_regiao_metropolitana
+        description: Nome da região metropolitana.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: tipo
+        description: "Tipo da unidade (`RM`, `RIDE`, `AGLO`, `CM`)."
+      - name: subcategoria_metropolitana
+        description: Subcategoria (núcleo, colar...); frequentemente nula.
+      - name: legislacao
+        description: Lei que instituiu a região.
+      - name: data_legislacao
+        description: Data da lei; nula quando ausente.
+
+  - name: stg_bd__vizinhanca
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    description: >
+      Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas e autopares
+      em anos antigos), com `ano` inteiro. Ano mais recente e simetria: `int_vizinhanca__municipios`.
+    columns:
+      - name: ano
+        description: Ano da malha municipal do par.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: id_municipio_1
+        description: Código IBGE de um município do par.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      - name: id_municipio_2
+        description: Código IBGE do município vizinho.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+
 unit_tests:
   - name: test_stg_bd__municipios_parse_centroide
     description: "Extrai latitude/longitude do WKT `POINT(longitude latitude)` de `centroide`."
@@ -186,3 +307,55 @@ unit_tests:
     expect:
       rows:
         - { id_municipio: "3200409", id_municipio_rf: "0643" }
+
+  # --- incremento: enriquecimento_bd (ADR-0015) ---
+  - name: test_stg_bd__regioes_metropolitanas_uma_por_municipio
+    description: >
+      Município em duas regiões: fica a de tipo `RM` (mesmo vindo depois na fonte); a geometria
+      não vai para o staging.
+    model: stg_bd__regioes_metropolitanas
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    given:
+      - input: source('basedosdados', 'regiao_metropolitana_2017')
+        format: sql
+        rows: |
+          select 'RM da Zona da Mata' as nome_regiao_metropolitana, 'AGLO' as tipo,
+                 null as subcategoria_metropolitana, '2705507' as id_municipio, 'AL' as sigla_uf,
+                 'Lei A' as legislacao, '2010-01-01' as data_legislacao, 'POLYGON((0 0))' as geometria
+          union all
+          select 'RM Maceió', 'RM', null, '2705507', 'AL', 'Lei B', '', 'POLYGON((1 1))'
+          union all
+          select 'RM Grande Vitória', 'RM', null, '3202207', 'ES', 'Lei Complementar 318',
+                 '2005-01-18', 'POLYGON((2 2))'
+    expect:
+      format: sql
+      rows: |
+        select '2705507' as id_municipio, 'AL' as sigla_uf,
+               'RM Maceió' as nome_regiao_metropolitana, 'RM' as tipo,
+               null as subcategoria_metropolitana, 'Lei B' as legislacao,
+               null::date as data_legislacao
+        union all
+        select '3202207', 'ES', 'RM Grande Vitória', 'RM', null, 'Lei Complementar 318',
+               date '2005-01-18'
+
+  - name: test_stg_bd__censo_2022_municipio_tipagem
+    description: "Renomeia `area` para `area_km2` e converte contagens e taxas."
+    model: stg_bd__censo_2022_municipio
+    config:
+      meta: { incremento: enriquecimento_bd }
+      tags: [incremento_enriquecimento_bd]
+    given:
+      - input: source('basedosdados', 'censo_2022_municipio')
+        format: sql
+        rows: |
+          select '3202207' as id_municipio, 'ES' as sigla_uf, '6715' as domicilios,
+                 '17951' as populacao, '287' as area, '0.93371' as taxa_alfabetizacao,
+                 '37' as idade_mediana, '97.67' as razao_sexo,
+                 '67.68' as indice_envelhecimento, '30' as populacao_indigena,
+                 '0' as populacao_indigena_terra_indigena, '0' as populacao_quilombola,
+                 '0' as populacao_quilombola_territorio_quilombola
+    expect:
+      rows:
+        - { id_municipio: "3202207", sigla_uf: ES, domicilios: 6715, populacao: 17951, area_km2: 287.0, taxa_alfabetizacao: 0.93371, idade_mediana: 37.0, razao_sexo: 97.67, indice_envelhecimento: 67.68, populacao_indigena: 30, populacao_indigena_terra_indigena: 0, populacao_quilombola: 0, populacao_quilombola_territorio_quilombola: 0 }

@@ -866,6 +866,106 @@ def gerar_pib_bd(saida_dir: Path) -> Path:
     return gerar_csv_gz_bd(saida_dir, "pib", CABECALHO_PIB_BD, linhas)
 
 
+# incremento: enriquecimento_bd
+CABECALHO_CENSO_2022_BD = [
+    "id_municipio",
+    "sigla_uf",
+    "domicilios",
+    "populacao",
+    "area",
+    "taxa_alfabetizacao",
+    "idade_mediana",
+    "razao_sexo",
+    "indice_envelhecimento",
+    "populacao_indigena",
+    "populacao_indigena_terra_indigena",
+    "populacao_quilombola",
+    "populacao_quilombola_territorio_quilombola",
+]
+
+# id_municipio, uf, domicílios, população, área (km²), taxa de alfabetização, idade mediana,
+# razão de sexo, índice de envelhecimento, indígena, indígena em TI (quilombolas: 0 em todos).
+# Fundão = valores reais do Censo 2022; os demais são sintéticos. Água Branca/PI (2200202) fica
+# de fora de propósito: denominadores ausentes devem virar NULL.
+_CENSO_2022_BD = [
+    ("3202207", "ES", "6715", "17951", "287", "0.93371", "37", "97.67", "67.68", "30", "0"),
+    ("3203205", "ES", "55000", "166786", "3502", "0.9391", "34", "96.9", "40.5", "100", "0"),
+    ("3200607", "ES", "40000", "94765", "1436", "0.94", "35", "99", "45.1", "2500", "2400"),
+    ("3205002", "ES", "160000", "520653", "553", "0.97", "34", "94.5", "49.2", "400", "0"),
+    ("3205309", "ES", "140000", "322869", "93", "0.98", "40", "85.9", "100.4", "300", "0"),
+    ("2700102", "AL", "3300", "9873", "454", "0.62", "28", "98", "25", "0", "0"),
+    ("2500106", "PB", "3200", "9000", "236", "0.7", "30", "97", "30", "0", "0"),
+]
+
+
+def gerar_censo_2022_bd(saida_dir: Path) -> Path:
+    return gerar_csv_gz_bd(
+        saida_dir,
+        "censo_2022_municipio",
+        CABECALHO_CENSO_2022_BD,
+        [[*r, "0", "0"] for r in _CENSO_2022_BD],
+    )
+
+
+# incremento: enriquecimento_bd
+CABECALHO_REGIAO_METROPOLITANA_BD = [
+    "nome_regiao_metropolitana",
+    "tipo",
+    "subcategoria_metropolitana",
+    "id_municipio",
+    "sigla_uf",
+    "legislacao",
+    "data_legislacao",
+    "geometria",
+]
+
+_GEOMETRIA_SINTETICA = "POLYGON((-40.5 -20.5, -40.0 -20.5, -40.0 -19.8, -40.5 -19.8, -40.5 -20.5))"
+
+# Fundão, Serra e Vitória pertencem à RM Grande Vitória (como nos dados reais, que ainda trazem
+# Vila Velha, Cariacica, Guarapari e Viana — fora do cenário). Linhares e Aracruz ficam de fora.
+_REGIAO_METROPOLITANA_BD = [
+    ("RM Grande Vitória", "RM", "", "3202207", "ES", "Lei Complementar 318", "2005-01-18"),
+    ("RM Grande Vitória", "RM", "", "3205002", "ES", "Lei Complementar 318", "2005-01-18"),
+    ("RM Grande Vitória", "RM", "", "3205309", "ES", "Lei Complementar 318", "2005-01-18"),
+]
+
+
+def gerar_regiao_metropolitana_bd(saida_dir: Path) -> Path:
+    return gerar_csv_gz_bd(
+        saida_dir,
+        "regiao_metropolitana_2017",
+        CABECALHO_REGIAO_METROPOLITANA_BD,
+        [[*r, _GEOMETRIA_SINTETICA] for r in _REGIAO_METROPOLITANA_BD],
+    )
+
+
+# incremento: enriquecimento_bd
+CABECALHO_VIZINHANCA_BD = ["ano", "id_municipio_1", "id_municipio_2"]
+
+# Ano mais recente = 2020. Propositalmente "sujo": pares só em uma direção (o modelo simetriza),
+# uma linha duplicada, um autopar e um par de 2019 que não deve aparecer.
+# Vizinhos conformados de Fundão: Aracruz e Serra.
+_VIZINHANCA_BD = [
+    ("2019", "3202207", "3203205"),
+    ("2020", "3202207", "3200607"),
+    ("2020", "3202207", "3200607"),
+    ("2020", "3202207", "3205002"),
+    ("2020", "3205002", "3205309"),
+    ("2020", "3205309", "3205002"),
+    ("2020", "3200607", "3203205"),
+    ("2020", "3203205", "3203205"),
+]
+
+
+def gerar_vizinhanca_bd(saida_dir: Path) -> Path:
+    return gerar_csv_gz_bd(
+        saida_dir,
+        "vizinhanca_municipio",
+        CABECALHO_VIZINHANCA_BD,
+        [list(r) for r in _VIZINHANCA_BD],
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     analisador = argparse.ArgumentParser(description="Gera fixtures sintéticas RFB/BD.")
     analisador.add_argument(
@@ -1061,6 +1161,9 @@ def gerar_fixtures(saida_dir: Path) -> None:
     gerar_cnae2_bd(saida_dir)
     gerar_populacao_bd(saida_dir)
     gerar_pib_bd(saida_dir)
+    gerar_censo_2022_bd(saida_dir)  # incremento: enriquecimento_bd
+    gerar_regiao_metropolitana_bd(saida_dir)  # incremento: enriquecimento_bd
+    gerar_vizinhanca_bd(saida_dir)  # incremento: enriquecimento_bd
 
 
 if __name__ == "__main__":

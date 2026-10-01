@@ -9,6 +9,8 @@ pytest de integração). Sem o manifesto, o teste é pulado. Regras:
   o dbt propaga as tags da fonte/modelo pai ao teste, então tags de escopo extras são toleradas
   (ex.: teste `adicao` sobre uma fonte `original`);
 - macros (incl. testes genéricos): `meta.escopo` válido (macros não têm tags no dbt);
+- incremento (ADR-0015): `meta.incremento` e a tag `incremento_<valor>` andam juntos — falha se um
+  nó tiver o meta sem a tag ou a tag sem o meta (macros: só checa o valor do meta, sem tags);
 - hooks `on-run-*` (nós `operation`): ignorados — não aceitam config no dbt; a macro que chamam
   já é verificada.
 """
@@ -25,6 +27,20 @@ ESCOPOS = {"original", "adicao", "adaptado"}
 SECOES = ("nodes", "sources", "macros", "unit_tests", "exposures")
 
 
+def _problemas_incremento(id_no: str, secao: str, no: dict) -> list[str]:
+    """`meta.incremento` sem a tag `incremento_<valor>` (ou a tag sem o meta) -> problema."""
+    config = no.get("config") or {}
+    incremento = (no.get("meta") or config.get("meta") or {}).get("incremento")
+    if secao == "macros":
+        return []
+    todas = no.get("tags") or config.get("tags") or []
+    tags = sorted(t for t in todas if t.startswith("incremento_"))
+    esperado = [f"incremento_{incremento}"] if incremento else []
+    if tags != esperado:
+        return [f"{id_no}: meta.incremento={incremento!r} incoerente com as tags {tags}"]
+    return []
+
+
 def nos_com_problema(manifesto: dict) -> list[str]:
     """Lista `id: motivo` dos nós do projeto sem escopo coerente (meta + tag)."""
     problemas: list[str] = []
@@ -36,6 +52,9 @@ def nos_com_problema(manifesto: dict) -> list[str]:
                 continue
             config = no.get("config") or {}
             escopo = (no.get("meta") or config.get("meta") or {}).get("escopo")
+            problemas.extend(
+                _problemas_incremento(id_no, secao, no)
+            )  # incremento: enriquecimento_bd
             if escopo not in ESCOPOS:
                 problemas.append(f"{id_no}: meta.escopo ausente ou inválido ({escopo!r})")
                 continue
@@ -71,6 +90,27 @@ def test_validador_reprova_no_sem_tag_ou_com_tag_incoerente() -> None:
     assert len(nos_com_problema(sem_meta)) == 1
     de_terceiros = {"nodes": {"m": {"package_name": "dbt_utils"}}}
     assert nos_com_problema(de_terceiros) == []
+
+
+# incremento: enriquecimento_bd
+def test_validador_exige_coerencia_entre_meta_incremento_e_tag() -> None:
+    def manifesto(meta: dict, tags: list[str]) -> dict:
+        no = {"package_name": "rfb", "meta": {"escopo": "adicao", **meta}, "tags": tags}
+        return {"nodes": {"model.rfb.m": no}}
+
+    ok = manifesto(
+        {"incremento": "enriquecimento_bd"}, ["escopo_adicao", "incremento_enriquecimento_bd"]
+    )
+    assert nos_com_problema(ok) == []
+    assert nos_com_problema(manifesto({}, ["escopo_adicao"])) == []
+    sem_tag = manifesto({"incremento": "enriquecimento_bd"}, ["escopo_adicao"])
+    assert len(nos_com_problema(sem_tag)) == 1
+    sem_meta = manifesto({}, ["escopo_adicao", "incremento_enriquecimento_bd"])
+    assert len(nos_com_problema(sem_meta)) == 1
+    outra_tag = manifesto(
+        {"incremento": "enriquecimento_bd"}, ["escopo_adicao", "incremento_outro"]
+    )
+    assert len(nos_com_problema(outra_tag)) == 1
 
 
 @pytest.mark.skipif(not MANIFESTO.is_file(), reason="rode `dbt build` antes")

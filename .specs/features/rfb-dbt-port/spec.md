@@ -66,6 +66,16 @@ Aracruz `POINT(-40.1758978602985 -19.7659695292442)`, Vitória `POINT(-39.176338
 pelo menos um registro multilinha; população 2024: Fundão 20000, Linhares 180000, Aracruz 100000, Serra
 520000, Vitória 330000, cada Água Branca 10000; população 2023: Fundão 19000.
 
+**BD — incremento `enriquecimento_bd` (ADR-0015; adições ao cenário, nenhuma resposta acima muda):**
+
+| Tabela (arquivo `bd/…csv.gz`) | Conteúdo da fixture |
+|---|---|
+| `censo_2022_municipio` | 7 municípios (Água Branca/PI **ausente** de propósito: denominadores NULL). **Fundão** = Censo real: 6715 domicílios, 17951 hab., 287 km², alfabetização 0,93371, idade mediana 37, razão de sexo 97,67, índice de envelhecimento 67,68. Linhares 55000 dom./166786 hab./3502 km²; Aracruz 40000/94765/1436; Serra 160000/520653/553; Vitória 140000/322869/93; Água Branca/AL 3300/9873/454; Água Branca/PB 3200/9000/236 |
+| `regiao_metropolitana_2017` | `RM Grande Vitória` (tipo `RM`) com **Fundão, Serra e Vitória**; Linhares, Aracruz e as Águas Brancas ficam sem RM (`NÃO PERTENCE`); `geometria` sintética, descartada no staging |
+| `vizinhanca_municipio` | ano **2020** (mais recente): Fundão–Aracruz (duplicada), Fundão–Serra, Serra–Vitória (nos dois sentidos), Aracruz–Linhares, autopar Linhares–Linhares; ano **2019** (deve ser ignorado): Fundão–Linhares. Pares só em um sentido: o modelo simetriza. **Vizinhos conformados de Fundão = {Aracruz, Serra}**; Serra = {Fundão, Vitória}; Aracruz = {Fundão, Linhares}; Linhares = {Aracruz}; Vitória = {Serra} |
+
+Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão = 17951/287 ≈ 62,55; Fundão no município: ativos 1, inativos 4; nos vizinhos (Aracruz + Serra): ativos 1 (O, Serra), inativos 0; na região metropolitana (Fundão + Serra + Vitória): ativos 2, inativos 4; ativos por mil domicílios (município) = 1/6715×1000 ≈ 0,1489; ativos por km² (município) = 1/287 ≈ 0,003484.
+
 **Estabelecimentos** (todos com DV correto, exceto L):
 
 | id | cnpj_raiz/ordem | razão social (empresa) | natureza | porte | município | CNAE principal | situação | início | dat_situacao | observação |

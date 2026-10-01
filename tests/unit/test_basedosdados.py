@@ -38,7 +38,9 @@ def test_baixa_todas_as_tabelas(tmp_path: Path) -> None:
         assert caminho == destino_dir / f"{nome}.csv.gz"
         assert caminho.read_bytes() == CONTEUDO_GZ
     assert len(urls_chamadas) == len(TABELAS_BD)
-    assert all(url.startswith(f"https://{BD_HOST}/api/tables/downloadTable?") for url in urls_chamadas)
+    assert all(
+        url.startswith(f"https://{BD_HOST}/api/tables/downloadTable?") for url in urls_chamadas
+    )
 
 
 def _decodificar(url: str) -> dict[str, str]:
@@ -106,12 +108,7 @@ def test_falha_persistente_nao_deixa_arquivo_parcial(tmp_path: Path) -> None:
 def test_origem_local_copia_em_vez_de_baixar(tmp_path: Path) -> None:
     origem_local = tmp_path / "fixtures"
     (origem_local / "bd").mkdir(parents=True)
-    conteudos = {
-        "municipio": b"municipio-conteudo",
-        "cnae_2": b"cnae2-conteudo",
-        "populacao": b"populacao-conteudo",
-        "pib": b"pib-conteudo",
-    }
+    conteudos = {nome: f"{nome}-conteudo".encode() for nome in TABELAS_BD}
     for nome, conteudo in conteudos.items():
         (origem_local / "bd" / f"{nome}.csv.gz").write_bytes(conteudo)
 
