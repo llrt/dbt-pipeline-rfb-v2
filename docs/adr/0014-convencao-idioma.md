@@ -39,7 +39,8 @@ do projeto, variáveis de ambiente do projeto, diretórios de dados próprios, m
 | identificadores Python com palavras em inglês (ex.: `lock_execucao`, `sha`) | equivalentes em português (`trava_execucao`, `sha256_arquivo`…) |
 
 **Consequências.** Um teste automatizado (`tests/unit/test_convencao_nomes.py`) protege a regra nas partes
-verificáveis (subpastas de `models/`, prefixos dos modelos, módulos Python, subcomandos da CLI, alvos do Make).
+verificáveis (subpastas de `models/`, prefixos dos modelos, módulos Python, subcomandos da CLI, alvos do Make e variáveis de ambiente do projeto — lista permitida: `RAIZ_DADOS`, `RAIZ_DADOS_LOCAL`, `CAMINHO_DUCKDB`, `RFB_*` e as de terceiros).
+**Limitação conhecida (R2-10):** a guarda não verifica o idioma dos nomes após o prefixo dos modelos, macros, testes, seeds e colunas; isso depende de revisão.
 O guia de dbt continua usando os nomes de camada da comunidade (staging/intermediate/marts), o que facilita o
 aprendizado. Documentos anteriores são atualizados para os novos nomes.
 
