@@ -45,6 +45,8 @@ make docs                  # dbt docs
 
 **Migração (ADR-0014):** `DATA_ROOT`→`RAIZ_DADOS`, `DATA_ROOT_LOCAL`→`RAIZ_DADOS_LOCAL`, `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; o diretório padrão `data/` agora é `dados/`. As variáveis antigas causam erro.
 
+**Threads:** `DBT_THREADS` (nós do dbt em paralelo) e `DUCKDB_THREADS` (threads do motor DuckDB) são variáveis distintas; ambas opcionais (padrões por alvo em `transform/profiles.yml`).
+
 ## Licença
 
 MIT (como o projeto original).
