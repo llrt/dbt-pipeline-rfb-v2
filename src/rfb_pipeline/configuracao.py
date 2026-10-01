@@ -69,10 +69,10 @@ class Configuracao:
     raiz_dados_s3: str | None = None
     webdav_url: str = "https://arquivos.receitafederal.gov.br/public.php/webdav/"
     webdav_token: str = "YggdBLfdninEJX9"
-    bd_base_url: str = "https://storage.googleapis.com/basedosdados-public/one-click-download/"
+    bd_base_url: str = "https://basedosdados.org/api/tables/downloadTable"
     hosts_permitidos: tuple[str, ...] = (
         "arquivos.receitafederal.gov.br",
-        "storage.googleapis.com",
+        "basedosdados.org",
     )
     max_taxa_rejeito: float = 0.0001
     tempo_limite_s: float = 60.0

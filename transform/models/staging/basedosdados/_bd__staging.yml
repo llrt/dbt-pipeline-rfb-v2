@@ -109,19 +109,19 @@ models:
       - name: ano
         description: Ano de referência do PIB.
       - name: pib
-        description: PIB total do município no ano, em mil R$.
+        description: PIB total do município no ano, em R$.
       - name: impostos_liquidos
-        description: Impostos líquidos de subsídios, em mil R$.
+        description: Impostos líquidos de subsídios, em R$.
       - name: va
-        description: Valor adicionado total, em mil R$.
+        description: Valor adicionado total, em R$.
       - name: va_agropecuaria
-        description: Valor adicionado da agropecuária, em mil R$.
+        description: Valor adicionado da agropecuária, em R$.
       - name: va_industria
-        description: Valor adicionado da indústria, em mil R$.
+        description: Valor adicionado da indústria, em R$.
       - name: va_servicos
-        description: Valor adicionado dos serviços, em mil R$.
+        description: Valor adicionado dos serviços, em R$.
       - name: va_adespss
-        description: Valor adicionado da administração, defesa, educação e saúde públicas, em mil R$.
+        description: Valor adicionado da administração, defesa, educação e saúde públicas, em R$.
 
 unit_tests:
   - name: test_stg_bd__municipios_parse_centroide

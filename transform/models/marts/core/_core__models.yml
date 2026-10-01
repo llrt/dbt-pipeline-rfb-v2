@@ -111,7 +111,7 @@ models:
         data_type: integer
       - name: pib
         description: >
-          PIB do município (R$ mil) em `ano_pib`; NULL sem dado.
+          PIB do município (R$) em `ano_pib`; NULL sem dado.
         data_type: double
 
   - name: dim_cnae

@@ -3,7 +3,7 @@
 Reproduz o formato real dos arquivos publicados no WebDAV da RFB para o mês
 2026-09 (zips com um único arquivo interno, latin-1, separador `;`, todos os
 campos entre aspas, fim de linha LF) e os csv.gz da Base dos Dados
-(one-click-download: UTF-8, vírgula, cabecalho). Duas execuções produzem bytes
+(API downloadTable: UTF-8, vírgula, cabecalho). Duas execuções produzem bytes
 idênticos: timestamps de zip/gzip são fixados e a ordem de escrita é estável.
 
 O cenário de dados (municípios, CNAEs, naturezas, empresas e estabelecimentos)
@@ -845,7 +845,7 @@ CABECALHO_PIB_BD = [
     "va_adespss",
 ]
 
-# id_municipio, pib (mil R$), aproximadamente proporcional à população 2024
+# id_municipio, pib (R$), aproximadamente proporcional à população 2024
 _PIB_BD = [
     ("3202207", "350000", "35000", "315000", "20000", "150000", "100000", "45000"),
     ("3203205", "2800000", "280000", "2520000", "400000", "900000", "1000000", "220000"),

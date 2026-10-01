@@ -111,7 +111,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 | Fonte | Local | Arquivos |
 |---|---|---|
 | RFB CNPJ | WebDAV público `https://arquivos.receitafederal.gov.br/public.php/webdav/` (usuário = token do share `YggdBLfdninEJX9`, senha vazia), pastas `YYYY-MM/` | `Empresas{0..9}.zip`, `Estabelecimentos{0..9}.zip`, `Simples.zip`, `Cnaes.zip`, `Municipios.zip`, `Naturezas.zip`, `Motivos.zip`, `Paises.zip`, `Qualificacoes.zip` (**não** `Socios*`) |
-| Base dos Dados | `https://storage.googleapis.com/basedosdados-public/one-click-download/<dataset>/<tabela>/<tabela>.csv.gz` | `br_bd_diretorios_brasil/municipio`, `br_bd_diretorios_brasil/cnae_2`, `br_ibge_populacao/municipio`, `br_ibge_pib/municipio` |
+| Base dos Dados | API `https://basedosdados.org/api/tables/downloadTable?p=<b64 dataset>&q=<b64 tabela>&d=<b64 "true">&s=<b64 "free">` (gzip, grátis até 100 MB; ADR-0015) | `br_bd_diretorios_brasil/municipio`, `br_bd_diretorios_brasil/cnae_2`, `br_ibge_populacao/municipio`, `br_ibge_pib/municipio` |
 
 A URL antiga do original (`/dados/cnpj/dados_abertos_cnpj/2025-02/`) retorna 404 e o mês 2025-02 não está
 mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
@@ -327,7 +327,7 @@ tamanho + sha256) → `dbt build --target s3`. Variáveis vazias equivalem a aus
 
 - Nenhum segredo no repositório; `.env` gitignored, `.env.example` só com nomes de variáveis.
 - Sem dados de sócios; contatos (email/telefone) descartados no staging ([ADR-0008](docs/adr/0008-minimizacao-dados-pessoais.md)).
-- Downloads só via HTTPS de hosts em allowlist (`arquivos.receitafederal.gov.br`, `storage.googleapis.com`).
+- Downloads só via HTTPS de hosts em allowlist (`arquivos.receitafederal.gov.br`, `basedosdados.org`).
 - Extração de zip protegida contra path traversal (zip-slip).
 
 ## 9. Riscos e mitigação
