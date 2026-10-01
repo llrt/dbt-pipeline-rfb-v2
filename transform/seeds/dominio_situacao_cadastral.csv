@@ -1,0 +1,6 @@
+codigo,rotulo,descricao
+1,NULA,Situação cadastral nula
+2,ATIVA,Estabelecimento ativo
+3,SUSPENSA,Estabelecimento suspenso
+4,INAPTA,Estabelecimento inapto
+8,BAIXADA,Estabelecimento baixado

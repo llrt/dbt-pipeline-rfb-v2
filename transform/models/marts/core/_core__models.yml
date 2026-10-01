@@ -114,6 +114,134 @@ models:
           PIB do município (R$ mil) em `ano_pib`; NULL sem dado.
         data_type: double
 
+  - name: dim_cnae
+    description: >
+      Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo → classe → subclasse (Base dos Dados), código e descrição em colunas separadas. Membro `-1` para CNAE sem par no BD.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_cnae
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Subclasse como inteiro.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_secao
+        description: >
+          Código da seção (letra).
+        data_type: varchar
+      - name: descricao_secao
+        description: >
+          Descrição da seção.
+        data_type: varchar
+      - name: codigo_divisao
+        description: >
+          Código da divisão (2 dígitos).
+        data_type: varchar
+      - name: descricao_divisao
+        description: >
+          Descrição da divisão.
+        data_type: varchar
+      - name: codigo_grupo
+        description: >
+          Código do grupo (3 dígitos).
+        data_type: varchar
+      - name: descricao_grupo
+        description: >
+          Descrição do grupo.
+        data_type: varchar
+      - name: codigo_classe
+        description: >
+          Código da classe (5 dígitos).
+        data_type: varchar
+      - name: descricao_classe
+        description: >
+          Descrição da classe.
+        data_type: varchar
+      - name: codigo_subclasse
+        description: >
+          Código da subclasse (7 dígitos, com zeros à esquerda).
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: descricao_subclasse
+        description: >
+          Descrição da subclasse.
+        data_type: varchar
+
+  - name: dim_natureza_juridica
+    description: >
+      Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_natureza_juridica
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código como inteiro.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_natureza_juridica
+        description: >
+          Código da natureza jurídica (4 dígitos).
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: descricao_natureza_juridica
+        description: >
+          Descrição da natureza jurídica.
+        data_type: varchar
+
+  - name: dim_porte
+    description: >
+      Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_porte
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_porte
+        description: >
+          Código RFB do porte.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: rotulo_porte
+        description: >
+          Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS).
+        data_type: varchar
+      - name: descricao_porte
+        description: >
+          Descrição por extenso.
+        data_type: varchar
+
+  - name: dim_situacao_cadastral
+    description: >
+      Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-1` para código fora do domínio.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_situacao_cadastral
+        description: >
+          Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: codigo_situacao_cadastral
+        description: >
+          Código RFB da situação.
+        data_type: varchar
+        data_tests: [unique, not_null]
+      - name: rotulo_situacao_cadastral
+        description: >
+          Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA).
+        data_type: varchar
+      - name: descricao_situacao_cadastral
+        description: >
+          Descrição por extenso.
+        data_type: varchar
+
 unit_tests:
   - name: test_int_municipios_conformados_ano_mais_recente
     description: "CORE-01: sem a var `ano_populacao`, usa o último ano de população (2024: 20000, não 2023: 19000); PIB do último ano."
@@ -169,3 +297,29 @@ unit_tests:
       rows:
         - { sk_municipio: 3202207, codigo_rfb: "5643", nome_municipio: "Fundão", sigla_uf: "ES", nome_uf: null, populacao: 20000 }
         - { sk_municipio: -1, codigo_rfb: "-1", nome_municipio: "NÃO INFORMADO", sigla_uf: "NI", nome_uf: "NÃO INFORMADO", populacao: null }
+
+  - name: test_dim_cnae_sk_inteira_e_membro_nao_informado
+    description: "ADR-0013: `sk_cnae` é a subclasse como inteiro ('0111301' → 111301, zero à esquerda preservado em `codigo_subclasse`) e existe o membro `-1`."
+    model: dim_cnae
+    given:
+      - input: ref('stg_bd__cnaes')
+        rows:
+          - { subclasse: "0111301", descricao_subclasse: "Cultivo de arroz", classe: "01113", grupo: "011", divisao: "01", secao: "A" }
+    expect:
+      rows:
+        - { sk_cnae: 111301, codigo_subclasse: "0111301", codigo_classe: "01113", codigo_grupo: "011", codigo_divisao: "01", codigo_secao: "A" }
+        - { sk_cnae: -1, codigo_subclasse: "-1", codigo_classe: "-1", codigo_grupo: "-1", codigo_divisao: "-1", codigo_secao: "-1" }
+
+  - name: test_dim_natureza_juridica_sk_e_membro_nao_informado
+    description: "ADR-0013: `sk_natureza_juridica` = código inteiro (`0000` → 0) e existe o membro `-1`."
+    model: dim_natureza_juridica
+    given:
+      - input: ref('stg_rfb__naturezas')
+        rows:
+          - { codigo: "2062", descricao: "Sociedade Empresária Limitada" }
+          - { codigo: "0000", descricao: "Natureza Jurídica não informada" }
+    expect:
+      rows:
+        - { sk_natureza_juridica: 2062, codigo_natureza_juridica: "2062" }
+        - { sk_natureza_juridica: 0, codigo_natureza_juridica: "0000" }
+        - { sk_natureza_juridica: -1, codigo_natureza_juridica: "-1" }
