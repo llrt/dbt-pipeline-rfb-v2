@@ -185,3 +185,22 @@ Saída 0 em 0,56 s, só com a listagem (PROPFIND): nenhum arquivo baixado (`_bai
 inalterado), nenhum dbt executado. Em 2026-10-01 a pasta de 2026-10 ainda não existia no WebDAV.
 O fluxo com mês novo, falha do dbt e retenção roda a cada `make ci` sobre as fixtures de dois meses
 (`tests/integration/test_atualizar.py`).
+
+## 6. Vazios de mercado em `mart_concorrencia_area_mercado` (B12 — T44/P23)
+
+Medição somente leitura sobre o gold real de 2026-09 (`raw` por symlink num `RAIZ_DADOS` próprio; o gold do B8 não
+foi tocado): `dbt build -s +mart_concorrencia_area_mercado --resource-type model seed`, `DBT_THREADS=8`,
+`DUCKDB_MEMORY_LIMIT` 24 GB (target `dev`), 2026-10-01.
+
+| | Antes (grão local) | Depois (com vazios) |
+|---|---|---|
+| Linhas | 2.027.104 | **3.937.699** (1,94×) |
+| das quais vazios (`tem_estabelecimento_local` = false) | — | **1.910.595** (48,5 %) |
+| CNAEs / municípios distintos | — | 1.343 / 5.571 |
+| Parquet | 74 MB | 142 MB |
+| Tempo do modelo | — | 2,0 s (build das 27 dependências + modelo: 39 s) |
+| Pico de RSS do processo do dbt | — | 20,6 GB (limite DuckDB de 24 GB; o build refaz `int_estabelecimentos__enriquecidos`) |
+
+Abaixo do limite combinado (3× ou 15 M linhas): sem mudança de abordagem. Os 18 testes do mart e o singular
+`area_mercado_invariantes` (nenhum par com ativos na área fica de fora) passam sobre as 3,9 M linhas.
+O grão cruzado completo seria ~6× o original; os vazios (só onde vizinhos/RM têm ≥ 1 ativo) são ~0,94×.
