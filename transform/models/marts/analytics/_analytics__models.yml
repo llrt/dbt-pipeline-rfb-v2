@@ -233,8 +233,8 @@ models:
       - name: nome
         description: >
           Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do
-          empresário individual/MEI mascarado como `***.***.***-**` (`mascarar_cpf_no_nome`; ADR-0008,
-          emenda R4-01).
+          empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11
+          dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008, emenda R4-01).
         data_type: varchar
         data_tests: [sem_cpf_no_nome]
       - name: sk_cnae
