@@ -46,6 +46,7 @@ ETAPA_SINGULAR = {
     "fct_estabelecimentos_reconciliacao": "Core",
     "cnpj_dv_valido_casos": "Staging",
     "data_nao_futura_casos": "Staging",
+    "caso_resolve_um_municipio": "Análises",
     "sobrevivencia_invariantes": "Análises",
     "distancias_fornecedores_validas": "Análises",
 }

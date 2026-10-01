@@ -34,7 +34,7 @@
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
 | Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (59 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (36 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (37 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
@@ -232,6 +232,7 @@
 
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
+| `dim_municipio` | CASE-01 / ANA-04 (R3-15): `caso_municipio` + `caso_uf` devem resolver para exatamente 1 município em `dim_municipio`. | error | adicao | — |
 | `mart_concorrencia_municipio` | `unique_combination_of_columns` {"combination_of_columns": ["cnae_principal", "sk_municipio"]} | error | adicao | — |
 | `mart_concorrencia_municipio.ativos` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio.ativos_por_10k_hab` | `accepted_range` {"min_value": 0} | error | adicao | — |
