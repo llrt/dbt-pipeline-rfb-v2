@@ -7,7 +7,9 @@
 with estabelecimentos as (
   select
     year(ini.data) as ano_coorte,
+    fct.sk_cnae,
     cnae.codigo_subclasse as cnae_principal,
+    fct.sk_porte,
     por.rotulo_porte as porte,
     mun.sigla_uf as uf,
     fct.eh_ativa,
@@ -41,7 +43,9 @@ marcados as (
 
 select
   ano_coorte,
+  sk_cnae,
   cnae_principal,
+  sk_porte,
   porte,
   uf,
   count(*) as estabelecimentos,
@@ -58,4 +62,4 @@ select
   count(*) filter (where elegivel_5a and sobrevive_5a)::double
   / nullif(count(*) filter (where elegivel_5a), 0) as taxa_5a
 from marcados
-group by ano_coorte, cnae_principal, porte, uf
+group by ano_coorte, sk_cnae, cnae_principal, sk_porte, porte, uf

@@ -12,6 +12,14 @@ models:
           arguments:
             combination_of_columns: [cnae_principal, sk_municipio]
     columns:
+      - name: sk_cnae
+        description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
       - name: cnae_principal
         description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
         data_tests: [not_null]
@@ -19,7 +27,12 @@ models:
         description: Descrição da subclasse (Base dos Dados).
       - name: sk_municipio
         description: Chave de `dim_municipio`; `-1` para município sem par no BD.
-        data_tests: [not_null]
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
       - name: municipio
         description: Nome do município (acentuado, Base dos Dados).
       - name: uf
@@ -50,9 +63,25 @@ models:
       - name: ano_coorte
         description: Ano de `dat_inicio_atividade` do estabelecimento.
         data_tests: [not_null]
+      - name: sk_cnae
+        description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
       - name: cnae_principal
         description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
         data_tests: [not_null]
+      - name: sk_porte
+        description: Chave de `dim_porte` (R3-20).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_porte')
+                field: sk_porte
       - name: porte
         description: Rótulo do porte (`dim_porte`); NÃO INFORMADO para porte vazio.
       - name: uf
@@ -87,6 +116,22 @@ models:
       - name: ano
         description: Ano calendário do evento (abertura ou encerramento).
         data_tests: [not_null]
+      - name: sk_cnae
+        description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
+      - name: sk_municipio
+        description: Chave de `dim_municipio` (R3-20); `-1` para município sem par no BD.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
       - name: cnae_principal
         description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
         data_tests: [not_null]
@@ -118,6 +163,14 @@ models:
         data_tests: [unique, not_null]
       - name: nome
         description: Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008).
+      - name: sk_cnae
+        description: Chave de `dim_cnae` do CNAE fornecido (R3-20); `-1` se o CNAE não existe na dimensão.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
       - name: cnae_fornecido
         description: CNAE (7 dígitos) que qualificou o fornecedor (principal; senão o menor secundário que casa).
         data_tests: [not_null]
@@ -126,6 +179,14 @@ models:
         data_tests:
           - accepted_values:
               arguments: { values: [principal, secundario] }
+      - name: sk_municipio
+        description: Chave de `dim_municipio` do município do fornecedor (R3-20).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
       - name: municipio
         description: Município do fornecedor.
       - name: uf
@@ -228,6 +289,10 @@ unit_tests:
         caso_cnaes_fornecedores: ["2071100", "4679699"]
         raio_fornecedores_km: 150
     given:
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 2071100, codigo_subclasse: "2071100" }
+          - { sk_cnae: 4679699, codigo_subclasse: "4679699" }
       - input: ref('dim_municipio')
         rows:
           - { sk_municipio: 1, nome_municipio: "Caso", sigla_uf: "ES", latitude: 0.0, longitude: 0.0 }
@@ -266,8 +331,8 @@ unit_tests:
           - { cnpj_raiz: "00000000", razao_social: "RAZAO" }
     expect:
       rows:
-        - { cnpj_completo: "00000000000001", nome: "F", cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
-        - { cnpj_completo: "00000000000002", nome: "RAZAO", cnae_fornecido: "4679699", via: "secundario", municipio: "Caso", uf: "ES", distancia_km: 0.0 }
+        - { cnpj_completo: "00000000000001", nome: "F", sk_cnae: 2071100, sk_municipio: 2, cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
+        - { cnpj_completo: "00000000000002", nome: "RAZAO", sk_cnae: 4679699, sk_municipio: 1, cnae_fornecido: "4679699", via: "secundario", municipio: "Caso", uf: "ES", distancia_km: 0.0 }
         # R3-08: CNAE de fornecedor no principal e no secundário -> principal; dois secundários -> o menor
-        - { cnpj_completo: "00000000000005", nome: "P", cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
-        - { cnpj_completo: "00000000000006", nome: "S", cnae_fornecido: "2071100", via: "secundario", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
+        - { cnpj_completo: "00000000000005", nome: "P", sk_cnae: 2071100, sk_municipio: 2, cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
+        - { cnpj_completo: "00000000000006", nome: "S", sk_cnae: 2071100, sk_municipio: 2, cnae_fornecido: "2071100", via: "secundario", municipio: "Perto", uf: "ES", distancia_km: 111.2 }

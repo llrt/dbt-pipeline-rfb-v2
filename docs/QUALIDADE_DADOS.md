@@ -34,7 +34,7 @@
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
 | Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (59 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (21 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (36 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
@@ -237,22 +237,37 @@
 | `mart_concorrencia_municipio.ativos_por_10k_hab` | `accepted_range` {"min_value": 0} | error | adicao | — |
 | `mart_concorrencia_municipio.cnae_principal` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio.inativos` | `not_null` | error | adicao | — |
+| `mart_concorrencia_municipio.sk_cnae` | `not_null` | error | adicao | — |
+| `mart_concorrencia_municipio.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `mart_concorrencia_municipio.sk_municipio` | `not_null` | error | adicao | — |
+| `mart_concorrencia_municipio.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `mart_dinamica_mercado.aberturas` | `not_null` | error | adicao | — |
 | `mart_dinamica_mercado.ano` | `not_null` | error | adicao | — |
 | `mart_dinamica_mercado.cnae_principal` | `not_null` | error | adicao | — |
 | `mart_dinamica_mercado.encerramentos` | `not_null` | error | adicao | — |
 | `mart_dinamica_mercado.saldo` | `not_null` | error | adicao | — |
+| `mart_dinamica_mercado.sk_cnae` | `not_null` | error | adicao | — |
+| `mart_dinamica_mercado.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
+| `mart_dinamica_mercado.sk_municipio` | `not_null` | error | adicao | — |
+| `mart_dinamica_mercado.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `mart_fornecedores_proximos` | ANA-04 AC 7: nenhuma distância negativa e distância 0 para fornecedor no próprio município do caso (a distância de um ponto a si mesmo é nula). | error | adicao | — |
 | `mart_fornecedores_proximos.cnae_fornecido` | `not_null` | error | adicao | — |
 | `mart_fornecedores_proximos.cnpj_completo` | `not_null` | error | adicao | — |
 | `mart_fornecedores_proximos.cnpj_completo` | `unique` | error | adicao | — |
 | `mart_fornecedores_proximos.distancia_km` | `accepted_range` {"min_value": 0} | error | adicao | — |
 | `mart_fornecedores_proximos.distancia_km` | `not_null` | error | adicao | — |
+| `mart_fornecedores_proximos.sk_cnae` | `not_null` | error | adicao | — |
+| `mart_fornecedores_proximos.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
+| `mart_fornecedores_proximos.sk_municipio` | `not_null` | error | adicao | — |
+| `mart_fornecedores_proximos.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `mart_fornecedores_proximos.via` | `accepted_values` {"values": ["principal", "secundario"]} | error | adicao | — |
 | `mart_sobrevivencia_coorte` | ANA-02 AC 3: taxas em [0,1] e, dentro da linha, taxa_1a >= taxa_3a >= taxa_5a quando ambas as taxas comparadas são não nulas. | error | adicao | — |
 | `mart_sobrevivencia_coorte.ano_coorte` | `not_null` | error | adicao | — |
 | `mart_sobrevivencia_coorte.cnae_principal` | `not_null` | error | adicao | — |
+| `mart_sobrevivencia_coorte.sk_cnae` | `not_null` | error | adicao | — |
+| `mart_sobrevivencia_coorte.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
+| `mart_sobrevivencia_coorte.sk_porte` | `not_null` | error | adicao | — |
+| `mart_sobrevivencia_coorte.sk_porte` | `relationships` {"to": "ref('dim_porte')", "field": "sk_porte"} | error | adicao | — |
 
 ### Observabilidade (Depois)
 
