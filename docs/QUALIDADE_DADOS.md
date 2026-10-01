@@ -12,6 +12,8 @@
 - **Severidade**: `error` interrompe o `dbt build`; `warn` registra a anomalia e não interrompe.
   Exceção documentada: `cnpj_dv_valido` é `warn`, mas vira erro se mais de 0,1% dos CNPJs forem
   inválidos **e** houver mais de 100 inválidos (`error_if` do dbt não aceita limites relativos).
+  `data_nao_futura` cobre toda data do staging, exceto `dat_exclusao_simples` e `dat_exclusao_mei`
+  (exclusão com efeito futuro é legítima; R3-11).
 - **Escopo**: `original` (check do MVP; notebook de origem na última coluna) ou `adicao`.
 
 ## Checks da ingestão (Python, antes do dbt)
@@ -89,9 +91,7 @@
 
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
-| `estabelecimentos.dat_inicio_atividade` | `data_nao_futura` | warn | adicao | — |
-| `estabelecimentos.dat_situacao` | `data_nao_futura` | warn | adicao | — |
-| `estabelecimentos.dat_situacao_especial` | `data_nao_futura` | warn | adicao | — |
+| `estabelecimentos` | DQ-01 / R3-09: casos conhecidos do teste `data_nao_futura`. | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `not_null` | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `unique` | error | adicao | — |
@@ -114,6 +114,9 @@
 | `stg_rfb__estabelecimentos.cnpj_completo` | `unique` | error | adicao | — |
 | `stg_rfb__estabelecimentos.cnpj_raiz` | `not_null` | error | adicao | — |
 | `stg_rfb__estabelecimentos.dat_inicio_atividade` | `accepted_range` {"min_value": "date '1900-01-01'"} | warn | adicao | — |
+| `stg_rfb__estabelecimentos.dat_inicio_atividade` | `data_nao_futura` | warn | adicao | — |
+| `stg_rfb__estabelecimentos.dat_situacao` | `data_nao_futura` | warn | adicao | — |
+| `stg_rfb__estabelecimentos.dat_situacao_especial` | `data_nao_futura` | warn | adicao | — |
 | `stg_rfb__estabelecimentos.municipio_rfb_codigo` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
 | `stg_rfb__estabelecimentos.situacao_codigo` | `accepted_values` {"values": [1, 2, 3, 4, 8], "quote": false} | error | adicao | — |
 | `stg_rfb__motivos.codigo` | `not_null` | error | adicao | — |
@@ -128,19 +131,18 @@
 | `stg_rfb__simples.cnpj_raiz` | `not_null` | error | adicao | — |
 | `stg_rfb__simples.cnpj_raiz` | `tamanho_exato` {"tamanho": 8} | error | adicao | — |
 | `stg_rfb__simples.cnpj_raiz` | `unique` | error | adicao | — |
-| `stg_rfb__simples.dat_exclusao_mei` | `data_nao_futura` | warn | adicao | — |
-| `stg_rfb__simples.dat_exclusao_simples` | `data_nao_futura` | warn | adicao | — |
 | `stg_rfb__simples.dat_opcao_mei` | `data_nao_futura` | warn | adicao | — |
 | `stg_rfb__simples.dat_opcao_simples` | `data_nao_futura` | warn | adicao | — |
+| `—` | DQ-01 / R3-09: casos conhecidos do teste `cnpj_dv_valido`. | error | adicao | — |
 
 ### Intermediate (Depois)
 
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
-| `dominio_matriz_filial.matriz_filial_codigo` | `relationships` {"to": "ref('dominio_matriz_filial')", "field": "codigo"} | error | adicao | — |
 | `int_cnaes_secundarios__explodidos` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_completo", "codigo_cnae_secundario"]} | error | adicao | — |
 | `int_estabelecimentos__enriquecidos.cnpj_completo` | `not_null` | error | adicao | — |
 | `int_estabelecimentos__enriquecidos.cnpj_completo` | `unique` | error | adicao | — |
+| `int_estabelecimentos__enriquecidos.matriz_filial_codigo` | `relationships` {"to": "ref('dominio_matriz_filial')", "field": "codigo"} | error | adicao | — |
 | `int_municipios__conformados.codigo_rfb` | `unique` | warn | adicao | — |
 | `int_municipios__conformados.sk_municipio` | `not_null` | error | adicao | — |
 | `int_municipios__conformados.sk_municipio` | `unique` | error | adicao | — |
@@ -168,49 +170,49 @@
 |---|---|---|---|---|
 | `bridge_estabelecimento_cnae_secundario` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_completo", "codigo_cnae_secundario"]} | error | adicao | — |
 | `bridge_estabelecimento_cnae_secundario.cnpj_completo` | `not_null` | error | adicao | — |
+| `bridge_estabelecimento_cnae_secundario.cnpj_completo` | `relationships` {"to": "ref('fct_estabelecimentos')", "field": "cnpj_completo"} | error | adicao | — |
 | `bridge_estabelecimento_cnae_secundario.sk_cnae` | `not_null` | error | adicao | — |
+| `bridge_estabelecimento_cnae_secundario.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `dim_cnae.codigo_subclasse` | `not_null` | error | adicao | — |
 | `dim_cnae.codigo_subclasse` | `unique` | error | adicao | — |
 | `dim_cnae.sk_cnae` | `not_null` | error | adicao | — |
-| `dim_cnae.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
-| `dim_cnae.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `dim_cnae.sk_cnae` | `unique` | error | adicao | — |
 | `dim_data` | BI-01 / R3-03: o calendário começa em 1900-01-01, contém o dia de `data_referencia`, não tem lacunas (uma linha por dia) e os membros -1/-2 ficam contíguos (1899-12-31 e 1899-12-30), com data, para que a tabela possa ser marcada como tabela de datas no Power BI. Retorna uma linha por violação. | error | adicao | — |
 | `dim_data.sk_data` | `not_null` | error | adicao | — |
 | `dim_data.sk_data` | `unique` | error | adicao | — |
-| `dim_data.sk_data_inicio_atividade` | `relationships` {"to": "ref('dim_data')", "field": "sk_data"} | error | adicao | — |
-| `dim_data.sk_data_situacao` | `relationships` {"to": "ref('dim_data')", "field": "sk_data"} | error | adicao | — |
 | `dim_municipio.codigo_rfb` | `not_null` | error | adicao | — |
 | `dim_municipio.codigo_rfb` | `unique` | warn | adicao | — |
 | `dim_municipio.sk_municipio` | `not_null` | error | adicao | — |
-| `dim_municipio.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `dim_municipio.sk_municipio` | `unique` | error | adicao | — |
 | `dim_natureza_juridica.codigo_natureza_juridica` | `not_null` | error | adicao | — |
 | `dim_natureza_juridica.codigo_natureza_juridica` | `unique` | error | adicao | — |
 | `dim_natureza_juridica.sk_natureza_juridica` | `not_null` | error | adicao | — |
-| `dim_natureza_juridica.sk_natureza_juridica` | `relationships` {"to": "ref('dim_natureza_juridica')", "field": "sk_natureza_juridica"} | error | adicao | — |
 | `dim_natureza_juridica.sk_natureza_juridica` | `unique` | error | adicao | — |
 | `dim_porte.codigo_porte` | `not_null` | error | adicao | — |
 | `dim_porte.codigo_porte` | `unique` | error | adicao | — |
 | `dim_porte.sk_porte` | `not_null` | error | adicao | — |
-| `dim_porte.sk_porte` | `relationships` {"to": "ref('dim_porte')", "field": "sk_porte"} | error | adicao | — |
 | `dim_porte.sk_porte` | `unique` | error | adicao | — |
 | `dim_situacao_cadastral.codigo_situacao_cadastral` | `not_null` | error | adicao | — |
 | `dim_situacao_cadastral.codigo_situacao_cadastral` | `unique` | error | adicao | — |
 | `dim_situacao_cadastral.sk_situacao_cadastral` | `not_null` | error | adicao | — |
-| `dim_situacao_cadastral.sk_situacao_cadastral` | `relationships` {"to": "ref('dim_situacao_cadastral')", "field": "sk_situacao_cadastral"} | error | adicao | — |
 | `dim_situacao_cadastral.sk_situacao_cadastral` | `unique` | error | adicao | — |
 | `fct_estabelecimentos` | CORE-01: a fato não descarta nem duplica estabelecimentos (mesma contagem do staging do mês) e usa a chave -1 exatamente onde falta par na dimensão (flags `tem_*` da camada intermediate). | error | adicao | — |
 | `fct_estabelecimentos.cnpj_completo` | `not_null` | error | adicao | — |
-| `fct_estabelecimentos.cnpj_completo` | `relationships` {"to": "ref('fct_estabelecimentos')", "field": "cnpj_completo"} | error | adicao | — |
 | `fct_estabelecimentos.cnpj_completo` | `unique` | error | adicao | — |
 | `fct_estabelecimentos.sk_cnae` | `not_null` | error | adicao | — |
+| `fct_estabelecimentos.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `fct_estabelecimentos.sk_data_inicio_atividade` | `not_null` | error | adicao | — |
+| `fct_estabelecimentos.sk_data_inicio_atividade` | `relationships` {"to": "ref('dim_data')", "field": "sk_data"} | error | adicao | — |
 | `fct_estabelecimentos.sk_data_situacao` | `not_null` | error | adicao | — |
+| `fct_estabelecimentos.sk_data_situacao` | `relationships` {"to": "ref('dim_data')", "field": "sk_data"} | error | adicao | — |
 | `fct_estabelecimentos.sk_municipio` | `not_null` | error | adicao | — |
+| `fct_estabelecimentos.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `fct_estabelecimentos.sk_natureza_juridica` | `not_null` | error | adicao | — |
+| `fct_estabelecimentos.sk_natureza_juridica` | `relationships` {"to": "ref('dim_natureza_juridica')", "field": "sk_natureza_juridica"} | error | adicao | — |
 | `fct_estabelecimentos.sk_porte` | `not_null` | error | adicao | — |
+| `fct_estabelecimentos.sk_porte` | `relationships` {"to": "ref('dim_porte')", "field": "sk_porte"} | error | adicao | — |
 | `fct_estabelecimentos.sk_situacao_cadastral` | `not_null` | error | adicao | — |
+| `fct_estabelecimentos.sk_situacao_cadastral` | `relationships` {"to": "ref('dim_situacao_cadastral')", "field": "sk_situacao_cadastral"} | error | adicao | — |
 | `fct_resumo_mensal` | BI-02 / ADR-0013: a partição do mês processado em `fct_resumo_mensal` reconcilia com `fct_estabelecimentos` (quantidade, ativos, matrizes, capital das matrizes e soma da idade); soma errada ou partição ausente retornam uma linha. | error | adicao | — |
 | `fct_resumo_mensal` | R3-18 / BI-02: toda chave da partição do mês processado existe na dimensão correspondente. | error | adicao | — |
 | `fct_resumo_mensal` | R3-18: as chaves de TODAS as partições de `fct_resumo_mensal` existem nas dimensões atuais. | warn | adicao | — |
@@ -282,6 +284,7 @@
 | `int_municipios__conformados` | `test_int_municipios_conformados_var_ano_populacao` | adicao |
 | `mart_fornecedores_proximos` | `test_mart_fornecedores_proximos_haversine_e_via` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia` | adicao |
+| `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_lpad_id_municipio_rf` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_parse_centroide` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_e_texto_vazio` | adicao |
