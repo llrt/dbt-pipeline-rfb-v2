@@ -96,3 +96,54 @@ def test_relatorio_traz_nota_de_interpretacao_de_ativa_e_da_adaptacao_da_q4() ->
     texto = renderizar(_tabelas(), None)
     assert '"ativa" é a situação cadastral da Receita Federal, não operação efetiva' in texto
     assert "o notebook 4 original retornava 0 nas buscas por microrregião" in texto
+
+
+_COLUNAS_AREA = [
+    "municipio",
+    "nome_regiao_metropolitana",
+    "domicilios_2022",
+    "area_km2",
+    "ativos",
+    "inativos",
+    "qtd_vizinhos",
+    "ativos_vizinhos",
+    "inativos_vizinhos",
+    "ativos_regiao_metropolitana",
+    "inativos_regiao_metropolitana",
+    "ativos_por_mil_domicilios",
+    "ativos_por_km2",
+    "ativos_area_por_mil_domicilios",
+    "ativos_area_por_km2",
+]
+
+
+# incremento: enriquecimento_bd
+def test_relatorio_traz_a_area_de_mercado_do_caso() -> None:
+    tabelas = _tabelas()
+    tabelas[f"{P}enriquecimento_area_mercado"] = (
+        _COLUNAS_AREA,
+        [
+            (
+                "Fundão", "RM Grande Vitória", 6715, 287.0, 1, 4, 2, 1, 0, 2, 4,
+                0.14892, 0.003484, 0.009675, 0.000879,
+            )
+        ],
+    )  # fmt: skip
+    texto = renderizar(tabelas, None)
+    assert "## Área de mercado (enriquecimento com a Base dos Dados)" in texto
+    assert "| 2 vizinhos | 1 | 0 |" in texto
+    assert "| Região metropolitana (RM Grande Vitória) | 2 | 4 |" in texto
+    assert "**0,1489** ativos por mil domicílios" in texto
+    assert "**0,003484** por km²" in texto
+
+
+# incremento: enriquecimento_bd
+def test_relatorio_area_de_mercado_sem_estabelecimentos_do_cnae() -> None:
+    tabelas = _tabelas()
+    tabelas[f"{P}enriquecimento_area_mercado"] = (_COLUNAS_AREA, [])
+    assert "não tem estabelecimentos deste CNAE" in renderizar(tabelas, None)
+
+
+# incremento: enriquecimento_bd
+def test_relatorio_sem_a_analysis_nao_tem_a_secao_de_area_de_mercado() -> None:
+    assert "Área de mercado" not in renderizar(_tabelas(), None)

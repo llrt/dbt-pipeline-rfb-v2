@@ -126,6 +126,9 @@ def test_bd_csv_gz_utf8_com_header(tmp_path: Path) -> None:
         ("cnae_2", 14),
         ("populacao", 4),
         ("pib", 9),
+        ("censo_2022_municipio", 13),  # incremento: enriquecimento_bd
+        ("regiao_metropolitana_2017", 8),  # incremento: enriquecimento_bd
+        ("vizinhanca_municipio", 3),  # incremento: enriquecimento_bd
     ]:
         with gzip.open(tmp_path / "bd" / f"{nome_tabela}.csv.gz", "rt", encoding="utf-8") as fh:
             linhas = list(csv.reader(fh))
@@ -141,6 +144,45 @@ def test_bd_municipio_8_registros_exceto_exterior_e_boa_esperanca(tmp_path: Path
     ids_rf = {linha["id_municipio_rf"] for linha in linhas}
     assert "9707" not in ids_rf
     assert "1182" not in ids_rf
+
+
+def _ler_bd(raiz: Path, nome: str) -> list[dict[str, str]]:
+    with gzip.open(raiz / "bd" / f"{nome}.csv.gz", "rt", encoding="utf-8") as fh:
+        return list(csv.DictReader(fh))
+
+
+# incremento: enriquecimento_bd
+def test_bd_censo_2022_fundao_e_agua_branca_pi_ausente(tmp_path: Path) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path)
+    linhas = {r["id_municipio"]: r for r in _ler_bd(tmp_path, "censo_2022_municipio")}
+
+    fundao = linhas["3202207"]
+    assert (fundao["domicilios"], fundao["populacao"], fundao["area"]) == ("6715", "17951", "287")
+    assert (fundao["idade_mediana"], fundao["indice_envelhecimento"]) == ("37", "67.68")
+    assert "2200202" not in linhas  # sem Censo: denominadores NULL
+    assert len(linhas) == 7
+
+
+# incremento: enriquecimento_bd
+def test_bd_regiao_metropolitana_so_fundao_serra_vitoria(tmp_path: Path) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path)
+    linhas = _ler_bd(tmp_path, "regiao_metropolitana_2017")
+
+    assert {r["id_municipio"] for r in linhas} == {"3202207", "3205002", "3205309"}
+    assert {r["nome_regiao_metropolitana"] for r in linhas} == {"RM Grande Vitória"}
+    assert all(r["geometria"].startswith("POLYGON") for r in linhas)
+
+
+# incremento: enriquecimento_bd
+def test_bd_vizinhanca_traz_sujeira_e_ano_antigo(tmp_path: Path) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path)
+    linhas = _ler_bd(tmp_path, "vizinhanca_municipio")
+    pares = [(r["ano"], r["id_municipio_1"], r["id_municipio_2"]) for r in linhas]
+
+    assert ("2019", "3202207", "3203205") in pares  # só no ano antigo
+    assert pares.count(("2020", "3202207", "3200607")) == 2  # duplicata
+    assert ("2020", "3203205", "3203205") in pares  # autopar
+    assert ("2020", "3205309", "3202207") not in pares  # assimetria: o modelo simetriza
 
 
 def test_dominio_rfb_municipios_sem_acento_maiusculo(tmp_path: Path) -> None:

@@ -30,6 +30,11 @@ def test_relatorio_do_estudo_de_caso_nas_fixtures(tmp_path: Path) -> None:
     assert "MERCADO LINHARES | Linhares | ES | 4679699 | secundario | 73,68 |" in texto
     assert "o notebook 4 original retornava 0 nas buscas por microrregião" in texto
     assert "## Qualidade dos dados (última execução dbt)" in texto
+    # incremento: enriquecimento_bd — área de mercado de Fundão (vizinhos: Aracruz e Serra)
+    assert "## Área de mercado (enriquecimento com a Base dos Dados)" in texto
+    assert "| 2 vizinhos | 1 | 0 |" in texto
+    assert "| Região metropolitana (RM Grande Vitória) | 2 | 4 |" in texto
+    assert "**0,1489** ativos por mil domicílios e **0,003484** por km²" in texto
 
 
 def test_relatorio_e_deterministico_exceto_a_linha_da_execucao(tmp_path: Path) -> None:
