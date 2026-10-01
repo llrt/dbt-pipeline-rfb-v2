@@ -475,8 +475,8 @@ rfb:
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
       threads: "{{ env_var('DBT_THREADS', 4) | as_number }}"  # paralelismo de nós do dbt
-      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
+        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
         threads: "{{ env_var('DUCKDB_THREADS', 4) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '2GB') }}"
     dev:
@@ -484,8 +484,8 @@ rfb:
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
       threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
-      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
+        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
         threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
     s3:
@@ -493,10 +493,10 @@ rfb:
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS_LOCAL', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
       threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
-      temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"
       extensions:
         - httpfs
       settings:
+        temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
         threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
       secrets:
