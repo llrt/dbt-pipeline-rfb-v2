@@ -97,10 +97,23 @@ models:
         data_tests:
           - data_nao_futura:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_opcao_simples
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_simples
         description: >
           Data de exclusão do Simples; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
           futuro (fim do mês ou do ano) é legítima (R3-11).
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_exclusao_simples
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: opcao_mei
         description: "`true` se optante pelo MEI, `false` caso contrário."
       - name: dat_opcao_mei
@@ -108,10 +121,23 @@ models:
         data_tests:
           - data_nao_futura:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_opcao_mei
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_mei
         description: >
           Data de exclusão do MEI; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
           futuro é legítima (R3-11).
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_exclusao_mei
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
 
   - name: stg_rfb__empresas
     description: >
@@ -138,6 +164,12 @@ models:
         description: Código de qualificação do responsável pela empresa perante a RFB, 2 dígitos.
       - name: capital_social
         description: Capital social declarado, DECIMAL(18,2) (`1000,50` -> 1000.50); inválido -> NULL.
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: capital_soc
+                entidade: empresas
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: porte_codigo
         description: "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio."
         data_tests:
@@ -146,6 +178,11 @@ models:
                 values: [0, 1, 3, 5]
                 quote: false
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: porte
+                entidade: empresas
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: ente_federativo_responsavel
         description: Ente federativo responsável, preenchido só para órgãos/autarquias públicas.
       - name: _mes_referencia
@@ -184,6 +221,12 @@ models:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: matriz_filial_codigo
         description: "1 = matriz, 2 = filial."
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: ind_matriz_filial
+                entidade: estabelecimentos
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: nome_fantasia
         description: Nome fantasia do estabelecimento; NULL se vazio.
       - name: situacao_codigo
@@ -194,10 +237,21 @@ models:
                 values: [1, 2, 3, 4, 8]
                 quote: false
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: situacao
+                entidade: estabelecimentos
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_situacao
         description: Data da situação cadastral atual (para ativos, costuma ser a data de início).
         data_tests:
           - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_situacao
+                entidade: estabelecimentos
+                sentinelas: ['00000000', '0']
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: motivo_situacao_codigo
         description: Código do motivo da situação cadastral (2 dígitos; FK lógica para `stg_rfb__motivos`).
@@ -217,6 +271,12 @@ models:
                 min_value: "date '1900-01-01'"
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
           - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_inicio_atividade
+                entidade: estabelecimentos
+                sentinelas: ['00000000', '0']
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: cnae_principal
         description: Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).
@@ -256,6 +316,12 @@ models:
         description: Data da situação especial.
         data_tests:
           - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_sit_especial
+                entidade: estabelecimentos
+                sentinelas: ['00000000', '0']
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: _mes_referencia
         description: Mês de referência (`YYYY-MM`) do extrato RFB.

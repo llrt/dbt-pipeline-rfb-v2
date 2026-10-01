@@ -20,3 +20,8 @@ macros:
       Chaves de `fct_resumo_mensal` sem par nas dimensões (R3-18); só o mês processado (`error`) ou todas
       as partições (`warn`).
     meta: { escopo: adicao }
+  - name: test_taxa_conversao_tipada
+    description: >
+      Teste genérico (RBP-02): proporção de valores raw não vazios (`coluna_raw` da fonte) que viraram NULL
+      na coluna tipada do staging. Aviso acima de 0,1%, erro acima de 5% (`error()` do DuckDB).
+    meta: { escopo: adicao }

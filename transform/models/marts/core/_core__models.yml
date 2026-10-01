@@ -381,6 +381,10 @@ models:
     config:
       contract:
         enforced: true
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
     columns:
       - name: cnpj_completo
         description: CNPJ completo (14 dígitos); dimensão degenerada e chave da linha.
@@ -496,6 +500,9 @@ models:
     # mês processado: `relationships` genérico não aceita `ref` no `where`) e
     # `fct_resumo_mensal_integridade_historica` (warn, todas as partições) — R3-18.
     data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns:
