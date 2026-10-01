@@ -11,9 +11,7 @@ import pytest
 TRANSFORM = Path(__file__).resolve().parents[2] / "transform"
 
 
-def _dbt(
-    tmp_path: Path, *args: str, threads: dict[str, str]
-) -> subprocess.CompletedProcess[str]:
+def _dbt(tmp_path: Path, *args: str, threads: dict[str, str]) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if k not in ("DBT_THREADS", "DUCKDB_THREADS")}
     env |= {"RAIZ_DADOS": str(tmp_path), "DBT_PROFILES_DIR": str(TRANSFORM), **threads}
     env.pop("CAMINHO_DUCKDB", None)
@@ -24,9 +22,7 @@ def _dbt(
 
 
 def test_dbt_debug_passa_com_as_duas_variaveis(tmp_path: Path) -> None:
-    resultado = _dbt(
-        tmp_path, "debug", threads={"DBT_THREADS": "2", "DUCKDB_THREADS": "2"}
-    )
+    resultado = _dbt(tmp_path, "debug", threads={"DBT_THREADS": "2", "DUCKDB_THREADS": "2"})
     assert resultado.returncode == 0, resultado.stdout + resultado.stderr
     assert "All checks passed" in resultado.stdout
 

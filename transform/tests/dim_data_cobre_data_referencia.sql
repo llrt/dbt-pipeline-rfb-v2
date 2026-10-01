@@ -19,6 +19,16 @@ with calendario as (
     ) as dias_data_referencia
   from {{ ref('dim_data') }}
   where sk_data > 0
+),
+
+especiais as (
+  select
+    dim.sk_data,
+    dim.data,
+    calendario.primeiro_dia
+  from {{ ref('dim_data') }} as dim
+  cross join calendario
+  where dim.sk_data < 0
 )
 
 select
@@ -48,12 +58,12 @@ union all
 select
   'membros -1/-2 ausentes ou sem data contígua ao calendário' as violacao,
   count(*) as dias
-from {{ ref('dim_data') }}
-cross join (select min(data) as primeiro_dia from {{ ref('dim_data') }} where sk_data > 0)
-where sk_data < 0
-having count(*) != 2
+from especiais
+having
+  count(*) != 2
   or count(*) filter (
-    where (sk_data = -1 and data = primeiro_dia - 1) or (sk_data = -2 and data = primeiro_dia - 2)
+    where (especiais.sk_data = -1 and especiais.data = especiais.primeiro_dia - 1)
+    or (especiais.sk_data = -2 and especiais.data = especiais.primeiro_dia - 2)
   ) != 2
 
 union all

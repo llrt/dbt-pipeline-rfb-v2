@@ -135,7 +135,8 @@ def test_particao_antiga_orfa_so_avisa_e_nao_derruba_o_mes_processado(tmp_path: 
     subprocess.run(
         [
             "uv", "run", "dbt", "test", "--target", "ci",
-            "--select", "fct_resumo_mensal_relacionamentos_mes fct_resumo_mensal_integridade_historica",
+            "--select", "fct_resumo_mensal_relacionamentos_mes",
+            "--select", "fct_resumo_mensal_integridade_historica",
             "--vars", "{mes_referencia: 2026-09}", "--target-path", str(alvo),
         ],
         cwd=TRANSFORM, env=env, check=False, capture_output=True,
