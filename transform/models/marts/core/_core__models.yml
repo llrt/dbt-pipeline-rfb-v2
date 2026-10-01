@@ -38,7 +38,10 @@ models:
           Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`.
         data_type: varchar
         data_tests:
-          - not_null
+          # warn: a BD atual (API downloadTable) traz município novo sem código RFB (ex.: Boa
+          # Esperança do Norte/MT, 5101837); ele fica na dimensão, só não casa com estabelecimentos.
+          - not_null:
+              config: { severity: warn, store_failures: true }
           - unique:
               config: { severity: warn, store_failures: true }
       - name: nome_municipio

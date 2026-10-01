@@ -202,7 +202,7 @@
 | `dim_data` | BI-01 / R3-03: o calendário começa em 1900-01-01, contém o dia de `data_referencia`, não tem lacunas (uma linha por dia) e os membros -1/-2 ficam contíguos (1899-12-31 e 1899-12-30), com data, para que a tabela possa ser marcada como tabela de datas no Power BI. Retorna uma linha por violação. | error | adicao | — |
 | `dim_data.sk_data` | `not_null` | error | adicao | — |
 | `dim_data.sk_data` | `unique` | error | adicao | — |
-| `dim_municipio.codigo_rfb` | `not_null` | error | adicao | — |
+| `dim_municipio.codigo_rfb` | `not_null` | warn | adicao | — |
 | `dim_municipio.codigo_rfb` | `unique` | warn | adicao | — |
 | `dim_municipio.nome_regiao_metropolitana` | `not_null` | error | adicao | — |
 | `dim_municipio.sk_municipio` | `not_null` | error | adicao | — |
