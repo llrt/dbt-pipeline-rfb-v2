@@ -102,3 +102,24 @@ def test_dim_porte_e_situacao_vem_dos_seeds() -> None:
     )
     assert situacoes[2] == "ATIVA"
     assert situacoes[8] == "BAIXADA"
+
+
+def test_dim_data_tem_29_de_fevereiro_de_2000_e_a_data_de_referencia() -> None:
+    (linha,) = _consultar(
+        "select data, ano, mes, nome_mes, ano_mes, dia_semana from {dim_data} "
+        "where sk_data = 20000229"
+    )
+    assert str(linha[0]) == "2000-02-29"
+    assert linha[1:] == (2000, 2, "fevereiro", "2000-02", "terça-feira")
+    (referencia,) = _consultar("select data from {dim_data} where sk_data = 20260912")[0]
+    assert str(referencia) == "2026-09-12"
+
+
+def test_dim_data_vai_do_menor_dia_das_fatos_a_data_de_referencia_sem_lacunas() -> None:
+    primeiro, ultimo, dias = _consultar(
+        "select min(data), max(data), count(*) from {dim_data} where sk_data != -1"
+    )[0]
+    assert str(primeiro) == "2000-01-01"  # F, início de atividade mais antigo do cenário
+    assert str(ultimo) == "2026-09-12"
+    assert dias == (ultimo - primeiro).days + 1
+    assert _consultar("select count(*) from {dim_data} where sk_data = -1")[0][0] == 1
