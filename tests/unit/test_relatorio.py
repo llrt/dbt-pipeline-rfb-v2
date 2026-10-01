@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import duckdb
+import pytest
+
 from rfb_pipeline.relatorio import PREFIXO_ANALISES as P
-from rfb_pipeline.relatorio import renderizar
+from rfb_pipeline.relatorio import ler_qualidade, renderizar
 
 
 def _tabelas() -> dict:
@@ -147,3 +152,39 @@ def test_relatorio_area_de_mercado_sem_estabelecimentos_do_cnae() -> None:
 # incremento: enriquecimento_bd
 def test_relatorio_sem_a_analysis_nao_tem_a_secao_de_area_de_mercado() -> None:
     assert "Área de mercado" not in renderizar(_tabelas(), None)
+
+
+def test_ler_qualidade_sem_tabela_de_historico_devolve_none(tmp_path: Path) -> None:
+    banco = tmp_path / "w.duckdb"
+    duckdb.connect(str(banco)).close()
+    assert ler_qualidade(banco) is None
+
+
+def test_ler_qualidade_propaga_erro_que_nao_e_tabela_inexistente(tmp_path: Path) -> None:
+    """RBP-08: coluna renomeada não pode virar "histórico indisponível" em silêncio."""
+    banco = tmp_path / "w.duckdb"
+    with duckdb.connect(str(banco)) as con:
+        con.execute("create table main.dq_resumo_execucao (invocation_id varchar)")
+        con.execute("create table main.dq_historico_testes (invocation_id varchar)")
+    with pytest.raises(duckdb.BinderException):
+        ler_qualidade(banco)
+
+
+def test_ler_qualidade_inclui_avisos_e_falhas_e_exclui_aprovados(tmp_path: Path) -> None:
+    banco = tmp_path / "w.duckdb"
+    with duckdb.connect(str(banco)) as con:
+        con.execute(
+            "create table main.dq_resumo_execucao as select 'i1' as invocation_id, "
+            "now() as executado_em, 3 as testes, 1 as aprovados, 1 as avisos, 1 as falhos, "
+            "0 as pulados"
+        )
+        con.execute(
+            "create table main.dq_historico_testes (invocation_id varchar, nome_teste varchar, "
+            "status varchar, falhas integer, severidade varchar, escopo varchar)"
+        )
+        con.execute(
+            "insert into main.dq_historico_testes values ('i1','t_ok','pass',0,'error','adicao'), "
+            "('i1','t_aviso','warn',1,'warn','adicao'), ('i1','t_erro','fail',2,'error','adicao')"
+        )
+    _, pendentes = ler_qualidade(banco)
+    assert [p[0] for p in pendentes] == ["t_aviso", "t_erro"]

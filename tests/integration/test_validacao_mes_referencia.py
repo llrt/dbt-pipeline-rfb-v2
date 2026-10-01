@@ -1,4 +1,4 @@
-"""RBP-07: `filtro_mes_referencia` aborta o `dbt compile` quando `mes_referencia` não é `AAAA-MM`."""
+"""RBP-07: `filtro_mes_referencia` aborta o `dbt compile` se `mes_referencia` não é `AAAA-MM`."""
 
 from __future__ import annotations
 
