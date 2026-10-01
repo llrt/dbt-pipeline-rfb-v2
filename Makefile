@@ -4,7 +4,7 @@ MES ?=
 export RAIZ_DADOS
 export DBT_PROFILES_DIR = $(CURDIR)/transform
 
-.PHONY: setup fixtures ingerir ci pipeline docs lint sincronizar relatorio publicar clean
+.PHONY: setup fixtures ingerir ci pipeline atualizar docs lint sincronizar relatorio publicar clean
 
 ## setup: sincroniza dependências Python e pacotes dbt
 setup:
@@ -20,26 +20,32 @@ ingerir:
 	uv run rfb ingerir $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
 
 ## ci: unit + pipeline completo sobre fixtures sintéticas + integração + lint, sem rede (RBP-03)
+## Sequência (P22/UPD): pipeline 2026-08 (corrente) -> atualizar (2026-09 novo) -> atualizar (no-op)
+## -> pipeline 2026-08 de novo (backfill: só a partição do resumo; gold corrente fica em 2026-09).
 ci: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
+ci: CI_ORIGEM := --origem-local .tmp/ci/fixtures --permitir-incompleto --target ci --sem-publicar
 ci:
 	uv run pytest -q tests/unit
 	rm -rf .tmp/ci
 	uv run python scripts/gerar_fixtures.py --saida .tmp/ci/fixtures
-	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-08 --permitir-incompleto
-	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
-	mkdir -p $(RAIZ_DADOS)/gold
 	cd transform && uv run dbt deps
-	cd transform && uv run dbt build --target ci --selector ci_mes_antigo --vars '{mes_referencia: 2026-08}'
-	cd transform && uv run dbt test --target ci --selector ci_resumo_mes_antigo --vars '{mes_referencia: 2026-08}'
-	cd transform && uv run dbt source freshness --target ci
-	cd transform && uv run dbt build --target ci
+	uv run rfb pipeline $(CI_ORIGEM) --mes 2026-08 --saida-relatorio .tmp/ci/relatorio-2026-08.md
+	uv run rfb atualizar $(CI_ORIGEM) --saida-relatorio .tmp/ci/relatorio.md
+	set -o pipefail; uv run rfb atualizar $(CI_ORIGEM) --saida-relatorio .tmp/ci/relatorio.md | tee .tmp/ci/atualizar-noop.log
+	set -o pipefail; uv run rfb pipeline $(CI_ORIGEM) --mes 2026-08 --sem-relatorio | tee .tmp/ci/backfill.log
 	uv run pytest -q tests/integration
 	$(MAKE) lint
 
-## pipeline: pipeline ponta a ponta sobre dados reais (não implementado — T28)
+## pipeline: ponta a ponta sobre dados reais (T28): ingest -> freshness -> dbt build -> relatório
+## (-> publicar se MotherDuck configurado). MES=AAAA-MM opcional (padrão: mais recente completo).
 pipeline:
-	@echo "pipeline: não implementado (tarefa T28)"
-	@exit 2
+	cd transform && uv run dbt deps
+	uv run rfb pipeline $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
+
+## atualizar: atualização mensal (T36): processa o mês completo mais recente se for novo; senão no-op
+atualizar:
+	cd transform && uv run dbt deps
+	uv run rfb atualizar $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL))
 
 ## docs: gera a documentação de dbt
 docs:

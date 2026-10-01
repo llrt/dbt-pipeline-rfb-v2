@@ -149,13 +149,15 @@ def escrever_manifesto(configuracao: Configuracao, manifesto: Manifesto) -> Path
 
 
 @contextmanager
-def trava_execucao(configuracao: Configuracao) -> Iterator[Path]:
-    """Trava exclusiva de execução em `RAIZ_DADOS/_estado/rfb.lock` (`flock` não bloqueante).
+def trava_execucao(configuracao: Configuracao, nome: str = "rfb.lock") -> Iterator[Path]:
+    """Trava exclusiva de execução em `RAIZ_DADOS/_estado/<nome>` (`flock` não bloqueante).
 
     Levanta `ExecucaoEmAndamentoErro` se outra execução já a detém. A trava some com o processo,
-    então uma execução morta nunca deixa a trava presa.
+    então uma execução morta nunca deixa a trava presa. `rfb ingerir` usa `rfb.lock`; `rfb
+    pipeline`/`rfb atualizar` usam `pipeline.lock` (outro arquivo: o `flock` do mesmo arquivo por
+    outro descritor bloquearia a ingestão chamada de dentro do pipeline).
     """
-    caminho = configuracao.raiz_dados / "_estado" / "rfb.lock"
+    caminho = configuracao.raiz_dados / "_estado" / nome
     caminho.parent.mkdir(parents=True, exist_ok=True)
     with caminho.open("a+") as fh:
         try:

@@ -1,4 +1,4 @@
-"""RBP-14: `transform/selectors.yml` seleciona o que o nome promete (usado pelo `make ci`)."""
+"""RBP-14: `transform/selectors.yml` seleciona o que o nome promete (usado pelo `rfb pipeline`)."""
 
 from __future__ import annotations
 
@@ -26,15 +26,15 @@ def _listar(tmp_path: Path, seletor: str, *tipos: str) -> set[str]:
     }
 
 
-def test_ci_mes_antigo_tem_o_resumo_e_o_que_ele_le_sem_testes(tmp_path: Path) -> None:
-    nos = _listar(tmp_path, "ci_mes_antigo")
+def test_backfill_tem_o_resumo_e_o_que_ele_le_sem_testes(tmp_path: Path) -> None:
+    nos = _listar(tmp_path, "backfill_resumo_mensal")
     assert {"fct_resumo_mensal", "fct_estabelecimentos", "stg_rfb__estabelecimentos"} <= nos
     assert not {n for n in nos if n.startswith(("not_null_", "unique_", "test_"))}
     assert "mart_dinamica_mercado" not in nos
 
 
-def test_ci_resumo_mes_antigo_so_testa_o_resumo(tmp_path: Path) -> None:
-    nos = _listar(tmp_path, "ci_resumo_mes_antigo", "test")
+def test_backfill_testes_so_testa_o_resumo(tmp_path: Path) -> None:
+    nos = _listar(tmp_path, "backfill_resumo_mensal_testes", "test")
     assert nos
     assert not {n for n in nos if "mart_" in n or "bh_empresas" in n or "stg_" in n}
 

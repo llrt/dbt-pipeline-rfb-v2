@@ -83,6 +83,8 @@ class Configuracao:
     janela_lentidao_s: float = 60.0
     duckdb_memory_limit: str = "8GB"
     duckdb_threads: int = 4
+    meses_retidos: int = 2  # `rfb atualizar`: partições raw mantidas (ADR-0012)
+    manter_zips: bool = False  # `rfb atualizar`: manter os zips baixados após sucesso
 
     @property
     def raw_dir(self) -> Path:
@@ -111,7 +113,10 @@ _SOBRESCRITAS_NUMERICAS: tuple[tuple[str, str, type], ...] = (
     ("RFB_MAX_RETOMADAS", "max_retomadas", int),
     ("RFB_TEMPO_LIMITE_TOTAL_S", "tempo_limite_total_s", float),
     ("DUCKDB_THREADS", "duckdb_threads", int),
+    ("RFB_MESES_RETIDOS", "meses_retidos", int),
 )
+_VERDADEIROS = {"1", "true", "sim", "yes", "on"}
+_FALSOS = {"0", "false", "nao", "não", "no", "off"}
 
 
 def _texto(env: Mapping[str, str], variavel: str) -> str | None:
@@ -163,6 +168,15 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
                 raise ConfiguracaoInvalidaErro(
                     variavel, valor, "número inteiro" if tipo is int else "número"
                 ) from None
+    if sobrescritas.get("meses_retidos", 1) < 1:
+        raise ConfiguracaoInvalidaErro(
+            "RFB_MESES_RETIDOS", str(sobrescritas["meses_retidos"]), "inteiro >= 1"
+        )
+    manter_zips = _texto(env, "RFB_MANTER_ZIPS")
+    if manter_zips is not None:
+        if manter_zips.lower() not in _VERDADEIROS | _FALSOS:
+            raise ConfiguracaoInvalidaErro("RFB_MANTER_ZIPS", manter_zips, "true ou false")
+        sobrescritas["manter_zips"] = manter_zips.lower() in _VERDADEIROS
     memoria = _texto(env, "DUCKDB_MEMORY_LIMIT")
     if memoria is not None:
         sobrescritas["duckdb_memory_limit"] = memoria
