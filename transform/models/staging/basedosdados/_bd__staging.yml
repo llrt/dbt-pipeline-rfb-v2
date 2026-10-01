@@ -91,23 +91,60 @@ models:
 
   - name: stg_bd__populacao
     description: "População estimada por município e ano (adição), tipada: `ano` inteiro, `populacao` bigint."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_municipio, ano]
+          config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
     columns:
       - name: id_municipio
         description: Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: sigla_uf
         description: Sigla da UF do município.
       - name: ano
         description: Ano de referência da estimativa populacional.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: populacao
         description: População estimada no município e ano.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
 
   - name: stg_bd__pib
     description: "PIB municipal e seus componentes (adição), tipados como `double`; `ano` inteiro."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_municipio, ano]
+          config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.0001)"
+          config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+      # Identidade do IBGE (pib = va + impostos): arredondamento aceito no aviso (R$ 1 ou 0,01 %); acima de 1 %
+      # é troca de coluna ou de unidade, e o build falha (RBP-06; N10).
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.01)"
+          config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
     columns:
       - name: id_municipio
         description: Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: ano
         description: Ano de referência do PIB.
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: pib
         description: PIB total do município no ano, em R$.
       - name: impostos_liquidos

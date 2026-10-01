@@ -30,7 +30,7 @@
 |---|---|---|
 | Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (35 testes) |
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
-| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (69 testes) |
+| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (78 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
 | Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (70 testes) |
@@ -107,6 +107,15 @@
 | `stg_bd__municipios.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio_rf` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
+| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.0001)"} | warn | adicao | — |
+| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.01)"} | error | adicao | — |
+| `stg_bd__pib` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
+| `stg_bd__pib.ano` | `not_null` | error | adicao | — |
+| `stg_bd__pib.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__populacao` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
+| `stg_bd__populacao.ano` | `not_null` | error | adicao | — |
+| `stg_bd__populacao.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__populacao.populacao` | `accepted_range` {"min_value": 1} | warn | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `unique` | error | adicao | — |
