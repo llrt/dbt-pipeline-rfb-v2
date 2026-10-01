@@ -101,9 +101,16 @@ models:
         description: Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).
         data_tests:
           # warn (B8): a BD atual (API downloadTable) traz em 2025 uma linha sem município nem UF
-          # (populacao 5877); ela não casa com nenhum município e não afeta os marts.
+          # (populacao 5877); ela não casa com nenhum município e não afeta os marts. Acima de 50
+          # linhas é erro: regressão em massa da API (sugestão da R4).
           - not_null:
-              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+              config:
+                severity: error
+                warn_if: ">0"
+                error_if: ">50"
+                store_failures: true
+                meta: { escopo: adicao }
+                tags: [escopo_adicao]
       - name: sigla_uf
         description: Sigla da UF do município.
       - name: ano

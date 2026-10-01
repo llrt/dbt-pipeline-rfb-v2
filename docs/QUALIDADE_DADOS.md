@@ -114,7 +114,7 @@
 | `stg_bd__pib.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__populacao` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
 | `stg_bd__populacao.ano` | `not_null` | error | adicao | — |
-| `stg_bd__populacao.id_municipio` | `not_null` | warn | adicao | — |
+| `stg_bd__populacao.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__populacao.populacao` | `accepted_range` {"min_value": 1} | warn | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
