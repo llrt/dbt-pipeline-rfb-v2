@@ -1,7 +1,8 @@
 -- ANA-03: dinâmica de mercado. Grão = ano × CNAE principal × município. `aberturas` = estabelecimentos
 -- com `dat_inicio` no ano; `encerramentos` = inativos (`situacao != 2`, regra do original) com
--- `dat_situacao` no ano; `saldo` = aberturas − encerramentos. Datas nulas (`-1` em `dim_data`) não
--- geram evento. Um estabelecimento pode gerar os dois eventos, em anos diferentes.
+-- `dat_situacao` no ano; `saldo` = aberturas − encerramentos. Datas nulas (`-1`) ou inválidas
+-- (`-2`) em `dim_data` (ano NULL) não geram evento. Um estabelecimento pode gerar os dois eventos,
+-- em anos diferentes.
 with eventos as (
   select
     ini.ano,
@@ -30,6 +31,8 @@ with eventos as (
 
 select
   eve.ano,
+  eve.sk_cnae,
+  eve.sk_municipio,
   cnae.codigo_subclasse as cnae_principal,
   cnae.descricao_subclasse as desc_cnae_principal,
   mun.nome_municipio as municipio,
@@ -44,8 +47,9 @@ inner join {{ ref('dim_municipio') }} as mun
   on eve.sk_municipio = mun.sk_municipio
 group by
   eve.ano,
+  eve.sk_cnae,
+  eve.sk_municipio,
   cnae.codigo_subclasse,
   cnae.descricao_subclasse,
   mun.nome_municipio,
-  mun.sigla_uf,
-  mun.sk_municipio
+  mun.sigla_uf

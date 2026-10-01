@@ -4,8 +4,19 @@ macros:
   - name: test_cnpj_dv_valido
     description: >
       Teste genérico: valida os dois dígitos verificadores do CNPJ (módulo 11; aceita CNPJ
-      alfanumérico). Falha com erro se a fração de inválidos passar de `limiar_erro` (padrão 0,1%).
+      alfanumérico). Falha com erro se a fração de inválidos passar de `limiar_erro` (padrão 0,1%), numa passada só (R3-17).
+    meta: { escopo: adicao }
+  - name: cnpj_dv_invalidos
+    description: Consulta dos CNPJs com dígito verificador inválido de uma relação; base do teste e do singular `cnpj_dv_valido_casos` (R3-09).
+    meta: { escopo: adicao }
+  - name: datas_futuras
+    description: Consulta das datas posteriores a `data_referencia`; base do teste e do singular `data_nao_futura_casos` (R3-09).
     meta: { escopo: adicao }
   - name: test_data_nao_futura
     description: "Teste genérico: a data da coluna não pode ser posterior a `data_referencia`."
+    meta: { escopo: adicao }
+  - name: resumo_chaves_orfas
+    description: >
+      Chaves de `fct_resumo_mensal` sem par nas dimensões (R3-18); só o mês processado (`error`) ou todas
+      as partições (`warn`).
     meta: { escopo: adicao }

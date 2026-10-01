@@ -28,6 +28,7 @@ def test_relatorio_do_estudo_de_caso_nas_fixtures(tmp_path: Path) -> None:
     assert "| 3 anos | 5 | 4 | 80,0% |" in texto
     assert "FABRICA DE TINTAS SERRA SA | Serra | ES | 2071100 | principal | 18,66 |" in texto
     assert "MERCADO LINHARES | Linhares | ES | 4679699 | secundario | 73,68 |" in texto
+    assert "o notebook 4 original retornava 0 nas buscas por microrregião" in texto
     assert "## Qualidade dos dados (última execução dbt)" in texto
 
 

@@ -115,14 +115,26 @@ def test_dim_data_tem_29_de_fevereiro_de_2000_e_a_data_de_referencia() -> None:
     assert str(referencia) == "2026-09-12"
 
 
-def test_dim_data_vai_do_menor_dia_das_fatos_a_data_de_referencia_sem_lacunas() -> None:
+def test_dim_data_vai_de_1900_a_data_de_referencia_sem_lacunas() -> None:
     primeiro, ultimo, dias = _consultar(
-        "select min(data), max(data), count(*) from {dim_data} where sk_data != -1"
+        "select min(data), max(data), count(*) from {dim_data} where sk_data > 0"
     )[0]
-    assert str(primeiro) == "2000-01-01"  # F, início de atividade mais antigo do cenário
+    assert str(primeiro) == "1900-01-01"  # R3-03: início fixo, não o menor dia das fatos
     assert str(ultimo) == "2026-09-12"
     assert dias == (ultimo - primeiro).days + 1
-    assert _consultar("select count(*) from {dim_data} where sk_data = -1")[0][0] == 1
+
+
+def test_dim_data_membros_menos_um_e_menos_dois_tem_data_contigua_e_sem_ano() -> None:
+    """R3-03: sem data NULL (tabela de datas do Power BI) e sem atributos de calendário."""
+    linhas = _consultar(
+        "select sk_data, cast(data as varchar), ano, mes, nome_mes from {dim_data} "
+        "where sk_data < 0 order by sk_data"
+    )
+    assert linhas == [
+        (-2, "1899-12-30", None, None, "DATA INVÁLIDA"),
+        (-1, "1899-12-31", None, None, "NÃO INFORMADO"),
+    ]
+    assert _consultar("select count(*) from {dim_data} where data is null")[0][0] == 0
 
 
 # cnpj_completo do cenário (spec): raiz + ordem + DV.
@@ -134,10 +146,10 @@ CNPJ_M = "15151515000160"
 CNPJ_O = "11111111000272"
 
 
-def test_fato_tem_15_linhas_sem_descartes() -> None:
+def test_fato_tem_16_linhas_sem_descartes() -> None:
     assert _consultar(
         "select count(*), count(distinct cnpj_completo) from {fct_estabelecimentos}"
-    ) == [(15, 15)]
+    ) == [(16, 16)]
 
 
 def test_fato_k_l_m_presentes_com_menos_um_na_dimensao_faltante() -> None:

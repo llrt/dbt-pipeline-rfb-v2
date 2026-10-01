@@ -1,7 +1,8 @@
 -- Fato detalhada para BI (ADR-0013): grão = estabelecimento (`cnpj_completo`, dimensão degenerada).
 -- Só chaves inteiras, flags e medidas. Sem descartes silenciosos: estabelecimento sem par numa
--- dimensão fica na fato com a chave -1 ("NÃO INFORMADO"). `idade_anos` só para ativos (regra do
--- original, relativa a `data_referencia`).
+-- dimensão fica na fato com a chave -1 ("NÃO INFORMADO"); data anterior a 1900 vai para -2
+-- ("DATA INVÁLIDA", emenda R3-03). `idade_anos` só para ativos (regra do original, relativa a
+-- `data_referencia`).
 with enriquecidos as (
   select * from {{ ref('int_estabelecimentos__enriquecidos') }}
 )
@@ -13,8 +14,14 @@ select
   coalesce(nat.sk_natureza_juridica, -1) as sk_natureza_juridica,
   coalesce(por.sk_porte, -1) as sk_porte,
   coalesce(sit.sk_situacao_cadastral, -1) as sk_situacao_cadastral,
-  coalesce(dat_ini.sk_data, -1) as sk_data_inicio_atividade,
-  coalesce(dat_sit.sk_data, -1) as sk_data_situacao,
+  case
+    when est.dat_inicio_atividade < date '{{ var("primeiro_dia_calendario") }}' then -2  -- DATA INVÁLIDA (R3-03)
+    else coalesce(dat_ini.sk_data, -1)
+  end as sk_data_inicio_atividade,
+  case
+    when est.dat_situacao < date '{{ var("primeiro_dia_calendario") }}' then -2
+    else coalesce(dat_sit.sk_data, -1)
+  end as sk_data_situacao,
   case
     when est.situacao_codigo = 2
       then round(

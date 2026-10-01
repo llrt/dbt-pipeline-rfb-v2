@@ -6,8 +6,11 @@ Lê `RAIZ_DADOS` do ambiente — exportado por `make ci`, que roda `dbt build` a
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
+
+from rfb_pipeline.relatorio import DIR_TRANSFORM, compilar_analises, executar_analises
 
 pytestmark = pytest.mark.skipif(
     "RAIZ_DADOS" not in os.environ, reason="rode via make ci (exporta RAIZ_DADOS)"
@@ -69,11 +72,40 @@ def test_dinamica_fundao_tintas_aberturas_e_encerramentos_por_ano(consultar) -> 
     ]
 
 
-def test_fornecedores_proximos_so_f_principal_e_h_secundario(consultar) -> None:
+def test_fornecedores_proximos_f_p_principal_e_h_secundario(consultar) -> None:
     linhas = consultar(
         "select municipio, via, distancia_km from {mart_fornecedores_proximos} "
         "order by distancia_km"
     )
-    assert [(m, v) for m, v, _ in linhas] == [("Serra", "principal"), ("Linhares", "secundario")]
+    # Serra (F) é o mais próximo; Aracruz (P, emenda R3-04) e Linhares (H, secundário) seguem.
+    assert [(m, v) for m, v, _ in linhas] == [
+        ("Serra", "principal"),
+        ("Aracruz", "principal"),
+        ("Linhares", "secundario"),
+    ]
     assert linhas[0][2] == pytest.approx(18.66, abs=0.5)
-    assert linhas[1][2] == pytest.approx(73.68, abs=0.5)
+    assert linhas[2][2] == pytest.approx(73.68, abs=0.5)
+
+
+@pytest.fixture(scope="module")
+def q4_resumo() -> dict[int, tuple[str, int]]:
+    """Resultado da analysis q4 (`ordem -> (busca, qtd)`), compilada e executada nas fixtures."""
+    raiz = Path(os.environ["RAIZ_DADOS"])
+    sqls = compilar_analises(DIR_TRANSFORM, raiz, "ci")
+    nome = "estudo_caso_q4_fornecedores_resumo"
+    resultados = executar_analises(raiz / "warehouse.duckdb", {nome: sqls[nome]})
+    return {ordem: (busca, qtd) for ordem, busca, qtd in resultados[nome][1]}
+
+
+def test_q4_microrregiao_compara_em_maiusculas_dos_dois_lados(q4_resumo) -> None:
+    """R3-04 (mata M21): sem o `upper`, 'LINHARES' x 'Linhares' nunca casa e a busca dá 0.
+
+    O fabricante P (Aracruz) está na microrregião e na mesorregião de Fundão; o município de
+    Fundão não tem fabricante. O original (sem `upper`) responderia 0 nas buscas 2 e 3.
+    """
+    assert q4_resumo[1][1] == 0
+    assert q4_resumo[2][1] == 1
+    assert q4_resumo[3][1] == 1
+    assert q4_resumo[4][1] == 0
+    assert q4_resumo[5][1] == 1  # H (Linhares) tem 4679699 como secundário
+    assert q4_resumo[6][1] == 1

@@ -49,6 +49,7 @@ fornecedores as (
     fct.cnpj_completo,
     esc.cnae_fornecido,
     esc.via,
+    fct.sk_municipio,
     mun.nome_municipio as municipio,
     mun.sigla_uf as uf,
     round(
@@ -66,8 +67,10 @@ fornecedores as (
 select
   frn.cnpj_completo,
   coalesce(est.nome_fantasia, emp.razao_social) as nome,
+  coalesce(cnae.sk_cnae, -1) as sk_cnae,
   frn.cnae_fornecido,
   frn.via,
+  frn.sk_municipio,
   frn.municipio,
   frn.uf,
   frn.distancia_km
@@ -76,4 +79,6 @@ inner join {{ ref('stg_rfb__estabelecimentos') }} as est
   on frn.cnpj_completo = est.cnpj_completo
 left join {{ ref('stg_rfb__empresas') }} as emp
   on est.cnpj_raiz = emp.cnpj_raiz
+left join {{ ref('dim_cnae') }} as cnae
+  on frn.cnae_fornecido = cnae.codigo_subclasse
 where frn.distancia_km <= {{ var('raio_fornecedores_km') }}

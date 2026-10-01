@@ -25,3 +25,28 @@
 **Consequências.** Melhoria sobre o original (escopo `adicao`). O Verifier/revisões checam unicidade das
 chaves, integridade referencial e reconciliação `sum(qtd_estabelecimentos) = count(fct_estabelecimentos)`
 no mês corrente.
+
+## Emenda R3 (2026-10-01)
+
+A revisão R3 ([R3.md](../revisoes/R3.md), decisões em [R3-triagem.md](../revisoes/R3-triagem.md), AD-020)
+corrigiu três pontos da decisão acima. O restante segue valendo.
+
+- **Grão do resumo mensal (R3-02).** `fct_resumo_mensal` **perde `ano_inicio_atividade` e
+  `sk_natureza_juridica`**. Grão novo: mês × município × subclasse × porte × situação × MEI. Motivo: o
+  grão original tinha 22,0 M linhas e 202 MB por mês, só 2,9× menor que a fato detalhada, e inviabilizava o
+  Import de séries longas. A coorte por ano de início fica em `mart_sobrevivencia_coorte`; a natureza,
+  em `fct_estabelecimentos`. **Tamanho real medido (fev/2025, 64,5 M estabelecimentos): 5,44 M linhas por mês e 55 MB de Parquet por partição** (5.571 municípios × 1.342 subclasses; `dbt build` de
+  `+fct_resumo_mensal +dim_data` em 140 s, pico de RSS 13,9 GB com `DUCKDB_THREADS=4`). O guia recomenda
+  Import dos últimos 24 meses.
+- **Medida aditiva de capital (R3-01).** O capital social é atributo da **empresa**, repetido em cada
+  estabelecimento; somá-lo por estabelecimento inflava o total em 15,6×. O resumo agora traz
+  `soma_capital_social_matrizes` (só `eh_matriz`, uma por raiz) e `qtd_matrizes`; capital médio no BI =
+  soma ÷ matrizes. `soma_capital_social` deixa de existir.
+- **`dim_data` (R3-03, P16, P21).** O calendário vai de **1900-01-01** até o maior entre `data_referencia` e
+  a maior data observada (antes: do menor dia observado, que chegava a 1194). Datas anteriores a 1900 vão
+  para o membro **`-2` DATA INVÁLIDA** na fato (`bh_empresas` mantém a data original por causa da
+  paridade). `-1` NÃO INFORMADO (data nula) e `-2` têm datas sentinela contíguas (`1899-12-31` e
+  `1899-12-30`) e `ano`/`mes` nulos, então `dim_data` pode ser marcada como tabela de datas no Power BI.
+  `accepted_range` do início de atividade passa a 1900 (warn).
+- **Integridade do resumo (R3-18).** As chaves do resumo são checadas contra as dimensões só no mês
+  processado (teste singular `error`); a integridade de todas as partições é um teste `warn`.

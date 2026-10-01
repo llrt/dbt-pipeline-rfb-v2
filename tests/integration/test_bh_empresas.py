@@ -48,8 +48,8 @@ def linhas() -> dict[str, dict[str, object]]:
     return por_cnpj
 
 
-def test_doze_linhas_sem_k_l_m(linhas: dict[str, dict[str, object]]) -> None:
-    assert len(linhas) == 12
+def test_treze_linhas_sem_k_l_m(linhas: dict[str, dict[str, object]]) -> None:
+    assert len(linhas) == 13
     raizes = {linha["cnpj_raiz"] for linha in linhas.values()}
     assert raizes.isdisjoint({"13131313", "14141414", "15151515"})
 

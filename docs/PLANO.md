@@ -11,7 +11,7 @@
 | Tech lead / arquiteto(a) / PM | Líder (este agente): produto, spec, arquitetura, ADRs, planejamento, integração, verificação por evidência, RETRO | Claude **Opus 5.5** (`claude`) | alto |
 | Dev sênior (código crítico e E2E) | Workers dos lotes B3, B5, B8 | Claude **Opus** (`claude`) | médio |
 | Dev pleno (tarefa grande não crítica) | — (nenhuma tarefa G/NC neste plano) | Claude **Sonnet** (`claude`) | médio |
-| Dev pleno (tarefas médias) | Workers dos lotes B4, B6, B7, B9b (B2 e B9a rodaram em DeepSeek antes da mudança) | Claude **Sonnet** (`claude`) — decisão do usuário, AD-014 | médio |
+| Dev pleno (tarefas médias) | Workers dos lotes B4, B6, B7 (B2 e B9a rodaram em DeepSeek antes da mudança; B9b em Gemini 3.8 Flash por pedido do usuário, AD-021) | Claude **Sonnet** (`claude`) — decisão do usuário, AD-014 | médio |
 | Dev júnior (tarefas pequenas) | Worker do lote B1 | **DeepSeek v4 flash** (`openrouter`) | baixo |
 | Code reviewer independente | Revisores R1–R5 (sempre agente novo) | Claude **Opus** (`claude`) | alto |
 | QA / auditor(a) de segurança / Verifier | R4 (revisão final + auditoria de segurança + Verifier da spec) | Claude **Opus** (`claude`) | alto |
@@ -105,7 +105,9 @@ flowchart LR
 | B7 | concluído, verificado (181 unit + 63 integração; dbt PASS=234 WARN=4 ERROR=0; respostas da spec conferidas no gold; mutação do líder — fornecedores sem filtro de ativos — detectada) e integrado — T21–T27 + P17 | da2b9a60 · Claude Sonnet médio | `5db7521` `03275bd` `da9a61f` `ff7ff09` `78fd84f` `fb5f990` `a23484e` `eee31ba` |
 | B7b | concluído, verificado (181 unit + 68 integração; dbt PASS=254 WARN=4 ERROR=0; duas partições 2026-08=14/2026-09=15 conferidas; mutações do worker: overwrite de partição e reconciliação) e integrado — T34, T35 | 7dff83ba · Claude Sonnet médio | `0962019` `edfd258` |
 | R3 | concluída: **APROVADO COM RESSALVAS** (0 bloq., 6 imp., 11 menores, 3 sug.; 25 mutações, 9 sobreviventes; build real fev/2025 completo verde em 275 s, pico 24,5 GB) — triagem em `docs/revisoes/R3-triagem.md` | 4558c4e6 · Claude Opus alto (traycer-review) | `22d2352` |
-| F3a | em andamento — correções R3 no modelo estrela e guia (R3-01, 02, 03, 05, 10, 14, 18, P18) | 21086135 · Claude Sonnet médio | — |
-| F3b | planejado — correções R3 em DQ, analyses, relatório e testes (R3-04, 07–09, 11–13, 15–17, 19, 20) | (Sonnet médio) | — |
+| F3a | concluído, verificado (181 unit + 76 integração; dbt PASS=250 WARN=4 ERROR=0; real fev/2025: resumo 5,44 M linhas/55 MB por mês, `dim_data` 45.697 dias contínuos 1899-12-30→2025-02-08 sem NULL, −2 em 8+2 datas; M17 morta) e integrado — R3-01, 02, 03, 05, 10, 14, 18, P16, P18, P21 | 21086135 · Claude Sonnet médio | 11 commits `0b22904`…`1d26fb9` |
+| RBP | planejado — revisão de boas práticas (guia como checklist) + validação técnica do guia (absorve R5), após F3b e B9b; pedido do usuário, AD-022 | (Opus alto) | — |
+| F3b | concluído, verificado (184 unit + 80 integração; dbt PASS=267 WARN=4 ERROR=0; M03/M04/M08/M11/M13/M21 mortas — M21 refeita pelo líder; fixture P emenda ANA-04 AC 5; real: relatório 159 linhas, `cnpj_dv_valido` 18 s) e integrado — R3-04, 07–09, 11–13, 15–17, 19, 20 | 688cd14e · Claude Sonnet médio | 11 commits `2155921`…`0cc60bc` |
+| B9b | entregue (6 commits, 2.524 linhas) — **devolvido na verificação do líder**: caminhos e checks inexistentes na Parte 3 (ex.: `conversor_parquet.py`, `test_pipeline_e2e.py`, `_intermediate__models.yml`, `httpx.head`); correção com protocolo de verificação contra repo/manifesto em curso — pedido do usuário, AD-021 | 81afe709 · **Gemini 3.8 Flash high** (`openrouter`) | — |
 | F1b | concluído, verificado (106 unit; dbt PASS=45 WARN=1 ERROR=0) e integrado — R1-04, R1-10 (convert), R1-23, R1-24 | 89931ace · Claude Opus médio | `54368a4` `88f9312` `081d8be` |
 | B9a | concluído e integrado (1 achado p/ R5, ver docs/revisoes/pendencias.md) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | `c9a6dbc` |
