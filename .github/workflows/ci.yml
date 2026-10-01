@@ -1,0 +1,30 @@
+# CI remoto (RBP-03, adição). Não é executado enquanto o repositório não for publicado no GitHub.
+# O `make ci` já roda unit + dbt build + integração + lint, sem rede (fixtures sintéticas).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Cache dos pacotes dbt e das extensões do DuckDB
+        uses: actions/cache@v4
+        with:
+          path: |
+            transform/dbt_packages
+            ~/.duckdb/extensions
+          key: dbt-${{ hashFiles('transform/package-lock.yml') }}
+
+      - run: make setup
+      - run: make ci

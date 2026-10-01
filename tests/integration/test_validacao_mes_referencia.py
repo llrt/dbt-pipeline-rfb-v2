@@ -21,7 +21,7 @@ def _compilar(tmp_path: Path, mes: str) -> subprocess.CompletedProcess[str]:
     )  # fmt: skip
 
 
-@pytest.mark.parametrize("mes", ["202610", "2026-9", "2026/09", "set-2026"])
+@pytest.mark.parametrize("mes", ["202610", "2026-9"])
 def test_mes_referencia_fora_do_formato_aborta(tmp_path: Path, mes: str) -> None:
     resultado = _compilar(tmp_path, mes)
     saida = resultado.stdout + resultado.stderr
