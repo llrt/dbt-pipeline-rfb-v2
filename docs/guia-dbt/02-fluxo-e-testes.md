@@ -33,7 +33,7 @@
 
 O pipeline implementa o padrão **Medalhão (Bronze/Raw → Silver/Staging & Intermediate → Gold/Marts)** em combinação com a modelagem dimensional **Kimball** (Fatos e Dimensões) sobre arquivos Parquet e DuckDB local ou remoto (ADR-0001, ADR-0007, ADR-0013).
 
-Abaixo, a comparação de volume real nas **fixtures sintéticas de CI** (`tests/fixtures/generated/` geradas para o mês de teste `2026-09`):
+Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por `make fixtures` em `tests/fixtures/generated/`, e executadas no pipeline de validação `make ci` sob `.tmp/ci/fixtures/` para o mês de teste `2026-09`):
 
 | Camada | Modelo/Tabela | Materialização | Linhas (CI) | Papel no Pipeline |
 |---|---|---|---|---|
@@ -308,9 +308,10 @@ Testes genéricos são asserções reutilizáveis parametrizadas diretamente nos
 - **`relationships`**: Valida integridade referencial entre modelos (ex.: toda `sk_cnae` em `fct_estabelecimentos` deve existir em `dim_cnae`).
 
 #### 2. Testes Avançados de Pacotes (`dbt_utils` e `dbt_expectations`)
-Exemplo real em `transform/models/intermediate/_intermediate__models.yml`:
+Exemplos reais extraídos de `transform/models/marts/core/_core__models.yml` e `transform/models/marts/original/_original__models.yml`:
 
 ```yaml
+# transform/models/marts/core/_core__models.yml (int_cnaes_secundarios__explodidos)
 # Garante unicidade da chave composta na tabela explodida
 - name: int_cnaes_secundarios__explodidos
   data_tests:
@@ -319,6 +320,7 @@ Exemplo real em `transform/models/intermediate/_intermediate__models.yml`:
           - cnpj_completo
           - codigo_cnae_secundario
 
+# transform/models/marts/original/_original__models.yml (bh_empresas)
 # Valida intervalo aceitável de idade de empresas (entre 0 e 200 anos)
 - name: bh_empresas
   columns:

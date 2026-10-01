@@ -301,7 +301,7 @@ select * from {{ ref('stg_rfb__dominio_situacao') }}
 análises (concorrência, sobrevivência) são feitas sobre o snapshot mensal da RFB — o próprio dataset
 mensal já *é* a "foto" de um momento. Manter SCD2 multiplicaria as tabelas sem responder a nenhuma pergunta
 do produto (fora de escopo em [PRODUCT.md](../../PRODUCT.md)). Snapshots e SCD em geral são explicados em
-detalhe na parte 3 (`03-bibliotecas-e-tecnicas.md`, em construção) como técnica para outros contextos.
+detalhe na parte 4 (`04-bibliotecas-e-tecnicas.md`) como técnica para outros contextos.
 
 ### 3.5 Data tests (testes de dados) — introdução
 
@@ -645,7 +645,7 @@ A CLI do dbt implementa uma convenção sintática histórica e concisa:
   `--select "tag:escopo_original tag:escopo_adicao"` seleciona os nós que possuem a tag `escopo_original` **OU** a tag `escopo_adicao`.
 - **Vírgula sem espaço = Interseção (AND)**:
   `--select "tag:escopo_adicao,path:models/marts/core"` seleciona apenas os nós que possuem a tag `escopo_adicao` **E** estão localizados sob o caminho `models/marts/core`.
-- **Atenção (P1)**: Essa regra de espaço = união e vírgula = interseção sempre foi a sintaxe padrão de seleção da CLI do dbt desde suas versões iniciais. As palavras literais `or` e `and` **nunca foram operadores válidos na linha de comando** do dbt Core (usar `dbt run --select "tag:a or tag:b"` interpreta `or` como o nome de um modelo inexistente!). Para lógicas condicionais complexas com múltiplos agrupamentos, utiliza-se a definição declarativa de **YAML Selectors** em `transform/selectors.yml` (com métodos `union` e `intersection`), invocados com `--selector nome_do_seletor`.
+- **Atenção (P1)**: Essa regra de espaço = união e vírgula = interseção sempre foi a sintaxe padrão de seleção da CLI do dbt desde suas versões iniciais. As palavras literais `or` e `and` **nunca foram operadores válidos na linha de comando** do dbt Core (usar `dbt run --select "tag:a or tag:b"` interpreta `or` como o nome de um modelo inexistente!). Para lógicas condicionais complexas com múltiplos agrupamentos, o dbt oferece o recurso de **YAML Selectors** (em um arquivo como `selectors.yml`, com métodos `union` e `intersection`), invocados com `--selector nome_do_seletor` — embora neste projeto a seleção direta por tags e paths na CLI atenda plenamente a todas as necessidades sem exigir um arquivo de seletores dedicado.
 
 ---
 
@@ -669,7 +669,7 @@ transform/
 │   │       ├── _bd__sources.yml
 │   │       └── _bd__staging.yml
 │   ├── intermediate/      # int_<entidade>__<verbo> (materializadas como table; joins e regras de negócio)
-│   │   ├── _intermediate__models.yml
+│   │   │                  # (testes e unit tests declarados junto aos marts em _core__models.yml)
 │   │   ├── int_municipios__conformados.sql
 │   │   ├── int_estabelecimentos__enriquecidos.sql
 │   │   └── int_cnaes_secundarios__explodidos.sql
@@ -774,7 +774,7 @@ executa via `uv` — no repo: `uv run dbt <cmd>` (ou `cd transform && dbt <cmd>`
 |---|---|---|
 | `-s, --select <nós>` | run/build/test/ls/docs/compile/seed… | seleciona nós (sintaxe da seção 3.17) |
 | `--exclude <nós>` | idem | exclui nós |
-| `--selector <nome>` | idem | usa um selector de `selectors.yml` (mais robusto que inline) |
+| `--selector <nome>` | idem | usa um seletor YAML (recurso dbt para seleções reutilizáveis; não usado neste projeto) |
 | `-t, --target <nome>` | todos | troca de target/profiles (`ci`, `dev`, `s3`) |
 | `--vars '{"chave": valor}'` | todos | sobrescreve vars do projeto |
 | `-f, --full-refresh` | run/build (incremental/table) | reconstrói do zero (ignora cache incremental) |

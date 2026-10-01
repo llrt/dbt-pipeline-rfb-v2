@@ -52,15 +52,16 @@ Responsável por extrair zips da Receita Federal e CSVs da Base dos Dados e conv
 
 | Momento | O que valida | Ferramenta | Severidade | Arquivo Implementador |
 |---|---|---|---|---|
-| **Antes** | Existência do diretório/mês no WebDAV remoto | Python (`httpx.head`) | `error` | `src/rfb_pipeline/cliente_rfb.py` |
-| **Antes** | Tamanho anunciado (`Content-Length`) conhecido e válido | Python | `error` | `src/rfb_pipeline/cliente_rfb.py` |
-| **Antes** | Ausência de path traversal dentro do arquivo ZIP | Python (`zipfile.ZipInfo`) | `error` | `src/rfb_pipeline/cliente_rfb.py` |
-| **Antes** | Bloqueio de arquivos e colunas pessoais (LGPD) | Python | `error` | `src/rfb_pipeline/cliente_rfb.py` |
-| **Depois** | Tamanho baixado coincide rigorosamente com o anunciado | Python (`stat.st_size`) | `error` | `src/rfb_pipeline/cliente_rfb.py` |
-| **Depois** | Hash SHA-256 gravado no manifesto do lote | Python (`hashlib.sha256`) | `error` | `src/rfb_pipeline/cli.py` |
-| **Depois** | Taxa de rejeito de linhas CSV ≤ limite configurado | Python (`conversor_parquet`) | `error` | `src/rfb_pipeline/conversor_parquet.py` |
-| **Depois** | Contagem total de linhas gravadas > 0 | Pytest / Python | `error` | `tests/integration/test_pipeline_e2e.py` |
-| **Depois** | Gravação atômica (arquivo temporário + rename) | Python (`Path.replace`) | `error` | `src/rfb_pipeline/conversor_parquet.py` |
+| **Antes** | Existência do diretório/mês no WebDAV remoto | Python PROPFIND (`ClienteRFB.listar_meses`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L284) e `src/rfb_pipeline/erros.py` (L12, `MesInexistenteErro`) |
+| **Antes** | Tamanho anunciado (`getcontentlength`) no XML PROPFIND | Python XML parsing (`ClienteRFB.listar_arquivos`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L303) |
+| **Antes** | Ausência de path traversal (`..`, `/` absoluto) no ZIP | Python (`extrair_zip_seguro` / `_entrada_insegura`) | `error` | `src/rfb_pipeline/conversao.py` (L79) e `src/rfb_pipeline/erros.py` (L77, `ZipInseguroErro`) |
+| **Antes** | Integridade estrutural do arquivo ZIP baixado | Python (`zipfile.ZipFile.testzip`) | `error` | `src/rfb_pipeline/conversao.py` (L115) e `src/rfb_pipeline/erros.py` (L86, `ZipCorrompidoErro`) |
+| **Antes** | Bloqueio de arquivos pessoais (`Socios*`) e colunas LGPD | Python (`ClienteRFB.listar_arquivos` e `src/rfb_pipeline/esquemas.py`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L318) e `src/rfb_pipeline/esquemas.py` (L114) |
+| **Depois** | Tamanho baixado confere com o anunciado pelo WebDAV | Python (`baixar_com_retentativas`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L238) e `src/rfb_pipeline/erros.py` (L59, `TamanhoDivergenteErro`) |
+| **Depois** | Hash SHA-256 gravado no manifesto atômico do mês | Python (`sha256_arquivo` / `escrever_manifesto`) | `error` | `src/rfb_pipeline/manifesto.py` (L38, L141) |
+| **Depois** | Taxa de rejeito de linhas CSV ≤ limite configurado | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L366) e `src/rfb_pipeline/erros.py` (L94, `TaxaRejeitoExcedidaErro`) |
+| **Depois** | Contagem total de linhas gravadas > 0 (não vazia) | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L386) e `tests/integration/test_ingerir_cli.py` |
+| **Depois** | Download atômico (`.part` → rename) e Parquet atômico | Python (`Path.replace` e `_publicar`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L244) e `src/rfb_pipeline/conversao.py` (L169) |
 
 ---
 
@@ -109,13 +110,15 @@ Enriquecimento entre estabelecimentos, empresas, Simples e dados geográficos do
 | Momento | O que valida | Ferramenta | Severidade | Arquivo Implementador |
 |---|---|---|---|---|
 | **Antes** | Views de staging compiladas e validadas | dbt DAG (`ref()`) | `error` | `transform/models/intermediate/*.sql` |
-| **Depois** | Unicidade de `cnpj_completo` na base enriquecida | dbt test (`unique`) | `error` | `transform/models/intermediate/_intermediate__models.yml` |
-| **Depois** | Não-nulo de `cnpj_completo` | dbt test (`not_null`) | `error` | `transform/models/intermediate/_intermediate__models.yml` |
-| **Depois** | Integridade referencial do código matriz/filial | dbt test (`relationships`) | `error` | `transform/models/intermediate/_intermediate__models.yml` |
-| **Depois** | Unicidade da chave composta de CNAEs explodidos | dbt_utils (`unique_combination_of_columns`) | `error` | `transform/models/intermediate/_intermediate__models.yml` |
-| **Depois** | Unicidade da chave surrogate de município | dbt test (`unique`) | `error` | `transform/models/intermediate/_intermediate__models.yml` |
-| **Depois** | Unit test de conservação de massa (zero descartes) | dbt unit test | `error` | `transform/models/intermediate/_intermediate__models.yml` |
-| **Depois** | Unit test de explosão de CNAEs secundários (unnest) | dbt unit test | `error` | `transform/models/intermediate/_intermediate__models.yml` |
+| **Depois** | Unicidade de `cnpj_completo` na base enriquecida | dbt test (`unique`) | `error` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Não-nulo de `cnpj_completo` | dbt test (`not_null`) | `error` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Integridade referencial do código matriz/filial | dbt test (`relationships`) | `error` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Unicidade da chave composta de CNAEs explodidos | dbt_utils (`unique_combination_of_columns`) | `error` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Unicidade e não-nulo da surrogate key de município | dbt test (`unique`, `not_null`) | `error` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Unicidade do código RFB de município | dbt test (`unique`) | `warn` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Unit test de conservação de massa (flags e zero descartes) | dbt unit test (`test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado`) | `error` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Unit test de explosão de CNAEs secundários (unnest) | dbt unit test (`test_int_cnaes_secundarios_explodidos`) | `error` | `transform/models/marts/core/_core__models.yml` |
+| **Depois** | Unit tests de resolução de ano mais recente e variável de população | dbt unit tests (`test_int_municipios_conformados_*`) | `error` | `transform/models/marts/core/_core__models.yml` |
 
 ---
 
@@ -184,9 +187,9 @@ Garantias físicas de entrega e integridade para as ferramentas de visualizaçã
 
 | Momento | O que valida | Ferramenta | Severidade | Arquivo Implementador |
 |---|---|---|---|---|
-| **Antes** | Criação prévia do diretório físico de destino (`mkdir -p $(RAIZ_DADOS)/gold`) | Makefile / Python | `error` | `Makefile` (alvo `ci` e `pipeline`) |
+| **Antes** | Criação prévia do diretório físico de destino (`mkdir -p $(RAIZ_DADOS)/gold`) | Makefile / Python | `error` | `Makefile` (alvos `ci` e `lint`) |
 | **Antes** | Permissão de escrita e memória disponível no DuckDB | DuckDB engine | `error` | `transform/profiles.yml` |
-| **Depois** | Arquivos Parquet gravados com sucesso sem corrupção | Python (`duckdb.read_parquet`) | `error` | `tests/integration/test_pipeline_e2e.py` |
+| **Depois** | Arquivos Parquet gravados com sucesso sem corrupção | Python (`duckdb.read_parquet`) | `error` | `tests/integration/test_bh_empresas.py` e `tests/integration/test_core.py` |
 | **Depois** | Tipos de data compatíveis com Power BI (coluna de data contínua sem vazios) | dbt test / contrato | `error` | `transform/models/marts/core/_core__models.yml` |
 | **Depois** | Mapeamento explícito de dependências downstream (exposures) | dbt exposures | `error` | `transform/models/marts/core/_core__exposures.yml` |
 
@@ -198,13 +201,13 @@ Garante a estabilidade e o comportamento determinístico entre cargas de meses s
 
 | Momento | O que valida | Ferramenta | Severidade | Arquivo Implementador |
 |---|---|---|---|---|
-| **Antes** | Verificação de disponibilidade e completude do novo mês no WebDAV | Python (`cliente_rfb`) | `error` | `src/rfb_pipeline/cli.py` |
-| **Antes** | Detecção de execução no-op (se hash do lote for idêntico ao já processado) | Python (`_manifestos/`) | `error` | `src/rfb_pipeline/cli.py` |
-| **Antes** | Lote parcial/incompleto é ignorado a menos que explicitamente autorizado | Python | `error` | `src/rfb_pipeline/cli.py` |
-| **Depois** | Ordem estrita de compilação: mês antigo materializado antes do novo (P22) | Python / Makefile | `error` | `Makefile` / `rfb atualizar` |
-| **Depois** | Gravação atômica do manifesto do novo mês | Python (`atomic_write`) | `error` | `src/rfb_pipeline/cli.py` |
+| **Antes** | Verificação de disponibilidade e completude do novo mês no WebDAV | Python (`esquemas.arquivos_faltantes`) | `error` | `src/rfb_pipeline/cli.py` e `src/rfb_pipeline/esquemas.py` (`MesIncompletoErro`) |
+| **Antes** | Detecção de execução no-op (se hash do lote for idêntico ao já processado) | Python (`precisa_reconverter`) | `error` | `src/rfb_pipeline/manifesto.py` (L175) |
+| **Antes** | Lote parcial/incompleto é ignorado a menos que explicitamente autorizado | Python (`--permitir-incompleto`) | `error` | `src/rfb_pipeline/cli.py` |
+| **Depois** | Ordem estrita de compilação: mês antigo materializado antes do novo (P22) | Python / Makefile | `error` | `Makefile` e `src/rfb_pipeline/cli.py` |
+| **Depois** | Gravação atômica do manifesto do novo mês | Python (`escrever_manifesto`) | `error` | `src/rfb_pipeline/manifesto.py` (L141) |
 | **Depois** | Política de retenção de meses históricos respeitada | Python (`pathlib`) | `error` | `src/rfb_pipeline/cli.py` |
-| **Depois** | Registro da execução gravado em `dq_historico_testes` via hook `on-run-end` | dbt macro | `error` | `transform/macros/observability/` |
+| **Depois** | Registro da execução gravado em `dq_historico_testes` via hook `on-run-end` | dbt macro (`registrar_resultados_testes`) | `error` | `transform/macros/observability/registrar_resultados_testes.sql` |
 
 ---
 
@@ -215,12 +218,12 @@ Garante a estabilidade e o comportamento determinístico entre cargas de meses s
 Em engenharia de dados corporativa, a **reconciliação** assegura que nenhum registro seja inadvertidamente criado ou descartado ao longo de sucessivos joins e filtros.
 
 Neste projeto, implementamos testes singulares de conservação:
-1. **Reconciliação de Contagem (`fct_estabelecimentos_reconciliacao.sql`)**:
+1. **Reconciliação de Contagem (`transform/tests/fct_estabelecimentos_reconciliacao.sql`)**:
    Verifica se `SELECT count(*) FROM fct_estabelecimentos` coincide perfeitamente com `stg_rfb__estabelecimentos`. Se houver 1 estabelecimento a mais ou a menos, o teste aponta a violação.
-2. **Reconciliação Financeira (`soma_capital_social`)**:
-   Garante que a soma de capital social de empresas matrizes seja conservada entre o staging e as tabelas fato agregadas.
-3. **Reconciliação de Agregações (`agg_empresas_reconciliacao.sql`)**:
-   Garante que a soma das contagens agrupadas por município e situação bata exatamente com a contagem da base analítica granular.
+2. **Reconciliação Financeira (`transform/tests/fct_resumo_mensal_reconciliacao.sql`)**:
+   Garante que as métricas agregadas da fato mensal (estabelecimentos, ativos e capital social) coincidam com as somas da base granular de estabelecimentos.
+3. **Reconciliação de Agregações (`transform/tests/agg_empresas_reconciliacao.sql`)**:
+   Garante que a soma das contagens agrupadas por município e situação bata exatamente com a contagem da base analítica granular `bh_empresas`.
 
 ---
 
@@ -228,7 +231,7 @@ Neste projeto, implementamos testes singulares de conservação:
 
 Quando se refatora um pipeline analítico legado (como a migração de PySpark para dbt + DuckDB realizada neste projeto), a técnica recomendada é o **Data Diff** (diferença estrita de dados).
 
-O teste singular `tests/paridade_bh_empresas.sql` emprega o operador `EXCEPT ALL` bidirecional com a função `hash(*columns(*))` nativa do DuckDB:
+O teste singular `transform/tests/paridade_bh_empresas.sql` emprega o operador `EXCEPT ALL` bidirecional com a função `hash(*columns(*))` nativa do DuckDB:
 ```sql
 with diferenca_esquerda as (
     select * from refatorado except all select * from legado

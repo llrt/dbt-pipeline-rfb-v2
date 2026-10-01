@@ -247,10 +247,10 @@ uv run dbt show --inline "select {{ texto_ou_nulo('nome') }} from {{ ref('bh_emp
 O diretório `transform/analyses/` guarda scripts SQL que contêm Jinja e `{{ ref(...) }}`, mas que **não são materializados como tabelas ou views**.
 
 Neste projeto, as 9 consultas analíticas que compõem o relatório final de negócios (estudo de viabilidade de varejo de tintas em Fundão/ES) estão versionadas em `transform/analyses/`:
-- `estudo_caso_q1_concorrentes.sql`
-- `estudo_caso_q2_q3_idade_porte.sql`
-- `estudo_caso_adicao_sobrevivencia.sql`
-- `estudo_caso_adicao_fornecedores_proximos.sql`
+- `transform/analyses/estudo_caso_q1_concorrentes.sql`
+- `transform/analyses/estudo_caso_q2_q3_idade_porte.sql`
+- `transform/analyses/estudo_caso_adicao_sobrevivencia.sql`
+- `transform/analyses/estudo_caso_adicao_fornecedores_proximos.sql`
 
 O comando `rfb relatorio` compila esses arquivos via dbt, executa as consultas diretamente no DuckDB e compila o relatório executivo em Markdown (`docs/RELATORIO_ESTUDO_CASO.md`).
 
@@ -280,13 +280,15 @@ Os modelos staging e marts filtram dinamicamente a partição correta respeitand
 
 ### 3.7 Telemetria Persistente de Testes via Hooks
 
-A cada execução de testes, o hook `on-run-end` aciona a macro `registrar_resultados_testes`. A macro itera sobre a variável global `results` do dbt e insere os resultados na tabela persistida `main.dq_historico_testes`:
-- `invocation_id`: ID único da execução
-- `test_name`: Nome do teste
-- `status`: `pass`, `warn` ou `fail`
-- `failures`: Número de linhas violadas
-- `execution_time_s`: Tempo de processamento em segundos
-- `created_at`: Timestamp da execução
+A cada execução de testes, o hook `on-run-end` aciona a macro `registrar_resultados_testes` (`transform/macros/observability/registrar_resultados_testes.sql`). A macro itera sobre a variável global `results` do dbt e insere os resultados na tabela persistida `main.dq_historico_testes`:
+- `invocation_id`: ID único da invocação dbt
+- `executado_em`: Timestamp da execução
+- `nome_teste`: Nome do teste ou unit test executado
+- `tipo_teste`: Tipo do teste (`test` ou `unit_test`)
+- `status`: Status do resultado (`pass`, `warn`, `fail` ou `error`)
+- `falhas`: Quantidade de linhas com falha
+- `severidade`: Severidade configurada (`error` ou `warn`)
+- `escopo`: Classificação de governança (`original`, `adicao`, `adaptado`)
 
 Isso permite criar dashboards de evolução histórica de Data Quality e monitorar o declínio ou melhora da qualidade das fontes públicas ao longo dos meses.
 

@@ -55,7 +55,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
 - **Quando usar**: Em praticamente 100% dos projetos dbt. É essencial para testes de chaves compostas, intervalos de valores, geração de surrogate keys e pivoteamento dinâmico de colunas.
 - **Exemplo de uso**:
   ```yaml
-  # transform/models/intermediate/_intermediate__models.yml
+  # transform/models/marts/core/_core__models.yml (int_cnaes_secundarios__explodidos)
   models:
     - name: int_cnaes_secundarios__explodidos
       data_tests:
@@ -117,7 +117,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
 - **O que é**: Pacote desenvolvido pela dbt Labs que atua como um "linter de arquitetura dbt". Avalia o projeto em relação às convenções recomendadas pela dbt Labs (ex.: modelos sem documentação, staging fazendo joins indevidos, dependências circulares, modelos órfãos que ninguém consome).
 - **Quando usar**: Em code reviews e auditorias periódicas de governança em codebases em crescimento.
 - **Exemplo de uso**: Adicionar em `packages.yml` e rodar `dbt build --select package:dbt_project_evaluator`.
-- **Uso neste projeto**: **NÃO como pacote dbt**, mas **SIM como suíte de testes de integração Python** (`tests/integration/test_escopo_meta.py` e `test_convencao_nomes.py`), que impõem regras estritas de nomenclatura, escopo, ausência de colunas pessoais e estrutura de camadas via pytest em menos de 2 segundos.
+- **Uso neste projeto**: **NÃO como pacote dbt**, mas **SIM como suíte de testes de integração e unidade em Python** (`tests/integration/test_escopo_meta.py` e `tests/unit/test_convencao_nomes.py`), que impõem regras estritas de nomenclatura, escopo, ausência de colunas pessoais e estrutura de camadas via pytest em menos de 2 segundos.
 - **Documentação oficial**: https://hub.getdbt.com/dbt-labs/dbt_project_evaluator/latest/
 
 ---
@@ -166,7 +166,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
       - id: check-model-has-tests
       - id: check-model-has-description
   ```
-- **Uso neste projeto**: **NÃO**. Por quê? Substituímos o overhead de dependências externas de hook por **guardas nativas em Python/pytest** (`tests/integration/test_escopo_meta.py`, `test_convencao_nomes.py` e `test_pipeline_e2e.py`). Nossos testes rodam mais rápido e validam requisitos específicos do projeto (como checar se `meta.escopo` e `tags` coincidem, e se nenhuma coluna de contato pessoal foi exposta).
+- **Uso neste projeto**: **NÃO**. Por quê? Substituímos o overhead de dependências externas de hook por **guardas nativas em Python/pytest** (`tests/integration/test_escopo_meta.py`, `tests/unit/test_convencao_nomes.py` e `tests/integration/test_ingerir_cli.py`). Nossos testes rodam mais rápido e validam requisitos específicos do projeto (como checar se `meta.escopo` e `tags` coincidem, e se nenhuma coluna de contato pessoal foi exposta).
 - **Documentação oficial**: https://github.com/dbt-checkpoint/dbt-checkpoint
 
 ---
@@ -285,7 +285,7 @@ No ambiente de CI local deste projeto, o comando `make ci` roda em menos de 15 s
 Data Diffing é a disciplina de auditar mudanças comparando o conteúdo dos dados linha a linha.
 
 Durante a migração deste projeto (do ambiente Spark/Databricks para DuckDB/dbt), o data diff foi fundamental para comprovar que as regras de negócio de `bh_empresas` (notebook 3) foram reproduzidas com exatidão matemática:
-- Testamos a tradução literal com `tests/paridade_bh_empresas.sql`.
+- Testamos a tradução literal com `transform/tests/paridade_bh_empresas.sql`.
 - Comparamos o comportamento de inner joins e quantificamos exatamente os 3 estabelecimentos das fixtures que eram descartados pela abordagem legada.
 - Essa técnica assegura que mudanças estruturais de arquitetura ou engenharia ocorram com risco zero de corrupção semântica para analistas e tomadores de decisão.
 
