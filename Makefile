@@ -28,8 +28,8 @@ ci:
 	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
 	mkdir -p $(RAIZ_DADOS)/gold
 	cd transform && uv run dbt deps
-	cd transform && uv run dbt build --target ci --select +fct_resumo_mensal --exclude 'resource_type:test resource_type:unit_test' --vars '{mes_referencia: 2026-08}'
-	cd transform && uv run dbt test --target ci --select fct_resumo_mensal --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt build --target ci --selector ci_mes_antigo --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt test --target ci --selector ci_resumo_mes_antigo --vars '{mes_referencia: 2026-08}'
 	cd transform && uv run dbt build --target ci
 	uv run pytest -q tests/integration
 
