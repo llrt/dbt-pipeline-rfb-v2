@@ -1,11 +1,12 @@
-# CI remoto (RBP-03, adição). Não é executado enquanto o repositório não for publicado no GitHub.
-# O `make ci` já roda unit + dbt build + integração + lint, sem rede (fixtures sintéticas).
+# CI remoto (RBP-03, adição). O `make ci` roda unit + dbt build + integração + lint, sem rede
+# (fixtures sintéticas). `workflow_dispatch` permite disparar à mão (aba Actions ou `gh workflow run ci`).
 name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # R4-09: o GITHUB_TOKEN só lê o repositório (o job não escreve nada no GitHub).
 permissions:
@@ -13,18 +14,19 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # fixado: ubuntu-latest migra para o 26 a partir de 2026-10-19
     timeout-minutes: 20
     steps:
       # R4-09: actions fixadas por SHA do commit (tags são mutáveis); a tag fica no comentário.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      # Versões em Node 24 (o Node 20 foi descontinuado nos runners do GitHub).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
           enable-cache: true
 
       - name: Cache dos pacotes dbt e das extensões do DuckDB
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
         with:
           path: |
             transform/dbt_packages
