@@ -104,7 +104,7 @@ def test_area_de_mercado_sem_censo_tem_indicadores_nulos(consultar) -> None:
 
 # incremento: enriquecimento_bd
 def test_area_de_mercado_vazio_de_fundao_para_cnae_de_serra(consultar) -> None:
-    """P23: 2071100: ativos em Serra (F) e Aracruz (P); Fundão (vizinhos F+P, RM 1) e Vitória são vazios."""
+    """P23: 2071100 tem ativos em Serra (F) e Aracruz (P); Fundão e Vitória são vazios."""
     linhas = consultar(
         "select municipio, tem_estabelecimento_local, ativos, inativos, ativos_vizinhos, "
         "ativos_regiao_metropolitana, ativos_por_mil_domicilios, ativos_por_km2 "
@@ -121,7 +121,7 @@ def test_area_de_mercado_vazio_de_fundao_para_cnae_de_serra(consultar) -> None:
 
 # incremento: enriquecimento_bd
 def test_area_de_mercado_so_ativos_criam_vazio(consultar) -> None:
-    """Linhares tem vizinho (Aracruz) só com inativo de 4679601: não é vazio; Aracruz é para 4711302."""
+    """Vizinho só com inativo (Linhares × 4679601) não é vazio; Aracruz × 4711302 é."""
     linhas = consultar(
         "select municipio, cnae_principal from {mart_concorrencia_area_mercado} "
         "where not tem_estabelecimento_local and municipio in ('Linhares', 'Aracruz')"
