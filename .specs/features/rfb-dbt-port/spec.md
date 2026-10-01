@@ -412,7 +412,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 ## Success Criteria
 
-- [ ] `make ci` verde em < 120 s, com os números do cenário conhecido.
+- [ ] `make ci` verde em < 180 s, com os números do cenário conhecido. *(Emenda AD-026: era < 120 s; o `make ci` passou a incluir testes unitários, lint, freshness e ~105 testes de integração — 117 s medidos.)*
 - [ ] `make pipeline MES=2026-09` conclui sobre os dados reais sem testes `error` falhando.
 - [ ] Teste de paridade com o SQL original com diferença zero nos dados reais.
 - [ ] Relatório do estudo de caso gerado com dados reais de 2026-09.
