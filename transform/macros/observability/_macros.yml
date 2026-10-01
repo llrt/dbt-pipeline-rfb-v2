@@ -9,3 +9,9 @@ macros:
       on-run-end: acrescenta a `main.dq_historico_testes` uma linha por teste executado
       (invocation_id, nome, status, falhas, severidade, escopo, timestamp).
     meta: { escopo: adicao }
+  - name: exportar_historico_testes
+    description: >
+      Chamada por `registrar_resultados_testes`: exporta as linhas da execução corrente para
+      `gold/dq_historico_testes/invocation_id=<id>/` (Parquet), para o histórico de DQ sobreviver ao
+      descarte do `warehouse.duckdb` (RBP-12). Usa `raiz_gold()` (vale também no backfill, P22).
+    meta: { escopo: adicao }
