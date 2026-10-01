@@ -5,7 +5,7 @@ atualizar` (processa 2026-09) -> `rfb atualizar` (no-op, log em `.tmp/ci/atualiz
 `rfb pipeline --mes 2026-08` (backfill, log em `.tmp/ci/backfill.log`; antes dele o `make ci`
 apaga a partição 2026-08 do resumo, para provar que o backfill a regrava, R4-04). Os testes de
 falha do dbt e de retenção usam ingestão real das fixtures num `RAIZ_DADOS` temporário e um dbt
-falso (o caminho de falha não precisa do dbt de verdade).
+falso (o caminho de falha não precisa do dbt de verdade), salvo o do R4-02, que roda o dbt real.
 """
 
 from __future__ import annotations
@@ -84,6 +84,9 @@ def test_ac8_p22_backfill_grava_so_o_resumo_e_mantem_o_gold_corrente() -> None:
         _contar(f"select sum(qtd_estabelecimentos) from {serie} where mes_referencia = '2026-09'")
         == 16
     )
+    # R4-02: o backfill testou antes de mover (os testes rodaram no próprio build)
+    assert "partição mes_referencia=2026-08 movida para" in log
+    assert "dbt test" not in log
     assert not list((_raiz() / "_tmp").glob("backfill-*"))  # temporários removidos
     assert ler_estado(carregar_configuracao({"RAIZ_DADOS": str(_raiz())})).mes_referencia == (
         "2026-09"
@@ -176,3 +179,35 @@ def test_ac5_retencao_padrao_mantem_dois_meses_e_manter_zips(tmp_path: Path) -> 
     atualizar(configuracao, _opcoes(), executor=_Dbt())
     assert _meses_raw(configuracao) == ["2026-08", "2026-09"]
     assert configuracao.baixados_dir("2026-09").is_dir()
+
+
+def test_r4_02_backfill_com_teste_error_nao_toca_a_particao_do_gold(tmp_path: Path) -> None:
+    """R4-02 (Fix 2), dbt real: 2026-08 com CNPJ duplicado no raw -> o `unique` do staging falha no
+    build do backfill e a partição 2026-08 do gold fica byte a byte como estava."""
+    import shutil
+
+    from rfb_pipeline.orquestracao import executar_pipeline
+
+    raiz = tmp_path / "dados"
+    shutil.copytree(_raiz() / "raw", raiz / "raw")
+    shutil.copytree(_raiz() / "gold" / "fct_resumo_mensal", raiz / "gold" / "fct_resumo_mensal")
+    configuracao = carregar_configuracao({"RAIZ_DADOS": str(raiz)})
+    gravar_estado(configuracao, Estado("2026-09", "2026-09-12", "x"))
+    particao = raiz / "gold" / "fct_resumo_mensal" / "mes_referencia=2026-08"
+    antes = {p.name: p.read_bytes() for p in particao.iterdir()}
+    (arquivo,) = (raiz / "raw" / "rfb" / "estabelecimentos" / "mes_referencia=2026-08").glob(
+        "*.parquet"
+    )
+    with duckdb.connect() as con:
+        con.execute(
+            f"copy (select * from read_parquet('{arquivo}') union all "
+            f"(select * from read_parquet('{arquivo}') limit 1)) "
+            f"to '{arquivo}.dup' (format parquet)"
+        )
+    Path(f"{arquivo}.dup").replace(arquivo)
+    opcoes = OpcoesPipeline(ingerir=False, target="ci", saida_relatorio=None, publicar=False)
+    with pytest.raises(PipelineErro, match="backfill"):
+        executar_pipeline(configuracao, ["2026-08"], opcoes)
+    assert {p.name: p.read_bytes() for p in particao.iterdir()} == antes
+    assert not list((raiz / "_tmp").glob("backfill-*"))
+    assert ler_estado(configuracao).mes_referencia == "2026-09"

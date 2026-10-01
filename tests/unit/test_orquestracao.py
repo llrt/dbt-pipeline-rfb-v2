@@ -37,7 +37,15 @@ class ExecutorFalso:
 
     def __call__(self, argumentos: Sequence[str], ambiente: Mapping[str, str]) -> int:
         self.chamadas.append((list(argumentos), dict(ambiente)))
-        return 1 if argumentos[0] in self.falhar else 0
+        if argumentos[0] in self.falhar:
+            return 1
+        if "RFB_RAIZ_SERIE" in ambiente and argumentos[0] == "build":
+            # como o dbt: o backfill grava a partição do resumo em `RFB_RAIZ_SERIE`
+            mes = json.loads(argumentos[argumentos.index("--vars") + 1])["mes_referencia"]
+            pasta = Path(ambiente["RFB_RAIZ_SERIE"]) / "fct_resumo_mensal" / f"mes_referencia={mes}"
+            pasta.mkdir(parents=True)
+            (pasta / "data_0.parquet").write_text(f"novo {mes}")
+        return 0
 
     @property
     def comandos(self) -> list[list[str]]:
@@ -126,24 +134,64 @@ def test_meses_sao_processados_do_mais_antigo_ao_mais_novo(tmp_path: Path, inger
     assert ler_estado(configuracao).mes_referencia == "2026-09"
 
 
+def _particao_gold(configuracao: Configuracao, mes: str) -> Path:
+    return configuracao.gold_dir / "fct_resumo_mensal" / f"mes_referencia={mes}"
+
+
 def test_mes_anterior_ao_gold_corrente_vira_backfill_so_do_resumo(
     tmp_path: Path, ingeridos: list
 ) -> None:
     configuracao = _config(tmp_path)
     gravar_estado(configuracao, Estado("2026-09", "2026-09-12", "x"))
+    antiga = _particao_gold(configuracao, "2026-08")
+    antiga.mkdir(parents=True)
+    (antiga / "data_0.parquet").write_text("antigo")
+    (antiga / "data_1.parquet").write_text("sobra do antigo")
     executor = ExecutorFalso()
     (resultado,) = executar_pipeline(configuracao, ["2026-08"], _opcoes(), executor=executor)
     assert resultado.modo == "backfill"
-    build, teste = executor.chamadas
+    (build,) = executor.chamadas  # R4-02: um build só, com os testes (nada de `dbt test` depois)
     assert build[0][:3] == ["build", "--selector", orquestracao.SELETOR_BACKFILL]
-    assert teste[0][:3] == ["test", "--selector", orquestracao.SELETOR_BACKFILL_TESTES]
     raiz_temporaria = Path(build[1]["RFB_EXTERNAL_ROOT"])
     assert raiz_temporaria.parent.parent == configuracao.raiz_dados / "_tmp"
     assert build[1]["CAMINHO_DUCKDB"].startswith(str(raiz_temporaria.parent))
-    assert build[1]["RAIZ_DADOS"] == str(configuracao.raiz_dados)  # resumo vai ao gold real
+    assert Path(build[1]["RFB_RAIZ_SERIE"]).parent == raiz_temporaria.parent
+    assert build[1]["RAIZ_DADOS"] == str(configuracao.raiz_dados)  # histórico de DQ ao gold real
     assert "--target-path" in build[0]
     assert not raiz_temporaria.parent.exists()  # temporário removido
+    # a partição testada substitui a antiga inteira (sem sobras de arquivos antigos)
+    assert sorted(p.name for p in antiga.iterdir()) == ["data_0.parquet"]
+    assert (antiga / "data_0.parquet").read_text() == "novo 2026-08"
     assert ler_estado(configuracao).mes_referencia == "2026-09"  # gold corrente intacto
+    assert set(resultado.tempos_s) >= {"dbt_build_backfill", "mover_particao"}
+
+
+def test_backfill_que_falha_nao_toca_a_particao_do_gold(tmp_path: Path, ingeridos: list) -> None:
+    """R4-02: teste error no build do backfill -> a partição do gold fica como estava."""
+    configuracao = _config(tmp_path)
+    gravar_estado(configuracao, Estado("2026-09", None, "x"))
+    antiga = _particao_gold(configuracao, "2026-08")
+    antiga.mkdir(parents=True)
+    (antiga / "data_0.parquet").write_text("antigo")
+    with pytest.raises(PipelineErro, match="backfill"):
+        executar_pipeline(
+            configuracao, ["2026-08"], _opcoes(), executor=ExecutorFalso(falhar=["build"])
+        )
+    assert (antiga / "data_0.parquet").read_text() == "antigo"
+    assert not list((configuracao.raiz_dados / "_tmp").glob("backfill-*"))
+
+
+def test_backfill_sem_particao_gravada_e_erro(tmp_path: Path, ingeridos: list) -> None:
+    """R4-04 (D04): o dbt gravou a partição fora de `RFB_RAIZ_SERIE` -> erro, não sucesso calado."""
+    configuracao = _config(tmp_path)
+    gravar_estado(configuracao, Estado("2026-09", None, "x"))
+
+    def _dbt_sem_particao(argumentos: Sequence[str], _ambiente: Mapping[str, str]) -> int:
+        return 0
+
+    with pytest.raises(PipelineErro, match="sem gravar a partição"):
+        executar_pipeline(configuracao, ["2026-08"], _opcoes(), executor=_dbt_sem_particao)
+    assert not _particao_gold(configuracao, "2026-08").exists()
 
 
 def test_backfill_e_mes_novo_na_mesma_chamada(tmp_path: Path, ingeridos: list) -> None:
@@ -255,6 +303,32 @@ def test_falha_do_relatorio_nao_grava_estado(
             executor=ExecutorFalso(),
         )
     assert ler_estado(configuracao) is None
+
+
+def test_backfill_em_s3_envia_a_particao_movida_ao_bucket(
+    tmp_path: Path, ingeridos: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    configuracao = _config(
+        tmp_path,
+        RAIZ_DADOS="s3://balde/prefixo",
+        RAIZ_DADOS_LOCAL=str(tmp_path / "local"),
+        AWS_ACCESS_KEY_ID="id",
+        AWS_SECRET_ACCESS_KEY="segredo",
+        AWS_ENDPOINT_URL_S3="https://s3.exemplo",
+    )
+    gravar_estado(configuracao, Estado("2026-09", None, "x"))
+    particoes_ao_sincronizar: list[list[str]] = []
+
+    def _sincronizar(c: Configuracao) -> list:
+        particoes_ao_sincronizar.append(
+            sorted(p.name for p in (c.gold_dir / "fct_resumo_mensal").glob("*"))
+        )
+        return []
+
+    monkeypatch.setattr(orquestracao, "sincronizar", _sincronizar)
+    executar_pipeline(configuracao, ["2026-08"], _opcoes(), executor=ExecutorFalso())
+    # 1ª: o raw após a ingestão (antes do build); 2ª: a partição testada, já no gold local
+    assert particoes_ao_sincronizar == [[], ["mes_referencia=2026-08"]]
 
 
 # ---------------------------------------------------------------------------- atualizar

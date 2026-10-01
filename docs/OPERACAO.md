@@ -30,10 +30,13 @@ Cada etapa imprime `== etapa <nome>: <segundos>s` e o fim do mês imprime o resu
 - O build de um mês regrava os marts `external` de `gold/` (dimensões, `fct_estabelecimentos`, marts,
   `agg_empresas`). Por isso o mês do estado é o **gold corrente**, e um mês **mais antigo** que ele roda
   como **backfill**: o dbt usa um `external_root` temporário (`RFB_EXTERNAL_ROOT`) e um `.duckdb`
-  temporário em `RAIZ_DADOS/_tmp/backfill-*`, e só a partição do mês em
-  `gold/fct_resumo_mensal/mes_referencia=AAAA-MM/` (localização fixa no modelo, macro `raiz_gold`) e o
-  histórico de DQ chegam ao gold real. Os seletores `backfill_resumo_mensal` e
-  `backfill_resumo_mensal_testes` (`transform/selectors.yml`) definem o que roda.
+  temporário em `RAIZ_DADOS/_tmp/backfill-*`, e só a partição do mês de `fct_resumo_mensal` e o
+  histórico de DQ chegam ao gold real. O seletor `backfill_resumo_mensal` (`transform/selectors.yml`)
+  constrói **e testa** `+fct_resumo_mensal` (staging, dimensões, fato e resumo, menos os dois testes
+  que comparam com o gold corrente). A partição é gravada numa raiz temporária (`RFB_RAIZ_SERIE`,
+  macro `raiz_serie`) e o `rfb pipeline` só a move para `gold/fct_resumo_mensal/mes_referencia=AAAA-MM/`
+  (`rename` no mesmo disco, substituindo a anterior) **depois** de o build inteiro passar (R4-02). Um
+  teste `error` no backfill deixa a partição do gold como estava.
 - O teste `fct_resumo_mensal_gold_corrente` (warn) acusa um gold corrente **atrasado**: se a série
   mensal tem um mês mais novo que o do build, alguém rodou um mês antigo por cima do corrente (por exemplo,
   `dbt build --vars mes_referencia` à mão). Correção: reprocesse o mês mais novo.

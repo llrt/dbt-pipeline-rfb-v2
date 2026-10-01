@@ -7,6 +7,12 @@ macros:
       mês antigo (P22) usa um `external_root` temporário, e só a partição de `fct_resumo_mensal` e o
       histórico de DQ (RBP-12) gravam aqui.
     meta: { escopo: adicao }
+  - name: raiz_serie
+    description: >
+      Raiz da série `fct_resumo_mensal`: `RFB_RAIZ_SERIE` se definida (backfill, R4-02: a partição vai
+      para uma raiz temporária e o `rfb pipeline` a move para o gold só depois dos testes), senão
+      `raiz_gold()`.
+    meta: { escopo: adicao }
   - name: mascarar_cpf_no_nome
     description: >
       Troca todo trecho de exatamente 11 dígitos de um nome (o CPF do empresário individual/MEI na

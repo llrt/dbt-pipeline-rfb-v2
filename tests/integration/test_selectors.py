@@ -26,17 +26,26 @@ def _listar(tmp_path: Path, seletor: str, *tipos: str) -> set[str]:
     }
 
 
-def test_backfill_tem_o_resumo_e_o_que_ele_le_sem_testes(tmp_path: Path) -> None:
+def test_backfill_constroi_e_testa_o_resumo_e_o_que_ele_le(tmp_path: Path) -> None:
+    """R4-02: o backfill roda os testes de `+fct_resumo_mensal` antes de a partição ir ao gold."""
     nos = _listar(tmp_path, "backfill_resumo_mensal")
     assert {"fct_resumo_mensal", "fct_estabelecimentos", "stg_rfb__estabelecimentos"} <= nos
-    assert not {n for n in nos if n.startswith(("not_null_", "unique_", "test_"))}
     assert "mart_dinamica_mercado" not in nos
-
-
-def test_backfill_testes_so_testa_o_resumo(tmp_path: Path) -> None:
-    nos = _listar(tmp_path, "backfill_resumo_mensal_testes", "test")
-    assert nos
-    assert not {n for n in nos if "mart_" in n or "bh_empresas" in n or "stg_" in n}
+    testes = _listar(tmp_path, "backfill_resumo_mensal", "test")
+    assert {
+        "unique_fct_estabelecimentos_cnpj_completo",
+        "not_null_stg_rfb__estabelecimentos__data_referencia",
+        "fct_estabelecimentos_reconciliacao",
+        "fct_resumo_mensal_reconciliacao",
+        "fct_resumo_mensal_relacionamentos_mes",
+    } <= testes
+    # os que comparam com o gold corrente divergem por definição no backfill
+    assert not testes & {
+        "fct_resumo_mensal_gold_corrente",
+        "fct_resumo_mensal_integridade_historica",
+    }
+    # cautious: nada de testes de marts fora da linhagem do resumo
+    assert not {n for n in testes if "mart_" in n or "bh_empresas" in n}
 
 
 @pytest.mark.parametrize(
