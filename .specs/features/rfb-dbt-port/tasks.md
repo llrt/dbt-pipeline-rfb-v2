@@ -124,6 +124,7 @@ T35 → T38 → T39 → T40 → T41
 
 ```
 T41 → T42 → T43
+T41 → T44
 ```
 
 ### Phase 8: Ponta a ponta com dados reais e atualização mensal — lote B8 (C, E2E)
@@ -905,6 +906,26 @@ T30 → T31
 
 ---
 
+### T44: Área de mercado com vazios de mercado (P23)
+
+**What**: ampliar o grão de `mart_concorrencia_area_mercado` para incluir também os pares CNAE × município sem nenhum estabelecimento local do CNAE quando os vizinhos ou a região metropolitana têm ao menos um ativo (vazios de mercado); colunas locais = 0, indicadores por mil domicílios/km² do município = 0 quando há denominador; flag `tem_estabelecimento_local`; fixture com um vazio de mercado conhecido; teste de que nenhum par com concorrência na área fica de fora; medir o crescimento de linhas no gold real de 2026-09 (somente leitura) e registrar em `docs/EXECUCAO_REAL.md`; `POWER_BI.md`/relatório se citarem o grão.
+**Where**: `transform/models/marts/analytics/mart_concorrencia_area_mercado.sql`
+**Depends on**: T41
+**Reuses**: `bridge_municipio_vizinho`, `dim_municipio`, `mart_concorrencia_municipio`
+**Requirement**: ENR-03
+**Classificação**: P/NC
+**Incremento**: enriquecimento BD (ADR-0015)
+
+**Done when**:
+- [ ] Integração: o vazio de mercado da fixture aparece com 0 local e os ativos dos vizinhos/RM corretos; respostas existentes inalteradas
+- [ ] Gate full passa
+
+**Tests**: dbt data tests + dbt unit tests + integration
+**Gate**: full
+**Commit**: `feat(analytics): market gaps in the market-area mart (P23)`
+
+---
+
 ### T36: `rfb atualizar` — atualização mensal automática (E2E)
 
 **What**: comando `rfb atualizar [--origem-local DIR]` + `make atualizar`: detecção do mês completo mais recente (todos os arquivos esperados presentes), comparação com `RAIZ_DADOS/_estado/ultima_execucao.json`, execução ingest → `dbt build --vars mes_referencia` → relatórios (→ sync se s3), gravação do estado só em sucesso, retenção (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`), mensagem "nenhum mês novo"; `docs/OPERACAO.md` com receitas cron, launchd e GitHub Actions; validação real: executar contra o WebDAV após T28 e confirmar no-op para 2026-09.
@@ -1029,6 +1050,7 @@ T30 → T31
 | T41 | T40 | T40 → T41 | ✅ |
 | T42 | T41 (fase anterior) | T41 → T42 | ✅ |
 | T43 | T42 | T42 → T43 | ✅ |
+| T44 | T41 (fase anterior) | T41 → T44 | ✅ |
 
 Nota: execução dentro da fase é estritamente sequencial na ordem numérica; dependências intra-fase não desenhadas são satisfeitas pela ordem.
 

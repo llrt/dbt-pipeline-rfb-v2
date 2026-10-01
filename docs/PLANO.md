@@ -60,6 +60,7 @@
 | T41 | Concorrência na área de mercado + estudo de caso — incremento enriquecimento BD | M | NC | B10 |
 | T42 | `rfb publicar --destino motherduck` (opcional) — melhoria | M | NC | B11 |
 | T43 | Guia Power BI: como acessar os dados — melhoria | M | NC | B11 |
+| T44 | Área de mercado com vazios de mercado (P23) — incremento enriquecimento BD | P | NC | B12 |
 | T36 | `rfb atualizar` (mês novo, completude, retenção, agendamento) — melhoria | M | NC (E2E → Opus) | B8 |
 | T29 | Guia dbt — fundamentos | M | NC | B9a (paralelo) |
 | T30 | Guia dbt — fluxo, testes, DQ | M | NC | B9b |
@@ -117,6 +118,7 @@ flowchart LR
 | B11 | concluído, verificado (205 unit + 90 integração; dbt PASS=313 WARN=4 ERROR=0; sem configuração: 'nada publicado', exit 0; publicação do líder num DuckDB local: 17 tabelas, 0 divergências de contagem) e integrado — T42–T43, ADR-0016 | 2b81f03f · Claude Sonnet médio | `1c7f982` `fdb695c` |
 | B8 | concluído, verificado (240 unit + 114 integração; dbt PASS=348 WARN=4 ERROR=0; real 2026-09: 73,4 M estabelecimentos, PASS=339 WARN=14 ERROR=0, paridade 0 em 71,4 M, 339 s com raw presente; fev/2025: notebook 4 reproduzido no SQL literal, idade 3,8×3,9 explicada; no-op real em 0,56 s; mutação do líder no `rfb atualizar` detectada por 3 testes) e integrado — T28, T36, P11/P14/P15/P19/P20/P22/P24/P25, RBP-12, R3-06 | 5a0bd320 · Claude Opus médio | 8 commits `b0f4521`…`de6eab2` |
 | R4 | concluída: **pronto para entrega, com ressalvas** (0 bloq., 4 imp., 6 menores, 5 sug.; 107 ACs com evidência, 93 % exatos; 28 mutações, 2 sobreviventes) — triagem em `docs/revisoes/R4-triagem.md` | 2b93ec93 · Claude Opus alto | `d26716c` |
+| B12 | planejado (após F4) — P23: vazios de mercado na área de mercado (T44), pedido do usuário | (Sonnet médio) | — |
 | F4 | em andamento — correções da R4 (CPF mascarado por decisão do usuário, backfill com gate e regravação provada, marcador de build em andamento, dedup, workflow, guia) | 7901f576 · Claude Opus médio | — |
 | FBPa | concluído, verificado (208 unit + 105 integração; dbt PASS=345 WARN=4 ERROR=0; freshness 9/9; `make ci` 117 s com unit + lint; 10 mutações antes sobreviventes ou só pegas no pytest agora mortas no dbt/CI; mutação do líder no formato de data detectada; descrições 100 %) e integrado — RBP-01..11, 13, 14 | e1238e92 · Claude Sonnet médio | 13 commits `bfeec5e`…`1ee8a86` |
 | B10 | concluído, verificado (194 unit + 89 integração; dbt PASS=313 WARN=4 ERROR=0; 50 nós com a tag `incremento_enriquecimento_bd`; mutação do líder no indicador por mil domicílios detectada; real: população até 2025, PIB até 2023, Fundão na RM Grande Vitória com 5 vizinhos) e integrado — T38–T41, ADR-0015 | 11ae6890 · Claude Sonnet médio | `a0dcf8e` `6611f04` `a7248f2` `544b9e2` `8541f37` |
