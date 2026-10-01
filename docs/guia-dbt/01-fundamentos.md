@@ -42,14 +42,16 @@ explícita de arquitetura (ver [ADR-0002](../../docs/adr/0002-ingestao-python-ra
 |---|---|---|---|
 | **dbt Core** | Software open-source (CLI `dbt`), escrito em Python + Jinja | Sua máquina / seu CI | Grátis |
 | **dbt Cloud** (hoje "dbt platform") | Produto SaaS: Core + UI, agendamento, semântica, governança, API | Nuvem gerenciada dbt | assinatura |
-| **dbt Fusion engine** | Novo motor em **Rust** para dbt, com compreensão real de SQL | Substitui o Core sob o mesmo authoring layer | em beta |
+| **dbt Fusion engine** | Novo motor em **Rust** para dbt, com compreensão real de SQL | Substitui o Core sob o mesmo authoring layer | dbt v2 (GA na platform p/ Snowflake, preview nos demais) |
 
-Detalhes honestos sobre o Fusion: foi anunciado em 2025 como um motor reescrito do zero em Rust (tecnologia
-da [SDF](https://www.getdbt.com/blog/dbt-labs-acquires-sdf-labs)), prometendo parsing até 30× mais rápido e
-compilação ~2× mais rápida, com o mesmo formato de projeto (SQL/Jinja/YAML) do Core. **Está em beta** e a
-cobertura de adaptadores vem crescendo — os detalhes exatos de compatibilidade mudam rápido, então vale
-*verificar na doc oficial* antes de adotar (links na [seção 6](#6-leituras-recomendadas)). Este projeto usa
-**dbt Core 1.12** + adaptador **dbt-duckdb 1.11** (verificado em `dbt --version`).
+Detalhes honestos sobre o Fusion: anunciado em 2025 como a nova geração do motor do dbt ("dbt v2"),
+reescrito do zero em Rust (tecnologia da [SDF](https://www.getdbt.com/blog/dbt-labs-acquires-sdf-labs)).
+Ele é GA (General Availability) na dbt platform para Snowflake e está em preview nos demais adaptadores,
+prometendo parsing até 30× mais rápido e compilação ~2× mais rápida com o mesmo formato de projeto
+(SQL/Jinja/YAML) do Core. Para acompanhar o status atual e detalhes de suporte por adaptador, consulte
+a documentação oficial: [About dbt Fusion](https://docs.getdbt.com/docs/fusion/about-fusion) e as
+[Fusion Releases](https://docs.getdbt.com/docs/dbt-versions/fusion-releases) (ver também links na [seção 7](#7-leituras-recomendadas)).
+Este projeto usa **dbt Core 1.12** + adaptador **dbt-duckdb 1.11** (verificado em `dbt --version`).
 
 ### Por que o dbt e não só Python/Pandas?
 
@@ -174,7 +176,6 @@ flowchart TD
     %% Conexões do Grafo
     S_RFB --> STG_RFB
     S_BD --> STG_BD
-    SEED --> INT_EST
     SEED --> DIM
 
     STG_RFB --> INT_EST
@@ -182,8 +183,8 @@ flowchart TD
     STG_RFB --> INT_MUN
     STG_BD --> INT_MUN
 
-    INT_EST --> BH
-    INT_MUN --> BH
+    STG_RFB --> BH
+    STG_BD --> BH
     BH --> AGG
 
     INT_MUN --> DIM
@@ -207,8 +208,8 @@ flowchart TD
     FCT_EST --> MART_DIN
     DIM --> MART_DIN
 
-    STG_RFB --> AUDIT
-    STG_BD --> AUDIT
+    S_RFB --> AUDIT
+    S_BD --> AUDIT
     OBS_HIST --> OBS_RES
 ```
 
@@ -226,7 +227,7 @@ Cada conceito com uma definição curta e um exemplo com nomes deste projeto.
 ### 3.1 Models
 
 Um **model** é um arquivo `.sql` (ou `.py`) com um `SELECT` — a unidade de transformação. O dbt o executa e
-materializa conforme a configuração. Convenções: nome = nome do nó; pastas viram esquema/nomes compostos.
+materializa conforme a configuração. Convenções: nome do arquivo = nome do nó; pastas determinam o caminho no FQN (Fully Qualified Name para configurações por caminho em `dbt_project.yml`), enquanto o schema no banco é definido por `+schema` e pela macro `generate_schema_name`.
 
 ```sql
 -- transform/models/marts/original/bh_empresas.sql (parcial, ilustrativo)
@@ -250,21 +251,22 @@ Uma **source** declara dados **fora** do projeto dbt — aqui, os Parquet em `ra
 `source('rfb', 'empresas')` referencia a tabela `empresas` da fonte `rfb`.
 
 ```yaml
-# transform/models/staging/rfb/_rfb__sources.yml
+# transform/models/staging/rfb/_rfb__sources.yml (exemplo de configuração da tabela empresas)
 version: 2
 sources:
   - name: rfb
-    meta:
-      external_location: "{{ env_var('RAIZ_DADOS') }}/raw/rfb/{name}/mes_referencia=2026-09/*.parquet"
+    description: "Dados abertos de CNPJ da Receita Federal..."
     tables:
       - name: empresas
         description: "Parquet bruto all-VARCHAR de Empresas0.zip"
-      - name: estabelecimentos
+        meta:
+          escopo: original
+          external_location: >-
+            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
+            hive_partitioning=false)
 ```
 
-No `dbt-duckdb`, o par `meta.external_location` + `config` diz ao adapter para ler **direto do Parquet**
-(vira um `read_parquet(...)`) em vez de esperar tabela no DuckDB. Neste projeto **todas** as fontes RFB e
-BD usam isso, derivando o caminho de `env_var('RAIZ_DADOS')` (arquivo em `dados/` ou bucket `s3://`).
+No `dbt-duckdb`, embora seja possível configurar `meta.external_location` no nível da fonte usando o placeholder `{name}`, neste projeto cada tabela declara explicitamente sua própria `external_location` com o padrão `read_parquet('.../<entidade>/mes_referencia=*/*.parquet', hive_partitioning=false)`. Isso permite ler todas as partições do raw sem fixar mês no YAML (o filtro do mês ativo é feito dinamicamente no staging via macro `filtro_mes_referencia`). Todas as fontes RFB e BD usam isso, derivando o caminho de `env_var('RAIZ_DADOS')` (arquivo em `dados/` ou bucket `s3://`).
 
 ### 3.3 Seeds
 
@@ -313,19 +315,22 @@ modalidades (detalhamento em `02-fluxo-e-testes.md`):
 - **Singulares** — uma consulta SQL livre em `transform/tests/` que deve retornar vazio.
 
 ```yaml
-# transform/models/staging/rfb/_rfb__sources.yml (trecho)
+# transform/models/staging/rfb/_rfb__staging.yml (trecho real para stg_rfb__estabelecimentos)
 columns:
   - name: cnpj_completo
-    tests:
+    data_tests:
       - not_null
       - unique
-      - dbt_utils.expression_is_true:
-          expression: "length(cnpj_completo) = 14"
+      - tamanho_exato:
+          arguments:
+            tamanho: 14
+      - cnpj_dv_valido:
+          config: { severity: warn, store_failures: true }
 ```
 
 ### 3.6 Unit tests (testes unitários)
 
-**Unit tests** (introduzidos no dbt 1.8+) testam uma transformação **com dados de entrada fornecidos em mock** (`given`/`expect`), sem precisar consultar o banco de dados real — verificando a *lógica interna* de um modelo (expressões SQL, CASE WHEN, macros, tratamentos de nulos) de forma isolada e determinística.
+**Unit tests** (introduzidos no dbt 1.8+) testam uma transformação **com dados de entrada fornecidos em mock** (`given`/`expect`), verificando a *lógica interna* de um modelo (expressões SQL, CASE WHEN, macros, tratamentos de nulos) de forma determinística. **Atenção:** ao contrário de testes unitários tradicionais em código de aplicação, no dbt **cada unit test envia uma consulta real à plataforma de dados (DuckDB)** para computar a transformação sobre as tabelas ou CTEs mockadas, e os pais diretos da relação precisam existir no catálogo (ou ser preparados com `--empty` / mocks). É exatamente por isso que no dbt-duckdb fontes externas com `external_location` exigem cuidados específicos (ver P8).
 
 No código real deste projeto (`transform/models/staging/rfb/_rfb__staging.yml`):
 
@@ -351,7 +356,7 @@ unit_tests:
         - { codigo: "4741500", descricao: null }
 ```
 
-O projeto possui 33 unit tests cobrindo regras fundamentais:
+O projeto possui 35 unit tests (e 200 data tests) cobrindo regras fundamentais:
 - Padronização com zeros à esquerda via macro `lpad_codigo` (`stg_rfb__cnaes`, `stg_rfb__municipios`, `stg_bd__municipios`).
 - Tratamento de datas inválidas ou sentinelas (`0`, `00000000`, `20230230`) para `NULL` (`stg_rfb__simples`, `stg_rfb__estabelecimentos`).
 - Cálculo determinístico de idade de empresas (`bh_empresas`).
@@ -363,24 +368,20 @@ O projeto possui 33 unit tests cobrindo regras fundamentais:
 O dbt usa o motor de template **Jinja** sobre os scripts SQL. **Macros** são funções reutilizáveis localizadas em `transform/macros/` (equivalentes a funções ou procedures em engenharia de software):
 
 ```sql
--- transform/macros/limpeza.sql
-{% macro texto_ou_nulo(col) %}
-    case
-        when {{ col }} is null then null
-        when trim({{ col }}) = '' then null
-        else trim({{ col }})
-    end
-{% endmacro %}
+-- transform/macros/staging/texto_ou_nulo.sql
+{% macro texto_ou_nulo(coluna) -%}
+nullif(trim({{ coluna }}), '')
+{%- endmacro %}
 ```
 
 Uso direto dentro de um modelo staging (`transform/models/staging/rfb/stg_rfb__estabelecimentos.sql`):
 
 ```sql
 select
-    {{ lpad_codigo('cnpj_basico', 8) }} as cnpj_raiz,
-    {{ texto_ou_nulo('nome_fantasia') }} as nome_fantasia,
-    {{ data_rfb('data_inicio_atividade') }} as dat_inicio_atividade
-from {{ source('rfb', 'estabelecimentos') }}
+    {{ lpad_codigo('est.cnpj_raiz', 8) }} as cnpj_raiz,
+    {{ texto_ou_nulo('est.nome_fantasia') }} as nome_fantasia,
+    {{ data_rfb('est.dat_inicio_atividade') }} as dat_inicio_atividade
+from estabelecimentos as est
 ```
 
 Jinja também controla fluxo e parametrização condicional: `{% if is_incremental() %}`, `{% if target.name == 'ci' %}`, e loops `{% for %}`. Outras macros customizadas do projeto incluem: `data_rfb`, `decimal_rfb`, `lpad_codigo`, `filtro_mes_referencia`, `haversine_km` e macros operacionais para hooks de execução.
@@ -393,16 +394,14 @@ Jinja também controla fluxo e parametrização condicional: `{% if is_increment
 # transform/packages.yml
 packages:
   - package: dbt-labs/dbt_utils
-    version: [">=1.0.0", "<2.0.0"]
+    version: 1.4.1
   - package: metaplane/dbt_expectations
-    version: [">=0.10.0", "<1.0.0"]
-  - package: godatadriven/dbt_date
-    version: [">=0.21.0", "<1.0.0"]
+    version: 0.10.10
 ```
 
-- `dbt_utils`: testes essenciais como `unique_combination_of_columns`, `accepted_range`, `expression_is_true` e macros de geração de SQL.
-- `dbt_expectations`: extensão inspirada no Great Expectations para asserções estatísticas e de integridade avançadas.
-- `dbt_date`: funções de manipulação e enriquecimento de datas.
+- `dbt_utils`: testes essenciais como `unique_combination_of_columns`, `accepted_range` e macros de apoio. (Nota: `expression_is_true` não é utilizado no projeto).
+- `dbt_expectations`: extensão inspirada no Great Expectations para asserções estatísticas e de integridade avançadas (previsto no FBPa para testes de distribuição e volume).
+- *(Nota sobre dependências transitivas)*: o pacote `dbt_date` aparece apenas como dependência transitiva de `dbt_expectations` no `package-lock.yml`; nenhum modelo do projeto importa ou usa `dbt_date` diretamente.
 
 ### 3.9 Materializations
 
@@ -410,8 +409,8 @@ A materialização define **como** o resultado do `SELECT` de um modelo é persi
 
 | Materialização | O que cria | Comportamento | Onde é usada neste projeto |
 |---|---|---|---|
-| `view` | View SQL no banco | Consulta leve; recalculada a cada leitura | Camada `staging` (`stg_rfb__*`, `stg_bd__*`) |
-| `table` | Tabela física no banco | Persistida no catálogo DuckDB (`CREATE TABLE AS SELECT`) | Camada `intermediate` (`int_*`) e observabilidade (`dq_resumo_execucao`) |
+| `table` | Tabela física no banco | Persistida no catálogo DuckDB (`CREATE TABLE AS SELECT`) | Camada `intermediate` (`int_*`) |
+| `view` | View SQL no banco | Consulta leve; recalculada a cada leitura | Camada `staging` (`stg_rfb__*`, `stg_bd__*`) e observabilidade (`dq_resumo_execucao` sobrescreve para `view`) |
 | `ephemeral` | Não cria objeto no banco | Injetada como Common Table Expression (CTE) nos nós downstream | `audit__bh_empresas_sql_original` (tradução literal) |
 | `external` *(dbt-duckdb)* | Arquivo externo (Parquet) | Escreve via `COPY TO ... (FORMAT PARQUET)` fora do arquivo `.duckdb` | Marts `original`, `core` dimensional e `analytics` (`gold/*.parquet`) |
 | `incremental` | Tabela física append/merge | Processa apenas deltas de dados com `is_incremental()` | Padrão dbt para pipelines cumulativos (ver detalhes abaixo) |
@@ -429,7 +428,7 @@ Exemplo de configuração de materialização `external` (`transform/models/mart
 
 > **Nota sobre `dq_historico_testes` vs. `incremental`**:
 > Enquanto o dbt suporta modelos com `materialized='incremental'` (que usam a macro `is_incremental()` para inserir novos registros em tabelas existentes), neste projeto a tabela de histórico de testes `main.dq_historico_testes` é gerenciada através de **hooks de ciclo de vida**:
-> - `on-run-start`: a macro `garantir_tabela_historico_testes` cria a tabela física se ela não existir.
+> - `on-run-start`: a macro `criar_historico_testes` cria a tabela física se ela não existir.
 > - `on-run-end`: a macro `registrar_resultados_testes` percorre o array `results` da execução corrente e insere uma linha por teste finalizado.
 > Isso permite registrar execuções de `dbt test` mesmo quando nenhum modelo dbt está sendo compilado ou materializado!
 
@@ -475,27 +474,30 @@ rfb:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
-      threads: "{{ env_var('DUCKDB_THREADS', 4) }}"
-      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
+      threads: "{{ env_var('DBT_THREADS', 4) | as_number }}"  # paralelismo de nós do dbt
       settings:
+        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
+        threads: "{{ env_var('DUCKDB_THREADS', 4) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '2GB') }}"
     dev:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
-      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
-      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
+      threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
       settings:
+        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
+        threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
     s3:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS_LOCAL', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
-      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
-      temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"
+      threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
       extensions:
         - httpfs
       settings:
+        temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
+        threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
       secrets:
         - type: s3
@@ -633,9 +635,11 @@ Selecionar subconjuntos de modelos com precisão acelera o ciclo de desenvolvime
 | `dbt build --select @bh_empresas` | `bh_empresas`, seus descendentes **e todos os ancestrais** desses descendentes |
 | `dbt build --select tag:escopo_original` | Todos os nós marcados com a tag |
 | `dbt run --select path:models/marts/core` | Todos os modelos dentro da pasta informada |
-| `dbt run --select source:rfb.*` | Todos os modelos que leem diretamente fontes do grupo `rfb` |
+| `dbt run --select source:rfb+1` | Modelos que leem diretamente fontes do grupo `rfb` (filhos imediatos) |
+| `dbt run --select source:rfb+` | Todos os modelos downstream dependentes das fontes `rfb` |
+| `dbt test --select source:rfb.*` | Testes declarados diretamente sobre as fontes do grupo `rfb` |
 | `dbt build --exclude bh_empresas` | Todo o grafo, exceto o nó `bh_empresas` |
-| `dbt ls --select state:modified --state target/` | Nós alterados em relação ao `manifest.json` salvo |
+| `dbt ls --select state:modified --state state/` | Nós alterados em relação ao `manifest.json` do diretório `state/` |
 | `dbt run --defer --state prod/` | Resolve nós não selecionados a partir do schema de produção |
 
 #### Set operators nativos da CLI (União e Interseção)
@@ -645,7 +649,7 @@ A CLI do dbt implementa uma convenção sintática histórica e concisa:
   `--select "tag:escopo_original tag:escopo_adicao"` seleciona os nós que possuem a tag `escopo_original` **OU** a tag `escopo_adicao`.
 - **Vírgula sem espaço = Interseção (AND)**:
   `--select "tag:escopo_adicao,path:models/marts/core"` seleciona apenas os nós que possuem a tag `escopo_adicao` **E** estão localizados sob o caminho `models/marts/core`.
-- **Atenção (P1)**: Essa regra de espaço = união e vírgula = interseção sempre foi a sintaxe padrão de seleção da CLI do dbt desde suas versões iniciais. As palavras literais `or` e `and` **nunca foram operadores válidos na linha de comando** do dbt Core (usar `dbt run --select "tag:a or tag:b"` interpreta `or` como o nome de um modelo inexistente!). Para lógicas condicionais complexas com múltiplos agrupamentos, o dbt oferece o recurso de **YAML Selectors** (em um arquivo como `selectors.yml`, com métodos `union` e `intersection`), invocados com `--selector nome_do_seletor` — embora neste projeto a seleção direta por tags e paths na CLI atenda plenamente a todas as necessidades sem exigir um arquivo de seletores dedicado.
+- **Atenção (P1)**: Essa regra de espaço = união e vírgula = interseção sempre foi a sintaxe padrão de seleção da CLI do dbt desde suas versões iniciais. As palavras literais `or` e `and` **nunca foram operadores válidos na linha de comando** do dbt Core (usar `dbt run --select "tag:a or tag:b"` interpreta `or` como o nome de um modelo inexistente!). Para lógicas condicionais complexas com múltiplos agrupamentos, o dbt oferece o recurso de **YAML Selectors** (em um arquivo como `selectors.yml`, com métodos `union` e `intersection`), invocados com `--selector nome_do_seletor` (adoção prevista no lote FBPa).
 
 ---
 
@@ -657,7 +661,7 @@ A CLI do dbt implementa uma convenção sintática histórica e concisa:
 transform/
 ├── dbt_project.yml        # Configurações globais: nome, profile, vars, materializações padrão por camada
 ├── profiles.yml           # Configuração de conexões e targets: ci, dev, s3 (com DuckDB e credenciais)
-├── packages.yml           # Dependências externas: dbt_utils, dbt_expectations, dbt_date
+├── packages.yml           # Dependências externas: dbt_utils, dbt_expectations
 ├── models/
 │   ├── staging/
 │   │   ├── rfb/           # stg_rfb__* (views 1:1; limpeza, lpad e tipagem)
@@ -711,8 +715,8 @@ transform/
 
 A recomendação oficial organiza o pipeline em camadas por *propósito*:
 
-- **Staging**: 1:1 com as fontes; limpar/tipar colunas; **sem joins** (senão vira "craveling").
-- **Intermediate**: joins/enriquecimentos; materializar `table` (aqui: `int_*__<verbo>`).
+- **Staging**: 1:1 com as fontes; limpar/tipar colunas; **sem joins** (mantendo cada fonte isolada).
+- **Intermediate**: joins/enriquecimentos estruturais entre entidades; a dbt Labs recomenda começar com `ephemeral` ou `view` em schema próprio, mas neste projeto optou-se por materializar como `table` devido ao volume expressivo de dados da RFB (aqui: `int_*__<verbo>`).
 - **Marts**: tabelas finais para consumo (análise, BI, APIs) — por domínio/área.
 - Nomear consistente e **descritivo**: `stg_`, `int_`, `dim_`, `fct_`, `mart_`.
 - Metadata (descrições, testes, contratos) **na YAML perto do model**, não em arquivos separados.
@@ -764,7 +768,7 @@ executa via `uv` — no repo: `uv run dbt <cmd>` (ou `cd transform && dbt <cmd>`
 | `dbt show` | prévia o resultado de um model/inline (até N linhas) | tabela na tela |
 | `dbt run-operation <macro>` | executa uma macro avulsa (ex.: `--args '{"arg": 1}'`) | efeito da macro |
 | `dbt retry` | reexecuta nós que falharam na última execução | refaz só as partes quebradas |
-| `dbt clone` | clona modelos de outro schema a partir do manifesto `--state` | exige warehouse com clone |
+| `dbt clone` | clona modelos a partir do manifesto `--state` (em warehouses sem zero-copy clone, como DuckDB, cria views ponteiro) | cria view ponteiro / clone |
 
 > `dbt fresh` / `dbt freshness` **não são comandos** — o correto é `dbt source freshness`.
 
@@ -782,7 +786,7 @@ executa via `uv` — no repo: `uv run dbt <cmd>` (ou `cd transform && dbt <cmd>`
 | `--empty` | run/build | roda com refs/sources vazios (testa DAG sem dados) |
 | `--defer --state <dir>` | run/build/test | resolve não-selecionados pelo state do ambiente anterior |
 | `--state <dir>` | ls/test | comparação para `state:modified`/`state:new`/`state:unmodified` |
-| `--store-failures` | test | persiste linhas que falharam em tabelas `*_dbt_test__audit` |
+| `--store-failures` | test | persiste linhas que falharam no schema `<schema>_dbt_test__audit` |
 | `--warn-error` | todos | trata avisos como erro (hardening) |
 
 ### 5.3 Exemplos com os alvos `make` deste projeto (ARCHITECTURE §7)
@@ -792,15 +796,15 @@ executa via `uv` — no repo: `uv run dbt <cmd>` (ou `cd transform && dbt <cmd>`
 | `make setup` | ambiente completo | `uv sync` + `dbt deps` |
 | `make fixtures` | gera fixtures sintéticas | `python scripts/gerar_fixtures.py` (sem rede) |
 | `make ci` | CI local verde | `rfb ingerir --origem-local` + `dbt build --target ci` + pytest |
-| `make pipeline MES=2026-09` | produção real | `rfb ingerir` → `dbt source freshness` → `dbt build` → relatório |
-| `make docs` | publicar docs | `dbt docs generate` + `dbt docs serve` |
+| `make pipeline MES=2026-09` | produção real (previsto no B8) | `rfb ingerir` → `dbt source freshness` → `dbt build` → relatório |
+| `make docs` | gerar documentação | `dbt docs generate` |
 | `make sincronizar` | enviar `raw/`+`gold/` ao S3 | `rfb sincronizar` (Tigris) |
 
 Exemplos diretos (dentro de `transform/`):
 
 ```bash
-# só o que mudou desde o último build (CI slim), deferindo o resto de produção
-uv run dbt build --select state:modified --defer --state target/
+# só o que mudou desde o último build (CI slim), comparando contra o manifesto em state/
+uv run dbt build --select state:modified --state state/
 # reconstruir inteiro o star schema sobre fixtures
 uv run dbt build --select tag:escopo_adicao --target ci
 # validar parse sem executar nada (rápido, ótimo em pre-commit)
@@ -847,18 +851,18 @@ O desenvolvimento com dbt e DuckDB possui algumas particularidades que costumam 
 
 ### 6.5 Concorrência e Bloqueio de Arquivo (`lock`) no DuckDB
 - **O erro**: Abrir um shell interativo do DuckDB (ou notebook Jupyter) em `warehouse.duckdb` enquanto dispara `dbt run` ou `make ci` em outro terminal.
-- **O que acontece**: O DuckDB suporta conexões concorrentes em modo somente-leitura, mas exige **exclusividade absoluta para escrita**. Um processo dbt tentando escrever no mesmo arquivo `.duckdb` falhará imediatamente com erro de `IOException: Could not set lock on file`.
-- **Como evitar**: Certifique-se de que nenhum client SQL externo (DBeaver, terminal DuckDB, Python) esteja com o arquivo aberto com lock de gravação durante a execução do dbt.
+- **O que acontece**: O DuckDB permite múltiplos processos lendo simultaneamente em modo somente-leitura, mas se **qualquer processo estiver com o banco aberto (mesmo em read-only)**, nenhum outro processo consegue abrir o arquivo para escrita ("Multiple processes can read from a DuckDB database file, but no processes can write while another process is reading"). Um processo dbt tentando escrever no mesmo arquivo `.duckdb` falhará imediatamente com erro de `IOException: Could not set lock on file`.
+- **Como evitar**: Certifique-se de que nenhum client SQL externo (DBeaver, terminal DuckDB, Python/notebook) esteja com o arquivo aberto durante a execução do dbt.
 
 ### 6.6 Confundir `dbt run` com `dbt build`
-- **O erro**: Usar rotineiramente `dbt run` no pipeline diário ou no CI.
-- **O que acontece**: `dbt run` **apenas executa modelos SQL**. Ele não executa testes de dados (`tests`), não compila seeds (`seeds/`) e não valida contratos ou regras de freshness. Dados com falhas de integridade grave podem ser persistidos na camada Gold sem qualquer alerta.
-- **Como evitar**: Em pipelines de engenharia e rotinas de integração contínua, adote **`dbt build`** como comando padrão. Ele orquestra seeds, models e testes na ordem topológica correta, interrompendo a linhagem imediatamente caso um teste upstream falhe.
+- **O erro**: Usar rotineiramente `dbt run` no pipeline diário ou no CI achando que ele executa testes.
+- **O que acontece**: `dbt run` **apenas executa modelos SQL** (embora valide contratos de schema definidos nos modelos antes de materializar). Ele não executa testes de dados (`tests`) nem compila seeds (`seeds/`). Por outro lado, **nem `dbt run` nem `dbt build` executam checagens de freshness de fontes** (para isso existe exclusivamente o comando `dbt source freshness`).
+- **Como evitar**: Em pipelines de engenharia e rotinas de integração contínua, adote **`dbt build`** como comando padrão para orquestrar seeds, models e testes na ordem topológica correta, interrompendo a linhagem caso um teste upstream falhe. Se precisar verificar atualização de fontes, execute `dbt source freshness` antes do build.
 
-### 6.7 Estouro de Memória em Grandes Volumes sem `temp_directory` (P14)
-- **O erro**: Executar transformações pesadas sobre dados reais (como os 64,5 milhões de estabelecimentos da RFB) sem configurar o limite de memória ou diretório temporário.
-- **O que acontece**: O DuckDB processa consultas muito rápido mantendo buffers vetorizados na memória RAM. Em joins densos ou operações de paridade com `EXCEPT ALL`, o consumo de memória pode ultrapassar a RAM física disponível, acionando o OOM (Out Of Memory) Killer do sistema operacional.
-- **Como evitar**: Configure em `profiles.yml` o parâmetro `temp_directory` apontando para um disco veloz e declare explicitamente `memory_limit: "24GB"` (ou adequado ao ambiente). Dessa forma, quando a memória atinge o teto, o DuckDB faz *spill to disk* graciosamente sem travar.
+### 6.7 Gestão de Memória e Diretório Temporário no DuckDB (P14)
+- **O erro**: Achar que `memory_limit` limita o RSS total do processo ou presumir que o DuckDB não faz spill to disk por padrão.
+- **O que acontece**: O DuckDB tem por padrão `temp_directory = <banco>.tmp` e realiza spill to disk automaticamente para muitos operadores. Porém, o limite em `memory_limit` restringe apenas a memória interna gerenciada do banco, sem cobrir buffers de leitura/threads (o RSS total do processo pode exceder o valor configurado, como visto na P14). Além disso, no `dbt-duckdb`, o parâmetro de configuração `temp_directory` deve ser declarado dentro do bloco `settings:` do profile (quando colocado solto no topo do profile, o adaptador dbt-duckdb o ignora).
+- **Como evitar**: Mantenha `memory_limit` condizente com a máquina em `settings:`, configure `settings.temp_directory` quando desejar isolar temporários em volume rápido específico, e monitore a memória real necessária em operações massivas (joins densos ou paridade com `EXCEPT ALL`).
 
 ### 6.8 O comportamento do `is_incremental()` no primeiro build e no full-refresh
 - **O erro**: Esperar que um filtro delta (`WHERE data_atualizacao > (SELECT max(data_atualizacao) FROM {{ this }})`) seja executado na criação da tabela.

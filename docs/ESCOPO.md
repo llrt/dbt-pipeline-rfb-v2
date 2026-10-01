@@ -45,6 +45,8 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Download da Base dos Dados pela API atual (`downloadTable`); população até 2025 e PIB até 2023 | adição · **incremento: enriquecimento BD** | pedido do usuário 2026-10-01 — ADR-0015 |
 | Censo 2022 por município, regiões metropolitanas e vizinhança (raw, staging, `dim_municipio`, vizinhança conformada) | adição · **incremento: enriquecimento BD** | ADR-0015 |
 | `mart_concorrencia_area_mercado` e área de mercado no relatório do estudo de caso | adição · **incremento: enriquecimento BD** | ADR-0015 |
+| Publicação opcional do gold no MotherDuck (`rfb publicar`) | adição (pedido do usuário 2026-10-01) | ADR-0016 |
+| Guia de acesso do Power BI aos dados (Parquet, DuckDB local, MotherDuck) | adição (pedido do usuário) | ADR-0016 |
 | Workaround Hive Metastore (`## Reconstruir tabelas Spark`) | removido | desnecessário: Parquet + DuckDB não têm metastore volátil |
 | Script Pig `grep.pig` | removido | exploração manual; substituída por rejeitos do parser e fixtures com os quirks |
 

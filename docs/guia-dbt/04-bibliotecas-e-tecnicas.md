@@ -64,7 +64,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
               - cnpj_completo
               - codigo_cnae_secundario
   ```
-- **Uso neste projeto**: **SIM** (versão 1.4.1 instalada). Usado extensivamente para `unique_combination_of_columns`, `accepted_range` e `expression_is_true`.
+- **Uso neste projeto**: **SIM** (versão 1.4.1 instalada). Usado para `unique_combination_of_columns` e `accepted_range`. (Nota: `expression_is_true` não é utilizado no projeto).
 - **Documentação oficial**: https://hub.getdbt.com/dbt-labs/dbt_utils/latest/
 
 ---
@@ -83,7 +83,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
                 min_value: 1
                 max_value: 1000000
   ```
-- **Uso neste projeto**: **SIM** (versão 0.10.10 instalada).
+- **Uso neste projeto**: Instalado em `packages.yml` (v0.10.10) e previsto para uso no lote FBPa (testes de distribuição e volume nos marts). (Nota: no estado atual do repositório, nenhum teste ativo ainda o referencia diretamente).
 - **Documentação oficial**: https://hub.getdbt.com/metaplane/dbt_expectations/latest/
 
 ---
@@ -99,7 +99,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
       b_relation=ref('audit__bh_empresas_sql_original')
   ) }}
   ```
-- **Uso neste projeto**: **NÃO**. Por quê? No ambiente DuckDB local, o teste singular customizado com `hash(*columns(*))` e `EXCEPT ALL` (`transform/tests/paridade_bh_empresas.sql`) é ordens de magnitude mais rápido (~3,4× mais veloz em 60M+ linhas reais) e não exige macros intermediárias de comparação estática.
+- **Uso neste projeto**: **NÃO**. Por quê? No ambiente DuckDB local, o teste singular customizado com `hash(*columns(*))` e `EXCEPT ALL` (`transform/tests/paridade_bh_empresas.sql`) compara hash da linha inteira contra comparação coluna a coluna, sendo ~3,4× mais veloz (medido no R2-12 sobre 60M+ linhas reais) e não exige macros intermediárias de comparação estática.
 - **Documentação oficial**: https://hub.getdbt.com/dbt-labs/audit_helper/latest/
 
 ---
@@ -107,7 +107,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
 ### 2.4 Elementary
 - **O que é**: Plataforma open-source de observabilidade de dados nativa do dbt. Instala modelos incrementais que capturam artefatos de cada execução, anomalias de volume e frescor, além de gerar um relatório HTML estático autossuficiente e alertas em Slack/Teams.
 - **Quando usar**: Equipes médias/grandes que precisam de um painel visual consolidado de Data Quality e monitoramento de falhas em produção sem pagar por um SaaS caro de observabilidade.
-- **Exemplo de uso**: Adicionar o pacote `elementary-data/elementary` em `packages.yml` e rodar `edr monitor` na esteira de CI/CD.
+- **Exemplo de uso**: Adicionar o pacote `elementary-data/elementary` em `packages.yml`, rodar `edr monitor` para enviar alertas e `edr report` para gerar o relatório HTML.
 - **Uso neste projeto**: **NÃO**. O projeto optou por uma arquitetura zero-dependência externa: implementamos nossa própria camada leve de telemetria nativa com a macro `registrar_resultados_testes` (hook `on-run-end`) gravando em `main.dq_historico_testes` e a view analítica `dq_resumo_execucao`.
 - **Documentação oficial**: https://docs.elementary-data.com/
 
@@ -129,7 +129,7 @@ Instalados via arquivo `transform/packages.yml` executando o comando `uv run dbt
   ```bash
   uv run dbt run-operation generate_source --args '{"schema_name": "raw", "table_names": ["estabelecimentos", "empresas"]}'
   ```
-- **Uso neste projeto**: **NÃO no runtime de produção**. Foi útil apenas durante a fase preliminar de exploração das fontes.
+- **Uso neste projeto**: **NÃO**. Por não ser aplicável a fontes com `external_location` (que não introspectam schemas relacionais padrão) e pelo fato de o schema já estar modelado manualmente, o pacote não é utilizado.
 - **Documentação oficial**: https://hub.getdbt.com/dbt-labs/codegen/latest/
 
 ---
@@ -189,12 +189,14 @@ O adaptador `dbt-duckdb` não é apenas um conector relacional comum; ele foi ar
 
 ### 4.1 Materialização `external` e `external_location`
 - **`external_location` em Fontes**: Permite que uma fonte declarada em YAML aponte diretamente para globs de arquivos Parquet sem carregar nada antecipadamente para o banco:
-  ```yaml
+```yaml
   sources:
     - name: rfb
-      meta:
-        external_location: "{{ env_var('RAIZ_DADOS') }}/raw/rfb/{name}/mes_referencia=*/*.parquet"
-  ```
+      tables:
+        - name: empresas
+          meta:
+            external_location: "{{ env_var('RAIZ_DADOS') }}/raw/rfb/empresas/mes_referencia=*/*.parquet"
+```
 - **Materialização `external` em Modelos**: Grava o resultado do `SELECT` diretamente em um arquivo externo (Parquet, CSV ou JSON) sem inflar o arquivo `.duckdb`:
   ```sql
   {{ config(materialized='external', location="dados/gold/bh_empresas.parquet") }}
@@ -242,7 +244,7 @@ Exemplo de modelo incremental clássico:
 
 select * from {{ ref('stg_rfb__estabelecimentos') }}
 {% if is_incremental() %}
-  where _ingerido_em > (select max(_ingerido_em) from {{ this }})
+  where _data_referencia > (select max(_data_referencia) from {{ this }})
 {% endif %}
 ```
 
@@ -271,13 +273,13 @@ O dbt resolve isso com o padrão **CI Slim**:
 # Executa apenas os modelos modificados ou com testes novos, lendo os demais de produção
 uv run dbt build --select state:modified+ --defer --state prod/target/
 ```
-No ambiente de CI local deste projeto, o comando `make ci` roda em menos de 15 segundos sobre fixtures sintéticas garantindo feedback instantâneo.
+No ambiente de CI local deste projeto, o comando `make ci` roda em ~57 segundos (com teto < 120 s) sobre fixtures sintéticas garantindo feedback seguro e determinístico.
 
 ---
 
 ### 5.4 Produtividade Operacional: `dbt retry` e `dbt clone`
 - **`dbt retry`**: Se uma execução de 200 modelos falhar no modelo 150 devido a um erro transitório de rede ou sintaxe, você corrige o erro e roda `dbt retry`. O dbt consulta o `target/run_results.json` anterior e recomeça a execução **exatamente a partir dos nós que falharam**, sem reprocessar os 149 modelos anteriores.
-- **`dbt clone`**: Clona modelos de um ambiente/schema para outro sem copiar fisicamente os dados (utilizando *zero-copy clone* em Snowflake, Databricks ou BigQuery). No DuckDB, a técnica análoga é copiar os arquivos `.parquet` diretamente no sistema de arquivos.
+- **`dbt clone`**: Clona modelos de um ambiente/schema para outro a partir do manifesto `--state` sem duplicar a computação. Em data warehouses tradicionais com suporte a zero-copy clone (Snowflake, Databricks), cria referências de metadados; no DuckDB, o dbt-duckdb emula o comportamento criando **views ponteiro** (`SELECT * FROM <objeto_state>`).
 
 ---
 
@@ -296,8 +298,8 @@ Durante a migração deste projeto (do ambiente Spark/Databricks para DuckDB/dbt
 | Ferramenta / Técnica | Adotada no Projeto? | Como é usada ou Por que não |
 |---|---|---|
 | **dbt_utils** | **SIM** | Testes genéricos de chaves compostas e intervalos aceitáveis. |
-| **dbt_expectations** | **SIM** | Validações estatísticas adicionais e distribuições de métricas. |
-| **dbt_date** | **SIM** | Funções utilitárias de manipulação e enriquecimento de datas. |
+| **dbt_expectations** | **PREVISTO (FBPa)** | Instalado em `packages.yml`; previsto no FBPa para validações de distribuição e volume. |
+| **dbt_date** | **NÃO** | Dependência transitiva de `dbt_expectations`; não usado diretamente por nenhum modelo. |
 | **dbt-duckdb (external)**| **SIM** | Materialização de arquivos Parquet diretamente em `gold/`. |
 | **sqlfluff** | **SIM** | Linting e formatação de SQL via pre-commit e `make lint`. |
 | **dbt-audit-helper** | **NÃO** | Substituído por teste singular de `EXCEPT ALL` com hash, ~3,4× mais veloz no DuckDB. |
@@ -305,6 +307,6 @@ Durante a migração deste projeto (do ambiente Spark/Databricks para DuckDB/dbt
 | **dbt-project-evaluator** | **NÃO** | Substituído por testes de integração Python com pytest (executam em < 2s). |
 | **dbt-checkpoint** | **NÃO** | Substituído por pre-commit padrão com ruff, sqlfluff e guardas pytest. |
 | **Snapshots (SCD2)** | **NÃO** | Desnecessário: o extrato mensal da RFB já é particionado como snapshot temporal. |
-| **CI Slim (`--defer`)** | **SIM** | Documentado e suportado para execuções parciais aceleradas. |
+| **CI Slim (`--defer`)** | **NÃO** | Não utilizado no projeto (banco local de arquivo único e fixtures controladas). |
 | **dbt retry** | **SIM** | Suportado nativamente pelo dbt Core para recuperação de falhas operacionais. |
 | **Data Diff** | **SIM** | Implementado no teste singular de paridade estrita (`paridade_bh_empresas.sql`). |

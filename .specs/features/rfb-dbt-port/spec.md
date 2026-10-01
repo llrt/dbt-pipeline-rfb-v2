@@ -342,6 +342,22 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Independent Test**: fixtures → Fundão pertence à região metropolitana definida na fixture, tem os vizinhos da fixture e os indicadores da área de mercado com os valores da tabela do cenário.
 
+### P2: Publicação no MotherDuck e acesso pelo Power BI (melhoria — pedido do usuário)
+
+**User Story**: Como analista de BI, quero publicar as tabelas finais numa conta MotherDuck quando ela estiver configurada e saber exatamente como o Power BI acessa os dados (Parquet, DuckDB local ou MotherDuck), para escolher o caminho certo para o meu cenário.
+
+**Why P2**: Facilita o consumo compartilhado e o DirectQuery; não bloqueia o MVP. Decisão: ADR-0016, AD-025.
+
+**Acceptance Criteria**:
+
+1. WHEN `rfb publicar --destino motherduck` runs AND `MOTHERDUCK_TOKEN` and `MOTHERDUCK_BANCO` are set, THE system SHALL recreate in the MotherDuck database one table per gold dataset (dimensions, facts, bridges, original and analytics marts, and every partition of `fct_resumo_mensal`) from the Parquet files, and SHALL report table names and row counts.
+2. IF `MOTHERDUCK_TOKEN` or `MOTHERDUCK_BANCO` is missing, THEN the command SHALL publish nothing and SHALL exit 0 with a clear message.
+3. The publication SHALL accept a selection of tables (`--tabelas`) and SHALL be idempotent (re-running replaces the tables).
+4. The token SHALL never be logged, written to files or committed.
+5. `docs/POWER_BI.md` SHALL describe the access options — Parquet in `gold/`, local DuckDB file through the DuckDB ODBC driver, MotherDuck through the PostgreSQL endpoint — with Import/DirectQuery support, installation, refresh in Power BI Service (gateway), file-locking caveats and a recommendation per scenario.
+
+**Independent Test**: publicação num destino DuckDB local (arquivo) recria as tabelas do gold com as mesmas contagens; sem as variáveis, o comando não publica e sai 0.
+
 ---
 
 ## Edge Cases
@@ -387,8 +403,10 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 | ENR-01 | P2: Enriquecimento Base dos Dados (AC 1–2) | T38, T39 | In Tasks |
 | ENR-02 | P2: Enriquecimento Base dos Dados (AC 3–4) | T40 | In Tasks |
 | ENR-03 | P2: Enriquecimento Base dos Dados (AC 5–8) | T39–T41 | In Tasks |
+| PUB-01 | P2: Publicação MotherDuck (AC 1–4) | T42 | In Tasks |
+| PUB-02 | P2: Acesso pelo Power BI (AC 5) | T43 | In Tasks |
 
-**Coverage:** 29 total, 29 mapped to tasks, 0 unmapped.
+**Coverage:** 31 total, 31 mapped to tasks, 0 unmapped.
 
 ---
 

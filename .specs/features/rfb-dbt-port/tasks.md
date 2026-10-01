@@ -120,9 +120,16 @@ T20 → T34 → T35
 T35 → T38 → T39 → T40 → T41
 ```
 
+### Phase 7d: Publicação no MotherDuck e acesso pelo Power BI (ADR-0016) — lote B11 (M/NC)
+
+```
+T41 → T42 → T43
+```
+
 ### Phase 8: Ponta a ponta com dados reais e atualização mensal — lote B8 (C, E2E)
 
 ```
+T43 → T28
 T41 → T28
 T27 → T28 → T36
 T34 → T36
@@ -762,7 +769,7 @@ T30 → T31
 
 **What**: `rfb pipeline` / `make pipeline MES=2026-09` (ingest → freshness → build → report, exit ≠0 em erro); execução real completa sobre 2026-09; ajuste de desempenho (materializações, memória, threads, ordem); `make ci` < 120 s; registro de tempos, volumes e resultados (incluindo paridade = 0 diferenças) em `docs/EXECUCAO_REAL.md`; relatório real gerado.
 **Where**: `src/rfb_pipeline/cli.py`
-**Depends on**: T27, T41
+**Depends on**: T27, T41, T43
 **Reuses**: tudo
 **Requirement**: OPS-01
 **Classificação**: M/C
@@ -856,6 +863,45 @@ T30 → T31
 **Tests**: dbt data tests + integration
 **Gate**: full
 **Commit**: `feat(analytics): competition in the market area (neighbours and metropolitan region)`
+
+---
+
+### T42: `rfb publicar --destino motherduck`
+
+**What**: módulo `src/rfb_pipeline/publicacao.py` + subcomando `rfb publicar --destino motherduck [--tabelas …]` + `make publicar`: só com `MOTHERDUCK_TOKEN` e `MOTHERDUCK_BANCO` definidos, `ATTACH 'md:<banco>'` e `CREATE OR REPLACE TABLE … AS SELECT * FROM read_parquet(…)` para cada dataset do gold (inclusive todas as partições de `fct_resumo_mensal`), com relatório de linhas; sem configuração, mensagem clara e saída 0; token nunca registrado; `.env.example` documentado. O destino é parametrizável para os testes (arquivo DuckDB local no lugar de `md:`).
+**Where**: `src/rfb_pipeline/publicacao.py`
+**Depends on**: T41
+**Reuses**: `configuracao.py`, `cli.py`, layout do gold
+**Requirement**: PUB-01
+**Classificação**: M/NC
+
+**Done when**:
+- [x] Unit: SQL gerado, seleção de tabelas, ausência de variáveis (sai 0, nada publicado), token ausente dos logs
+- [x] Integração: publicação das fixtures num destino DuckDB local com as mesmas contagens do gold
+- [x] Gate full passa
+
+**Tests**: unit + integration
+**Gate**: full
+**Commit**: `feat(publicacao): optional publish of gold tables to MotherDuck`
+
+---
+
+### T43: Guia Power BI — como acessar os dados
+
+**What**: seção nova em `docs/POWER_BI.md` "Como o Power BI acessa os dados": tabela comparando (1) Parquet em `gold/` (conector Parquet/Pasta; Import; sem driver), (2) arquivo DuckDB local (`warehouse.duckdb`, views sobre o gold; driver ODBC do DuckDB; Import; travas de arquivo durante o build), (3) MotherDuck após `rfb publicar` (conector PostgreSQL nativo pelo Postgres endpoint; Import ou DirectQuery; gateway no Service); passo a passo de cada um, atualização no Power BI Service e recomendação por cenário; links oficiais; `ARCHITECTURE.md` e `docs/ESCOPO.md` atualizados.
+**Where**: `docs/POWER_BI.md`
+**Depends on**: T42
+**Reuses**: ADR-0016
+**Requirement**: PUB-02
+**Classificação**: M/NC
+
+**Done when**:
+- [x] As três opções descritas com modo, instalação, atualização e limitações, com fontes oficiais
+- [x] Gate build passa
+
+**Tests**: none
+**Gate**: build
+**Commit**: `docs(bi): how Power BI accesses the data (Parquet, DuckDB, MotherDuck)`
 
 ---
 
@@ -981,6 +1027,8 @@ T30 → T31
 | T39 | T38 | T38 → T39 | ✅ |
 | T40 | T39 | T39 → T40 | ✅ |
 | T41 | T40 | T40 → T41 | ✅ |
+| T42 | T41 (fase anterior) | T41 → T42 | ✅ |
+| T43 | T42 | T42 → T43 | ✅ |
 
 Nota: execução dentro da fase é estritamente sequencial na ordem numérica; dependências intra-fase não desenhadas são satisfeitas pela ordem.
 

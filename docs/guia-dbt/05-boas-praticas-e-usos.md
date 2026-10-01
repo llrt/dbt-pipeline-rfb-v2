@@ -40,7 +40,7 @@
 Um dos maiores desafios em projetos que lidam com dados públicos brasileiros (como a Receita Federal) é a mistura caótica de idiomas: termos técnicos de analytics engineering em inglês misturados a jargões fiscais em português.
 
 Neste projeto, adotamos a regra canônica do [ADR-0014](../../docs/adr/0014-convencao-idioma.md):
-- **Vocabulário estrutural do dbt em INGLÊS**: nomes de pastas (`staging`, `intermediate`, `marts/core`, `marts/analytics`, `audit`, `observability`), comandos da CLI, materializações (`view`, `table`, `external`) e configurações de meta (`scope: original`).
+- **Vocabulário estrutural do dbt em INGLÊS**: nomes de pastas (`staging`, `intermediate`, `marts/core`, `marts/analytics`, `audit`, `observability`), comandos da CLI, materializações (`view`, `table`, `external`) e configurações de meta (`escopo: original`, conforme ADR-0006).
 - **Vocabulário de domínio de negócio em PORTUGUÊS**: nomes de entidades e colunas que refletem a legislação e conceitos tributários brasileiros (`estabelecimentos`, `naturezas`, `simples`, `municipios`, `cnpj_raiz`, `capital_social`, `situacao_cadastral`).
 - **Prefixos claros por propósito**:
   - `stg_<fonte>__<entidade>`: views de higienização 1:1 (`stg_rfb__estabelecimentos`).
@@ -62,30 +62,13 @@ Todo script SQL deve seguir o padrão de **CTEs Funcionais** estruturado em 3 bl
 Exemplo real de arquitetura limpa de modelo (`transform/models/intermediate/int_cnaes_secundarios__explodidos.sql`):
 
 ```sql
-with estabelecimentos as (
-  select
-    cnpj_completo,
-    cnaes_secundarios_lista
-  from {{ ref('stg_rfb__estabelecimentos') }}
-  where cnaes_secundarios_lista is not null
-),
-
-explodidos as (
-  select
-    cnpj_completo,
-    trim(unnest(cnaes_secundarios_lista)) as codigo_cnae_secundario
-  from estabelecimentos
-),
-
-final as (
-  select distinct
-    cnpj_completo,
-    lpad(codigo_cnae_secundario, 7, '0') as codigo_cnae_secundario
-  from explodidos
-  where codigo_cnae_secundario != ''
-)
-
-select * from final
+-- Uma linha por (estabelecimento, CNAE secundário): explode `cnaes_secundarios_lista` (lista já
+-- normalizada para 7 dígitos no staging). Lista vazia não gera linhas; códigos repetidos no mesmo
+-- estabelecimento contam uma vez.
+select distinct
+  cnpj_completo,
+  unnest(cnaes_secundarios_lista) as codigo_cnae_secundario
+from {{ ref('int_estabelecimentos__enriquecidos') }}
 ```
 **Regras de estilo**:
 - Palavras-chave SQL em **minúsculas** (`select`, `from`, `where`, `join`).
@@ -122,8 +105,9 @@ A escolha incorreta da materialização pode degradar o tempo de execução ou c
 - **`meta.escopo` e `tags`**:
   Permitem segmentar execuções de testes e compilações (`dbt build --select tag:escopo_original` vs. `dbt build --select tag:escopo_adicao`).
 - **`access: public | protected | private`** (dbt Mesh):
-  - `private`: modelos internos de uma camada (ex.: staging) que só podem ser referenciados dentro da mesma pasta.
-  - `public`: modelos da camada Gold que formam o contrato público consumível por outros times e ferramentas.
+  - `private`: modelos internos de um grupo que só podem ser referenciados dentro do mesmo grupo (`group`).
+  - `protected` (padrão): modelos que podem ser referenciados por qualquer modelo dentro do mesmo projeto dbt.
+  - `public`: modelos que formam contratos públicos consumíveis por outros projetos/times dbt.
 
 ---
 
@@ -149,7 +133,7 @@ Por padrão, o DuckDB tenta alocar a maior parte da memória física disponível
 - **O Limite de Memória (`memory_limit`)**:
   Configure no `profiles.yml` o teto máximo (ex.: `24GB` para máquinas com 32GB de RAM, ou `2GB` no CI). Esse limite restringe o buffer pool interno do banco.
 - **Diretório Temporário (`temp_directory`)**:
-  Se o consumo ultrapassar o `memory_limit`, o DuckDB faz **spill to disk** (grava blocos intermediários de hash join em disco). Configure obrigatoriamente `temp_directory` apontando para um volume SSD rápido (`_tmp/`). Sem essa configuração, o processo estoura a RAM física e é abortado pelo OOM Killer do sistema operacional (ADR-0007).
+  Se o consumo ultrapassar o `memory_limit`, o DuckDB faz **spill to disk** (grava blocos intermediários de hash join em disco). Por padrão, o DuckDB já utiliza `<banco>.tmp` como diretório temporário, mas no `dbt-duckdb` é recomendável configurar `settings.temp_directory` apontando para um volume SSD rápido (`_tmp/`). Atenção: no profile do dbt-duckdb, o campo deve ir dentro de `settings:` (se colocado no topo do profile, é ignorado). Lembre-se também de que `memory_limit` limita o buffer pool do banco, mas não o RSS total do processo (que inclui buffers de rede e threads).
 
 ---
 
@@ -181,12 +165,12 @@ Ao clonar o repositório em uma máquina nova ou rodar o pipeline pela primeira 
 
 #### Por que isso acontece?
 1. **Resolução e download de dependências Python**: O `uv sync` precisa criar o ambiente virtual `.venv` e baixar dezenas de dependências compiladas.
-2. **Download dinâmico da extensão `httpfs`**: Durante o teste de conexão S3 (`dbt debug --target s3`), o DuckDB baixa e compila a extensão nativa de rede `httpfs` do repositório oficial da DuckDB Labs para a pasta de extensões local do usuário (`~/.duckdb/extensions/`).
-3. **Instalação de pacotes dbt**: O `dbt deps` baixa os tarballs do dbt_utils e dbt_expectations.
+2. **Download dinâmico da extensão `httpfs`**: Durante o teste de conexão S3 (`dbt debug --target s3`), o DuckDB baixa a extensão nativa pré-compilada `httpfs` do repositório oficial da DuckDB Labs para a pasta de extensões local do usuário (`~/.duckdb/extensions/`).
+3. **Instalação de pacotes dbt**: O `dbt deps` baixa os pacotes `dbt_utils` e `dbt_expectations`.
 
 #### Boas práticas operacionais:
 - **Cache local**: Em esteiras de CI/CD (GitHub Actions, GitLab CI), configure cache para as pastas `.venv/`, `transform/dbt_packages/` e `~/.duckdb/extensions/`.
-- **Prevenção de DarkWake e Sleep em Laptops (Mac)**: Quando rodando pipelines sobre o extrato real de 64M linhas em notebooks, o macOS pode entrar em modo *DarkWake* ou dormir quando ocioso. Utilize o utilitário **`caffeinate -i`** (ex.: `caffeinate -i make ci`) para assegurar que a CPU opere com prioridade total até a finalização do processo.
+- **Prevenção de DarkWake e Sleep em Laptops (Mac)**: Quando rodando pipelines sobre o extrato real de 64M linhas em notebooks, o macOS pode entrar em modo *DarkWake* ou dormir quando ocioso. Utilize o utilitário **`caffeinate -i`** (ex.: `caffeinate -i make ci`) para impedir que a máquina durma por ociosidade durante a execução.
 
 ---
 
@@ -236,8 +220,8 @@ Em vez de abrir um client SQL externo ou compilar o modelo e inspecionar a saíd
 # Inspecionar a saída do modelo de fornecedores próximos
 uv run dbt show --select mart_fornecedores_proximos --limit 5
 
-# Testar uma query inline com macros Jinja sem criar arquivo
-uv run dbt show --inline "select {{ texto_ou_nulo('nome') }} from {{ ref('bh_empresas') }} limit 3"
+# Testar uma query inline com macros Jinja sem criar arquivo (usando a flag --limit da CLI)
+uv run dbt show --inline "select {{ texto_ou_nulo('nome') }} from {{ ref('bh_empresas') }}" --limit 3
 ```
 
 ---
@@ -260,7 +244,7 @@ O comando `rfb relatorio` compila esses arquivos via dbt, executa as consultas d
 
 Macros Jinja podem ser executadas como comandos utilitários independentes via CLI:
 ```bash
-# Executar manutenção de limpeza ou vacumming
+# Executar manutenção hipotética de limpeza ou vacumming (exemplo conceitual)
 uv run dbt run-operation macro_limpeza_artefatos --args '{"dias": 30}'
 ```
 Além disso, macros acopladas aos eventos de ciclo de vida (`on-run-start` e `on-run-end` em `dbt_project.yml`) executam tarefas administrativas automaticamente antes e depois de cada execução.
@@ -269,12 +253,13 @@ Além disso, macros acopladas aos eventos de ciclo de vida (`on-run-start` e `on
 
 ### 3.6 Reprocessamento Histórico Parametrizado via `vars`
 
-A flexibilidade de parâmetros permite reprocessar meses passados sem modificar nenhuma linha de código:
+A flexibilidade de parâmetros permite reprocessar meses passados via variáveis de projeto:
 ```bash
 # Reprocessar o extrato de janeiro de 2025 para um município específico
 uv run dbt build --vars '{"mes_referencia": "2025-01", "caso_municipio": "COLATINA"}'
 ```
-Os modelos staging e marts filtram dinamicamente a partição correta respeitando as variáveis injetadas.
+> **Atenção operacional crítica (P22)**:
+> Os modelos das camadas de marts utilizam materialização `external`, gravando diretamente em `gold/<modelo>.parquet`. Ao executar um build de mês antigo com `--vars`, **o arquivo Parquet do mês corrente em `gold/` será sobrescrito** com os dados do mês antigo, e parâmetros como `caso_municipio` afetarão todo o dataset gerado! Para reprocessamentos históricos isolados, direcione a saída para um diretório ou target temporário (ex.: alterando `RAIZ_DADOS` para um scratchpad ou configurando `external_root` isolado), conforme detalhado no ADR-0004 e na revisão R3.
 
 ---
 
@@ -298,6 +283,6 @@ Isso permite criar dashboards de evolução histórica de Data Quality e monitor
 
 O dbt gera o artefato `target/manifest.json`, que contém a árvore sintática completa do projeto.
 
-Neste repositório, o script `scripts/gerar_qualidade_dados.py` lê o `manifest.json`, extrai todos os testes, descrições, severidades e escopos (`original` vs. `adicao`), e **regera automaticamente a documentação técnica de qualidade** em `docs/QUALIDADE_DADOS.md`.
+Neste repositório, o script `scripts/gerar_qualidade_dados.py` lê o `manifest.json`, extrai todos os testes, descrições, severidades e escopos (`original` vs. `adicao`), e **regera a documentação técnica de qualidade** em `docs/QUALIDADE_DADOS.md`.
 
-Uma guarda de integração contínua (`git diff --exit-code docs/QUALIDADE_DADOS.md`) assegura que qualquer novo teste adicionado ao projeto tenha sua documentação atualizada no commit!
+Uma guarda em teste de integração (`tests/integration/test_catalogo_dq.py`) regera o catálogo a partir do manifest atual e compara com o arquivo no disco via pytest, assegurando que qualquer alteração de testes ou modelos mantenha o catálogo de qualidade sincronizado!
