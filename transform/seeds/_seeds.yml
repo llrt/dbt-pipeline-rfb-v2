@@ -55,3 +55,16 @@ seeds:
         description: Rótulo curto (MATRIZ, FILIAL).
       - name: descricao
         description: Descrição por extenso.
+
+  - name: excecoes_conhecidas_municipio
+    description: >
+      Códigos de município da RFB sem par na Base dos Dados por motivo conhecido (exterior, município
+      criado após a base). Aceitos por `cobertura_municipio_rfb_bd`; `excecoes_municipio_obsoletas` avisa
+      quando a base passa a cobri-los.
+    columns:
+      - name: codigo
+        description: Código do município na classificação da RFB (4 dígitos).
+      - name: descricao
+        description: Nome do município como aparece na RFB.
+      - name: motivo
+        description: Motivo da exceção (não é município; criado após a base BD).

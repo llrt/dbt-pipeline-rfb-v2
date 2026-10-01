@@ -14,6 +14,44 @@ models:
         data_tests:
           - unique:
               config: { severity: warn, store_failures: true }
+      - name: id_municipio_ibge
+        description: Código IBGE do município (7 dígitos, texto); chave natural da Base dos Dados.
+      - name: nome_municipio
+        description: Nome do município, acentuado.
+      - name: sigla_uf
+        description: Sigla da UF do município.
+      - name: nome_uf
+        description: Nome completo da UF.
+      - name: nome_regiao
+        description: Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
+      - name: id_mesorregiao
+        description: Código IBGE da mesorregião.
+      - name: nome_mesorregiao
+        description: Nome da mesorregião.
+      - name: id_microrregiao
+        description: Código IBGE da microrregião.
+      - name: nome_microrregiao
+        description: Nome da microrregião.
+      - name: id_regiao_intermediaria
+        description: Código IBGE da região geográfica intermediária.
+      - name: nome_regiao_intermediaria
+        description: Nome da região geográfica intermediária.
+      - name: id_regiao_imediata
+        description: Código IBGE da região geográfica imediata.
+      - name: nome_regiao_imediata
+        description: Nome da região geográfica imediata.
+      - name: latitude
+        description: Latitude do centroide do município (graus decimais).
+      - name: longitude
+        description: Longitude do centroide do município (graus decimais).
+      - name: ano_populacao
+        description: Ano da população usada (var `ano_populacao` ou o último ano disponível); NULL sem dado.
+      - name: populacao
+        description: População estimada do município no `ano_populacao`; NULL sem dado.
+      - name: ano_pib
+        description: Último ano com PIB disponível; NULL sem dado.
+      - name: pib
+        description: PIB do município (R$) em `ano_pib`; NULL sem dado.
 
   - name: dim_municipio
     description: >
@@ -371,6 +409,44 @@ models:
                 to: ref('dominio_matriz_filial')
                 field: codigo
               config: { where: "matriz_filial_codigo is not null" }
+      - name: cnpj_raiz
+        description: 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).
+      - name: situacao_codigo
+        description: "Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada."
+      - name: dat_inicio_atividade
+        description: Data de início de atividade; NULL se `0`, `00000000` ou inválida no raw.
+      - name: dat_situacao
+        description: Data da situação cadastral atual; NULL se `0`, `00000000` ou inválida no raw.
+      - name: cnae_principal
+        description: Subclasse CNAE principal, 7 dígitos.
+      - name: cnaes_secundarios_lista
+        description: CNAEs secundários como lista (cada item com 7 dígitos); lista vazia se não houver.
+      - name: municipio_rfb_codigo
+        description: Código do município na classificação da RFB, 4 dígitos (não é o código IBGE).
+      - name: id_municipio_ibge
+        description: Código IBGE do município pareado na Base dos Dados; NULL se `tem_municipio_bd` é falso.
+      - name: natureza_juridica_codigo
+        description: Código da natureza jurídica da empresa (4 dígitos); NULL sem empresa.
+      - name: porte_codigo
+        description: "Código de porte da empresa: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL sem empresa."
+      - name: capital_social
+        description: Capital social da empresa, DECIMAL(18,2); NULL sem empresa ou se inválido no raw.
+      - name: opcao_simples
+        description: "`true` se a empresa é optante pelo Simples Nacional; sem registro no Simples vira `false`."
+      - name: opcao_mei
+        description: "`true` se a empresa é optante pelo MEI; sem registro no Simples vira `false`."
+      - name: tem_empresa
+        description: Diagnóstico do LEFT JOIN. `false` se o estabelecimento não tem a empresa (`cnpj_raiz`) em `stg_rfb__empresas`.
+      - name: tem_natureza
+        description: Diagnóstico do LEFT JOIN. `false` se a natureza jurídica não tem par em `stg_rfb__naturezas`.
+      - name: tem_cnae_bd
+        description: Diagnóstico do LEFT JOIN. `false` se o CNAE principal não tem par em `stg_bd__cnaes`.
+      - name: tem_municipio_bd
+        description: Diagnóstico do LEFT JOIN. `false` se o município RFB não tem par na Base dos Dados (exterior, município novo).
+      - name: _mes_referencia
+        description: Mês de referência (`YYYY-MM`) do extrato RFB.
+      - name: _data_referencia
+        description: Data do extrato RFB; base de `idade_anos` e de `data_referencia()`.
 
   - name: fct_estabelecimentos
     description: >
