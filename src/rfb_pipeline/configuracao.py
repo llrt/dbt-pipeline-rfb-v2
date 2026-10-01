@@ -9,9 +9,18 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rfb_pipeline.erros import ConfiguracaoInvalidaErro, CredenciaisS3FaltandoErro
+from rfb_pipeline.erros import (
+    ConfiguracaoInvalidaErro,
+    CredenciaisS3FaltandoErro,
+    VariavelAntigaErro,
+)
 
 RAIZ_DADOS_PADRAO = "./dados"
+_VARIAVEIS_ANTIGAS = {
+    "DATA_ROOT": "RAIZ_DADOS",
+    "DATA_ROOT_LOCAL": "RAIZ_DADOS_LOCAL",
+    "DBT_DUCKDB_PATH": "CAMINHO_DUCKDB",
+}
 _VARS_S3_OBRIGATORIAS = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3")
 
 
@@ -128,6 +137,10 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
     if env is None:
         load_dotenv()
         env = os.environ
+
+    antigas = {a: n for a, n in _VARIAVEIS_ANTIGAS.items() if a in env}
+    if antigas:
+        raise VariavelAntigaErro(antigas)
 
     raiz_dados_bruto = _texto(env, "RAIZ_DADOS") or RAIZ_DADOS_PADRAO
     if raiz_dados_bruto.startswith("s3://"):

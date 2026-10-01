@@ -43,6 +43,8 @@ make atualizar             # processa o mês mais recente publicado pela RFB, se
 make docs                  # dbt docs
 ```
 
+**Migração (ADR-0014):** `DATA_ROOT`→`RAIZ_DADOS`, `DATA_ROOT_LOCAL`→`RAIZ_DADOS_LOCAL`, `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; o diretório padrão `data/` agora é `dados/`. As variáveis antigas causam erro.
+
 ## Licença
 
 MIT (como o projeto original).

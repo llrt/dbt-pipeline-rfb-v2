@@ -139,3 +139,12 @@ class ConfiguracaoInvalidaErro(ErroIngestao):
     def __init__(self, variavel: str, valor: str, esperado: str) -> None:
         self.variavel = variavel
         super().__init__(f"variável {variavel}={valor!r} inválida (esperado {esperado})")
+
+
+class VariavelAntigaErro(ErroIngestao):
+    """Variável de ambiente renomeada ainda definida (ADR-0014): exige migração explícita."""
+
+    def __init__(self, antigas: dict[str, str]) -> None:
+        self.antigas = antigas
+        migracao = "; ".join(f"renomeie {a} para {n}" for a, n in antigas.items())
+        super().__init__(f"variáveis de ambiente antigas definidas: {migracao}")

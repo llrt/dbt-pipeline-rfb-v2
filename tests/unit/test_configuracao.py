@@ -5,7 +5,11 @@ from pathlib import Path
 import pytest
 
 from rfb_pipeline.configuracao import carregar_configuracao, ler_credenciais_s3
-from rfb_pipeline.erros import ConfiguracaoInvalidaErro, CredenciaisS3FaltandoErro
+from rfb_pipeline.erros import (
+    ConfiguracaoInvalidaErro,
+    CredenciaisS3FaltandoErro,
+    VariavelAntigaErro,
+)
 
 
 def test_carregar_configuracao_usa_padroes_sem_sobrescritas(tmp_path: Path) -> None:
@@ -201,3 +205,20 @@ def test_env_example_carregado_como_esta_nao_quebra(tmp_path: Path) -> None:
     configuracao = carregar_configuracao(env=env)
 
     assert configuracao.raiz_dados == Path("./dados").resolve()
+
+
+@pytest.mark.parametrize(
+    ("antiga", "nova"),
+    [
+        ("DATA_ROOT", "RAIZ_DADOS"),
+        ("DATA_ROOT_LOCAL", "RAIZ_DADOS_LOCAL"),
+        ("DBT_DUCKDB_PATH", "CAMINHO_DUCKDB"),
+    ],
+)
+def test_carregar_configuracao_rejeita_variavel_antiga_com_instrucao(
+    antiga: str, nova: str
+) -> None:
+    with pytest.raises(VariavelAntigaErro) as excecao:
+        carregar_configuracao(env={antiga: "/x"})
+    assert antiga in str(excecao.value)
+    assert f"renomeie {antiga} para {nova}" in str(excecao.value)
