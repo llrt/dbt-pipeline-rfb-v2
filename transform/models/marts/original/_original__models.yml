@@ -134,6 +134,76 @@ models:
                 meta: { escopo: original }
                 tags: [escopo_original]
 
+  - name: agg_empresas
+    description: >
+      **Agg Empresas** (flat table agregada do notebook 3): `bh_empresas` agrupada pelas 10
+      dimensões do original (município, microrregião, mesorregião, UF, CNAE principal, descrição
+      e grupo do CNAE, natureza jurídica, porte e situação), com a contagem de empresas e a
+      idade média do estrato. Reconciliada com `bh_empresas` (teste
+      `agg_empresas_reconciliacao`). Parquet em `gold/agg_empresas.parquet`.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: municipio
+        description: >
+          Nome do município. Linhagem: `bh_empresas.municipio`, sem transformação.
+        data_type: varchar
+      - name: microrregiao_municipio
+        description: >
+          Nome da microrregião do município. Linhagem: `bh_empresas.microrregiao_municipio`, sem transformação.
+        data_type: varchar
+      - name: mesorregiao_municipio
+        description: >
+          Nome da mesorregião do município. Linhagem: `bh_empresas.mesorregiao_municipio`, sem transformação.
+        data_type: varchar
+      - name: uf
+        description: >
+          Sigla da UF do município. Linhagem: `bh_empresas.uf`, sem transformação.
+        data_type: varchar
+      - name: cnae_principal
+        description: >
+          Subclasse do CNAE principal (7 caracteres numéricos). Linhagem: `bh_empresas.cnae_principal`, sem transformação.
+        data_type: varchar
+      - name: desc_cnae_principal
+        description: >
+          Descrição da subclasse do CNAE principal. Linhagem: `bh_empresas.desc_cnae_principal`, sem transformação.
+        data_type: varchar
+      - name: grupo_cnae_principal
+        description: >
+          Descrição do grupo (3 primeiros dígitos) do CNAE principal. Linhagem: `bh_empresas.grupo_cnae_principal`, sem transformação.
+        data_type: varchar
+      - name: natureza_juridica
+        description: >
+          Natureza jurídica da empresa. Linhagem: `bh_empresas.natureza_juridica`, sem transformação.
+        data_type: varchar
+      - name: porte
+        description: >
+          Porte da empresa (N/A, MICRO, PEQUENA, DEMAIS ou NULL). Linhagem: `bh_empresas.porte`, sem transformação.
+        data_type: varchar
+      - name: situacao
+        description: >
+          Situação da empresa (ATIVA ou INATIVA). Linhagem: `bh_empresas.situacao`, sem transformação.
+        data_type: varchar
+      - name: qtd_empresas
+        description: >
+          Número de estabelecimentos no estrato (combinação das 10 dimensões). Linhagem:
+          `bh_empresas.cnpj_completo`; contagem (`count`).
+        data_type: bigint
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+      - name: media_idade
+        description: >
+          Idade média, em anos, dos estabelecimentos do estrato. Linhagem: `bh_empresas.idade_atual`;
+          média simples (`avg`). NULL em estratos só de INATIVAS (a idade só existe para ATIVA).
+          Valores acima de 200 anos são dado absurdo da RFB (ver `bh_empresas.idade_atual`).
+        data_type: double
+
 unit_tests:
   - name: test_bh_empresas_porte
     description: "Original AC 3: porte 0/1/3/5 -> N/A/MICRO/PEQUENA/DEMAIS; vazio (NULL) ou outro código -> NULL."
@@ -276,3 +346,37 @@ unit_tests:
           microrregiao_municipio: "LINHARES"
           mesorregiao_municipio: "LITORAL NORTE ESPÍRITO-SANTENSE"
           uf: "ES"
+
+  - name: test_agg_empresas_agrupa_conta_e_tira_media
+    description: >
+      Original AC 8: agrupa pelas 10 dimensões; `qtd_empresas = count(cnpj_completo)`;
+      `media_idade = avg(idade_atual)` ignora NULL (INATIVA). Dois ATIVA do mesmo estrato
+      (3.0 e 4.0 -> 3.5), dois INATIVA (média NULL) e um estrato de outro município.
+    model: agg_empresas
+    given:
+      - input: ref('bh_empresas')
+        format: sql
+        rows: |
+          select
+              'A1' as cnpj_completo, 'FUNDÃO' as municipio, 'LINHARES' as microrregiao_municipio,
+              'LITORAL' as mesorregiao_municipio, 'ES' as uf, '4741500' as cnae_principal,
+              'TINTAS' as desc_cnae_principal, 'COMÉRCIO' as grupo_cnae_principal,
+              'LTDA' as natureza_juridica, 'MICRO' as porte, 'ATIVA' as situacao,
+              3.0::double as idade_atual
+          union all
+          select 'A2', 'FUNDÃO', 'LINHARES', 'LITORAL', 'ES', '4741500', 'TINTAS', 'COMÉRCIO',
+              'LTDA', 'MICRO', 'ATIVA', 4.0
+          union all
+          select 'I1', 'FUNDÃO', 'LINHARES', 'LITORAL', 'ES', '4741500', 'TINTAS', 'COMÉRCIO',
+              'LTDA', 'MICRO', 'INATIVA', null
+          union all
+          select 'I2', 'FUNDÃO', 'LINHARES', 'LITORAL', 'ES', '4741500', 'TINTAS', 'COMÉRCIO',
+              'LTDA', 'MICRO', 'INATIVA', null
+          union all
+          select 'S1', 'SERRA', 'VITÓRIA', 'METROPOLITANA', 'ES', '2071100', 'FABRICAÇÃO',
+              'INDÚSTRIA', 'SA', null, 'ATIVA', 10.0
+    expect:
+      rows:
+        - { municipio: "FUNDÃO", cnae_principal: "4741500", porte: "MICRO", situacao: "ATIVA", qtd_empresas: 2, media_idade: 3.5 }
+        - { municipio: "FUNDÃO", cnae_principal: "4741500", porte: "MICRO", situacao: "INATIVA", qtd_empresas: 2, media_idade: null }
+        - { municipio: "SERRA", cnae_principal: "2071100", porte: null, situacao: "ATIVA", qtd_empresas: 1, media_idade: 10.0 }
