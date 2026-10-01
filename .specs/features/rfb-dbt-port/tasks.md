@@ -712,7 +712,7 @@ T30 → T31
 
 ### T34: `fct_resumo_mensal` com histórico por partição
 
-**What**: fato agregada para Power BI no grão (`sk_mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_natureza_juridica`, `sk_situacao_cadastral`, `ano_inicio_atividade`, `opcao_mei`) com `qtd_estabelecimentos`, `qtd_ativos`, `soma_idade_anos`, `soma_capital_social`; gravada como **uma partição Parquet por mês** em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/` (reprocessar substitui só a partição do mês; histórico sobrevive à remoção do `warehouse.duckdb`); visão/fonte que lê todas as partições para consumo; teste de reconciliação do mês corrente com `fct_estabelecimentos` (error).
+**What**: fato agregada para Power BI no grão (`sk_mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`) com `qtd_estabelecimentos`, `qtd_ativos`, `soma_idade_anos`, `qtd_matrizes`, `soma_capital_social_matrizes` *(emenda R3-01/R3-02: sem `sk_natureza_juridica` e `ano_inicio_atividade`; capital só das matrizes)*; gravada como **uma partição Parquet por mês** em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/` (reprocessar substitui só a partição do mês; histórico sobrevive à remoção do `warehouse.duckdb`); visão/fonte que lê todas as partições para consumo; teste de reconciliação do mês corrente com `fct_estabelecimentos` (error).
 **Where**: `transform/models/marts/core/fct_resumo_mensal.sql`
 **Depends on**: T20
 **Reuses**: fato e dimensões de T17–T19, T33

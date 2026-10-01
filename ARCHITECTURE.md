@@ -258,16 +258,15 @@ erDiagram
   dim_municipio ||--o{ fct_resumo_mensal : sk_municipio
   dim_cnae ||--o{ fct_resumo_mensal : sk_cnae
   dim_porte ||--o{ fct_resumo_mensal : sk_porte
-  dim_natureza_juridica ||--o{ fct_resumo_mensal : sk_natureza_juridica
   dim_situacao_cadastral ||--o{ fct_resumo_mensal : sk_situacao_cadastral
   dim_data ||--o{ fct_resumo_mensal : sk_mes_referencia
 ```
 
 - Dimensões com chave substituta **inteira** `sk_*` e membro `-1` "NÃO INFORMADO"; hierarquias em colunas
   (`dim_municipio`: região → UF → meso → micro → município; intermediária → imediata. `dim_cnae`: seção → divisão →
-  grupo → classe → subclasse). `dim_data` (calendário, `sk_data = yyyymmdd`).
+  grupo → classe → subclasse). `dim_data` (calendário de 1900-01-01 em diante, `sk_data = yyyymmdd`; membros `-1` NÃO INFORMADO e `-2` DATA INVÁLIDA, com datas contíguas ao calendário).
 - `fct_estabelecimentos` (grão CNPJ, só chaves inteiras + flags + medidas; `cnpj_completo` degenerado) — detalhe/DuckDB.
-- `fct_resumo_mensal` (agregada, aditiva, histórico por partição mensal) — **modo Import do Power BI**.
+- `fct_resumo_mensal` (agregada, aditiva, histórico por partição mensal; grão mês × município × CNAE × porte × situação × MEI; capital só das matrizes) — **modo Import do Power BI**.
 - `bridge_estabelecimento_cnae_secundario` (opcional no BI, muitos-para-muitos). Guia: `docs/POWER_BI.md`.
 
 **Análises (adição):**
