@@ -465,8 +465,11 @@ def _construir_analisador() -> argparse.ArgumentParser:
     )
     p_ingerir.set_defaults(func=_cmd_ingerir)
 
+    ajuda_sincronizar = (
+        "Envia raw/ e gold/ locais ao bucket de RAIZ_DADOS=s3://… (só o que mudou; ADR-0007)."
+    )
     p_sincronizar = sub.add_parser(
-        "sincronizar", help="Sincroniza raw/ e gold/ a S3 (não implementado)."
+        "sincronizar", help=ajuda_sincronizar, description=ajuda_sincronizar
     )
     p_sincronizar.set_defaults(func=_cmd_sincronizar)
 
