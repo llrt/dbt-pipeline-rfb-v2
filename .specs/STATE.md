@@ -26,6 +26,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-018 | Extrato real de fev/2025 (mesmo mês do MVP; CSVs do projeto v1, só leitura) entra no B8 para paridade **numérica** com os resultados publicados no notebook 4 do original, além da execução real de 2026-09 | active | 2026-09-29 |
 | AD-019 | Emendas da R2: `bh_empresas.nome` com trim declarado como adaptação (ADR-0005); idade fora de [0,200] = warn com error_if >100 (spec Original AC 12) | active | 2026-09-29 |
 | AD-020 | Emendas da R3: resumo mensal sem `ano_inicio_atividade`/`natureza` e capital só de matrizes (ADR-0013, BI-02 AC 5); `dim_data` desde 1900 com −1/−2 sentinela (BI-01 AC 2); notebook 4 q4 com `upper` = adaptado; `data_nao_futura` fora das exclusões do Simples (DQ-01 AC 2); `DBT_THREADS` × `DUCKDB_THREADS` | active | 2026-10-01 |
+| AD-021 | Guia dbt (B9b) reescrito/ampliado por **Gemini 3.8 Flash high via OpenRouter** a pedido do usuário (exceção ao roteamento AD-014); cinco partes + índice, foco em qualidade antes/depois de cada etapa; correção técnica garantida pela R5 (Opus alto) | active | 2026-10-01 |
 
 ## Handoff
 
