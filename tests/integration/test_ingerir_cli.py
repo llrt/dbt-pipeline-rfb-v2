@@ -72,7 +72,7 @@ class TestCaminhosDeErro:
     ) -> None:
         origem_local = tmp_path / "fixtures"
         gerar_fixtures.gerar_fixtures(origem_local)
-        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "data"))
+        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "dados"))
 
         codigo = cli.main(["ingerir", "--mes", "2099-01", "--origem-local", str(origem_local)])
 
@@ -86,7 +86,7 @@ class TestCaminhosDeErro:
     ) -> None:
         origem_local = tmp_path / "fixtures"
         gerar_fixtures.gerar_fixtures(origem_local)
-        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "data"))
+        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "dados"))
 
         def _sempre_excede(*_argumentos: object, **_kwargs: object) -> None:
             raise TaxaRejeitoExcedidaErro("empresas", 0.5, 0.0001, "raw/_rejeitos/empresas")
@@ -127,7 +127,7 @@ class TestRedeIndisponivel:
 
         monkeypatch.setattr(cliente_rfb.httpx, "Client", _cliente)
         monkeypatch.setattr(cliente_rfb.time, "sleep", lambda _s: None)
-        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "data"))
+        monkeypatch.setenv("RAIZ_DADOS", str(tmp_path / "dados"))
 
         codigo = cli.main(["ingerir"])
 
@@ -140,7 +140,7 @@ class TestRedeIndisponivel:
 def _fixtures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
     origem_local = tmp_path / "fixtures"
     gerar_fixtures.gerar_fixtures(origem_local)
-    data = tmp_path / "data"
+    data = tmp_path / "dados"
     monkeypatch.setenv("RAIZ_DADOS", str(data))
     return origem_local, data
 
@@ -204,7 +204,7 @@ class TestExecucaoSegura:
             data / "raw" / "rfb" / "empresas" / ".tmp-x",
             data / "raw" / "bd" / "municipio" / ".tmp-y",
             data / "raw" / "_rejeitos" / "empresas" / ".old-z",
-            data / "_tmp" / "extract-empresas-1",
+            data / "_tmp" / "extracao-empresas-1",
         ]
         for r in residuos:
             r.mkdir(parents=True)

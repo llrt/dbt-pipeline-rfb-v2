@@ -36,7 +36,7 @@ def _manifesto_empresas(
                 entidade="empresas",
                 linhas_lidas=14,
                 linhas_rejeitadas=0,
-                parquet=("part-Empresas0.parquet",),
+                parquet=("parte-Empresas0.parquet",),
             ),
         ),
     )
@@ -60,7 +60,7 @@ def test_manifesto_tem_os_campos_exigidos_e_resumo_por_entidade(tmp_path: Path) 
             entidade="empresas",
             linhas_lidas=14,
             linhas_rejeitadas=0,
-            parquet=("part-Empresas0.parquet",),
+            parquet=("parte-Empresas0.parquet",),
         ),
         ArquivoManifesto(
             nome="Estabelecimentos0.zip",
@@ -69,7 +69,7 @@ def test_manifesto_tem_os_campos_exigidos_e_resumo_por_entidade(tmp_path: Path) 
             entidade="estabelecimentos",
             linhas_lidas=16,
             linhas_rejeitadas=1,
-            parquet=("part-Estabelecimentos0.parquet",),
+            parquet=("parte-Estabelecimentos0.parquet",),
         ),
     )
     manifesto = Manifesto(
@@ -111,7 +111,7 @@ def test_precisa_reconverter_pula_quando_zips_identicos_e_particao_existe(
     configuracao = _configuracao(tmp_path)
     particao = configuracao.raw_dir / "rfb" / "empresas" / "mes_referencia=2026-09"
     particao.mkdir(parents=True)
-    parquet = particao / "part-Empresas0.parquet"
+    parquet = particao / "parte-Empresas0.parquet"
     parquet.write_bytes(b"conteudo")
     mtime_antes = parquet.stat().st_mtime_ns
 

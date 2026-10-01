@@ -19,10 +19,10 @@ R2-01 (1.685 razões sociais com espaço na borda; 753 estabelecimentos sem nome
 | **R2-07** guarda de contatos por nome exato | padrão por regex (`email|e_mail|tel|telefone|ddd|fax|contato`) em todas as colunas do banco, severidade error. | F2a | `381ec81` |
 | **R2-08 = P13** `paridade/`, `paridade__` | renomear para `models/audit/` e `audit__bh_empresas_sql_original`; atualizar listas da guarda. | F2a | `7660cad` |
 | **R2-12** custo da paridade | adotar comparação por `(cnpj_completo, hash(colunas))` — mesmo resultado, 3,4× mais rápida. | F2a | `aade503` |
-| **R2-13** limpezas | (a) remover `nullif(...,'0')` redundante; (b) padronizar `id_municipio_rf` com lpad em `stg_bd__municipios` e remover a duplicação. | F2a | `aade503` (a, b; c fora do escopo F2a) |
-| **R2-09** nomes estruturais fora do ADR-0014 | `data/`→`dados/`; `part-*`→`parte-*`; `extract-*`→`extracao-*`; `_rfb_rejeitos_scan`→`_rfb_rejeitos_varredura`; `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; `_no_implementado`→`_nao_implementado`. **Mantidos** e acrescentados à lista do ADR-0014: `warehouse` (arquivo `warehouse.duckdb`, vocabulário dbt/data warehouse) e nomes de targets dbt `dev`/`ci`/`s3`. | F2b | — |
-| **R2-10** guarda não cobre env vars | guarda passa a verificar variáveis de ambiente do projeto (lista permitida) e corrige a regex de alvos do Make; nomes após prefixo, macros, testes e seeds ficam fora (exigiriam dicionário — registrado como limitação). | F2b | — |
-| **R2-11** variáveis antigas ignoradas | erro claro se `DATA_ROOT`/`DATA_ROOT_LOCAL` estiverem definidas, com instrução de migração. | F2b | — |
+| **R2-13** limpezas | (a) remover `nullif(...,'0')` redundante; (b) padronizar `id_municipio_rf` com lpad em `stg_bd__municipios` e remover a duplicação. | F2a | `aade503` (a, b); `62847d9` (c, F2b) |
+| **R2-09** nomes estruturais fora do ADR-0014 | `data/`→`dados/`; `part-*`→`parte-*`; `extract-*`→`extracao-*`; `_rfb_rejeitos_scan`→`_rfb_rejeitos_varredura`; `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; `_no_implementado`→`_nao_implementado`. **Mantidos** e acrescentados à lista do ADR-0014: `warehouse` (arquivo `warehouse.duckdb`, vocabulário dbt/data warehouse) e nomes de targets dbt `dev`/`ci`/`s3`. | F2b | resolvido em `3c41247` |
+| **R2-10** guarda não cobre env vars | guarda passa a verificar variáveis de ambiente do projeto (lista permitida) e corrige a regex de alvos do Make; nomes após prefixo, macros, testes e seeds ficam fora (exigiriam dicionário — registrado como limitação). | F2b | resolvido em `76cb3f9` |
+| **R2-11** variáveis antigas ignoradas | erro claro se `DATA_ROOT`/`DATA_ROOT_LOCAL` estiverem definidas, com instrução de migração. | F2b | resolvido em `e6bfb59` |
 
 Nota F2a (worker, 2026-09-30). Mutações D01, M06, M07b e M15 agora morrem; M11, M12, M16 e o trim continuam
 mortas pela paridade por hash. Validação no extrato real de fev/2025 (`dbt build --target dev -s +bh_empresas

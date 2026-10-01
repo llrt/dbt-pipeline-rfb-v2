@@ -1,4 +1,4 @@
-RAIZ_DADOS ?= $(CURDIR)/data
+RAIZ_DADOS ?= $(CURDIR)/dados
 MES ?=
 
 export RAIZ_DADOS
@@ -20,7 +20,7 @@ ingerir:
 	uv run rfb ingerir $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
 
 ## ci: pipeline local completo sobre fixtures sintéticas, sem rede, em < 120s
-ci: RAIZ_DADOS := $(CURDIR)/.tmp/ci/data
+ci: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 ci:
 	rm -rf .tmp/ci
 	uv run python scripts/gerar_fixtures.py --saida .tmp/ci/fixtures

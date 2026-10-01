@@ -9,9 +9,18 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from rfb_pipeline.erros import ConfiguracaoInvalidaErro, CredenciaisS3FaltandoErro
+from rfb_pipeline.erros import (
+    ConfiguracaoInvalidaErro,
+    CredenciaisS3FaltandoErro,
+    VariavelAntigaErro,
+)
 
-RAIZ_DADOS_PADRAO = "./data"
+RAIZ_DADOS_PADRAO = "./dados"
+_VARIAVEIS_ANTIGAS = {
+    "DATA_ROOT": "RAIZ_DADOS",
+    "DATA_ROOT_LOCAL": "RAIZ_DADOS_LOCAL",
+    "DBT_DUCKDB_PATH": "CAMINHO_DUCKDB",
+}
 _VARS_S3_OBRIGATORIAS = ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3")
 
 
@@ -120,7 +129,7 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
     equivale a ausente (usa o padrão), para que `cp .env.example .env` não quebre nada.
 
     Quando `RAIZ_DADOS` é `s3://...` (ADR-0007), a ingestão (EL) continua lendo/escrevendo em um
-    diretório **local**, `RAIZ_DADOS_LOCAL` (padrão `./data`): `configuracao.raiz_dados` sempre
+    diretório **local**, `RAIZ_DADOS_LOCAL` (padrão `./dados`): `configuracao.raiz_dados` sempre
     aponta para esse diretório local, e `configuracao.raiz_dados_s3` guarda a URI remota (usada por
     `rfb sincronizar` e pelo secret do DuckDB). Credenciais S3 são validadas já aqui, cedo,
     citando as variáveis faltantes.
@@ -128,6 +137,10 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
     if env is None:
         load_dotenv()
         env = os.environ
+
+    antigas = {a: n for a, n in _VARIAVEIS_ANTIGAS.items() if a in env}
+    if antigas:
+        raise VariavelAntigaErro(antigas)
 
     raiz_dados_bruto = _texto(env, "RAIZ_DADOS") or RAIZ_DADOS_PADRAO
     if raiz_dados_bruto.startswith("s3://"):

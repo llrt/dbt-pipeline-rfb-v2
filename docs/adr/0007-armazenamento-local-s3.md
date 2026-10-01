@@ -16,7 +16,7 @@ validação real no Tigris é um passo manual documentado.
 O modo `s3://` não fechava de ponta a ponta. Decisões:
 
 - **Duas raízes.** `RAIZ_DADOS` (local ou `s3://bucket/prefixo`) é onde vivem as fontes e o `gold/` lidos
-  pelo dbt. `RAIZ_DADOS_LOCAL` (padrão `./data`) é onde o EL grava, onde fica o arquivo
+  pelo dbt. `RAIZ_DADOS_LOCAL` (padrão `./dados`) é onde o EL grava, onde fica o arquivo
   `warehouse.duckdb` e onde ficam os temporários do DuckDB: **sempre local**, porque o DuckDB não abre
   banco gravável em S3. No target `s3`, `path`/`temp_directory` usam `RAIZ_DADOS_LOCAL` e
   `external_root`/fontes usam `RAIZ_DADOS`.

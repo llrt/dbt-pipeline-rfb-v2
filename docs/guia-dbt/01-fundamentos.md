@@ -151,7 +151,7 @@ sources:
 
 No `dbt-duckdb`, o par `meta.external_location` + `config` diz ao adapter para ler **direto do Parquet**
 (vira um `read_parquet(...)`) em vez de esperar tabela no DuckDB. Neste projeto **todas** as fontes RFB e
-BD usam isso, derivando o caminho de `env_var('RAIZ_DADOS')` (arquivo em `data/` ou bucket `s3://`).
+BD usam isso, derivando o caminho de `env_var('RAIZ_DADOS')` (arquivo em `dados/` ou bucket `s3://`).
 
 ### 3.3 Seeds
 
