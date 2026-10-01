@@ -421,6 +421,113 @@ models:
         description: Verdadeiro para situação cadastral ativa (código 2).
         data_type: boolean
 
+  - name: fct_resumo_mensal
+    description: >
+      Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE ×
+      porte × natureza × situação × ano de início × MEI. Medidas aditivas (idade média =
+      `soma_idade_anos / qtd_ativos`). Gravada como uma partição Parquet por mês em
+      `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: reprocessar um mês substitui só a partição dele
+      e o histórico sobrevive à remoção do `warehouse.duckdb`. Esta relação lê TODAS as partições
+      existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)`
+      do staging.
+    config:
+      contract:
+        enforced: true
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - mes_referencia
+              - sk_municipio
+              - sk_cnae
+              - sk_porte
+              - sk_natureza_juridica
+              - sk_situacao_cadastral
+              - ano_inicio_atividade
+              - opcao_mei
+    columns:
+      - name: mes_referencia
+        description: Mês de referência `YYYY-MM` (coluna de partição Hive).
+        data_type: varchar
+        data_tests: [not_null]
+      - name: sk_mes_referencia
+        description: >
+          Primeiro dia do mês como `yyyymm01`; mesma chave de `dim_data.sk_data` (relacionamento 1:* no BI).
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_data')
+                field: sk_data
+      - name: sk_municipio
+        description: Chave de `dim_municipio` (`-1` = NÃO INFORMADO).
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+      - name: sk_cnae
+        description: Chave de `dim_cnae` (CNAE principal; `-1` = NÃO INFORMADO).
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_cnae')
+                field: sk_cnae
+      - name: sk_porte
+        description: Chave de `dim_porte`.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_porte')
+                field: sk_porte
+      - name: sk_natureza_juridica
+        description: Chave de `dim_natureza_juridica`.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_natureza_juridica')
+                field: sk_natureza_juridica
+      - name: sk_situacao_cadastral
+        description: Chave de `dim_situacao_cadastral`.
+        data_type: integer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_situacao_cadastral')
+                field: sk_situacao_cadastral
+      - name: ano_inicio_atividade
+        description: Ano de início de atividade (de `dim_data`); `-1` quando a data é nula.
+        data_type: integer
+        data_tests: [not_null]
+      - name: opcao_mei
+        description: Optante pelo MEI.
+        data_type: boolean
+        data_tests: [not_null]
+      - name: qtd_estabelecimentos
+        description: Quantidade de estabelecimentos no grão.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: qtd_ativos
+        description: Quantidade de estabelecimentos ativos (situação 2) no grão.
+        data_type: bigint
+        data_tests: [not_null]
+      - name: soma_idade_anos
+        description: Soma da idade (anos) dos estabelecimentos ativos; divida por `qtd_ativos` para a média.
+        data_type: double
+      - name: soma_capital_social
+        description: Soma do capital social (R$) da empresa de cada estabelecimento.
+        data_type: decimal(18,2)
+
   - name: int_cnaes_secundarios__explodidos
     description: >
       Uma linha por (estabelecimento, CNAE secundário), a partir de `cnaes_secundarios_lista`.

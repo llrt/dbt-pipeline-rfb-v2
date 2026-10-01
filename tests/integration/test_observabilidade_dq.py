@@ -40,10 +40,12 @@ def _testes_no_manifesto() -> int:
     return len(nos) + len(manifesto.get("unit_tests", {}))
 
 
-def test_primeira_execucao_registra_uma_linha_por_teste() -> None:
+def test_build_completo_registra_uma_linha_por_teste() -> None:
+    # O `make ci` roda antes um build parcial de 2026-08 (série mensal): o completo é o que
+    # registrou mais testes.
     (primeira,) = _consultar(
         "select invocation_id from main.dq_historico_testes "
-        "group by invocation_id order by min(executado_em) limit 1"
+        "group by invocation_id order by count(*) desc, min(executado_em) limit 1"
     )
     (linhas, distintos) = _consultar(
         "select count(*), count(distinct nome_teste) from main.dq_historico_testes "
