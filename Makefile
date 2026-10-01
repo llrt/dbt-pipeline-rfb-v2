@@ -1,3 +1,6 @@
+# Receitas usam `set -o pipefail`: no Ubuntu (GitHub Actions) o /bin/sh é dash, que não aceita a opção.
+SHELL := /bin/bash
+
 RAIZ_DADOS ?= $(CURDIR)/dados
 MES ?=
 
