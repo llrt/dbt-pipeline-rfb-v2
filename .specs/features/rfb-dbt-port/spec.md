@@ -74,6 +74,8 @@ pelo menos um registro multilinha; população 2024: Fundão 20000, Linhares 180
 | `regiao_metropolitana_2017` | `RM Grande Vitória` (tipo `RM`) com **Fundão, Serra e Vitória**; Linhares, Aracruz e as Águas Brancas ficam sem RM (`NÃO PERTENCE`); `geometria` sintética, descartada no staging |
 | `vizinhanca_municipio` | ano **2020** (mais recente): Fundão–Aracruz (duplicada), Fundão–Serra, Serra–Vitória (nos dois sentidos), Aracruz–Linhares, autopar Linhares–Linhares; ano **2019** (deve ser ignorado): Fundão–Linhares. Pares só em um sentido: o modelo simetriza. **Vizinhos conformados de Fundão = {Aracruz, Serra}**; Serra = {Fundão, Vitória}; Aracruz = {Fundão, Linhares}; Linhares = {Aracruz}; Vitória = {Serra} |
 
+**Vazio de mercado conhecido (P23/T44):** (CNAE 2071100, Fundão): Fundão não tem estabelecimento do CNAE, mas Serra (F) e Aracruz (P), seus vizinhos, têm 1 ativo cada → `tem_estabelecimento_local` false, ativos/inativos 0, vizinhos ativos 2, RM Grande Vitória ativos 1 (só F em Serra), indicadores locais 0, ativos da área por mil domicílios = 2×1000/(6715+40000+160000) ≈ 0,009675. Vitória, também da RM, é outro vazio (vizinho Serra: 1 ativo). Um vizinho só com **inativos** não cria vazio (Linhares × 4679601 não aparece).
+
 Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão = 17951/287 ≈ 62,55; Fundão no município: ativos 1, inativos 4; nos vizinhos (Aracruz + Serra): ativos 1 (O, Serra), inativos 0; na região metropolitana (Fundão + Serra + Vitória): ativos 2, inativos 4; ativos por mil domicílios (município) = 1/6715×1000 ≈ 0,1489; ativos por km² (município) = 1/287 ≈ 0,003484.
 
 **Estabelecimentos** (todos com DV correto, exceto L):

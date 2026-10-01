@@ -278,7 +278,8 @@ erDiagram
 
 **Análises (adição):**
 - `mart_concorrencia_municipio`: CNAE × município → ativos, inativos, ativos por 10 mil hab., ranking na UF.
-- `mart_concorrencia_area_mercado` (**incremento enriquecimento BD**): CNAE × município → ativos/inativos no
+- `mart_concorrencia_area_mercado` (**incremento enriquecimento BD**): CNAE × município (pares com estabelecimento local **e** vazios de
+  mercado: vizinhos ou RM com ≥ 1 ativo do CNAE e `tem_estabelecimento_local` = false, local 0) → ativos/inativos no
   município, nos vizinhos e na região metropolitana, e ativos por mil domicílios e por km² (município e área =
   município + vizinhos; NULL sem denominador).
 - `mart_sobrevivencia_coorte`: coorte (ano de início) × CNAE × porte × UF → n, sobreviventes a 1/3/5 anos, taxas.

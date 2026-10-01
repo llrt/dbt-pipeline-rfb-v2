@@ -279,7 +279,10 @@ Cuidados:
   `domicilios_2022`, `area_km2`, `densidade_hab_km2`, `taxa_alfabetizacao` (fração 0–1), `idade_mediana`,
   `indice_envelhecimento`, `razao_sexo` e `nome_regiao_metropolitana` (`NÃO PERTENCE` fora de região
   metropolitana; `NÃO INFORMADO` no membro `-1`). Município sem Censo tem os atributos vazios. Para a
-  área de mercado importe `mart_concorrencia_area_mercado` (relaciona-se por `sk_municipio`/`sk_cnae`).
+  área de mercado importe `mart_concorrencia_area_mercado` (relaciona-se por `sk_municipio`/`sk_cnae`); ela inclui os
+  vazios de mercado (município sem o CNAE, mas com ativo nos vizinhos ou na região metropolitana):
+  `tem_estabelecimento_local` = false, ativos/inativos locais 0. Filtre por essa coluna para ver só
+  onde já há concorrente ou só os vazios.
 - A `Idade Média` considera só ativos (`soma_idade_anos` é a soma da idade dos ativos).
 - O resumo **não** tem ano de início nem natureza jurídica. Para coorte use `mart_sobrevivencia_coorte`
   (ou `fct_estabelecimentos` via DuckDB); em `fct_estabelecimentos`, `sk_data_inicio_atividade = -1` é data

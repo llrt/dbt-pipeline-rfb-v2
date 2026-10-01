@@ -917,8 +917,8 @@ T30 → T31
 **Incremento**: enriquecimento BD (ADR-0015)
 
 **Done when**:
-- [ ] Integração: o vazio de mercado da fixture aparece com 0 local e os ativos dos vizinhos/RM corretos; respostas existentes inalteradas
-- [ ] Gate full passa
+- [x] Integração: o vazio de mercado da fixture aparece com 0 local e os ativos dos vizinhos/RM corretos; respostas existentes inalteradas
+- [x] Gate full passa
 
 **Tests**: dbt data tests + dbt unit tests + integration
 **Gate**: full

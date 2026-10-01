@@ -34,7 +34,7 @@
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (13 testes) |
 | Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (73 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (55 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (56 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
@@ -277,7 +277,7 @@
 | `fct_resumo_mensal.sk_municipio` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.sk_porte` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.sk_situacao_cadastral` | `not_null` | error | adicao | — |
-| `mart_concorrencia_area_mercado` | incremento: enriquecimento_bd. | error | adicao | — |
+| `mart_concorrencia_municipio` | incremento: enriquecimento_bd. | error | adicao | — |
 | `—` | ADR-0008, emenda R4-01: casos conhecidos da máscara `mascarar_cpf_no_nome` (CPFs sintéticos com DV válido). | error | adicao | — |
 
 ### Análises (Depois)
@@ -297,6 +297,7 @@
 | `mart_concorrencia_area_mercado.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `mart_concorrencia_area_mercado.sk_municipio` | `not_null` | error | adicao | — |
 | `mart_concorrencia_area_mercado.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
+| `mart_concorrencia_area_mercado.tem_estabelecimento_local` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
 | `mart_concorrencia_municipio` | `expression_is_true` {"expression": "coalesce(populacao, 0) = 0 or ativos_por_10k_hab = round(ativos * 10000.0 / populacao, 2)"} | error | adicao | — |
 | `mart_concorrencia_municipio` | `unique_combination_of_columns` {"combination_of_columns": ["cnae_principal", "sk_municipio"]} | error | adicao | — |
@@ -371,6 +372,7 @@
 | `int_estabelecimentos__enriquecidos` | `test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado` | adicao |
 | `int_municipios__conformados` | `test_int_municipios_conformados_ano_mais_recente` | adicao |
 | `int_municipios__conformados` | `test_int_municipios_conformados_var_ano_populacao` | adicao |
+| `mart_concorrencia_area_mercado` | `test_mart_concorrencia_area_mercado_vazio_de_mercado` | adicao |
 | `mart_concorrencia_area_mercado` | `test_mart_concorrencia_area_mercado_vizinhos_e_regiao` | adicao |
 | `mart_concorrencia_municipio` | `test_mart_concorrencia_municipio_densidade_por_10k_e_ranking` | adicao |
 | `mart_dinamica_mercado` | `test_mart_dinamica_mercado_aberturas_encerramentos_e_saldo` | adicao |
