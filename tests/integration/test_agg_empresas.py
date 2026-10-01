@@ -71,4 +71,4 @@ def test_soma_de_qtd_empresas_reconcilia_com_bh_empresas() -> None:
         total_bh = con.execute(
             f"select count(*) from read_parquet('{_gold('bh_empresas')}')"
         ).fetchone()[0]
-    assert total_agg == total_bh == 12
+    assert total_agg == total_bh == 13

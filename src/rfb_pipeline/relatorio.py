@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import duckdb
@@ -43,27 +44,39 @@ def _executavel_dbt() -> list[str]:
 
 
 def compilar_analises(dir_transform: Path, raiz_dados: Path, target: str | None) -> dict[str, str]:
-    """Roda `dbt compile` nas analyses do estudo de caso e devolve `{nome: SQL compilado}`."""
-    comando = [*_executavel_dbt(), "compile", "--select", "path:analyses"]
-    if target:
-        comando += ["--target", target]
-    ambiente = {
-        **os.environ,
-        "RAIZ_DADOS": str(raiz_dados),
-        "DBT_PROFILES_DIR": os.environ.get("DBT_PROFILES_DIR", str(dir_transform)),
-    }
-    resultado = subprocess.run(
-        comando, cwd=dir_transform, env=ambiente, capture_output=True, text=True, check=False
-    )
-    if resultado.returncode != 0:
-        raise RelatorioErro(f"`dbt compile` das analyses falhou:\n{resultado.stdout[-2000:]}")
-    compilados = dir_transform / "target" / "compiled" / "rfb" / "analyses"
-    sqls = {
-        arquivo.stem: arquivo.read_text(encoding="utf-8")
-        for arquivo in sorted(compilados.glob(f"{PREFIXO_ANALISES}*.sql"))
-    }
-    if not sqls:
-        raise RelatorioErro(f"nenhuma analysis `{PREFIXO_ANALISES}*` compilada em {compilados}")
+    """Roda `dbt compile` nas analyses do estudo de caso e devolve `{nome: SQL compilado}`.
+
+    Compila num `--target-path` temporário: o `target/` do projeto guarda o `run_results.json` do
+    último build, que outras ferramentas e testes leem (R3-16).
+    """
+    with tempfile.TemporaryDirectory(prefix="rfb-relatorio-") as temporario:
+        comando = [
+            *_executavel_dbt(),
+            "compile",
+            "--select",
+            "path:analyses",
+            "--target-path",
+            temporario,
+        ]
+        if target:
+            comando += ["--target", target]
+        ambiente = {
+            **os.environ,
+            "RAIZ_DADOS": str(raiz_dados),
+            "DBT_PROFILES_DIR": os.environ.get("DBT_PROFILES_DIR", str(dir_transform)),
+        }
+        resultado = subprocess.run(
+            comando, cwd=dir_transform, env=ambiente, capture_output=True, text=True, check=False
+        )
+        if resultado.returncode != 0:
+            raise RelatorioErro(f"`dbt compile` das analyses falhou:\n{resultado.stdout[-2000:]}")
+        compilados = Path(temporario) / "compiled" / "rfb" / "analyses"
+        sqls = {
+            arquivo.stem: arquivo.read_text(encoding="utf-8")
+            for arquivo in sorted(compilados.glob(f"{PREFIXO_ANALISES}*.sql"))
+        }
+        if not sqls:
+            raise RelatorioErro(f"nenhuma analysis `{PREFIXO_ANALISES}*` compilada em {compilados}")
     return sqls
 
 
@@ -181,6 +194,11 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
         "### 4. Fornecedores potenciais nas proximidades",
         "",
         _tabela(resultados[f"{PREFIXO_ANALISES}q4_fornecedores_resumo"]),
+        "",
+        "> **Nota (adaptado):** o notebook 4 original retornava 0 nas buscas por microrregião e "
+        "mesorregião porque comparava nomes em MAIÚSCULAS com a grafia mista da Base dos Dados. "
+        "Com a comparação corrigida (`upper()` dos dois lados), essas buscas passam a achar "
+        "fornecedores onde o original concluía \"nada nas imediações\".",
         "",
         "Estabelecimentos ativos da UF com o CNAE de fornecedor entre os secundários:",
         "",
