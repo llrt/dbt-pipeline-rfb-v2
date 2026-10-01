@@ -1,0 +1,30 @@
+version: 2
+
+models:
+  - name: dq_resumo_execucao
+    description: >
+      Resumo por execução dbt do histórico de testes (`dq_historico_testes`): totais por status, linhas
+      com falha e por escopo. View sobre a tabela mantida pelo `on-run-end`; reflete a execução mais
+      recente depois que ela termina.
+    columns:
+      - name: invocation_id
+        description: Identificador da execução dbt.
+        data_tests: [unique, not_null]
+      - name: executado_em
+        description: Momento do último registro da execução.
+      - name: testes
+        description: Testes executados (dados + unitários).
+      - name: aprovados
+        description: Testes com status pass.
+      - name: avisos
+        description: Testes com status warn.
+      - name: falhos
+        description: Testes com status fail ou error.
+      - name: pulados
+        description: Testes pulados (dependência falhou).
+      - name: linhas_com_falha
+        description: Soma das linhas com falha dos testes de dados.
+      - name: testes_original
+        description: Testes de escopo original.
+      - name: testes_adicao
+        description: Testes de escopo adição.

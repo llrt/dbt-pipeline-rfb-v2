@@ -94,14 +94,26 @@ models:
         description: "`true` se optante pelo Simples Nacional, `false` caso contrário."
       - name: dat_opcao_simples
         description: Data de opção pelo Simples; NULL se `00000000` no raw.
+        data_tests:
+          - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_simples
         description: Data de exclusão do Simples; NULL se `00000000` no raw.
+        data_tests:
+          - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: opcao_mei
         description: "`true` se optante pelo MEI, `false` caso contrário."
       - name: dat_opcao_mei
         description: Data de opção pelo MEI; NULL se `00000000` no raw.
+        data_tests:
+          - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_mei
         description: Data de exclusão do MEI; NULL se `00000000` no raw.
+        data_tests:
+          - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
 
   - name: stg_rfb__empresas
     description: >
@@ -170,6 +182,8 @@ models:
               arguments:
                 tamanho: 14
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - cnpj_dv_valido:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: matriz_filial_codigo
         description: "1 = matriz, 2 = filial."
       - name: nome_fantasia
@@ -184,6 +198,9 @@ models:
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_situacao
         description: Data da situação cadastral atual (para ativos, costuma ser a data de início).
+        data_tests:
+          - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: motivo_situacao_codigo
         description: Código do motivo da situação cadastral (2 dígitos; FK lógica para `stg_rfb__motivos`).
       - name: cidade_exterior
@@ -199,7 +216,9 @@ models:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: "date '1800-01-01'"
-              config: { severity: warn, meta: { escopo: adicao }, tags: [escopo_adicao] }
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: cnae_principal
         description: Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).
         data_tests:
@@ -236,6 +255,9 @@ models:
         description: Situação especial (ex. recuperação judicial), quando houver.
       - name: dat_situacao_especial
         description: Data da situação especial.
+        data_tests:
+          - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: _mes_referencia
         description: Mês de referência (`YYYY-MM`) do extrato RFB.
       - name: _data_referencia

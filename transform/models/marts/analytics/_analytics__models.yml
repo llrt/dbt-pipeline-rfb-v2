@@ -1,0 +1,222 @@
+version: 2
+
+models:
+  - name: mart_concorrencia_municipio
+    description: >
+      ANA-01 (adição): densidade de concorrência por CNAE principal × município. `ativos` e `inativos`
+      pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 /
+      população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e
+      CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cnae_principal, sk_municipio]
+    columns:
+      - name: cnae_principal
+        description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_tests: [not_null]
+      - name: desc_cnae_principal
+        description: Descrição da subclasse (Base dos Dados).
+      - name: sk_municipio
+        description: Chave de `dim_municipio`; `-1` para município sem par no BD.
+        data_tests: [not_null]
+      - name: municipio
+        description: Nome do município (acentuado, Base dos Dados).
+      - name: uf
+        description: Sigla da UF.
+      - name: populacao
+        description: População do município no `ano_populacao`; NULL sem dado.
+      - name: ativos
+        description: Estabelecimentos ativos (`situacao = 2`) do CNAE no município.
+        data_tests: [not_null]
+      - name: inativos
+        description: Estabelecimentos inativos (`situacao != 2`) do CNAE no município.
+        data_tests: [not_null]
+      - name: ativos_por_10k_hab
+        description: Ativos por 10 mil habitantes (2 casas); NULL quando a população é nula ou zero.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+      - name: ranking_uf
+        description: Posição do município na UF para o CNAE por `ativos_por_10k_hab` decrescente (1 = mais denso); NULL sem densidade.
+
+  - name: mart_sobrevivencia_coorte
+    description: >
+      ANA-02 (adição): sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF,
+      a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`);
+      sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis.
+      Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`.
+    columns:
+      - name: ano_coorte
+        description: Ano de `dat_inicio_atividade` do estabelecimento.
+        data_tests: [not_null]
+      - name: cnae_principal
+        description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_tests: [not_null]
+      - name: porte
+        description: Rótulo do porte (`dim_porte`); NÃO INFORMADO para porte vazio.
+      - name: uf
+        description: Sigla da UF do município; `NI` para município sem par no BD.
+      - name: estabelecimentos
+        description: Estabelecimentos do estrato (independente de elegibilidade).
+      - name: elegiveis_1a
+        description: Estabelecimentos da coorte elegíveis ao horizonte de 1 ano (0 quando a coorte ainda não completou o horizonte).
+      - name: sobreviventes_1a
+        description: Elegíveis que sobrevivem 1 ano (ativos ou encerrados após `dat_inicio + 1 ano`).
+      - name: taxa_1a
+        description: sobreviventes_1a / elegiveis_1a; NULL sem elegíveis.
+      - name: elegiveis_3a
+        description: Elegíveis ao horizonte de 3 anos.
+      - name: sobreviventes_3a
+        description: Elegíveis que sobrevivem 3 anos.
+      - name: taxa_3a
+        description: sobreviventes_3a / elegiveis_3a; NULL sem elegíveis.
+      - name: elegiveis_5a
+        description: Elegíveis ao horizonte de 5 anos.
+      - name: sobreviventes_5a
+        description: Elegíveis que sobrevivem 5 anos.
+      - name: taxa_5a
+        description: sobreviventes_5a / elegiveis_5a; NULL sem elegíveis.
+
+  - name: mart_dinamica_mercado
+    description: >
+      ANA-03 (adição): aberturas, encerramentos e saldo por ano × CNAE principal × município.
+      Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`).
+      Datas nulas não geram evento.
+    columns:
+      - name: ano
+        description: Ano calendário do evento (abertura ou encerramento).
+        data_tests: [not_null]
+      - name: cnae_principal
+        description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_tests: [not_null]
+      - name: desc_cnae_principal
+        description: Descrição da subclasse (Base dos Dados).
+      - name: municipio
+        description: Nome do município (acentuado, Base dos Dados).
+      - name: uf
+        description: Sigla da UF.
+      - name: aberturas
+        description: Estabelecimentos com início de atividade no ano.
+        data_tests: [not_null]
+      - name: encerramentos
+        description: Estabelecimentos inativos com data da situação no ano.
+        data_tests: [not_null]
+      - name: saldo
+        description: aberturas − encerramentos.
+        data_tests: [not_null]
+
+  - name: mart_fornecedores_proximos
+    description: >
+      ANA-04 (adição): fornecedores ATIVOS do município do caso (vars `caso_municipio`/`caso_uf`) cujo
+      CNAE principal ou secundário está em `caso_cnaes_fornecedores`, a até `raio_fornecedores_km` do
+      centroide do município (haversine entre centroides da Base dos Dados). Uma linha por
+      estabelecimento; `via` indica se casou pelo CNAE principal ou por um secundário.
+    columns:
+      - name: cnpj_completo
+        description: CNPJ de 14 dígitos do fornecedor.
+        data_tests: [unique, not_null]
+      - name: nome
+        description: Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008).
+      - name: cnae_fornecido
+        description: CNAE (7 dígitos) que qualificou o fornecedor (principal; senão o menor secundário que casa).
+        data_tests: [not_null]
+      - name: via
+        description: "`principal` ou `secundario`."
+        data_tests:
+          - accepted_values:
+              arguments: { values: [principal, secundario] }
+      - name: municipio
+        description: Município do fornecedor.
+      - name: uf
+        description: UF do fornecedor.
+      - name: distancia_km
+        description: Distância haversine (km, 2 casas) do centroide do município do caso.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+
+unit_tests:
+  - name: test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia
+    description: >
+      ANA-02: coorte 2020 (data_referencia 2026-09-12) é elegível a 1/3/5 anos; X ativo sobrevive sempre,
+      Y encerrado após 1 ano só sobrevive a 1a, Z encerrado antes de 1 ano nunca. Coorte 2025 não é
+      elegível a nenhum horizonte (censura) e fica com taxas NULL.
+    model: mart_sobrevivencia_coorte
+    overrides:
+      vars:
+        data_referencia: "2026-09-12"
+    given:
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - &fct_base { sk_cnae: 4741500, sk_porte: 1, sk_municipio: 3202207, eh_ativa: true, sk_data_inicio_atividade: 20200101, sk_data_situacao: 20200101 }
+          - { <<: *fct_base, eh_ativa: false, sk_data_situacao: 20210601 }
+          - { <<: *fct_base, eh_ativa: false, sk_data_situacao: 20200601 }
+          - { <<: *fct_base, sk_data_inicio_atividade: 20250301, sk_data_situacao: 20250301 }
+      - input: ref('dim_data')
+        rows:
+          - { sk_data: 20200101, data: "2020-01-01" }
+          - { sk_data: 20200601, data: "2020-06-01" }
+          - { sk_data: 20210601, data: "2021-06-01" }
+          - { sk_data: 20250301, data: "2025-03-01" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4741500, codigo_subclasse: "4741500" }
+      - input: ref('dim_porte')
+        rows:
+          - { sk_porte: 1, rotulo_porte: "MICRO" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 3202207, sigla_uf: "ES" }
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows: []
+    expect:
+      rows:
+        - { ano_coorte: 2020, estabelecimentos: 3, elegiveis_1a: 3, sobreviventes_1a: 2, taxa_1a: 0.6666666666666666, elegiveis_3a: 3, sobreviventes_3a: 1, taxa_3a: 0.3333333333333333, elegiveis_5a: 3, sobreviventes_5a: 1, taxa_5a: 0.3333333333333333 }
+        - { ano_coorte: 2025, estabelecimentos: 1, elegiveis_1a: 0, sobreviventes_1a: 0, taxa_1a: null, elegiveis_3a: 0, sobreviventes_3a: 0, taxa_3a: null, elegiveis_5a: 0, sobreviventes_5a: 0, taxa_5a: null }
+
+  - name: test_mart_fornecedores_proximos_haversine_e_via
+    description: >
+      ANA-04: com o caso em (0,0) e raio 150 km, F (CNAE principal, 1 grau de longitude ≈ 111.2 km)
+      entra com via principal; H (CNAE secundário, mesmo município do caso) entra com distância 0;
+      G (2 graus ≈ 222.4 km) fica fora do raio; I (inativo) é excluído.
+    model: mart_fornecedores_proximos
+    overrides:
+      vars:
+        caso_municipio: "CASO"
+        caso_uf: "ES"
+        caso_cnaes_fornecedores: ["2071100", "4679699"]
+        raio_fornecedores_km: 150
+    given:
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 1, nome_municipio: "Caso", sigla_uf: "ES", latitude: 0.0, longitude: 0.0 }
+          - { sk_municipio: 2, nome_municipio: "Perto", sigla_uf: "ES", latitude: 0.0, longitude: 1.0 }
+          - { sk_municipio: 3, nome_municipio: "Longe", sigla_uf: "ES", latitude: 0.0, longitude: 2.0 }
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows:
+          - { cnpj_completo: "00000000000001", cnae_principal: "2071100" }
+          - { cnpj_completo: "00000000000002", cnae_principal: "4711302" }
+          - { cnpj_completo: "00000000000003", cnae_principal: "2071100" }
+          - { cnpj_completo: "00000000000004", cnae_principal: "2071100" }
+      - input: ref('bridge_estabelecimento_cnae_secundario')
+        rows:
+          - { cnpj_completo: "00000000000002", codigo_cnae_secundario: "4679699" }
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - { cnpj_completo: "00000000000001", sk_municipio: 2, eh_ativa: true }
+          - { cnpj_completo: "00000000000002", sk_municipio: 1, eh_ativa: true }
+          - { cnpj_completo: "00000000000003", sk_municipio: 3, eh_ativa: true }
+          - { cnpj_completo: "00000000000004", sk_municipio: 2, eh_ativa: false }
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { cnpj_completo: "00000000000001", cnpj_raiz: "00000000", nome_fantasia: "F" }
+          - { cnpj_completo: "00000000000002", cnpj_raiz: "00000000", nome_fantasia: null }
+      - input: ref('stg_rfb__empresas')
+        rows:
+          - { cnpj_raiz: "00000000", razao_social: "RAZAO" }
+    expect:
+      rows:
+        - { cnpj_completo: "00000000000001", nome: "F", cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
+        - { cnpj_completo: "00000000000002", nome: "RAZAO", cnae_fornecido: "4679699", via: "secundario", municipio: "Caso", uf: "ES", distancia_km: 0.0 }

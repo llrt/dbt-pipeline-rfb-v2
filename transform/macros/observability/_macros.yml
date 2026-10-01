@@ -1,0 +1,11 @@
+version: 2
+
+macros:
+  - name: criar_historico_testes
+    description: "on-run-start: cria `main.dq_historico_testes` se não existir (tabela persistente do warehouse)."
+    meta: { escopo: adicao }
+  - name: registrar_resultados_testes
+    description: >
+      on-run-end: acrescenta a `main.dq_historico_testes` uma linha por teste executado
+      (invocation_id, nome, status, falhas, severidade, escopo, timestamp).
+    meta: { escopo: adicao }

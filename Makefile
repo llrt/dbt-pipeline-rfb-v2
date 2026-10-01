@@ -44,16 +44,15 @@ lint:
 	uv run ruff check .
 	uv run ruff format --check .
 	mkdir -p $(RAIZ_DADOS)
-	uv run sqlfluff lint transform/models transform/tests
+	uv run sqlfluff lint transform/models transform/tests transform/analyses
 
 ## sincronizar: envia raw/ e gold/ a s3:// (RAIZ_DADOS precisa ser s3://...; ver docs/adr/0007)
 sincronizar:
 	uv run rfb sincronizar
 
-## relatorio: gera o relatório do estudo de caso (não implementado — T27)
+## relatorio: gera docs/RELATORIO_ESTUDO_CASO.md (requer `dbt build` prévio sobre RAIZ_DADOS)
 relatorio:
-	@echo "relatorio: não implementado (tarefa T27)"
-	@exit 2
+	uv run rfb relatorio
 
 ## clean: remove artefactos temporais e de build
 clean:
