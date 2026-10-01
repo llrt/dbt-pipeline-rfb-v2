@@ -91,7 +91,8 @@ foi o B8 (US$ 16,25, E2E real); Opus 5.5 respondeu por 69 % do custo (líder, cr
   ≈ US$ 28–36 equivalente (R$ 150–190), operar ≈ R$ 0/mês.
 - **1ª publicação real no MotherDuck** (P25) e confirmação da transação no `md:`.
 - **Power BI de fato carregado** (único Success Criterion sem evidência na R4) e medidas DAX testadas.
-- **GitHub Actions** nunca executado (sem push); mês real seguinte (2026-10) via `rfb atualizar`.
+- Mês real seguinte (2026-10) via `rfb atualizar`.
+- *(Resolvido após a entrega)* **GitHub Actions**: o 1º run no repositório publicado falhou porque o Makefile usava `set -o pipefail` e o `/bin/sh` do Ubuntu é `dash` (no macOS é bash); corrigido com `SHELL := /bin/bash`, run verde em ~6,5 min. Lição: o CI local roda no mesmo SO do desenvolvedor — fixe o shell do make.
 - Sugestões R4-11 pendentes: warn de controles C1 nos nomes, raiz alfanumérica em teste de unidade,
   gitleaks/detect-secrets, teto de descompressão contra zip bomb.
 - Limpeza: dados reais nos worktrees (`lote-b8…/dados` ~51 GB) e worktrees integrados (`traycer-housekeeping`).
