@@ -96,7 +96,7 @@ Limpeza de strings, preenchimento de zeros à esquerda (`lpad`) e tipagem estrit
 | **Depois** | Comprimento exato de 7 dígitos no CNAE principal | Macro customizada (`tamanho_exato`) | `error` | `transform/models/staging/rfb/_rfb__staging.yml` |
 | **Depois** | Comprimento exato de 4 dígitos no código do município | Macro customizada (`tamanho_exato`) | `error` | `transform/models/staging/rfb/_rfb__staging.yml` |
 | **Depois** | Data de início de atividade não futura | Macro customizada (`data_nao_futura`) | `warn` | `transform/models/staging/rfb/_rfb__staging.yml` |
-| **Depois** | Data de início de atividade ≥ 1800-01-01 | dbt_utils (`accepted_range`) | `warn` | `transform/models/staging/rfb/_rfb__staging.yml` |
+| **Depois** | Data de início de atividade ≥ 1900-01-01 (datas anteriores viram `sk = -2` na fato) | dbt_utils (`accepted_range`) | `warn` | `transform/models/staging/rfb/_rfb__staging.yml` |
 | **Depois** | Datas de exclusão/opção do Simples não futuras | Macro customizada (`data_nao_futura`) | `warn` | `transform/models/staging/rfb/_rfb__staging.yml` |
 | **Depois** | Ausência total de colunas de contato ou pessoais (LGPD) | dbt test singular | `error` | `transform/tests/sem_colunas_de_contato.sql` |
 | **Depois** | Unit tests de lpad, nulos e parse com dados mockados | dbt unit tests (`format: sql`) | `error` | `transform/models/staging/rfb/_rfb__staging.yml` |
@@ -133,7 +133,7 @@ Reprodução das regras de negócio do MVP original com verificação de paridad
 | **Depois** | Paridade linha a linha (com multiplicidade) vs. Spark via `EXCEPT ALL` | dbt test singular | `error` | `transform/tests/paridade_bh_empresas.sql` |
 | **Depois** | Quantificação e monitoramento dos descartes por `INNER JOIN` | dbt test singular | `warn` | `transform/tests/bh_empresas_descartes_inner_join.sql` |
 | **Depois** | Reconciliação: soma de `qtd_empresas` em `agg_empresas` == total em `bh_empresas` | dbt test singular | `error` | `transform/tests/agg_empresas_reconciliacao.sql` |
-| **Depois** | Faixa aceitável de idade calculada (entre 0 e 200 anos) | dbt_utils (`accepted_range`) | `error` | `transform/models/marts/original/_original__models.yml` |
+| **Depois** | Faixa aceitável de idade calculada (entre 0 e 200 anos): avisa com qualquer violação e falha acima de 100 linhas (`warn_if: "!=0"`, `error_if: ">100"`, `store_failures`) | dbt_utils (`accepted_range`) | `warn` / `error` | `transform/models/marts/original/_original__models.yml` |
 | **Depois** | Categorias canônicas de porte (`N/A`, `MICRO`, `PEQUENA`, `DEMAIS`) | dbt test (`accepted_values`) | `error` | `transform/models/marts/original/_original__models.yml` |
 | **Depois** | Situação cadastral binária (`ATIVA`, `INATIVA`) | dbt test (`accepted_values`) | `error` | `transform/models/marts/original/_original__models.yml` |
 | **Depois** | Efeito colateral do `trim` de nomes na paridade | dbt test singular | `warn` | `transform/tests/bh_empresas_nome_alterado_por_trim.sql` |
@@ -231,18 +231,20 @@ Neste projeto, implementamos testes singulares de conservação:
 
 Quando se refatora um pipeline analítico legado (como a migração de PySpark para dbt + DuckDB realizada neste projeto), a técnica recomendada é o **Data Diff** (diferença estrita de dados).
 
-O teste singular `transform/tests/paridade_bh_empresas.sql` emprega o operador `EXCEPT ALL` bidirecional com a função `hash(*columns(*))` nativa do DuckDB:
+O teste singular `transform/tests/paridade_bh_empresas.sql` compara `bh_empresas` com a tradução literal do SQL do notebook 3 (`audit__bh_empresas_sql_original`) usando `EXCEPT ALL` nos dois sentidos sobre `(cnpj_completo, hash(*columns(*)))` — o hash de cada linha inteira, função nativa do DuckDB:
 ```sql
-with diferenca_esquerda as (
-    select * from refatorado except all select * from legado
+with bh as (
+  select cnpj_completo, hash(*columns(*)) as hash_linha from {{ ref('bh_empresas') }}
 ),
-diferenca_direita as (
-    select * from legado except all select * from refatorado
-)
-select * from diferenca_esquerda
-union all
-select * from diferenca_direita;
+original as (
+  select cnpj_completo, hash(*columns(*)) as hash_linha
+  from {{ ref('audit__bh_empresas_sql_original') }}
+),
+somente_bh as (select * from bh except all select * from original),
+somente_original as (select * from original except all select * from bh)
+-- o select final devolve o lado ('bh' ou 'original') e o cnpj_completo de cada divergência
 ```
+Comparar o hash em vez das 15 colunas dá o mesmo resultado e foi ~3,4× mais rápido no dado real (R2-12).
 Se a consulta retornar qualquer linha, significa que há linhas sobrando em um dos lados ou campos com divergência de cálculo. Este teste garantiu 100% de paridade sobre 62,6 milhões de registros reais da RFB no extrato de fev/2025.
 
 ---

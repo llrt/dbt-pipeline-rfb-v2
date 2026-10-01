@@ -321,14 +321,19 @@ Exemplos reais extraídos de `transform/models/marts/core/_core__models.yml` e `
           - codigo_cnae_secundario
 
 # transform/models/marts/original/_original__models.yml (bh_empresas)
-# Valida intervalo aceitável de idade de empresas (entre 0 e 200 anos)
+# Valida intervalo aceitável de idade (0 a 200 anos): avisa com qualquer violação, falha acima de 100
 - name: bh_empresas
   columns:
     - name: idade_atual
       data_tests:
         - dbt_utils.accepted_range:
-            min_value: 0
-            max_value: 200
+            arguments:
+              min_value: 0
+              max_value: 200
+            config:
+              warn_if: "!=0"
+              error_if: ">100"
+              store_failures: true
 ```
 
 #### 3. Testes Customizados de Domínio Brasileiro (`transform/macros/`)
