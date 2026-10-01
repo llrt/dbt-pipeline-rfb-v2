@@ -101,6 +101,7 @@ flowchart LR
 | R2 | concluída: **REPROVADO** (1 bloqueante R2-01 em dados reais fev/2025; RN aprovado c/ ressalvas) — triagem em `docs/revisoes/R2-triagem.md` | c26d9ad4 · Claude Opus alto (traycer-review) | `5442f3d` |
 | F2a | concluído, verificado (165 unit + 26 integração; dbt PASS=107 WARN=3 ERROR=0; mutações D01/M06/M07b/M15 + trim mortas; **real fev/2025: paridade PASS**, warn trim 752, idade 2, início<1800 4; build 93 s, pico ~26 GiB) e integrado | 36922fe0 · Claude Opus médio | `7660cad` `6469a40` `23c68d5` `75ada4f` `381ec81` `aade503` `6736caa` |
 | F2b | concluído, verificado (175 unit + 26 integração; dbt PASS=107 WARN=3 ERROR=0; erro claro com `DATA_ROOT`; guarda cobre env vars; mutação M12 morta) e integrado | 17a5031c · Claude Sonnet médio | `3c41247` `e6bfb59` `76cb3f9` `62847d9` `43a4023` |
-| B6 | em andamento — T32, T16, T17, T18, T33, T19, T20 (+ R1-11/21/22) | f9f42c3a · Claude Sonnet médio | — |
+| B6 | concluído, verificado (178 unit + 49 integração; dbt PASS=195 WARN=3 ERROR=0; `make ci` ~15 s; paridade 0; respostas da spec conferidas no gold; mutação do líder em `sk_cnae` detectada: 2 FAIL) e integrado — T32 (+R1-11/21/22), T16–T20, T33 | f9f42c3a · Claude Sonnet médio | `b0b1869` `ec1ff85` `e4c7ef3` `7d3a46c` `ef955ea` `6341319` `fdaccc5` |
+| B7 | em andamento — T21–T27 (análises, DQ, estudo de caso, relatório) | (Sonnet médio) | — |
 | F1b | concluído, verificado (106 unit; dbt PASS=45 WARN=1 ERROR=0) e integrado — R1-04, R1-10 (convert), R1-23, R1-24 | 89931ace · Claude Opus médio | `54368a4` `88f9312` `081d8be` |
 | B9a | concluído e integrado (1 achado p/ R5, ver docs/revisoes/pendencias.md) | 824ec0f5 · opencode `ses_f16737c60ffeZVft58RFkqLPb5` · DeepSeek v4 flash high (confirmado) | `c9a6dbc` |
