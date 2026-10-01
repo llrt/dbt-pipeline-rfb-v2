@@ -6,9 +6,9 @@ export DBT_PROFILES_DIR = $(CURDIR)/transform
 
 .PHONY: setup fixtures ingerir ci pipeline atualizar docs lint sincronizar relatorio publicar clean
 
-## setup: sincroniza dependências Python e pacotes dbt
+## setup: sincroniza dependências Python e pacotes dbt (`--locked`: falha se o uv.lock divergir, R4-09)
 setup:
-	uv sync --all-extras
+	uv sync --locked --all-extras
 	cd transform && uv run dbt deps
 
 ## fixtures: gera fixtures sintéticas RFB/BD em tests/fixtures/generated
