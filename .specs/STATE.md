@@ -36,6 +36,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-028 | Pedido do usuário: corrigir a P23 (opção 1) — `mart_concorrencia_area_mercado` passa a incluir pares sem estabelecimento local quando vizinhos/RM têm ativos (vazios de mercado); lote pequeno B12 (Sonnet médio, nível do B10), depois do F4 e antes do RETRO; incremento `enriquecimento_bd` | active | 2026-10-01 |
 | AD-029 | Usuário: Fase 2 da Base dos Dados (BigQuery: pirâmide etária, RAIS, exportadoras) fica para **pós-entrega**; a v1 fecha com o escopo atual (até B12, RETRO e relatório de custo). Estimativa registrada: construir ≈ US$ 28–36 equivalente de API (R$ 150–190; R$ 0 real na assinatura), operar ≈ R$ 0/mês (< 10 GB/mês dentro da faixa gratuita do BigQuery) | active | 2026-10-01 |
 | AD-030 | **v1 encerrada**: B12 integrado, `RETRO.md` e `docs/CUSTOS_AGENTES.md` produzidos. Pós-entrega: Fase 2 BD, 1ª publicação MotherDuck, Power BI carregado de fato, GitHub Actions, sugestões R4-11, limpeza de worktrees/dados | active | 2026-10-01 |
+| AD-031 | Limpeza aprovada pelo usuário: 29 worktrees Landed do v2 + 3 órfãos da tentativa de 24/09 removidos via `traycer worktree delete` (32/32, 0 falhas; branches mantidas); cópias de dados reais nos scratchpads de R2, R3, F2a, F3a, F3b (~49 GB) apagadas. Dados reais regeneráveis com `make pipeline`/`rfb ingerir --origem-local`. Worktrees do projeto v1 intocados | active | 2026-10-01 |
 
 ## Handoff
 
