@@ -28,17 +28,18 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 | [docs/adr/](docs/adr/README.md) | decisões e justificativas |
 | [docs/ESCOPO.md](docs/ESCOPO.md) | original × adaptado × adição |
 | [docs/PLANO.md](docs/PLANO.md) | plano, equipe de agentes e modelos |
+| [docs/OPERACAO.md](docs/OPERACAO.md) | pipeline real, atualização mensal, retenção, agendamento, requisitos de máquina |
+| [docs/EXECUCAO_REAL.md](docs/EXECUCAO_REAL.md) | execução real (2026-09), tempos, volumes, avisos e paridade com o notebook 4 |
+| [docs/POWER_BI.md](docs/POWER_BI.md) | modelo estrela e acesso pelo Power BI |
 | [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt |
 | [.specs/features/rfb-dbt-port/](.specs/features/rfb-dbt-port/spec.md) | spec (EARS) e tarefas |
 
 ## Uso rápido
 
-> Comandos disponíveis ao fim da implementação (ver [ARCHITECTURE.md §7](ARCHITECTURE.md#7-execução)).
-
 ```bash
 make setup                 # uv sync + dbt deps
 make ci                    # fluxo completo sobre fixtures sintéticas (sem rede)
-make pipeline MES=2026-09  # dados reais: ingestão → dbt build → relatórios
+make pipeline MES=2026-09  # dados reais: ingestão → freshness → dbt build → relatório (→ publicar)
 make atualizar             # processa o mês mais recente publicado pela RFB, se houver novidade
 make publicar              # opcional: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO)
 make docs                  # dbt docs
@@ -50,7 +51,7 @@ Ao clonar o repositório em um ambiente limpo, a primeira execução pode levar 
 - O `make setup` executa `uv sync --all-extras` (criação do `.venv` e resolução de pacotes Python) e `dbt deps` (download dos pacotes dbt).
 - Durante o teste de conexão S3 (`dbt debug --target s3`), o DuckDB baixa a extensão nativa pré-compilada `httpfs` para `~/.duckdb/extensions/`.
 
-Nas execuções seguintes, os caches locais (`.venv`, `transform/dbt_packages`, `~/.duckdb/extensions`) já estão populados e o pipeline de CI (`make ci`) completa em ~20–60 segundos.
+Nas execuções seguintes, os caches locais (`.venv`, `transform/dbt_packages`, `~/.duckdb/extensions`) já estão populados e o `make ci` (unit + pipeline sobre fixtures de dois meses + integração + lint) completa em ~2 minutos.
 
 **Migração (ADR-0014):** `DATA_ROOT`→`RAIZ_DADOS`, `DATA_ROOT_LOCAL`→`RAIZ_DADOS_LOCAL`, `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; o diretório padrão `data/` agora é `dados/`. As variáveis antigas causam erro.
 

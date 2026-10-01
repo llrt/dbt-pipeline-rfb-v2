@@ -775,9 +775,9 @@ T30 → T31
 **Classificação**: M/C
 
 **Done when**:
-- [ ] Pipeline real conclui sem testes `error`; warns documentados
-- [ ] `make ci` < 180 s (AD-026)
-- [ ] Gate build passa
+- [x] Pipeline real conclui sem testes `error`; warns documentados (2026-09: PASS=339 WARN=14 ERROR=0, `docs/EXECUCAO_REAL.md`)
+- [x] `make ci` < 180 s (AD-026)
+- [x] Gate build passa
 
 **Tests**: integration
 **Gate**: build
@@ -915,9 +915,9 @@ T30 → T31
 **Classificação**: M/NC (roteado a Opus por ser E2E)
 
 **Done when**:
-- [ ] Integração com fixtures de dois meses cobre ACs UPD 1–5 e 8 (mês novo processado, no-op, mês incompleto ignorado, falha do dbt não grava estado, retenção)
-- [ ] Execução real contra o WebDAV registrada em `docs/EXECUCAO_REAL.md`
-- [ ] Gate build passa
+- [x] Integração com fixtures de dois meses cobre ACs UPD 1–5 e 8 (mês novo processado, no-op, mês incompleto ignorado, falha do dbt não grava estado, retenção) — `tests/integration/test_atualizar.py` + `tests/unit/test_orquestracao.py`
+- [x] Execução real contra o WebDAV registrada em `docs/EXECUCAO_REAL.md` (no-op para 2026-09)
+- [x] Gate build passa
 
 **Tests**: integration
 **Gate**: build

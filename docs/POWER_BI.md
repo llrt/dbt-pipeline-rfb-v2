@@ -5,7 +5,7 @@ Este guia mostra como montar um painel no Power BI sobre o modelo estrela public
 analíticas, sem modelo para BI.
 
 > **Resumo.** Use `fct_resumo_mensal` (agregada, com histórico mensal) em modo **Import**, carregando
-> os **últimos 24 meses** (ver §3). Use `fct_estabelecimentos` (um registro por CNPJ, ~65 milhões de
+> os **últimos 24 meses** (ver §2). Use `fct_estabelecimentos` (um registro por CNPJ, ~65 milhões de
 > linhas no mês real) só em consultas detalhadas via DuckDB, não no Power BI Import.
 >
 > **Tamanho do resumo (medido em fev/2025, 64,5 M estabelecimentos):** 5,44 M linhas por mês e 55 MB de Parquet por partição (64,5 M estabelecimentos; 5.571 municípios e 1.342 subclasses; build de `+fct_resumo_mensal +dim_data` em 140 s, pico de RSS 13,9 GB com `DUCKDB_THREADS=4`). O grão anterior tinha 22,0 M linhas (202 MB). Mesmo assim, 24 meses somam ~130 M linhas: para o Import use os **últimos 24 meses**, e para séries mais longas filtre município/CNAE na consulta (ODBC com SQL nativo) ou agregue por classe.
@@ -25,19 +25,35 @@ o conector, o modo de consulta e a operação de atualização.
 | **Trava de arquivo** | não (Parquet é só leitura) | **sim**: um processo gravando bloqueia os demais (veja abaixo) | não |
 | **Custo/dependência** | zero | zero | conta MotherDuck (limites e preço do plano do usuário) |
 
-### 1. Parquet em `gold/` (mais simples)
+### 1. Parquet em `gold/` (mais simples; recomendado)
 
-1. *Obter dados → Parquet* e informe o caminho de um `*.parquet` (ex.: `dados\gold\dim_municipio.parquet`).
-   Repita para cada dimensão e para a fato escolhida. O conector Parquet suporta **só Import**.
+1. *Obter dados → Mais… → Parquet* e informe o caminho de um `*.parquet` (ex.:
+   `dados\gold\dim_municipio.parquet`). Repita para cada dimensão e para a fato escolhida. O conector
+   Parquet suporta **só Import**.
 2. **Série mensal particionada** (`fct_resumo_mensal/mes_referencia=AAAA-MM/*.parquet`): use *Obter dados →
    Pasta*, aponte para `gold\fct_resumo_mensal`, filtre as colunas `Folder Path`/`Name` para os meses
-   desejados e expanda o conteúdo com `Parquet.Document`. **A coluna da partição não está dentro dos
-   arquivos**: obtenha o mês de `sk_mes_referencia` (já na fato, `yyyymm01`) ou do nome da pasta
-   (`Folder Path`).
+   desejados e expanda os arquivos (`data_0.parquet` de cada pasta `mes_referencia=AAAA-MM`) com
+   `Parquet.Document`. Em M:
+
+   ```m
+   let
+     Origem = Folder.Files("D:\dados\gold\fct_resumo_mensal"),
+     Parquets = Table.SelectRows(Origem, each [Extension] = ".parquet"),
+     Dados = Table.AddColumn(Parquets, "t", each Parquet.Document([Content])),
+     Resumo = Table.Combine(Dados[t])
+   in
+     Resumo
+   ```
+
+   **A coluna da partição não está dentro dos arquivos** (o DuckDB grava `mes_referencia` só no nome da
+   pasta): use `sk_mes_referencia` (já na fato, `yyyymm01`) para o relacionamento e os filtros; se precisar
+   do texto `AAAA-MM`, extraia-o de `[Folder Path]` ou use `dim_mes[ano_mes]`.
 3. Atualização no Service: arquivos locais exigem **On-premises Data Gateway** (o conector Parquet pede o
    gateway para arquivo local). Enviar o Parquet ao OneDrive/SharePoint **não** é o caminho documentado: a
    "OneDrive refresh" da Microsoft cobre .pbix, .xlsx e .csv, e o conector Parquet só lê sistema de
    arquivos local, Azure Blob e ADLS Gen2 (*a confirmar* se a Pasta do SharePoint aceita Parquet).
+4. Com o gold em S3 (ADR-0007), baixe o `gold/` (por exemplo com `aws s3 sync`) ou use o conector
+   Amazon S3/Parquet do seu gateway.
 
 ### 2. Arquivo DuckDB local (`warehouse.duckdb`)
 
@@ -52,7 +68,15 @@ o conector, o modo de consulta e a operação de atualização.
    caminho e conecte à cópia, ou prefira o caminho 1 (Parquet). Abrir em somente leitura (opção
    `access_mode=READ_ONLY` do DuckDB; *a confirmar* a sintaxe no DSN) evita conflito entre leitores, mas
    não com o `dbt build`, que escreve.
-4. As views apontam para os Parquet de `gold/`: a máquina que lê precisa enxergar esses caminhos.
+4. As views apontam para os Parquet de `gold/` (a visão `fct_resumo_mensal` lê todas as partições): a
+   máquina que lê precisa enxergar esses caminhos. O `warehouse.duckdb` é descartável (ADR-0001): se ele
+   sumir, rode o `dbt build` de novo; as partições Parquet continuam em `gold/`.
+5. Alternativa sem o arquivo do warehouse (e sem trava): DSN com banco `:memory:` e SQL nativo sobre o
+   Parquet, por exemplo:
+
+   ```sql
+   select * from read_parquet('D:/dados/gold/fct_resumo_mensal/*/*.parquet', hive_partitioning = true)
+   ```
 
 ### 3. MotherDuck (após `rfb publicar`)
 
@@ -110,7 +134,7 @@ erDiagram
 ```
 
 `dim_mes` e `dim_cnae_secundario` não existem em `gold/`: são **cópias** (referência no Power Query) de
-`dim_data` e `dim_cnae` criadas no modelo, pelos motivos das §1 (relacionamentos) e §4. A natureza
+`dim_data` e `dim_cnae` criadas no modelo, pelos motivos das §1 (relacionamentos) e §3. A natureza
 jurídica **não** está no resumo mensal (emenda R3 do ADR-0013): use `fct_estabelecimentos` (via DuckDB)
 ou outra consulta detalhada para essa quebra, e `mart_sobrevivencia_coorte` para o ano de início.
 
@@ -163,45 +187,7 @@ direção "ambos": ela cria ambiguidade e deixa o modelo lento.
   `DATEADD` não funciona.
 - Esconda as colunas `sk_*` das fatos.
 
-## 2. Conexão
-
-### 2.1 Conector Parquet do Power Query (recomendado)
-
-1. **Obter dados → Mais… → Parquet** para as dimensões (`gold/dim_*.parquet`).
-2. Para a série mensal, use **Obter dados → Pasta** em `gold/fct_resumo_mensal/` e expanda os arquivos
-   `data_0.parquet` de todas as pastas `mes_referencia=YYYY-MM`. Em M:
-
-   ```m
-   let
-     Origem = Folder.Files("D:\dados\gold\fct_resumo_mensal"),
-     Parquets = Table.SelectRows(Origem, each [Extension] = ".parquet"),
-     Dados = Table.AddColumn(Parquets, "t", each Parquet.Document([Content])),
-     Resumo = Table.Combine(Dados[t])
-   in
-     Resumo
-   ```
-
-   O arquivo da partição **não** contém `mes_referencia` (o DuckDB grava a coluna de partição só no nome
-   da pasta `mes_referencia=YYYY-MM`); dentro do arquivo estão `sk_mes_referencia` (use-a para o
-   relacionamento e os filtros) e as demais colunas. Se precisar do texto `YYYY-MM`, extraia-o de
-   `[Folder Path]` ou use `dim_mes[ano_mes]`.
-3. Para dados em S3 (ADR-0007), baixe o `gold/` (por exemplo com `aws s3 sync`) ou use o conector
-   Amazon S3/Parquet do seu gateway.
-
-### 2.2 ODBC do DuckDB
-
-1. Instale o driver ODBC do DuckDB (`duckdb_odbc`) e crie um DSN de sistema apontando para
-   `RAIZ_DADOS/warehouse.duckdb` com `access_mode=read_only` (a visão `fct_resumo_mensal` lê todas as
-   partições). O `warehouse.duckdb` é descartável (ADR-0001): se ele sumir, rode o `dbt build` de novo;
-   as partições Parquet continuam em `gold/`.
-2. No Power BI: **Obter dados → ODBC**, escolha o DSN e selecione as tabelas. Ou, com o banco `:memory:`,
-   passe um SQL nativo:
-
-   ```sql
-   select * from read_parquet('D:/dados/gold/fct_resumo_mensal/*/*.parquet', hive_partitioning = true)
-   ```
-
-## 3. Atualização incremental por mês
+## 2. Atualização incremental por mês
 
 Cada mês novo grava **uma partição nova** e nunca reescreve as antigas (ADR-0012), então só o mês novo
 muda. No Power BI:
@@ -217,7 +203,7 @@ muda. No Power BI:
 4. Reprocessar um mês antigo (`--vars mes_referencia`) substitui só a partição dele; faça um refresh
    completo do modelo para refletir a correção.
 
-## 4. Medidas DAX sugeridas
+## 3. Medidas DAX sugeridas
 
 As medidas usam as tabelas e colunas reais do modelo. Crie-as numa tabela `Medidas`.
 
@@ -312,7 +298,7 @@ Cuidados:
   grafia da Base dos Dados ("Fundão"). Para cruzar uma tabela com a outra use `upper(nome_municipio)` **e**
   `sigla_uf` (ou, melhor, `sk_municipio` = código IBGE) em vez de comparar o texto como veio.
 
-## 5. Exposure no dbt
+## 4. Exposure no dbt
 
 O arquivo `transform/models/marts/core/_core__exposures.yml` declara um `exposure` do tipo `dashboard`
 que depende de todas as dimensões e fatos da estrela. Ele aparece no `dbt docs` e no grafo de linhagem;
