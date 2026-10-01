@@ -52,14 +52,14 @@ Responsável por extrair zips da Receita Federal e CSVs da Base dos Dados e conv
 
 | Momento | O que valida | Ferramenta | Severidade | Arquivo Implementador |
 |---|---|---|---|---|
-| **Antes** | Existência do diretório/mês no WebDAV remoto | Python PROPFIND (`ClienteRFB.listar_meses`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L284) e `src/rfb_pipeline/erros.py` (L12, `MesInexistenteErro`) |
+| **Antes** | Existência do diretório/mês no WebDAV remoto | Python PROPFIND (`ClienteRFB.listar_meses`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L284) e `src/rfb_pipeline/erros.py` (L10, `MesInexistenteErro`) |
 | **Antes** | Tamanho anunciado (`getcontentlength`) no XML PROPFIND | Python XML parsing (`ClienteRFB.listar_arquivos`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L303) |
-| **Antes** | Ausência de path traversal (`..`, `/` absoluto) no ZIP | Python (`extrair_zip_seguro` / `_entrada_insegura`) | `error` | `src/rfb_pipeline/conversao.py` (L79) e `src/rfb_pipeline/erros.py` (L77, `ZipInseguroErro`) |
-| **Antes** | Integridade estrutural do arquivo ZIP baixado | Python (extração com captura de `zipfile.BadZipFile`/`zlib.error`; sem `testzip` separado) | `error` | `src/rfb_pipeline/conversao.py` (L115) e `src/rfb_pipeline/erros.py` (L86, `ZipCorrompidoErro`) |
-| **Antes** | Bloqueio de arquivos pessoais (`Socios*`) e colunas LGPD | Python (`ClienteRFB.listar_arquivos` e `src/rfb_pipeline/esquemas.py`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L318) e `src/rfb_pipeline/esquemas.py` (L114) |
-| **Depois** | Tamanho baixado confere com o anunciado pelo WebDAV | Python (`baixar_com_retentativas`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L242) e `src/rfb_pipeline/erros.py` (L59, `TamanhoDivergenteErro`) |
+| **Antes** | Ausência de path traversal (`..`, `/` absoluto) no ZIP | Python (`extrair_zip_seguro` / `_entrada_insegura`) | `error` | `src/rfb_pipeline/conversao.py` (L79) e `src/rfb_pipeline/erros.py` (L75, `ZipInseguroErro`) |
+| **Antes** | Integridade estrutural do arquivo ZIP baixado | Python (extração com captura de `zipfile.BadZipFile`/`zlib.error`; sem `testzip` separado) | `error` | `src/rfb_pipeline/conversao.py` (L115) e `src/rfb_pipeline/erros.py` (L84, `ZipCorrompidoErro`) |
+| **Antes** | Bloqueio de arquivos de sócios (`Socios*.zip`) na ingestão e descarte de contatos no staging (ADR-0008) | Python (`ClienteRFB.listar_arquivos` e `src/rfb_pipeline/esquemas.py`) / dbt | `error` | `src/rfb_pipeline/cliente_rfb.py` (L318), `src/rfb_pipeline/esquemas.py` (L114) e `transform/tests/sem_colunas_de_contato.sql` |
+| **Depois** | Tamanho baixado confere com o anunciado pelo WebDAV | Python (`baixar_com_retentativas`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L242) e `src/rfb_pipeline/erros.py` (L57, `TamanhoDivergenteErro`) |
 | **Depois** | Hash SHA-256 gravado no manifesto atômico do mês | Python (`sha256_arquivo` / `escrever_manifesto`) | `error` | `src/rfb_pipeline/manifesto.py` (L38, L141) |
-| **Depois** | Taxa de rejeito de linhas CSV ≤ limite configurado | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L375) e `src/rfb_pipeline/erros.py` (L94, `TaxaRejeitoExcedidaErro`) |
+| **Depois** | Taxa de rejeito de linhas CSV ≤ limite configurado | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L375) e `src/rfb_pipeline/erros.py` (L92, `TaxaRejeitoExcedidaErro`) |
 | **Depois** | Contagem total de linhas gravadas > 0 (não vazia) | Python (`converter_entidade_rfb`) | `error` | `src/rfb_pipeline/conversao.py` (L379) e `tests/integration/test_ingerir_cli.py` |
 | **Depois** | Download atômico (`.part` → rename) e Parquet atômico | Python (`Path.replace` e `_publicar`) | `error` | `src/rfb_pipeline/cliente_rfb.py` (L244) e `src/rfb_pipeline/conversao.py` (L169) |
 
@@ -176,7 +176,7 @@ Validações estatísticas, numéricas e invariantes de regras de negócio.
 | **Depois** | Densidade de concorrência por 10k habitantes não-negativa | dbt_utils (`accepted_range`) | `error` | `transform/models/marts/analytics/_analytics__models.yml` |
 | **Depois** | Unicidade por município + CNAE alvo no mart de concorrência | dbt_utils (`unique_combination_of_columns`) | `error` | `transform/models/marts/analytics/_analytics__models.yml` |
 | **Depois** | Unicidade de CNPJ no mart de fornecedores mapeados | dbt test (`unique`) | `error` | `transform/models/marts/analytics/_analytics__models.yml` |
-| **Depois** | Saldo anual de dinâmica = `aberturas - encerramentos` | dbt test singular | `error` | `transform/models/marts/analytics/_analytics__models.yml` |
+| **Depois** | Preenchimento obrigatório de saldo e chaves do mart de dinâmica | dbt test (`not_null`) | `error` | `transform/models/marts/analytics/_analytics__models.yml` |
 | **Depois** | Unit tests de cálculo geodésico Haversine e coortes de sobrevivência | dbt unit tests | `error` | `transform/models/marts/analytics/_analytics__models.yml` |
 
 ---
@@ -189,24 +189,24 @@ Garantias físicas de entrega e integridade para as ferramentas de visualizaçã
 |---|---|---|---|---|
 | **Antes** | Criação prévia do diretório físico de destino (`mkdir -p $(RAIZ_DADOS)/gold`) | Makefile / Python | `error` | `Makefile` (alvos `ci` e `lint`) |
 | **Antes** | Permissão de escrita e memória disponível no DuckDB | DuckDB engine | `error` | `transform/profiles.yml` |
-| **Depois** | Arquivos Parquet gravados com sucesso sem corrupção | Python (`duckdb.read_parquet`) | `error` | `tests/integration/test_bh_empresas.py` e `tests/integration/test_core.py` |
+| **Depois** | Arquivos Parquet gravados com sucesso sem corrupção (validado no pytest das fixtures; verificação em dados reais prevista no B8) | Python (`duckdb.read_parquet`) | `error` | `tests/integration/test_bh_empresas.py` e `tests/integration/test_core.py` |
 | **Depois** | Tipos de data compatíveis com Power BI (coluna de data contínua sem vazios) | dbt test / contrato | `error` | `transform/models/marts/core/_core__models.yml` |
-| **Depois** | Mapeamento explícito de dependências downstream (exposures) | dbt exposures | `error` | `transform/models/marts/core/_core__exposures.yml` |
+| **Depois** | Mapeamento explícito de dependências downstream (exposures) | dbt exposures (documental) | `info` | `transform/models/marts/core/_core__exposures.yml` |
 
 ---
 
 ### 2.9 Rotina de Atualização Mensal
 
-Garante a estabilidade e o comportamento determinístico entre cargas de meses subsequentes.
+Garante a estabilidade e o comportamento determinístico entre cargas de meses subsequentes. (Nota: automação completa via CLI e Makefile é **prevista no B8**).
 
 | Momento | O que valida | Ferramenta | Severidade | Arquivo Implementador |
 |---|---|---|---|---|
 | **Antes** | Verificação de disponibilidade e completude do novo mês no WebDAV | Python (`esquemas.arquivos_faltantes`) | `error` | `src/rfb_pipeline/cli.py` e `src/rfb_pipeline/esquemas.py` (`MesIncompletoErro`) |
 | **Antes** | Detecção de execução no-op (se hash do lote for idêntico ao já processado) | Python (`precisa_reconverter`) | `error` | `src/rfb_pipeline/manifesto.py` (L175) |
 | **Antes** | Lote parcial/incompleto é ignorado a menos que explicitamente autorizado | Python (`--permitir-incompleto`) | `error` | `src/rfb_pipeline/cli.py` |
-| **Depois** | Ordem estrita de compilação: mês antigo materializado antes do novo (P22) | Python / Makefile | `error` | `Makefile` e `src/rfb_pipeline/cli.py` |
+| **Depois** | Ordem estrita de compilação: mês antigo materializado antes do novo (P22; previsto no B8) | Python / Makefile (planejado B8) | `error` | `Makefile` e `src/rfb_pipeline/cli.py` |
 | **Depois** | Gravação atômica do manifesto do novo mês | Python (`escrever_manifesto`) | `error` | `src/rfb_pipeline/manifesto.py` (L141) |
-| **Depois** | Política de retenção de meses históricos respeitada | Python (`pathlib`) | `error` | `src/rfb_pipeline/cli.py` |
+| **Depois** | Política de retenção de meses históricos (previsto no B8) | Python (`pathlib` - planejado B8) | `error` | `src/rfb_pipeline/cli.py` |
 | **Depois** | Registro da execução gravado em `dq_historico_testes` via hook `on-run-end` | dbt macro (`registrar_resultados_testes`) | `error` | `transform/macros/observability/registrar_resultados_testes.sql` |
 
 ---

@@ -37,35 +37,35 @@ Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por 
 
 | Camada | Modelo/Tabela | Materialização | Linhas (CI) | Papel no Pipeline |
 |---|---|---|---|---|
-| **Raw (Fontes)** | `source('rfb', 'estabelecimentos')` | Parquet externo | 15 | Extrato bruto all-VARCHAR |
-| **Raw (Fontes)** | `source('rfb', 'empresas')` | Parquet externo | 14 | Razão social, porte e capital social |
-| **Raw (Fontes)** | `source('rfb', 'simples')` | Parquet externo | 14 | Opções Simples Nacional e MEI |
+| **Raw (Fontes)** | `source('rfb', 'estabelecimentos')` | Parquet externo | 16 | Extrato bruto all-VARCHAR |
+| **Raw (Fontes)** | `source('rfb', 'empresas')` | Parquet externo | 15 | Razão social, porte e capital social |
+| **Raw (Fontes)** | `source('rfb', 'simples')` | Parquet externo | 15 | Opções Simples Nacional e MEI |
 | **Raw (Fontes)** | `source('rfb', 'cnaes')` | Parquet externo | 8 | Tabela de domínio CNAE da RFB |
 | **Raw (Fontes)** | `source('rfb', 'municipios')` | Parquet externo | 10 | Tabela de municípios da RFB |
 | **Raw (Fontes)** | `source('rfb', 'naturezas')` | Parquet externo | 5 | Naturezas jurídicas da RFB |
 | **Raw (Fontes)** | `source('basedosdados', 'municipio')` | Parquet externo | 8 | Diretórios IBGE, UF e coordenadas |
 | **Raw (Fontes)** | `source('basedosdados', 'cnae_2')` | Parquet externo | 7 | Hierarquia CNAE da Base dos Dados |
 | **Seeds** | `dominio_porte`, `dominio_situacao_cadastral`, etc. | Tabela física | 2 a 5 | Domínios estáticos versionados em CSV |
-| **Staging** | `stg_rfb__estabelecimentos` | View | 15 | Limpeza, tipagem e lpad (sem joins) |
-| **Staging** | `stg_rfb__empresas` | View | 14 | Filtro do mês e conversão de capital |
-| **Intermediate** | `int_municipios__conformados` | Table | 8 | Join RFB + IBGE com centróides geodésicos |
-| **Intermediate** | `int_estabelecimentos__enriquecidos` | Table | 15 | Left join amplo com flags `tem_*` (zero descartes) |
+| **Staging** | `stg_rfb__estabelecimentos` | View | 16 | Limpeza, tipagem e lpad (sem joins) |
+| **Staging** | `stg_rfb__empresas` | View | 15 | Filtro do mês e conversão de capital |
+| **Intermediate** | `int_municipios__conformados` | Table | 8 | Join RFB + IBGE com coordenadas geodésicas |
+| **Intermediate** | `int_estabelecimentos__enriquecidos` | Table | 16 | Left join amplo com flags `tem_*` (zero descartes) |
 | **Intermediate** | `int_cnaes_secundarios__explodidos` | Table | 2 | Unnest de CNAEs secundários por CNPJ |
-| **Marts Original** | `bh_empresas` | External (Parquet) | 12 | **Notebook 3**: 3 descartados pelos inner joins |
-| **Marts Original** | `agg_empresas` | External (Parquet) | 12 | Agregações do caso de uso de tintas |
+| **Marts Original** | `bh_empresas` | External (Parquet) | 13 | **Notebook 3**: 3 descartados pelos inner joins |
+| **Marts Original** | `agg_empresas` | External (Parquet) | 13 | Agregações do caso de uso de tintas |
 | **Marts Core** | `dim_cnae` | External (Parquet) | 8 | 7 subclasses BD + membro `-1` ("NÃO INFORMADO") |
 | **Marts Core** | `dim_municipio` | External (Parquet) | 9 | 8 municípios conformados + membro `-1` |
-| **Marts Core** | `dim_data` | External (Parquet) | 9.753 | Calendário contínuo com atributos em português |
+| **Marts Core** | `dim_data` | External (Parquet) | 46.278 | Calendário contínuo desde 1900 com atributos em português |
 | **Marts Core** | `dim_porte`, `dim_situacao_cadastral` | External (Parquet) | 5 e 6 | Domínios do negócio + membro `-1` |
-| **Marts Core** | `fct_estabelecimentos` | External (Parquet) | 15 | Fato granular: **100% conservada** (zero descartes) |
-| **Marts Core** | `fct_resumo_mensal` | External (Parquet) | 29 | Fato agregada mensal para Power BI |
+| **Marts Core** | `fct_estabelecimentos` | External (Parquet) | 16 | Fato granular: **100% conservada** (zero descartes) |
+| **Marts Core** | `fct_resumo_mensal` | External (Parquet) | 31 | Fato agregada mensal para Power BI |
 | **Marts Core** | `bridge_estabelecimento_cnae_secundario`| External (Parquet) | 2 | Tabela ponte para relacionamentos N:N |
-| **Marts Analytics**| `mart_concorrencia_municipio` | External (Parquet) | 10 | Densidade de mercado por 10k habitantes |
-| **Marts Analytics**| `mart_fornecedores_proximos` | External (Parquet) | 2 | Distância geodésica (Haversine) |
-| **Marts Analytics**| `mart_sobrevivencia_coorte` | External (Parquet) | 15 | Sobrevivência de coortes em 1, 3 e 5 anos |
-| **Marts Analytics**| `mart_dinamica_mercado` | External (Parquet) | 20 | Aberturas, encerramentos e saldos |
+| **Marts Analytics**| `mart_concorrencia_municipio` | External (Parquet) | 11 | Densidade de mercado por 10k habitantes |
+| **Marts Analytics**| `mart_fornecedores_proximos` | External (Parquet) | 3 | Distância geodésica (Haversine) |
+| **Marts Analytics**| `mart_sobrevivencia_coorte` | External (Parquet) | 16 | Sobrevivência de coortes em 1, 3 e 5 anos |
+| **Marts Analytics**| `mart_dinamica_mercado` | External (Parquet) | 21 | Aberturas, encerramentos e saldos |
 | **Auditoria** | `audit__bh_empresas_sql_original` | Ephemeral (CTE) | — | Tradução literal PySpark para teste de paridade |
-| **Observabilidade**| `dq_historico_testes` | Table (Hook) | 242 | Histórico cumulativo de testes no CI |
+| **Observabilidade**| `dq_historico_testes` | Table (Hook) | cumulativo | Histórico de execuções acumulado no warehouse (ex.: 251 registros) |
 
 ---
 
@@ -77,9 +77,9 @@ Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por 
 - **Como é processado**: O módulo Python `src/rfb_pipeline/` faz streaming da rede e converte os dados diretamente para Parquet particionado sob a pasta `dados/raw/` (ou bucket S3/Tigris).
 - **Decisões arquiteturais fundamentais (ADR-0002, ADR-0008)**:
   - **All-VARCHAR**: Para evitar descartes silenciosos ou conversões corrompidas durante o carregamento de CSVs legados, todas as colunas de dados são gravadas como texto puro (`VARCHAR`). A tipagem forte e higienização são delegadas integralmente à camada de transformação dbt.
-  - **Minimização de Dados Pessoais (LGPD)**: Arquivos de Sócios (`Socios*.zip`) e colunas com nomes de pessoas físicas ou dados de contato são descartados no momento da ingestão e jamais entram no warehouse. O teste singular `transform/tests/sem_colunas_de_contato.sql` valida continuamente essa barreira.
+  - **Minimização de Dados Pessoais (LGPD)**: Arquivos de Sócios (`Socios*.zip`) não são ingeridos pelo pipeline. Já os arquivos de estabelecimentos contêm colunas de contato (`email`, `ddd1`, `tel1`, `ddd2`, `tel2`, `ddd_fax`, `fax`) que são preservadas na camada raw conforme publicado pela RFB; a minimização de dados pessoais acontece na **camada staging**, onde essas colunas são intencionalmente descartadas e não entram no warehouse nem na camada Gold (ADR-0008). O teste singular `transform/tests/sem_colunas_de_contato.sql` valida continuamente que o staging e modelos downstream não expõem campos de contato.
   - **Metadados Técnicos**: A ingestão anexa quatro colunas de rastreabilidade a cada linha: `_arquivo_origem`, `_mes_referencia`, `_data_referencia` e `_ingerido_em`.
-- **Contagem nas fixtures**: 15 estabelecimentos e 14 empresas no extrato de `2026-09`.
+- **Contagem nas fixtures**: 16 estabelecimentos e 15 empresas no extrato de `2026-09` (verificado via consulta direta com DuckDB Python no `warehouse.duckdb`).
 
 ---
 
@@ -91,50 +91,87 @@ Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por 
 - **Arquivo de origem**: `transform/models/staging/rfb/stg_rfb__estabelecimentos.sql`.
 
 #### Exemplo Real de SQL Compilado (`stg_rfb__estabelecimentos`)
-Localizado em `transform/target/compiled/rfb/models/staging/rfb/stg_rfb__estabelecimentos.sql`:
+Trecho extraído diretamente de `transform/target/compiled/rfb/models/staging/rfb/stg_rfb__estabelecimentos.sql` (após execução de `make ci`):
 
 ```sql
+-- Contatos (`email`, `ddd*`, `tel*`, `fax`) ficam de fora (ADR-0008). ~65 M linhas no real: só
+-- funções escalares vetorizadas; a lista de CNAEs secundários usa `list_transform`.
 with fonte as (
-  select * from read_parquet(
-    '/Users/llrt/.../dados/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
-    hive_partitioning=false
-  )
-  where _mes_referencia = (
-    select max(_mes_referencia) from read_parquet(
-      '/Users/llrt/.../dados/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
-      hive_partitioning=false
-    )
-  )
+  select *
+  from read_parquet('/Users/llrt/.../dados/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet', hive_partitioning=false)
+  where _mes_referencia = (select max(_mes_referencia) from read_parquet('/Users/llrt/.../dados/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet', hive_partitioning=false))
 )
 
 select
-  lpad(cnpj_raiz, 8, '0') as cnpj_raiz,
-  concat(
-    lpad(cnpj_raiz, 8, '0'),
-    lpad(cnpj_ordem, 4, '0'),
-    lpad(cnpj_dv, 2, '0')
-  ) as cnpj_completo,
-  try_cast(matriz_filial as integer) as matriz_filial_codigo,
-  case when trim(nome_fantasia) = '' then null else trim(nome_fantasia) end as nome_fantasia,
-  try_cast(situacao_cadastral as integer) as situacao_codigo,
   case
-    when data_situacao_cadastral is null or trim(data_situacao_cadastral) in ('', '0', '00000000') then null
-    else try_strptime(trim(data_situacao_cadastral), '%Y%m%d')::date
-  end as dat_situacao,
+    when length(nullif(trim(cnpj_raiz), '')) > 8 then nullif(trim(cnpj_raiz), '')
+    else lpad(nullif(trim(cnpj_raiz), ''), 8, '0')
+  end as cnpj_raiz,
   case
-    when data_inicio_atividade is null or trim(data_inicio_atividade) in ('', '0', '00000000') then null
-    else try_strptime(trim(data_inicio_atividade), '%Y%m%d')::date
-  end as dat_inicio_atividade,
-  lpad(cnae_fiscal_principal, 7, '0') as cnae_principal,
-  case when trim(cnae_fiscal_secundaria) = '' then null else trim(cnae_fiscal_secundaria) end as cnaes_secundarios,
-  str_split(cnae_fiscal_secundaria, ',') as cnaes_secundarios_lista,
-  lpad(municipio, 4, '0') as municipio_rfb_codigo,
+    when length(nullif(trim(cnpj_ordem), '')) > 4 then nullif(trim(cnpj_ordem), '')
+    else lpad(nullif(trim(cnpj_ordem), ''), 4, '0')
+  end as cnpj_ordem,
+  case
+    when length(nullif(trim(cnpj_dv), '')) > 2 then nullif(trim(cnpj_dv), '')
+    else lpad(nullif(trim(cnpj_dv), ''), 2, '0')
+  end as cnpj_dv,
+  case
+    when length(nullif(trim(cnpj_raiz), '')) > 8 then nullif(trim(cnpj_raiz), '')
+    else lpad(nullif(trim(cnpj_raiz), ''), 8, '0')
+  end
+  || case
+    when length(nullif(trim(cnpj_ordem), '')) > 4 then nullif(trim(cnpj_ordem), '')
+    else lpad(nullif(trim(cnpj_ordem), ''), 4, '0')
+  end
+  || case
+    when length(nullif(trim(cnpj_dv), '')) > 2 then nullif(trim(cnpj_dv), '')
+    else lpad(nullif(trim(cnpj_dv), ''), 2, '0')
+  end as cnpj_completo,
+  try_cast(nullif(trim(ind_matriz_filial), '') as integer) as matriz_filial_codigo,
+  nullif(trim(nome_fantasia), '') as nome_fantasia,
+  try_cast(nullif(trim(situacao), '') as integer) as situacao_codigo,
+  try_strptime(trim(dat_situacao), '%Y%m%d')::date as dat_situacao,
+  case
+    when length(nullif(trim(mot_situacao), '')) > 2 then nullif(trim(mot_situacao), '')
+    else lpad(nullif(trim(mot_situacao), ''), 2, '0')
+  end as motivo_situacao_codigo,
+  nullif(trim(cidade_exterior), '') as cidade_exterior,
+  case
+    when length(nullif(trim(pais), '')) > 3 then nullif(trim(pais), '')
+    else lpad(nullif(trim(pais), ''), 3, '0')
+  end as pais_codigo,
+  try_strptime(trim(dat_inicio_atividade), '%Y%m%d')::date as dat_inicio_atividade,
+  case
+    when length(nullif(trim(cnae_principal), '')) > 7 then nullif(trim(cnae_principal), '')
+    else lpad(nullif(trim(cnae_principal), ''), 7, '0')
+  end as cnae_principal,
+  nullif(trim(cnaes_secundarios), '') as cnaes_secundarios,
+  coalesce(
+    list_transform(
+      list_filter(string_split(nullif(trim(cnaes_secundarios), ''), ','), c -> trim(c) != ''),
+      c -> case when length(trim(c)) > 7 then trim(c) else lpad(trim(c), 7, '0') end
+    ),
+    []::varchar[]
+  ) as cnaes_secundarios_lista,
+  nullif(trim(tip_logradouro), '') as tipo_logradouro,
+  nullif(trim(logradouro), '') as logradouro,
+  nullif(trim(num_logradouro), '') as numero,
+  nullif(trim(compl_logradouro), '') as complemento,
+  nullif(trim(bairro), '') as bairro,
+  nullif(trim(cep), '') as cep,
+  nullif(trim(uf), '') as uf,
+  case
+    when length(nullif(trim(municipio), '')) > 4 then nullif(trim(municipio), '')
+    else lpad(nullif(trim(municipio), ''), 4, '0')
+  end as municipio_rfb_codigo,
+  nullif(trim(sit_especial), '') as situacao_especial,
+  try_strptime(trim(dat_sit_especial), '%Y%m%d')::date as dat_situacao_especial,
   _mes_referencia,
   _data_referencia
 from fonte
 ```
 
-- **Contagem nas fixtures**: 15 registros preservados integralmente. Nenhuma linha é filtrada na camada Staging.
+- **Contagem nas fixtures**: 16 registros preservados integralmente. Nenhuma linha é filtrada na camada Staging.
 
 ---
 
@@ -143,9 +180,16 @@ from fonte
 - **Responsabilidade**: Realizar os joins entre entidades, combinar fontes heterogêneas (RFB com Base dos Dados) e normalizar atributos multivalorados (como a lista de CNAEs secundários).
 - **Materialização**: `table` física no arquivo `warehouse.duckdb`. Isso permite que modelos pesados de marts leiam o resultado intermediário pronto sem recalcular os mesmos joins repetidamente.
 - **Modelos implementados**:
-  1. `int_municipios__conformados`: Faz o crosswalk entre o código de 4 dígitos da Receita Federal e o ID IBGE de 7 dígitos, adicionando dados de PIB, população e centróides geodésicos (`st_point(longitude, latitude)`).
+  1. `int_municipios__conformados`: Faz o crosswalk entre o código de 4 dígitos da Receita Federal e o ID IBGE de 7 dígitos, adicionando dados de PIB, população e coordenadas geodésicas (latitude e longitude como colunas `double`).
   2. `int_estabelecimentos__enriquecidos`: Combina os dados de estabelecimentos com os dados da empresa matriz (`stg_rfb__empresas`), regime tributário (`stg_rfb__simples`) e domínios de referência.
-  3. `int_cnaes_secundarios__explodidos`: Aplica a função `unnest(cnaes_secundarios_lista)` para transformar a string separada por vírgulas em linhas individuais com unicidade `(cnpj_completo, codigo_cnae_secundario)`.
+  3. `int_cnaes_secundarios__explodidos`: Aplica a função `unnest(cnaes_secundarios_lista)` sobre `int_estabelecimentos__enriquecidos` para transformar a lista de secundários em linhas individuais com unicidade `(cnpj_completo, codigo_cnae_secundario)`:
+     ```sql
+     -- Trecho real compilado de int_cnaes_secundarios__explodidos:
+     select distinct
+       cnpj_completo,
+       unnest(cnaes_secundarios_lista) as codigo_cnae_secundario
+     from "warehouse"."main"."int_estabelecimentos__enriquecidos"
+     ```
 
 #### Decisão Crucial: Left Joins com Flags (Zero Descartes)
 Diferente da lógica dos notebooks legados, `int_estabelecimentos__enriquecidos` não utiliza `INNER JOIN`. Ela executa `LEFT JOIN` e gera flags booleanas de diagnóstico:
@@ -155,7 +199,7 @@ Diferente da lógica dos notebooks legados, `int_estabelecimentos__enriquecidos`
 - `tem_municipio_bd`: se o município RFB mapeou para um município IBGE válido.
 
 - **Contagens nas fixtures**:
-  - `int_estabelecimentos__enriquecidos`: 15 linhas (100% dos estabelecimentos mantidos).
+  - `int_estabelecimentos__enriquecidos`: 16 linhas (100% dos estabelecimentos mantidos).
   - `int_municipios__conformados`: 8 municípios conformados.
   - `int_cnaes_secundarios__explodidos`: 2 linhas explodidas.
 
@@ -225,7 +269,7 @@ inner join cnaes_bd as cnae on est.cnae_principal = cnae.subclasse
 inner join municipios_bd as mun on est.municipio_rfb_codigo = mun.id_municipio_rf
 ```
 
-- **Contagem nas fixtures**: De 15 estabelecimentos originais, **apenas 12 linhas chegam em `bh_empresas`**. Três estabelecimentos foram descartados pelos inner joins devido à falta de correspondência exata nos domínios. Esse comportamento é monitorado e alertado pelo teste singular `transform/tests/bh_empresas_descartes_inner_join.sql`.
+- **Contagem nas fixtures**: De 16 estabelecimentos originais, **apenas 13 linhas chegam em `bh_empresas`**. Três estabelecimentos foram descartados pelos inner joins devido à falta de correspondência exata nos domínios. Esse comportamento é monitorado e alertado pelo teste singular `transform/tests/bh_empresas_descartes_inner_join.sql`.
 
 ---
 
@@ -252,7 +296,7 @@ coalesce(nat.sk_natureza_juridica, -1) as sk_natureza_juridica,
 coalesce(por.sk_porte, -1) as sk_porte,
 coalesce(sit.sk_situacao_cadastral, -1) as sk_situacao_cadastral
 ```
-Graças a essa técnica, **a tabela fato preserva 100% dos 15 estabelecimentos das fixtures** (zero perda de dados), garantindo reconciliação perfeita contra o extrato bruto.
+Graças a essa técnica, **a tabela fato preserva 100% dos 16 estabelecimentos das fixtures** (zero perda de dados), garantindo reconciliação perfeita contra o extrato bruto.
 
 ---
 
@@ -265,37 +309,38 @@ Graças a essa técnica, **a tabela fato preserva 100% dos 15 estabelecimentos d
   4. `mart_dinamica_mercado`: Série histórica de aberturas, encerramentos e saldo líquido anual de empresas ativas.
 
 #### Trecho Compilado de Haversine (`mart_fornecedores_proximos`)
+Trecho extraído de `transform/target/compiled/rfb/models/marts/analytics/mart_fornecedores_proximos.sql`:
+
 ```sql
 round(
-  2 * 6371.0 * asin(sqrt(
-    power(sin(radians(abs(forn.latitude - fundao.latitude)) / 2), 2) +
-    cos(radians(fundao.latitude)) *
-    cos(radians(forn.latitude)) *
-    power(sin(radians(abs(forn.longitude - fundao.longitude)) / 2), 2)
-  )),
+  2 * 6371.0088 * asin(least(1.0, sqrt(
+    pow(sin(radians((mun.latitude) - (caso.latitude)) / 2), 2)
+    + cos(radians(caso.latitude)) * cos(radians(mun.latitude))
+    * pow(sin(radians((mun.longitude) - (caso.longitude)) / 2), 2)
+  ))),
   2
 ) as distancia_km
 ```
 
 - **Contagens nas fixtures**:
-  - `mart_concorrencia_municipio`: 10 linhas.
-  - `mart_fornecedores_proximos`: 2 fornecedores mapeados no raio definido.
-  - `mart_sobrevivencia_coorte`: 15 linhas de coortes.
-  - `mart_dinamica_mercado`: 20 linhas de evolução anual.
+  - `mart_concorrencia_municipio`: 11 linhas.
+  - `mart_fornecedores_proximos`: 3 fornecedores mapeados no raio definido.
+  - `mart_sobrevivencia_coorte`: 16 linhas de coortes.
+  - `mart_dinamica_mercado`: 21 linhas de evolução anual.
 
 ---
 
 ### 2.7 Auditoria e Observabilidade
 
 - **`models/audit/audit__bh_empresas_sql_original.sql`**: Materializado como `ephemeral`. É uma tradução estrita e literal do SQL do notebook Spark para DuckDB, servindo de gabarito contra o qual o modelo refatorado `bh_empresas` é testado via `EXCEPT ALL`.
-- **`dq_historico_testes`**: Tabela acumulativa mantida no banco `warehouse.duckdb`. A cada execução de `dbt test` ou `dbt build`, o hook `on-run-end` extrai o status de cada teste e insere uma linha com `invocation_id`, nome do nó, severidade, contagem de falhas e tempo de execução.
+- **`dq_historico_testes`**: Tabela acumulativa mantida no banco `warehouse.duckdb`. A cada execução de `dbt test` ou `dbt build`, o hook `on-run-end` extrai o status de cada teste e insere uma linha com `invocation_id`, nome do nó, tipo do teste, status, falhas, severidade, escopo e timestamp de execução (acumula no arquivo `.duckdb` entre chamadas de teste/build).
 - **`models/observability/dq_resumo_execucao.sql`**: View agregada que sumariza as taxas de sucesso e avisos por execução dbt.
 
 ---
 
 ## 3. Anatomia Completa dos Testes no dbt
 
-O dbt trata a qualidade de dados como um cidadão de primeira classe. Neste projeto, a estratégia de testes ([ADR-0009](../../docs/adr/0009-estrategia-testes.md) e [QUALIDADE_DADOS.md](../QUALIDADE_DADOS.md)) combina 189 data tests automatizados e 33 unit tests cobrindo desde regras de formatação até integridade financeira e geoespacial.
+O dbt trata a qualidade de dados como um cidadão de primeira classe. Neste projeto, a estratégia de testes ([ADR-0009](../../docs/adr/0009-estrategia-testes.md) e [QUALIDADE_DADOS.md](../QUALIDADE_DADOS.md)) combina 200 data tests automatizados e 35 unit tests cobrindo desde regras de formatação até integridade financeira e geoespacial.
 
 ### 3.1 Testes Genéricos e Validações de Domínio
 
@@ -304,7 +349,7 @@ Testes genéricos são asserções reutilizáveis parametrizadas diretamente nos
 #### 1. Testes Nativos do dbt Core
 - **`not_null`**: Garante ausência de nulos em colunas obrigatórias ou chaves surrogadas.
 - **`unique`**: Valida a unicidade da chave primária (ex.: `cnpj_completo`).
-- **`accepted_values`**: Assegura que os valores pertençam a uma lista fechada (ex.: situação cadastral ∈ `['1', '2', '3', '4', '8']`).
+- **`accepted_values`**: Assegura que os valores pertençam a uma lista fechada (no raw: strings `['01', '02', '03', '04', '08']`; no staging: inteiros `[1, 2, 3, 4, 8]` com `quote: false`).
 - **`relationships`**: Valida integridade referencial entre modelos (ex.: toda `sk_cnae` em `fct_estabelecimentos` deve existir em `dim_cnae`).
 
 #### 2. Testes Avançados de Pacotes (`dbt_utils` e `dbt_expectations`)
@@ -336,8 +381,8 @@ Exemplos reais extraídos de `transform/models/marts/core/_core__models.yml` e `
               store_failures: true
 ```
 
-#### 3. Testes Customizados de Domínio Brasileiro (`transform/macros/`)
-O projeto implementa testes customizados via macros Jinja que são invocados de forma declarativa nos YAMLs:
+#### 3. Testes Customizados de Domínio Brasileiro (`transform/tests/generic/`)
+O projeto implementa testes genéricos customizados em `transform/tests/generic/` que são invocados de forma declarativa nos YAMLs:
 - **`tamanho_exato(tamanho)`**: Garante que códigos textuais tenham tamanho fixo (ex.: CNPJ raiz com 8 dígitos, CNAE com 7 dígitos).
 - **`cnpj_dv_valido()`**: Aplica o algoritmo de Módulo 11 da Receita Federal sobre os 12 primeiros dígitos e valida se os dígitos verificadores (DV) batem com os 2 últimos dígitos.
 - **`data_nao_futura()`**: Garante que datas de abertura ou situação não sejam posteriores à data do extrato (`_data_referencia`).
@@ -414,9 +459,9 @@ Por padrão, qualquer linha retornada por um teste no dbt resulta em erro (`ERRO
   data_tests:
     - cnpj_dv_valido:
         config:
-          severity: warn              # Não quebra o pipeline; emite apenas WARNING
-          warn_if: "> 0"
-          error_if: "> 10"            # Quebra apenas se ultrapassar 10 ocorrências
+          severity: error             # Permite avaliar warn_if e error_if em conjunto
+          warn_if: "> 0"              # Emite WARNING se houver ao menos 1 violação
+          error_if: "> 10"            # Quebra o pipeline se ultrapassar 10 ocorrências
 ```
 
 > **A Armadilha de Configuração (`severity: warn` vs. `error_if`)**:
@@ -438,9 +483,9 @@ SELECT * FROM "warehouse"."main_dbt_test__audit"."bh_empresas_descartes_inner_jo
 
 ### 3.4 Unit Tests com `format: sql` sobre Fontes Externas (P8)
 
-Unit tests permitem testar a lógica pura de um modelo fornecendo dados de mock controlados antes que o modelo seja executado contra a base de dados real.
+Unit tests no dbt permitem testar a lógica interna de um modelo fornecendo dados de mock controlados (`given`/`expect`). No entanto, diferentemente de testes unitários tradicionais isolados de banco, **cada unit test do dbt envia consultas SQL reais à plataforma de dados (DuckDB)** para computar a transformação sobre as tabelas e CTEs simuladas, exigindo que a estrutura das relações pai exista no catálogo.
 
-No entanto, no ecossistema **dbt-duckdb**, ocorre uma particularidade técnica crítica com fontes `source()` que utilizam `external_location` (arquivos Parquet apontados por `read_parquet(...)`):
+No ecossistema **dbt-duckdb**, ocorre uma particularidade técnica crítica com fontes `source()` que utilizam `external_location` (arquivos Parquet apontados por `read_parquet(...)`):
 
 #### O Problema da Introspecção de Schema
 Ao declarar dados de mock usando dicionários YAML (`rows:` com pares chave-valor):

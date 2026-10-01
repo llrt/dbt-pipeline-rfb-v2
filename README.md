@@ -28,7 +28,7 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 | [docs/adr/](docs/adr/README.md) | decisões e justificativas |
 | [docs/ESCOPO.md](docs/ESCOPO.md) | original × adaptado × adição |
 | [docs/PLANO.md](docs/PLANO.md) | plano, equipe de agentes e modelos |
-| [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt (em construção) |
+| [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt |
 | [.specs/features/rfb-dbt-port/](.specs/features/rfb-dbt-port/spec.md) | spec (EARS) e tarefas |
 
 ## Uso rápido
@@ -43,6 +43,14 @@ make atualizar             # processa o mês mais recente publicado pela RFB, se
 make publicar              # opcional: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO)
 make docs                  # dbt docs
 ```
+
+### Primeira execução
+
+Ao clonar o repositório em um ambiente limpo, a primeira execução pode levar alguns minutos:
+- O `make setup` executa `uv sync --all-extras` (criação do `.venv` e resolução de pacotes Python) e `dbt deps` (download dos pacotes dbt).
+- Durante o teste de conexão S3 (`dbt debug --target s3`), o DuckDB baixa a extensão nativa pré-compilada `httpfs` para `~/.duckdb/extensions/`.
+
+Nas execuções seguintes, os caches locais (`.venv`, `transform/dbt_packages`, `~/.duckdb/extensions`) já estão populados e o pipeline de CI (`make ci`) completa em ~20–60 segundos.
 
 **Migração (ADR-0014):** `DATA_ROOT`→`RAIZ_DADOS`, `DATA_ROOT_LOCAL`→`RAIZ_DADOS_LOCAL`, `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; o diretório padrão `data/` agora é `dados/`. As variáveis antigas causam erro.
 
