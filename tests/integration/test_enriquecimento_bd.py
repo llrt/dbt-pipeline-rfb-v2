@@ -100,3 +100,31 @@ def test_area_de_mercado_sem_censo_tem_indicadores_nulos(consultar) -> None:
     )
     assert linhas, "o membro -1 (sem município no BD) não tem Censo"
     assert all(linha == (None, None, None, None) for linha in linhas)
+
+
+# incremento: enriquecimento_bd
+def test_area_de_mercado_vazio_de_fundao_para_cnae_de_serra(consultar) -> None:
+    """P23: 2071100 tem ativos em Serra (F) e Aracruz (P); Fundão e Vitória são vazios."""
+    linhas = consultar(
+        "select municipio, tem_estabelecimento_local, ativos, inativos, ativos_vizinhos, "
+        "ativos_regiao_metropolitana, ativos_por_mil_domicilios, ativos_por_km2 "
+        "from {mart_concorrencia_area_mercado} "
+        "where cnae_principal = '2071100' and nome_regiao_metropolitana = 'RM Grande Vitória' "
+        "order by 1"
+    )
+    assert linhas == [
+        ("Fundão", False, 0, 0, 2, 1, 0.0, 0.0),
+        ("Serra", True, 1, 0, 0, 1, pytest.approx(0.00625), pytest.approx(0.001808, abs=1e-6)),
+        ("Vitória", False, 0, 0, 1, 1, 0.0, 0.0),
+    ]
+
+
+# incremento: enriquecimento_bd
+def test_area_de_mercado_so_ativos_criam_vazio(consultar) -> None:
+    """Vizinho só com inativo (Linhares × 4679601) não é vazio; Aracruz × 4711302 é."""
+    linhas = consultar(
+        "select municipio, cnae_principal from {mart_concorrencia_area_mercado} "
+        "where not tem_estabelecimento_local and municipio in ('Linhares', 'Aracruz')"
+    )
+    assert ("Aracruz", "4711302") in linhas
+    assert ("Linhares", "4679601") not in linhas

@@ -1,9 +1,14 @@
--- incremento: enriquecimento_bd (ADR-0015, ENR-03). Concorrência na área de mercado. Grão = CNAE
--- principal × município (os mesmos pares de `mart_concorrencia_municipio`: município sem o CNAE não
--- aparece). Para cada par: ativos/inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e
--- na região metropolitana (município incluído; NULL fora de região metropolitana). Indicadores por
--- mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos);
--- NULL quando falta o denominador no município ou em qualquer vizinho (nunca zero, nunca parcial).
+-- incremento: enriquecimento_bd (ADR-0015, ENR-03; P23/AD-028). Concorrência na área de mercado.
+-- Grão = CNAE principal × município em que o município tem ao menos um estabelecimento do CNAE
+-- (os pares de `mart_concorrencia_municipio`) OU algum vizinho (`bridge_municipio_vizinho`) ou a
+-- região metropolitana tem ao menos um ATIVO do CNAE: o segundo caso são os vazios de mercado, com
+-- ativos = inativos = 0 no município e `tem_estabelecimento_local` = false. Para cada par:
+-- ativos/inativos no município, nos vizinhos e na região metropolitana (município incluído; NULL
+-- fora de região metropolitana). Indicadores por mil domicílios e por km² (Censo 2022) do município
+-- (0 nos vazios com denominador, NULL sem denominador) e da área de mercado (município + vizinhos);
+-- Vazios só para CNAE e município conhecidos (`sk_cnae`/`sk_municipio` <> -1); os pares locais com -1
+-- ficam como antes.
+-- NULL quando falta o denominador no município ou em qualquer vizinho (nunca parcial).
 with base as (
   select * from {{ ref('mart_concorrencia_municipio') }}
 ),
@@ -11,30 +16,20 @@ with base as (
 municipios as (
   select
     sk_municipio,
+    nome_municipio,
+    sigla_uf,
     nome_regiao_metropolitana,
     domicilios_2022,
     area_km2
   from {{ ref('dim_municipio') }}
 ),
 
-vizinhos as (
-  select
-    base.sk_cnae,
-    base.sk_municipio,
-    count(*) as qtd_vizinhos,
-    count(viz.domicilios_2022) as vizinhos_com_censo,
-    sum(coalesce(vizb.ativos, 0))::bigint as ativos_vizinhos,
-    sum(coalesce(vizb.inativos, 0))::bigint as inativos_vizinhos,
-    sum(viz.domicilios_2022) as domicilios_vizinhos,
-    sum(viz.area_km2) as area_km2_vizinhos
+cnaes as (
+  select distinct
+    sk_cnae,
+    cnae_principal,
+    desc_cnae_principal
   from base
-  inner join {{ ref('bridge_municipio_vizinho') }} as bri
-    on base.sk_municipio = bri.sk_municipio
-  inner join municipios as viz
-    on bri.sk_municipio_vizinho = viz.sk_municipio
-  left join base as vizb
-    on bri.sk_municipio_vizinho = vizb.sk_municipio and base.sk_cnae = vizb.sk_cnae
-  group by base.sk_cnae, base.sk_municipio
 ),
 
 regioes as (
@@ -50,19 +45,65 @@ regioes as (
   group by base.sk_cnae, mun.nome_regiao_metropolitana
 ),
 
+-- pares candidatos: os locais (base), os vizinhos de quem tem ativo do CNAE e os municípios das
+-- regiões metropolitanas com ativo do CNAE; `union` deduplica e os vazios entram aqui
+pares as (
+  select
+    sk_cnae,
+    sk_municipio
+  from base
+  union
+  select
+    bas.sk_cnae,
+    bri.sk_municipio
+  from base as bas
+  inner join {{ ref('bridge_municipio_vizinho') }} as bri
+    on bas.sk_municipio = bri.sk_municipio_vizinho
+  where bas.ativos > 0 and bas.sk_cnae <> -1 and bri.sk_municipio <> -1
+  union
+  select
+    reg.sk_cnae,
+    mun.sk_municipio
+  from regioes as reg
+  inner join municipios as mun
+    on reg.nome_regiao_metropolitana = mun.nome_regiao_metropolitana
+  where reg.ativos_regiao_metropolitana > 0 and reg.sk_cnae <> -1 and mun.sk_municipio <> -1
+),
+
+vizinhos as (
+  select
+    par.sk_cnae,
+    par.sk_municipio,
+    count(*) as qtd_vizinhos,
+    count(viz.domicilios_2022) as vizinhos_com_censo,
+    sum(coalesce(vizb.ativos, 0))::bigint as ativos_vizinhos,
+    sum(coalesce(vizb.inativos, 0))::bigint as inativos_vizinhos,
+    sum(viz.domicilios_2022) as domicilios_vizinhos,
+    sum(viz.area_km2) as area_km2_vizinhos
+  from pares as par
+  inner join {{ ref('bridge_municipio_vizinho') }} as bri
+    on par.sk_municipio = bri.sk_municipio
+  inner join municipios as viz
+    on bri.sk_municipio_vizinho = viz.sk_municipio
+  left join base as vizb
+    on bri.sk_municipio_vizinho = vizb.sk_municipio and par.sk_cnae = vizb.sk_cnae
+  group by par.sk_cnae, par.sk_municipio
+),
+
 area as (
   select
-    base.sk_cnae,
-    base.cnae_principal,
-    base.desc_cnae_principal,
-    base.sk_municipio,
-    base.municipio,
-    base.uf,
+    par.sk_cnae,
+    cnae.cnae_principal,
+    cnae.desc_cnae_principal,
+    par.sk_municipio,
+    mun.nome_municipio as municipio,
+    mun.sigla_uf as uf,
     mun.nome_regiao_metropolitana,
     mun.domicilios_2022,
     mun.area_km2,
-    base.ativos,
-    base.inativos,
+    loc.sk_cnae is not null as tem_estabelecimento_local,
+    coalesce(loc.ativos, 0) as ativos,
+    coalesce(loc.inativos, 0) as inativos,
     coalesce(viz.qtd_vizinhos, 0) as qtd_vizinhos,
     coalesce(viz.ativos_vizinhos, 0) as ativos_vizinhos,
     coalesce(viz.inativos_vizinhos, 0) as inativos_vizinhos,
@@ -77,13 +118,17 @@ area as (
       when coalesce(viz.qtd_vizinhos, 0) = coalesce(viz.vizinhos_com_censo, 0)
         then mun.area_km2 + coalesce(viz.area_km2_vizinhos, 0)
     end as area_km2_area
-  from base
+  from pares as par
+  inner join cnaes as cnae
+    on par.sk_cnae = cnae.sk_cnae
   inner join municipios as mun
-    on base.sk_municipio = mun.sk_municipio
+    on par.sk_municipio = mun.sk_municipio
+  left join base as loc
+    on par.sk_cnae = loc.sk_cnae and par.sk_municipio = loc.sk_municipio
   left join vizinhos as viz
-    on base.sk_cnae = viz.sk_cnae and base.sk_municipio = viz.sk_municipio
+    on par.sk_cnae = viz.sk_cnae and par.sk_municipio = viz.sk_municipio
   left join regioes as reg
-    on base.sk_cnae = reg.sk_cnae and mun.nome_regiao_metropolitana = reg.nome_regiao_metropolitana
+    on par.sk_cnae = reg.sk_cnae and mun.nome_regiao_metropolitana = reg.nome_regiao_metropolitana
 )
 
 select
@@ -96,6 +141,7 @@ select
   nome_regiao_metropolitana,
   domicilios_2022,
   area_km2,
+  tem_estabelecimento_local,
   ativos,
   inativos,
   qtd_vizinhos,
