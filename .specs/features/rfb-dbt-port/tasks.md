@@ -776,7 +776,7 @@ T30 → T31
 
 **Done when**:
 - [ ] Pipeline real conclui sem testes `error`; warns documentados
-- [ ] `make ci` < 120 s
+- [ ] `make ci` < 180 s (AD-026)
 - [ ] Gate build passa
 
 **Tests**: integration
