@@ -29,5 +29,6 @@ def test_catalogo_versionado_bate_com_o_manifesto() -> None:
     manifesto = json.loads(MANIFESTO.read_text(encoding="utf-8"))
     esperado = gerar_qualidade_dados.gerar(manifesto)
     assert CATALOGO.read_text(encoding="utf-8") == esperado, (
-        "docs/QUALIDADE_DADOS.md desatualizado: rode `uv run python scripts/gerar_qualidade_dados.py`"
+        "docs/QUALIDADE_DADOS.md desatualizado: rode "
+        "`uv run python scripts/gerar_qualidade_dados.py`"
     )

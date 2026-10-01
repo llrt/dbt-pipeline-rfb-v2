@@ -253,9 +253,9 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
     linhas += [
         "",
         '> **Como ler:** "ativa" é a situação cadastral da Receita Federal, não operação efetiva. '
-        "Empresas sem atividade continuam ATIVAS até serem declaradas INAPTAS ou baixadas, então as "
-        "taxas de sobrevivência saem mais altas que as de fontes que medem operação (ex.: IBGE, "
-        "Demografia das Empresas).",
+        "Empresas sem atividade continuam ATIVAS até serem declaradas INAPTAS ou baixadas, "
+        "então as taxas de sobrevivência saem mais altas que as de fontes que medem operação "
+        "(ex.: IBGE, Demografia das Empresas).",
         "",
         "### Dinâmica de mercado (aberturas e encerramentos por ano)",
         "",
