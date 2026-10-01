@@ -1,0 +1,6 @@
+version: 2
+
+macros:
+  - name: haversine_km
+    description: "Distância haversine em km entre dois pontos em graus decimais (raio 6371.0088 km)."
+    meta: { escopo: adicao }

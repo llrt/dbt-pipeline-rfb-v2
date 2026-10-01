@@ -1,4 +1,4 @@
-"""Fixture `consultar`: consulta os marts Parquet de `RAIZ_DADOS/gold` (testes de integração novos)."""
+"""Fixture `consultar`: consulta os marts Parquet de `RAIZ_DADOS/gold` (testes novos)."""
 
 from __future__ import annotations
 

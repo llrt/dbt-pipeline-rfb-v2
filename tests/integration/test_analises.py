@@ -16,7 +16,8 @@ pytestmark = pytest.mark.skipif(
 
 def test_concorrencia_fundao_tintas_1_ativo_4_inativos_0_5_por_10k(consultar) -> None:
     (linha,) = consultar(
-        "select ativos, inativos, ativos_por_10k_hab, ranking_uf from {mart_concorrencia_municipio} "
+        "select ativos, inativos, ativos_por_10k_hab, ranking_uf "
+        "from {mart_concorrencia_municipio} "
         "where cnae_principal = '4741500' and municipio = 'Fundão'"
     )
     assert linha[:3] == (1, 4, 0.5)
@@ -42,8 +43,9 @@ def test_concorrencia_ranking_na_uf_para_tintas(consultar) -> None:
 
 def test_sobrevivencia_tintas_es_6_6_5_4_4_2(consultar) -> None:
     (linha,) = consultar(
-        "select sum(elegiveis_1a), sum(sobreviventes_1a), sum(elegiveis_3a), sum(sobreviventes_3a), "
-        "sum(elegiveis_5a), sum(sobreviventes_5a) from {mart_sobrevivencia_coorte} "
+        "select sum(elegiveis_1a), sum(sobreviventes_1a), sum(elegiveis_3a), "
+        "sum(sobreviventes_3a), sum(elegiveis_5a), sum(sobreviventes_5a) "
+        "from {mart_sobrevivencia_coorte} "
         "where cnae_principal = '4741500' and uf = 'ES'"
     )
     assert linha == (6, 6, 5, 4, 4, 2)
@@ -65,3 +67,13 @@ def test_dinamica_fundao_tintas_aberturas_e_encerramentos_por_ano(consultar) -> 
         (2023, 0, 1, -1),
         (2024, 0, 1, -1),
     ]
+
+
+def test_fornecedores_proximos_so_f_principal_e_h_secundario(consultar) -> None:
+    linhas = consultar(
+        "select municipio, via, distancia_km from {mart_fornecedores_proximos} "
+        "order by distancia_km"
+    )
+    assert [(m, v) for m, v, _ in linhas] == [("Serra", "principal"), ("Linhares", "secundario")]
+    assert linhas[0][2] == pytest.approx(18.66, abs=0.5)
+    assert linhas[1][2] == pytest.approx(73.68, abs=0.5)
