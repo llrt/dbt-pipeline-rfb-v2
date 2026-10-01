@@ -24,6 +24,12 @@ from pathlib import Path
 MES_REFERENCIA = "2026-09"
 DATA_REFERENCIA_TAG = "D60912"  # último dígito do ano (2026 -> 6) + 0912
 ZIP_DATE_TIME = (2026, 9, 12, 0, 0, 0)
+
+# Segundo mês (spec §"Segundo mês"): idêntico a 2026-09, sem a linha O e com nomes internos D60810.
+MES_ANTERIOR = "2026-08"
+DATA_REFERENCIA_TAG_ANTERIOR = "D60810"
+ZIP_DATE_TIME_ANTERIOR = (2026, 8, 10, 0, 0, 0)
+ID_ESTABELECIMENTO_AUSENTE_NO_ANTERIOR = "O"
 GZIP_MTIME = 0
 
 CODIFICACAO_RFB = "latin-1"
@@ -67,21 +73,29 @@ def _escrever_csv_rfb(colunas: list[str], linhas: list[list[str]]) -> bytes:
     return memoria_intermediaria.getvalue().encode(CODIFICACAO_RFB)
 
 
-def _escrever_zip(destino: Path, nome_interno: str, conteudo: bytes) -> None:
+def _escrever_zip(
+    destino: Path, nome_interno: str, conteudo: bytes, date_time: tuple = ZIP_DATE_TIME
+) -> None:
     destino.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(destino, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        info = zipfile.ZipInfo(nome_interno, date_time=ZIP_DATE_TIME)
+        info = zipfile.ZipInfo(nome_interno, date_time=date_time)
         info.compress_type = zipfile.ZIP_DEFLATED
         info.external_attr = 0o600 << 16
         zf.writestr(info, conteudo)
 
 
 def gerar_zip_rfb(
-    saida_dir: Path, nome_zip: str, nome_interno: str, colunas: list[str], linhas: list[list[str]]
+    saida_dir: Path,
+    nome_zip: str,
+    nome_interno: str,
+    colunas: list[str],
+    linhas: list[list[str]],
+    mes: str = MES_REFERENCIA,
+    date_time: tuple = ZIP_DATE_TIME,
 ) -> Path:
     conteudo = _escrever_csv_rfb(colunas, linhas)
-    destino = saida_dir / "rfb" / MES_REFERENCIA / nome_zip
-    _escrever_zip(destino, nome_interno, conteudo)
+    destino = saida_dir / "rfb" / mes / nome_zip
+    _escrever_zip(destino, nome_interno, conteudo, date_time)
     return destino
 
 
@@ -903,9 +917,11 @@ COLUNAS_SIMPLES = [
 COLUNAS_DOMINIO = ["codigo", "descricao"]
 
 
-def construir_linhas_estabelecimentos() -> list[list[str]]:
+def construir_linhas_estabelecimentos(mes: str = MES_REFERENCIA) -> list[list[str]]:
     linhas = []
     for est in _ESTABELECIMENTOS_RAW:
+        if mes == MES_ANTERIOR and est["id"] == ID_ESTABELECIMENTO_AUSENTE_NO_ANTERIOR:
+            continue
         dv_correto = calcular_dv_cnpj(est["raiz"] + est["ordem"])
         dv = dv_invalido(dv_correto) if est["id"] == "L" else dv_correto
         dat_situacao = est["dat_situacao"]
@@ -974,73 +990,51 @@ def construir_linhas_simples() -> list[list[str]]:
     return linhas
 
 
-def gerar_fixtures(saida_dir: Path) -> None:
+def _gerar_rfb_mes(saida_dir: Path, mes: str, tag: str, date_time: tuple) -> None:
+    def zip_rfb(nome_zip: str, nome_interno: str, colunas: list[str], linhas: list) -> None:
+        gerar_zip_rfb(saida_dir, nome_zip, nome_interno, colunas, linhas, mes, date_time)
+
     # Domínios RFB
-    gerar_zip_rfb(
-        saida_dir,
-        "Cnaes.zip",
-        f"F.K03200$Z.{DATA_REFERENCIA_TAG}.CNAECSV",
-        COLUNAS_DOMINIO,
-        [list(row) for row in DOMINIO_CNAES],
-    )
-    gerar_zip_rfb(
-        saida_dir,
-        "Municipios.zip",
-        f"F.K03200$Z.{DATA_REFERENCIA_TAG}.MUNICCSV",
-        COLUNAS_DOMINIO,
-        [list(row) for row in DOMINIO_MUNICIPIOS],
-    )
-    gerar_zip_rfb(
-        saida_dir,
-        "Naturezas.zip",
-        f"F.K03200$Z.{DATA_REFERENCIA_TAG}.NATJUCSV",
-        COLUNAS_DOMINIO,
-        [list(row) for row in DOMINIO_NATUREZAS],
-    )
-    gerar_zip_rfb(
-        saida_dir,
-        "Motivos.zip",
-        f"F.K03200$Z.{DATA_REFERENCIA_TAG}.MOTICSV",
-        COLUNAS_DOMINIO,
-        [list(row) for row in DOMINIO_MOTIVOS],
-    )
-    gerar_zip_rfb(
-        saida_dir,
-        "Paises.zip",
-        f"F.K03200$Z.{DATA_REFERENCIA_TAG}.PAISCSV",
-        COLUNAS_DOMINIO,
-        [list(row) for row in DOMINIO_PAISES],
-    )
-    gerar_zip_rfb(
-        saida_dir,
-        "Qualificacoes.zip",
-        f"F.K03200$Z.{DATA_REFERENCIA_TAG}.QUALSCSV",
-        COLUNAS_DOMINIO,
-        [list(row) for row in DOMINIO_QUALIFICACOES],
-    )
+    dominios = [
+        ("Cnaes.zip", "CNAECSV", DOMINIO_CNAES),
+        ("Municipios.zip", "MUNICCSV", DOMINIO_MUNICIPIOS),
+        ("Naturezas.zip", "NATJUCSV", DOMINIO_NATUREZAS),
+        ("Motivos.zip", "MOTICSV", DOMINIO_MOTIVOS),
+        ("Paises.zip", "PAISCSV", DOMINIO_PAISES),
+        ("Qualificacoes.zip", "QUALSCSV", DOMINIO_QUALIFICACOES),
+    ]
+    for nome_zip, sufixo, dominio in dominios:
+        zip_rfb(
+            nome_zip,
+            f"F.K03200$Z.{tag}.{sufixo}",
+            COLUNAS_DOMINIO,
+            [list(row) for row in dominio],
+        )
 
     # Empresas / estabelecimentos / simples
-    gerar_zip_rfb(
-        saida_dir,
+    zip_rfb(
         "Empresas0.zip",
-        f"K3241.K03200Y0.{DATA_REFERENCIA_TAG}.EMPRECSV",
+        f"K3241.K03200Y0.{tag}.EMPRECSV",
         COLUNAS_EMPRESAS,
         construir_linhas_empresas(),
     )
-    gerar_zip_rfb(
-        saida_dir,
+    zip_rfb(
         "Estabelecimentos0.zip",
-        f"K3241.K03200Y0.{DATA_REFERENCIA_TAG}.ESTABELE",
+        f"K3241.K03200Y0.{tag}.ESTABELE",
         COLUNAS_ESTABELECIMENTOS,
-        construir_linhas_estabelecimentos(),
+        construir_linhas_estabelecimentos(mes),
     )
-    gerar_zip_rfb(
-        saida_dir,
+    zip_rfb(
         "Simples.zip",
-        f"F.K03200$W.SIMPLES.CSV.{DATA_REFERENCIA_TAG}",
+        f"F.K03200$W.SIMPLES.CSV.{tag}",
         COLUNAS_SIMPLES,
         construir_linhas_simples(),
     )
+
+
+def gerar_fixtures(saida_dir: Path) -> None:
+    _gerar_rfb_mes(saida_dir, MES_REFERENCIA, DATA_REFERENCIA_TAG, ZIP_DATE_TIME)
+    _gerar_rfb_mes(saida_dir, MES_ANTERIOR, DATA_REFERENCIA_TAG_ANTERIOR, ZIP_DATE_TIME_ANTERIOR)
 
     # Base dos Dados
     gerar_municipio_bd(saida_dir)

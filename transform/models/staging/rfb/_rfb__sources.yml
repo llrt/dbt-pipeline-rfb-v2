@@ -29,6 +29,7 @@ sources:
                 combination_of_columns: [cnpj_raiz, _mes_referencia]
               config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
+          # FK natureza_jur -> naturezas: teste singular `relacionamentos_fontes_por_mes` (por mês, R1-22).
           - name: cnpj_raiz
             description: 8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).
             data_tests:
@@ -38,12 +39,6 @@ sources:
             description: Razão social (nome oficial/jurídico) da empresa.
           - name: natureza_jur
             description: Código da natureza jurídica (FK para `naturezas.codigo`).
-            data_tests:
-              - relationships:
-                  arguments:
-                    to: source('rfb', 'naturezas')
-                    field: codigo
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: qualificacao_resp
             description: Código de qualificação do responsável pela empresa perante a RFB.
           - name: capital_soc
@@ -127,12 +122,6 @@ sources:
             description: Data de início de atividade do estabelecimento (`YYYYMMDD`).
           - name: cnae_principal
             description: Subclasse CNAE (7 dígitos) da atividade econômica principal.
-            data_tests:
-              - relationships:
-                  arguments:
-                    to: source('rfb', 'cnaes')
-                    field: codigo
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: cnaes_secundarios
             description: Subclasses CNAE secundárias, separadas por vírgula; pode ser vazio.
           - name: tip_logradouro
@@ -151,12 +140,6 @@ sources:
             description: UF do endereço (sigla), conforme cadastro RFB (não usar como UF canônica; ver `stg_bd__municipios`).
           - name: municipio
             description: Código do município RFB (4 dígitos; FK para `municipios.codigo`).
-            data_tests:
-              - relationships:
-                  arguments:
-                    to: source('rfb', 'municipios')
-                    field: codigo
-                  config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: ddd1
             description: DDD do telefone 1. Descartado no staging (ADR-0008, minimização de dados pessoais).
           - name: tel1

@@ -24,6 +24,7 @@ ci: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 ci:
 	rm -rf .tmp/ci
 	uv run python scripts/gerar_fixtures.py --saida .tmp/ci/fixtures
+	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-08 --permitir-incompleto
 	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
 	mkdir -p $(RAIZ_DADOS)/gold
 	cd transform && uv run dbt deps && uv run dbt build --target ci

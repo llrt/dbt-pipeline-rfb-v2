@@ -8,15 +8,14 @@
 -- Reproduz o check do notebook 2.1.2 (qualidade dos domínios): CNAEs RFB sem par na Base dos
 -- Dados. São casos pontuais e esperados (CNAEs "raiz" que a RFB manteve na lista, ou
 -- descontinuados na versão atual do IBGE, ex. 3511500) -- por isso severidade warn, não error.
--- O raw retém múltiplos meses (atualização mensal): a checagem considera só o mês mais recente.
+-- O raw retém múltiplos meses (atualização mensal): a checagem considera só o mês selecionado (`filtro_mes_referencia`:
+-- var `mes_referencia` ou o mês mais recente).
 with cnaes_rfb as (
   select
     codigo,
     descricao
   from {{ source('rfb', 'cnaes') }}
-  where _mes_referencia = (
-    select max(mais_recente._mes_referencia) from {{ source('rfb', 'cnaes') }} as mais_recente
-  )
+  where {{ filtro_mes_referencia(source('rfb', 'cnaes')) }}
 )
 
 select
