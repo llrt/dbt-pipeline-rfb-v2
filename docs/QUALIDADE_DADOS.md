@@ -48,7 +48,7 @@
 | `cnaes.codigo` | `not_null` | error | original | 2.1.1 |
 | `empresas` | R1-21: `--vars 'mes_referencia: 2026-10'` sem partição geraria staging vazio e todos os testes passariam. | error | adicao | — |
 | `empresas` | R1-22: os checks `relationships` do original (natureza, CNAE principal e município de empresas/estabelecimentos -> domínios) comparados DENTRO de cada `_mes_referencia`. | error | original | 2.2 / 2.3 |
-| `empresas` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_raiz", "_mes_referencia"]} | warn | original | 2.2 |
+| `empresas` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_raiz", "_mes_referencia"]} | error | original | 2.2 |
 | `empresas._data_referencia` | `not_null` | error | adicao | — |
 | `empresas.cnpj_raiz` | `not_null` | error | original | 2.2 |
 | `empresas.porte` | `accepted_values` {"values": ["00", "01", "03", "05"]} | error | original | 2.2 |
@@ -126,12 +126,12 @@
 | `stg_rfb__cnaes.codigo` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `unique` | error | adicao | — |
-| `stg_rfb__empresas.capital_social` | `taxa_conversao_tipada` {"coluna_raw": "capital_soc", "entidade": "empresas"} | warn | adicao | — |
+| `stg_rfb__empresas.capital_social` | `taxa_conversao_tipada` {"coluna_raw": "capital_soc", "entidade": "empresas", "uma_linha_por_raiz": true} | warn | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `not_null` | error | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `tamanho_exato` {"tamanho": 8} | error | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `unique` | error | adicao | — |
 | `stg_rfb__empresas.porte_codigo` | `accepted_values` {"values": [0, 1, 3, 5], "quote": false} | error | adicao | — |
-| `stg_rfb__empresas.porte_codigo` | `taxa_conversao_tipada` {"coluna_raw": "porte", "entidade": "empresas"} | warn | adicao | — |
+| `stg_rfb__empresas.porte_codigo` | `taxa_conversao_tipada` {"coluna_raw": "porte", "entidade": "empresas", "uma_linha_por_raiz": true} | warn | adicao | — |
 | `stg_rfb__estabelecimentos` | Staging AC 14 / ADR-0008: nenhum modelo de staging, intermediate ou marts expõe dados de contato. | error | adicao | — |
 | `stg_rfb__estabelecimentos` | `expression_is_true` {"expression": "dat_situacao is null or dat_inicio_atividade is null or dat_situacao >= dat_inicio_atividade"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos._data_referencia` | `not_null` | error | adicao | — |
@@ -383,6 +383,7 @@
 | `stg_bd__regioes_metropolitanas` | `test_stg_bd__regioes_metropolitanas_uma_por_municipio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_e_texto_vazio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior` | adicao |
+| `stg_rfb__empresas` | `test_stg_rfb__empresas_desempate_total_da_raiz_duplicada` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_filtra_mes_mais_recente` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_raiz_duplicada_vira_uma_linha` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_tipagem` | adicao |

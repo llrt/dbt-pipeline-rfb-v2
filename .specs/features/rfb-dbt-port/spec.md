@@ -97,9 +97,9 @@ Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão
 | O | 11111111/0002 | (filial de A) | — | — | 5699 | 4741500 | 02 | 20240115 | — | matriz_filial 2; nome_fantasia multilinha |
 | P | 17171717/0001 | TINTAS ARACRUZ IND11144477735 | 2062 | 03 | 5611 | 2071100 | 02 | 20180301 | — | **emenda R3-04**: fabricante ativo na microrregião de Fundão (Linhares), fora do município; **emenda R4-01**: CPF sintético colado ao nome → `mart_fornecedores_proximos.nome` = `TINTAS ARACRUZ IND***.***.***-**` |
 
-Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
+Empresas: as 15 raízes acima (O compartilha a raiz de A), mais uma linha "fantasma" que repete a raiz de B sem razão social, natureza `0000`, porte/qualificação `00` e capital `0,00` (**emenda R4-05**: o arquivo tem 16 linhas e 15 raízes; o staging e a paridade ficam com a linha boa e nenhuma resposta muda). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
 
-**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 15 estabelecimentos e 15 empresas. As respostas de 2026-09 acima não mudam.
+**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 15 estabelecimentos e 15 empresas (raízes; 16 linhas com a "fantasma" de B). As respostas de 2026-09 acima não mudam.
 
 ---
 

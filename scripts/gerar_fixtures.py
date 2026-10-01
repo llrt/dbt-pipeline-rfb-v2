@@ -1087,8 +1087,16 @@ def construir_linhas_estabelecimentos(mes: str = MES_REFERENCIA) -> list[list[st
     return linhas
 
 
+# Linha "fantasma" (R4-05, Fix 7): repete a raiz de B sem razão social, natureza 0000 e porte,
+# qualificação e capital zerados, como a raiz 08314885 do extrato real de 2026-09 (B8). O staging
+# e a paridade ficam com uma linha por raiz (`empresa_preferida_por_raiz`); sem a dedup, o
+# estabelecimento B sairia duplicado. Vem antes da linha boa: a escolha não depende da ordem.
+RAIZ_EMPRESA_FANTASMA = "22222222"
+LINHA_EMPRESA_FANTASMA = [RAIZ_EMPRESA_FANTASMA, "", "0000", "00", "0,00", "00", ""]
+
+
 def construir_linhas_empresas() -> list[list[str]]:
-    linhas = []
+    linhas = [list(LINHA_EMPRESA_FANTASMA)]
     for raiz, (razao_social, natureza_jur, porte, capital_soc) in _EMPRESA_POR_RAIZ.items():
         linhas.append([raiz, razao_social, natureza_jur, "49", capital_soc, porte, ""])
     return linhas

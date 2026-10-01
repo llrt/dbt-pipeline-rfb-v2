@@ -26,7 +26,8 @@ unit_tests:
         rows: |
           select
               '1' as cnpj_raiz, ' AGRO UM ' as razao_social, '2062' as natureza_jur,
-              '01' as porte, '0,00' as capital_soc, '2026-09' as _mes_referencia
+              '01' as porte, '0,00' as capital_soc, '49' as qualificacao_resp,
+              null::varchar as ente_fed_resp, '2026-09' as _mes_referencia
       - input: source('rfb', 'estabelecimentos')
         format: sql
         rows: |
@@ -97,7 +98,8 @@ unit_tests:
         rows: |
           select
               '1' as cnpj_raiz, 'AGRO UM' as razao_social, '2062' as natureza_jur,
-              '01' as porte, '0,00' as capital_soc, '2026-09' as _mes_referencia
+              '01' as porte, '0,00' as capital_soc, '49' as qualificacao_resp,
+              null::varchar as ente_fed_resp, '2026-09' as _mes_referencia
       - input: source('rfb', 'estabelecimentos')
         format: sql
         rows: |

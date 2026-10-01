@@ -7,17 +7,28 @@
     Retorna uma linha (aviso, com `severity: warn`) acima de `limiar_aviso` (padrão 0,1%) e levanta
     erro (`error()` do DuckDB, como `cnpj_dv_valido`) acima de `limiar_erro` (padrão 5%), porque
     `error_if` do dbt só aceita limites absolutos. Pressupõe staging 1:1 com a fonte (sem filtro de
-    linhas além do mês). `limiar_erro=none` desliga o erro. -#}
+    linhas além do mês); `uma_linha_por_raiz=true` aplica ao raw a mesma dedup de raiz do staging
+    das Empresas (`empresa_preferida_por_raiz`, R4-05), senão a linha "fantasma" descartada contaria
+    como perda. `limiar_erro=none` desliga o erro. -#}
 {% test taxa_conversao_tipada(
-  model, column_name, coluna_raw, entidade, grupo='rfb', sentinelas=[], limiar_aviso=0.001, limiar_erro=0.05
+  model, column_name, coluna_raw, entidade, grupo='rfb', sentinelas=[], limiar_aviso=0.001, limiar_erro=0.05,
+  uma_linha_por_raiz=false
 ) %}
 {%- set fonte = source(grupo, entidade) -%}
-with raw as (
-  select count(*) as n
+with fonte_mes as (
+  select {{ coluna_raw }}
   from {{ fonte }}
+  where {{ filtro_mes_referencia(fonte) }}
+  {%- if uma_linha_por_raiz %}
+  qualify {{ empresa_preferida_por_raiz() }}
+  {%- endif %}
+),
+
+raw as (
+  select count(*) as n
+  from fonte_mes
   where
-    {{ filtro_mes_referencia(fonte) }}
-    and {{ texto_ou_nulo(coluna_raw) }} is not null
+    {{ texto_ou_nulo(coluna_raw) }} is not null
     {%- if sentinelas %}
     and trim({{ coluna_raw }}) not in ({{ sentinelas | map('tojson') | join(', ') | replace('"', "'") }})
     {%- endif %}
