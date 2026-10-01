@@ -113,7 +113,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. WHEN `rfb ingerir` runs without `--mes` THEN the system SHALL select the most recent `YYYY-MM` folder listed by the WebDAV share.
+1. WHEN `rfb ingerir` runs without `--mes` THEN the system SHALL select the most recent **complete** `YYYY-MM` folder listed by the WebDAV share. *(Emenda R4-07: o código e o UPD AC 3 usam o mais recente completo.)*
 2. WHEN `rfb ingerir --mes 2026-09` runs THEN the system SHALL write one Parquet dataset per entity under `raw/rfb/<entidade>/mes_referencia=2026-09/` for `empresas, estabelecimentos, simples, cnaes, municipios, naturezas, motivos, paises, qualificacoes`.
 3. The system SHALL store every RFB data column as VARCHAR using the column names listed in ARCHITECTURE.md §4.2, plus `_arquivo_origem`, `_mes_referencia`, `_data_referencia`, `_ingerido_em`.
 4. WHEN a field contains `\"` before the closing quote (row K) THEN the system SHALL parse it as a value ending in `\` without rejecting the row.
@@ -197,15 +197,15 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. The system SHALL build `fct_estabelecimentos` with one row per `cnpj_completo` (fixtures: 15 rows) and enforced contract.
+1. The system SHALL build `fct_estabelecimentos` with one row per `cnpj_completo` (fixtures: 16 rows) and enforced contract. *(Emenda R4-07: a fixture P, do F3b, elevou de 15 para 16.)*
 2. WHEN a estabelecimento has no matching dimension member THEN the fact SHALL reference the "não informado" member (key `-1`) instead of dropping the row.
 3. The system SHALL build `dim_municipio` with IBGE id, RFB code, name, UF, micro/meso, região imediata/intermediária, latitude, longitude, população do último ano (Fundão → 20000) and PIB.
 4. The system SHALL build `dim_cnae` with subclass, classe, grupo, divisão, seção and descriptions.
 5. The system SHALL build `bridge_estabelecimento_cnae_secundario` with one row per (cnpj_completo, CNAE secundário) (row H → 2 rows).
-6. The system SHALL flag `opcao_mei` on the fact (rows A and C → true).
+6. The system SHALL flag `opcao_mei` on the fact (rows A, C and O → true; O is a branch of A and inherits the root's option). *(Emenda R4-07.)*
 7. The system SHALL test `relationships` from every fact foreign key to its dimension with severity error.
 
-**Independent Test**: fixtures → fact 15 rows; K, L, M present with key -1 on the missing dimension.
+**Independent Test**: fixtures → fact 16 rows; K, L, M present with key -1 on the missing dimension.
 
 ---
 
@@ -262,7 +262,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. WHEN `make ci` runs THEN the system SHALL generate fixtures, ingest them into a temporary `RAIZ_DADOS`, run `dbt build --target ci` and the integration tests, finishing in under 120 s on the reference machine.
+1. WHEN `make ci` runs THEN the system SHALL generate fixtures, ingest them into a temporary `RAIZ_DADOS`, run `dbt build --target ci` and the integration tests, finishing in under 180 s on the reference machine. *(Emenda AD-026/R4-07: era 120 s; o CI passou a rodar unit + lint + freshness + integração.)*
 2. WHEN `make pipeline MES=2026-09` runs THEN the system SHALL execute ingest → source freshness → dbt build → reports and exit non-zero if any error-severity test fails.
 3. WHERE `RAIZ_DADOS` starts with `s3://` the system SHALL read/write through DuckDB httpfs using `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3` from the environment.
 4. IF `RAIZ_DADOS` is `s3://` and any of those variables is missing THEN the system SHALL exit non-zero naming the missing variables.

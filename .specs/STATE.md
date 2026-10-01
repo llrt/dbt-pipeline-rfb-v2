@@ -32,6 +32,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-024 | Triagem da RBP: corrigir os 43 erros do guia (FBPg, Gemini 3.8 Flash — nível de origem, AD-021) e os gaps do projeto RBP-01..11, 13, 14 (FBPa, Sonnet médio, após o B10); `dbt_expectations` passa a ser usado (volume/tipagem) em vez de removido; CI remoto (GitHub Actions) e `selectors.yml` adotados como adição; RBP-12 → B8; groups/access, project-evaluator, Elementary, snapshots: não agora | active | 2026-10-01 |
 | AD-025 | Pedido do usuário: publicação opcional no MotherDuck (`rfb publicar --destino motherduck`, desacoplada do dbt, só com `MOTHERDUCK_TOKEN`+`MOTHERDUCK_BANCO`; sem token configurado hoje) e seção "Como o Power BI acessa os dados" (Parquet × DuckDB local/ODBC × MotherDuck/Postgres endpoint) — ADR-0016, PUB-01/02, T42–T43, lote B11 (Sonnet médio) antes do B8; 1ª publicação real só com OK do usuário | active | 2026-10-01 |
 | AD-026 | Meta do `make ci` passa de < 120 s para < 180 s (spec, critério de sucesso): o CI agora roda unit + lint + freshness + 105 testes de integração (117 s medidos após FBPa); paralelizar a integração fica como opção futura | active | 2026-10-01 |
+| AD-027 | R4: pronto para entrega com ressalvas. Usuário decidiu **mascarar o CPF** no fim da razão social (R4-01; ADR-0008 emendado). Correções F4 (Opus médio, nível do B8): Fix 1–4, 6, 7 + R4-05, 06, 08, 09, 10; Fix 5 (spec) pelo líder | active | 2026-10-01 |
 
 ## Handoff
 

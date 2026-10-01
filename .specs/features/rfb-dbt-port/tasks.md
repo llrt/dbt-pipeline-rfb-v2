@@ -953,7 +953,7 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Cada etapa com ao menos um check "antes" e um "depois" com exemplo real do projeto
+- [x] Cada etapa com ao menos um check "antes" e um "depois" com exemplo real do projeto
 
 **Tests**: none
 **Gate**: build
@@ -971,7 +971,7 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Índice liga todas as partes, ARCHITECTURE, ADRs, QUALIDADE_DADOS, ESCOPO
+- [x] Índice liga todas as partes, ARCHITECTURE, ADRs, QUALIDADE_DADOS, ESCOPO
 
 **Tests**: none
 **Gate**: build
