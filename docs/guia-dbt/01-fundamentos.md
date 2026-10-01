@@ -5,7 +5,7 @@
 > por "desenho", o exemplo corresponde ao projeto conforme [ARCHITECTURE.md](../../ARCHITECTURE.md) (o diretório
 > `transform/` é implementado ao longo deste port).
 >
-> **Parte 1 de 3** — ver também `02-fluxo-e-testes.md` e `03-bibliotecas-e-tecnicas.md` (em construção).
+> **Parte 1 de 5** — ver também `02-fluxo-e-testes.md`, `03-qualidade-antes-e-depois.md`, `04-bibliotecas-e-tecnicas.md` e `05-boas-praticas-e-usos.md`.
 
 ---
 
@@ -16,7 +16,8 @@
 - [3. Conceitos](#3-conceitos)
 - [4. Estrutura de um projeto típico](#4-estrutura-de-um-projeto-típico)
 - [5. Como executar comandos](#5-como-executar-comandos)
-- [6. Leituras recomendadas](#6-leituras-recomendadas)
+- [6. Armadilhas comuns no dbt](#6-armadilhas-comuns-no-dbt)
+- [7. Leituras recomendadas](#7-leituras-recomendadas)
 
 ---
 
@@ -65,44 +66,156 @@ O que o dbt agrega sobre scripts ad hoc:
 
 ## 2. Como funciona
 
-O ciclo de vida de um comando dbt:
+### 2.1 O ciclo Parse → Compile → Execute
+
+O dbt opera em fases bem delimitadas. Entender essa separação evita confusões comuns (por exemplo: por que o dbt não consegue usar dados retornados por uma consulta para decidir dinamicamente se uma coluna existe durante a compilação).
 
 ```mermaid
-flowchart LR
-    A["Projeto dbt<br/>SQL + Jinja + YAML + profiles"] --> B["Parse<br/>lê arquivos, resolve vars<br/>produz manifest.json"]
-    B --> C["Compilação Jinja→SQL<br/>ref/source resolvidos<br/>para nomes reais"]
-    C --> D["DAG de recursos<br/>ordem por ref e source"]
-    D --> E["Execução no motor<br/>adapter dbt-duckdb"]
-    E --> F["Artefatos<br/>manifest.json run_results.json catalog.json"]
-    D -. testes e freshness .-> E
+flowchart TD
+    subgraph FASE_PARSE["1. Fase de Parse (In-Memory)"]
+        A["Arquivos de Código<br/><code>dbt_project.yml</code>, <code>profiles.yml</code><br/><code>models/**/*.sql</code>, <code>macros/**/*.sql</code>"]
+        B["dbt Engine Parser<br/>Lê sintaxe Jinja + YAML<br/>Resolve <code>env_var()</code> e <code>var()</code> estáticas"]
+        C[("target/manifest.json<br/>Grafo completo de nós:<br/>models, sources, tests, seeds")]
+        A --> B --> C
+    end
+
+    subgraph FASE_COMPILE["2. Fase de Compilação (Renderização Jinja → SQL)"]
+        D["Resolução de Referências<br/><code>{{ ref(...) }}</code> → nome físico da relação<br/><code>{{ source(...) }}</code> → parquet path / view"]
+        E["Expansão de Macros Jinja<br/><code>texto_ou_nulo()</code>, <code>haversine_km()</code><br/>Condicionais <code>{% if %}</code> e loops"]
+        F["Geração de SQL Puro<br/>Salvo em <code>target/compiled/**/*.sql</code><br/>(Visualizável sem rodar no banco)"]
+        C --> D --> E --> F
+    end
+
+    subgraph FASE_EXECUTE["3. Fase de Execução (Engine DuckDB)"]
+        G["Orquestrador de DAG dbt<br/>Respeita dependências topológicas<br/>Dispara threads concorrentes"]
+        H["Adapter dbt-duckdb<br/>Traduz materializações:<br/>view, table, external (Parquet)"]
+        I["Motor DuckDB<br/>Lê <code>raw/*.parquet</code><br/>Escreve <code>gold/*.parquet</code>"]
+        F --> G --> H --> I
+    end
+
+    subgraph FASE_ARTEFATOS["4. Emissão de Artefatos"]
+        J["Artefatos de Execução em <code>target/</code><br/><code>run_results.json</code>, <code>sources.json</code><br/><code>catalog.json</code> (dbt docs generate)"]
+        I --> J
+    end
 ```
 
 Passo a passo (o que acontece quando você roda `dbt run`, `dbt test`, `dbt build`, …):
 
-1. **Projeto**: o dbt descobre tudo sob `transform/` (models, seeds, macros, snapshots, análises, testes) a
-   partir de `dbt_project.yml`, e a conexão com o banco vem de `profiles.yml` (aqui, targets `ci`, `dev`,
-   `s3` para DuckDB).
-2. **Parse**: recursos são lidos; macros/vars são pré-resolvidos o suficiente para montar o **manifesto**
-   (`target/manifest.json`), o catálogo de todos os nós do projeto. `dbt ls` já funciona nesta etapa.
-3. **Compilação**: **Jinja é renderizado para SQL** — `{{ ref('bh_empresas') }}` se torna o nome real da
-   relação no banco; condicionais (`{% if is_incremental() %}`), loops (`{% for %}`) e macros são
-   expandidos. Resultado: para cada modelo, um arquivo SQL sob `target/compiled/`.
-4. **DAG**: o grafo de dependências é derivado de todas as `ref()`/`source()` — o dbt **não analisa SQL**,
-   são essas funções que declaram os nós. É por isso que elas são obrigatórias (nunca `from tabela` cru).
-5. **Execução**: o SQL compilado roda no warehouse/catálogo **através do adapter** — aqui `dbt-duckdb`, que
-   dispara as consultas no **DuckDB**. Cada nó vira `view`, `table`, arquivo Parquet externo, etc., conforme
-   a materialização declarada.
-6. **Artefatos**: `target/` guarda o estado da última execução:
-   - `manifest.json` — todos os nós (models, testes, seeds, fontes, macros, exposures) e seus metadados;
-   - `run_results.json` — resultado de cada nó na última execução (status, timing, erros, `error_if`/`warn_if`);
-   - `catalog.json` — gerado por `dbt docs generate`, com colunas/tipos reais no banco.
-   - `sources.json` — gerado por `dbt source freshness` com o estado de freshness.
-   - `partial_parse.msgpack` — cache para reparse incremental; apagá-lo força parse completo.
+1. **Projeto e descoberta**: o dbt lê todo o diretório `transform/` a partir de `dbt_project.yml`. As credenciais e opções de conexão vêm de `profiles.yml` (neste projeto, com saídas para `ci`, `dev` e `s3`).
+2. **Parse**: os arquivos `.sql`, `.yml`, `.csv` (seeds) e macros são lidos e validados estruturalmente. O dbt constrói o **manifesto do projeto** (`target/manifest.json`). Comandos como `dbt parse` e `dbt ls` operam estritamente nesta etapa sem tocar nos dados. Se `partial_parse.msgpack` existir, apenas arquivos modificados desde a última execução são relidos.
+3. **Compilação**: **o Jinja é renderizado para SQL puro e executável**. Chamadas a `{{ ref('bh_empresas') }}` viram `main.bh_empresas` ou caminhos externos; macros customizadas (`texto_ou_nulo`, `data_rfb`) expandem seus blocos `CASE WHEN`; blocos condicionais são avaliados. O SQL resultante é gravado em `target/compiled/`.
+4. **DAG (Grafo Acíclico Dirigido)**: as dependências topológicas são construídas a partir de `ref()` e `source()`. O dbt **não inspeciona a sintaxe SQL** para adivinhar dependências; são unicamente as macros `ref()` e `source()` que criam as arestas do grafo.
+5. **Execução**: o adaptador `dbt-duckdb` abre a conexão com o banco DuckDB (conforme `path` no profile) e despacha as consultas DDL/DML. Modelos `view` viram `CREATE VIEW ...`, `table` viram `CREATE TABLE ... AS SELECT ...`, e `external` geram arquivos Parquet diretamente em `gold/` usando a instrução `COPY (...) TO '...' (FORMAT PARQUET)` nativa do DuckDB.
+6. **Artefatos gerados**:
+   - `target/manifest.json` — catálogo completo de nós, colunas, testes e metadados.
+   - `target/run_results.json` — status (pass, warn, error), tempo de execução e contagem de falhas de cada nó.
+   - `target/catalog.json` — tipos de dados reais introspeccionados no banco (gerado por `dbt docs generate`).
+   - `target/sources.json` — frescor e timestamps das fontes (gerado por `dbt source freshness`).
+   - `target/partial_parse.msgpack` — cache binário para acelerar o parsing em execuções subsequentes.
 
-> **Por que lê Parquet e escreve em `gold/`?** O adapter `dbt-duckdb` permite que fontes aponem para
+---
+
+### 2.2 O DAG Real deste Projeto
+
+O pipeline deste repositório organiza as transformações em 5 camadas lógicas bem definidas, integrando dados públicos da Receita Federal (RFB) e da Base dos Dados (BD). Veja o grafo simplificado das dependências reais:
+
+```mermaid
+flowchart TD
+    classDef raw fill:#e1f5fe,stroke:#0288d1,stroke-width:1px;
+    classDef stg fill:#e8f5e9,stroke:#388e3c,stroke-width:1px;
+    classDef int fill:#fff3e0,stroke:#f57c00,stroke-width:1px;
+    classDef orig fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1px;
+    classDef core fill:#ede7f6,stroke:#512da8,stroke-width:1px;
+    classDef mart fill:#fce4ec,stroke:#c2185b,stroke-width:1px;
+    classDef obs fill:#eceff1,stroke:#455a64,stroke-width:1px;
+
+    subgraph RAW["Camada Raw (Fontes Parquet Particionado)"]
+        S_RFB["source('rfb', ...)<br/>estabelecimentos, empresas,<br/>simples, cnaes, municipios, naturezas"]:::raw
+        S_BD["source('basedosdados', ...)<br/>municipios, cnaes,<br/>pib, populacao"]:::raw
+        SEED["Seeds (CSV estável)<br/>dominio_matriz_filial, dominio_porte,<br/>dominio_situacao_cadastral, excecoes"]:::raw
+    end
+
+    subgraph STAGING["Camada Staging (Views 1:1, Limpeza e Tipagem)"]
+        STG_RFB["stg_rfb__estabelecimentos<br/>stg_rfb__empresas<br/>stg_rfb__simples, stg_rfb__cnaes<br/>stg_rfb__municipios, stg_rfb__naturezas"]:::stg
+        STG_BD["stg_bd__municipios<br/>stg_bd__cnaes<br/>stg_bd__pib, stg_bd__populacao"]:::stg
+    end
+
+    subgraph INTERMEDIATE["Camada Intermediate (Tabelas Físicas, Enriquecimento e Joins)"]
+        INT_MUN["int_municipios__conformados<br/>(RFB + BD + PIB + População)"]:::int
+        INT_EST["int_estabelecimentos__enriquecidos<br/>(Estabelecimentos + Empresas + Simples)"]:::int
+        INT_CNAE["int_cnaes_secundarios__explodidos<br/>(unnest de lista de secundários)"]:::int
+    end
+
+    subgraph MARTS_ORIGINAL["Marts Original (Equivalência ao MVP Notebooks)"]
+        BH["bh_empresas<br/>(Base humanizada, grão CNPJ)"]:::orig
+        AGG["agg_empresas<br/>(Agregações do caso de uso)"]:::orig
+    end
+
+    subgraph MARTS_CORE["Marts Core (Modelo Estrela Dimensional Kimball)"]
+        DIM["Dimensões (dim_*)<br/>dim_data, dim_municipio, dim_cnae,<br/>dim_natureza_juridica, dim_porte, dim_situacao_cadastral"]:::core
+        FCT_EST["fct_estabelecimentos<br/>(Fato granular: 1 linha por CNPJ)"]:::core
+        FCT_RES["fct_resumo_mensal<br/>(Fato agregada por mês/dimensão)"]:::core
+        BR_CNAE["bridge_estabelecimento_cnae_secundario<br/>(Ponte N:N com dim_cnae)"]:::core
+    end
+
+    subgraph MARTS_ANALYTICS["Marts Analytics (Estudos de Caso e Inteligência)"]
+        MART_CONC["mart_concorrencia_municipio<br/>(Densidade por 10k hab e porte)"]:::mart
+        MART_FORN["mart_fornecedores_proximos<br/>(Haversine geoespacial km)"]:::mart
+        MART_SOBR["mart_sobrevivencia_coorte<br/>(Curva de sobrevivência 1, 3, 5 anos)"]:::mart
+        MART_DIN["mart_dinamica_mercado<br/>(Saldos de abertura/encerramento)"]:::mart
+    end
+
+    subgraph AUDIT_OBS["Auditoria e Observabilidade"]
+        AUDIT["audit__bh_empresas_sql_original<br/>(Tradução literal SQL para paridade)"]:::obs
+        OBS_HIST["dq_historico_testes<br/>(Log de execuções via on-run-end)"]:::obs
+        OBS_RES["dq_resumo_execucao<br/>(Resumo analítico de qualidade)"]:::obs
+    end
+
+    %% Conexões do Grafo
+    S_RFB --> STG_RFB
+    S_BD --> STG_BD
+    SEED --> INT_EST
+    SEED --> DIM
+
+    STG_RFB --> INT_EST
+    STG_RFB --> INT_CNAE
+    STG_RFB --> INT_MUN
+    STG_BD --> INT_MUN
+
+    INT_EST --> BH
+    INT_MUN --> BH
+    BH --> AGG
+
+    INT_MUN --> DIM
+    STG_RFB --> DIM
+    STG_BD --> DIM
+
+    INT_EST --> FCT_EST
+    DIM --> FCT_EST
+    FCT_EST --> FCT_RES
+    DIM --> FCT_RES
+
+    INT_CNAE --> BR_CNAE
+    DIM --> BR_CNAE
+
+    FCT_EST --> MART_CONC
+    DIM --> MART_CONC
+    FCT_EST --> MART_FORN
+    DIM --> MART_FORN
+    FCT_EST --> MART_SOBR
+    DIM --> MART_SOBR
+    FCT_EST --> MART_DIN
+    DIM --> MART_DIN
+
+    STG_RFB --> AUDIT
+    STG_BD --> AUDIT
+    OBS_HIST --> OBS_RES
+```
+
+> **Por que lê Parquet e escreve em `gold/`?** O adapter `dbt-duckdb` permite que fontes apontem para
 > arquivos externos (`external_location`) e que modelos sejam **materializados como `external`** (Parquet em
-> `gold/{modelo}.parquet`). O arquivo `.duckdb` é só um "orquestrador" descartável — os dados de verdade
-> vivem nos Parquet (ADR-0001).
+> `gold/{modelo}.parquet`). O arquivo `.duckdb` é um catálogo orquestrador descartável em CI e produção — os dados de verdade
+> vivem e persistem nos arquivos Parquet (ADR-0001).
 
 ---
 
@@ -212,268 +325,387 @@ columns:
 
 ### 3.6 Unit tests (testes unitários)
 
-**Unit tests** testam uma transformação **com dados de entrada fornecidos** (`given`/`expect`), sem precisar
-do banco real — verificam a *lógica* do modelo, e não seus dados. Úteis para regras de negócio com poucas
-linhas possíveis de entrada.
+**Unit tests** (introduzidos no dbt 1.8+) testam uma transformação **com dados de entrada fornecidos em mock** (`given`/`expect`), sem precisar consultar o banco de dados real — verificando a *lógica interna* de um modelo (expressões SQL, CASE WHEN, macros, tratamentos de nulos) de forma isolada e determinística.
+
+No código real deste projeto (`transform/models/staging/rfb/_rfb__staging.yml`):
 
 ```yaml
-# transform/models/staging/rfb/_stg_rfb__empresas__unit.yml
 unit_tests:
-  - name: stg_rfb__empresas_test_lpad_raiz
-    model: stg_rfb__empresas
+  - name: test_stg_rfb__cnaes_lpad_e_texto_vazio
+    description: "`lpad_codigo` preenche até 7 dígitos; `texto_ou_nulo` converte descrição vazia em NULL."
+    model: stg_rfb__cnaes
     given:
-      - input: source('rfb', 'empresas')
-        rows:
-          - {cnpj_raiz: "1234", porte: "", capital_soc: "1.000,00"}
+      # P8 / Detalhe crítico no dbt-duckdb: fontes com `external_location` (read_parquet)
+      # não possuem uma tabela física relacional prévia no catálogo para o dbt introspeccionar
+      # tipos de coluna. Portanto, a fixture do `given` exige `format: sql` com query literal
+      # (não `rows:` dicionário).
+      - input: source('rfb', 'cnaes')
+        format: sql
+        rows: |
+          select '111301' as codigo, 'Cultivo de arroz' as descricao, '2026-09' as _mes_referencia
+          union all
+          select '4741500' as codigo, '' as descricao, '2026-09' as _mes_referencia
     expect:
       rows:
-        - {cnpj_raiz: "00001234", porte_codigo: null, capital_social: 1000.00}
+        - { codigo: "0111301", descricao: "Cultivo de arroz" }
+        - { codigo: "4741500", descricao: null }
 ```
 
-O projeto usa unit tests para as regras de staging (lpad, datas inválidas → NULL, parse de centróide) e dos
-marts (elegibilidade de coorte, faixas de idade).
+O projeto possui 33 unit tests cobrindo regras fundamentais:
+- Padronização com zeros à esquerda via macro `lpad_codigo` (`stg_rfb__cnaes`, `stg_rfb__municipios`, `stg_bd__municipios`).
+- Tratamento de datas inválidas ou sentinelas (`0`, `00000000`, `20230230`) para `NULL` (`stg_rfb__simples`, `stg_rfb__estabelecimentos`).
+- Cálculo determinístico de idade de empresas (`bh_empresas`).
+- Coortes e filtros de elegibilidade (`mart_sobrevivencia_coorte`).
+- Cálculo de distância geodésica pela fórmula de Haversine (`mart_fornecedores_proximos`).
 
 ### 3.7 Macros e Jinja
 
-O dbt usa o templater **Jinja** sobre o SQL. **Macros** são funções reutilizáveis em `transform/macros/`:
+O dbt usa o motor de template **Jinja** sobre os scripts SQL. **Macros** são funções reutilizáveis localizadas em `transform/macros/` (equivalentes a funções ou procedures em engenharia de software):
 
 ```sql
 -- transform/macros/limpeza.sql
 {% macro texto_ou_nulo(col) %}
-    case when {{ col }} = '' then null else {{ col }} end
+    case
+        when {{ col }} is null then null
+        when trim({{ col }}) = '' then null
+        else trim({{ col }})
+    end
 {% endmacro %}
 ```
 
-Uso no modelo:
+Uso direto dentro de um modelo staging (`transform/models/staging/rfb/stg_rfb__estabelecimentos.sql`):
 
 ```sql
 select
-    {{ texto_ou_nulo('nome_fantasia') }} as nome_fantasia
+    {{ lpad_codigo('cnpj_basico', 8) }} as cnpj_raiz,
+    {{ texto_ou_nulo('nome_fantasia') }} as nome_fantasia,
+    {{ data_rfb('data_inicio_atividade') }} as dat_inicio_atividade
 from {{ source('rfb', 'estabelecimentos') }}
 ```
 
-Jinja também controla fluxo: `{% if is_incremental() %}`, `{% if target.name == 'ci' %}`, loops `{% for %}`.
-Macros podem compartilhar código entre modelos (aqui: `data_rfb`, `decimal_rfb`, `lpad_codigo`,
-`filtro_mes_referencia`, `haversine_km`).
+Jinja também controla fluxo e parametrização condicional: `{% if is_incremental() %}`, `{% if target.name == 'ci' %}`, e loops `{% for %}`. Outras macros customizadas do projeto incluem: `data_rfb`, `decimal_rfb`, `lpad_codigo`, `filtro_mes_referencia`, `haversine_km` e macros operacionais para hooks de execução.
 
 ### 3.8 Packages
 
-**Packages** são projetos dbt instaláveis de `packages.yml` (`dbt deps`) — bibliotecas de macros e testes
-prontos. Este projeto usa (em `transform/packages.yml`):
+**Packages** são dependências e bibliotecas reutilizáveis declaradas em `transform/packages.yml` e instaladas com `uv run dbt deps` (ficam em `transform/dbt_packages/`, ignoradas pelo git). Este projeto utiliza:
 
 ```yaml
+# transform/packages.yml
 packages:
   - package: dbt-labs/dbt_utils
     version: [">=1.0.0", "<2.0.0"]
   - package: metaplane/dbt_expectations
     version: [">=0.10.0", "<1.0.0"]
+  - package: godatadriven/dbt_date
+    version: [">=0.21.0", "<1.0.0"]
 ```
+
+- `dbt_utils`: testes essenciais como `unique_combination_of_columns`, `accepted_range`, `expression_is_true` e macros de geração de SQL.
+- `dbt_expectations`: extensão inspirada no Great Expectations para asserções estatísticas e de integridade avançadas.
+- `dbt_date`: funções de manipulação e enriquecimento de datas.
 
 ### 3.9 Materializations
 
-Materialização = **onde/como** o resultado do model é persistido.
+A materialização define **como** o resultado do `SELECT` de um modelo é persistido no ambiente de dados:
 
-| Materialização | O que cria | Uso neste projeto |
-|---|---|---|
-| `view` | uma visão no banco (barata; reconstrói a cada consulta) | staging (padrão) |
-| `table` | tabela física (dados copiados na execução) | intermediate, observability |
-| `incremental` | tabela física que só processa o delta (`is_incremental()`) | `dq_historico_testes` |
-| `ephemeral` | **não** cria artefato; vira CTE inline nos modelos que dependem dela | `audit__bh_empresas_sql_original` |
-| `external` *(dbt-duckdb)* | **arquivo externo** (Parquet/CSV/JSON) em `location` — os dados não entram no .duckdb | marts original/core/analises (`gold/*.parquet`) |
+| Materialização | O que cria | Comportamento | Onde é usada neste projeto |
+|---|---|---|---|
+| `view` | View SQL no banco | Consulta leve; recalculada a cada leitura | Camada `staging` (`stg_rfb__*`, `stg_bd__*`) |
+| `table` | Tabela física no banco | Persistida no catálogo DuckDB (`CREATE TABLE AS SELECT`) | Camada `intermediate` (`int_*`) e observabilidade (`dq_resumo_execucao`) |
+| `ephemeral` | Não cria objeto no banco | Injetada como Common Table Expression (CTE) nos nós downstream | `audit__bh_empresas_sql_original` (tradução literal) |
+| `external` *(dbt-duckdb)* | Arquivo externo (Parquet) | Escreve via `COPY TO ... (FORMAT PARQUET)` fora do arquivo `.duckdb` | Marts `original`, `core` dimensional e `analytics` (`gold/*.parquet`) |
+| `incremental` | Tabela física append/merge | Processa apenas deltas de dados com `is_incremental()` | Padrão dbt para pipelines cumulativos (ver detalhes abaixo) |
+
+Exemplo de configuração de materialização `external` (`transform/models/marts/original/bh_empresas.sql`):
 
 ```sql
-{{ config(materialized='external', location=".../gold/bh_empresas.parquet") }}
+{{
+    config(
+        materialized='external',
+        location=var('caminho_gold', env_var('RAIZ_DADOS', '../dados') ~ '/gold') ~ '/bh_empresas.parquet'
+    )
+}}
 ```
 
-> No `dbt-duckdb`, `external` é o que entrega o "medalhão Parquet": o marts vira um arquivo em `gold/` que
-> qualquer ferramenta lê. Suporta `table_function` (macros de tabela parametrizadas) e estratégias
-> incrementais `append`, `delete+insert`, `merge` e `microbatch` para as materializações `table`.
+> **Nota sobre `dq_historico_testes` vs. `incremental`**:
+> Enquanto o dbt suporta modelos com `materialized='incremental'` (que usam a macro `is_incremental()` para inserir novos registros em tabelas existentes), neste projeto a tabela de histórico de testes `main.dq_historico_testes` é gerenciada através de **hooks de ciclo de vida**:
+> - `on-run-start`: a macro `garantir_tabela_historico_testes` cria a tabela física se ela não existir.
+> - `on-run-end`: a macro `registrar_resultados_testes` percorre o array `results` da execução corrente e insere uma linha por teste finalizado.
+> Isso permite registrar execuções de `dbt test` mesmo quando nenhum modelo dbt está sendo compilado ou materializado!
 
 ### 3.10 `ref`, `source` e o DAG
 
-- `{{ ref('nome_do_modelo') }}` → referencia **outro model/seed/snapshot**; cria a aresta do DAG e o dbt
-  resolve a ordem automaticamente. Nome final = o nome do nó, ajustado por schema.
-- `{{ source('nome_da_fonte', 'nome_da_tabela') }}` → referencia **uma fonte externa** (Parquet aqui).
+- `{{ ref('nome_do_modelo') }}`: referencia outro modelo, seed ou snapshot do projeto. Cria a aresta topológica no DAG.
+- `{{ source('nome_da_fonte', 'nome_da_tabela') }}`: referencia uma tabela externa declarada em arquivo YAML de fontes.
 
-Regra de ouro da ferramenta: **nunca** usar nome cru de tabela (`from bh_empresas`) — só `ref`/`source`
-mantém o DAG, a seleção e o *defer* corretos. O DAG resolve: upstream de `mart_sobrevivencia_coorte` →
-`fct_estabelecimentos` → `int_estabelecimentos__enriquecidos` → staging → fontes.
+**Regra fundamental**: jamais faça `FROM bh_empresas` ou `FROM "dados/raw/empresas.parquet"` diretamente no corpo do SQL. O dbt depende de `ref()` e `source()` para inferir a ordem correta de compilação, resolver schemas entre ambientes (dev/ci/s3) e habilitar o recurso de `--defer`.
 
-### 3.11 Vars
+### 3.11 Vars (Variáveis de Projeto)
 
-**Vars** são parâmetros do projeto definidos em `dbt_project.yml` ou na linha de comando (`--vars`), lidos
-via `{{ var('...') }}`. Neste projeto (desenho em ARCHITECTURE §5.2):
+**Vars** são variáveis globais ou de modelo definidas em `transform/dbt_project.yml` ou injetadas via linha de comando (`--vars`). Elas são lidas no SQL/YAML com `{{ var('nome_da_var') }}`.
+
+Configuração real em `transform/dbt_project.yml`:
 
 ```yaml
 vars:
-  mes_referencia: null        # null → maior _mes_referencia disponível
-  data_referencia: null       # null → _data_referencia do mês (idade determinística)
-  caso_cnae_alvo: '4741500'   # estudo de caso: varejo de tintas
-  caso_municipio: 'FUNDÃO'
-  caso_uf: 'ES'
-  raio_fornecedores_km: 100
+  mes_referencia: null                    # null → assume o maior mês disponível no raw
+  data_referencia: null                   # null → infere o último dia do mês de referência (idade determinística)
+  ano_populacao: null                     # null → maior ano disponível na tabela de população BD
+  caso_cnae_alvo: "4741500"               # Comércio varejista de tintas e materiais para pintura
+  caso_municipio: "FUNDÃO"
+  caso_uf: "ES"
+  caso_cnaes_fornecedores: ["2071100", "4679601", "4679699"] # Fabricação e atacado de tintas
+  raio_fornecedores_km: 100               # Raio de busca geodésica em quilômetros
 ```
 
-Sobrescrever sem editar o arquivo: `dbt run --vars "mes_referencia: 2025-01, caso_municipio: VITÓRIA"`.
+Para sobrescrever qualquer parâmetro na CLI:
+```bash
+uv run dbt build --vars '{"mes_referencia": "2026-09", "caso_municipio": "VITÓRIA"}'
+```
 
 ### 3.12 Profiles e targets
 
-**Profiles/targets** guardam a **conexão com o banco**. Um projeto pode ter vários *targets* (ambientes)
-sob o mesmo profile. Em `transform/profiles.yml`:
+O arquivo `transform/profiles.yml` encapsula as credenciais, o motor analítico e as configurações de execução por ambiente (*target*):
 
 ```yaml
 rfb:
+  target: dev
   outputs:
     ci:
       type: duckdb
-      path: "{{ env_var('RAIZ_DADOS') }}/ci.duckdb"
-      threads: 2
+      path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
+      threads: "{{ env_var('DUCKDB_THREADS', 4) }}"
+      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
+      settings:
+        memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '2GB') }}"
     dev:
       type: duckdb
-      path: "{{ env_var('RAIZ_DADOS') }}/warehouse.duckdb"
+      path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
+      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
+      temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
+      settings:
+        memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
     s3:
       type: duckdb
-      path: "{{ env_var('RAIZ_DADOS') }}/warehouse.duckdb"
-      external_root: "s3://..."
-  target: dev
+      path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS_LOCAL', '../dados') ~ '/warehouse.duckdb') }}"
+      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
+      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
+      temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"
+      extensions:
+        - httpfs
+      settings:
+        memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
+      secrets:
+        - type: s3
+          key_id: "{{ env_var('AWS_ACCESS_KEY_ID') }}"
+          secret: "{{ env_var('AWS_SECRET_ACCESS_KEY') }}"
+          endpoint: "{{ env_var('AWS_ENDPOINT_URL_S3') | replace('https://', '') | replace('http://', '') }}"
+          region: auto
+          url_style: "{{ env_var('S3_URL_STYLE', 'vhost') }}"
 ```
 
-- Escolher target: `--target ci` (ou `-t`). Bug comum: rodar em `dev` achando que é `prod`.
-- `env_var()` injeta variáveis de ambiente (ex.: `RAIZ_DADOS`) — sem segredos no repo.
-- `dbt debug` valida profiles/conexão; é o primeiro comando a rodar quando algo "não conecta".
+- **Troca de target**: utilize `--target ci` (ou `-t ci`).
+- **Armazenamento no modo S3 (ADR-0007)**: o arquivo `.duckdb` e os arquivos temporários são locais (`RAIZ_DADOS_LOCAL`), pois o DuckDB não suporta locks em volumes S3/POSIX remotos; já os dados brutos e os Parquets da camada Gold residem diretamente no bucket S3.
+- **Distinção de concorrência e threads (após F3a)**:
+  - `DBT_THREADS`: controla o paralelismo no grafo do dbt (quantos nós independentes do DAG são executados simultaneamente).
+  - `DUCKDB_THREADS`: repassado para `settings.threads` do DuckDB; controla o número de threads que o motor utiliza internamente para computar cada query (escaneamento de Parquet, hash joins e agregações).
 
 ### 3.13 Docs (`description` e `dbt docs`)
 
-Cada model/coluna pode ter `description` (no YAML), que alimenta o site gerado por `dbt docs generate` +
-`dbt docs serve`: catálogo + **linhagem** (DAG interativo) + colunas e testes. Descrições boas viram a
-documentação viva do warehouse.
+As tags `description` presentes nos arquivos YAML enriquecem o catálogo de metadados gerado por `dbt docs generate` + `dbt docs serve`. O dbt constrói uma interface web interativa contendo o dicionário de dados completo e o DAG navegável:
 
 ```yaml
-- name: fct_estabelecimentos
-  description: "Fato por estabelecimento (grão CNPJ completo), chaves para dimensões"
-  columns:
-    - name: cnpj_completo
-      description: "CNPJ completo, 14 dígitos"
+# Trecho de transform/models/marts/core/_core__models.yml
+models:
+  - name: fct_estabelecimentos
+    description: >
+      Fato por estabelecimento (grão CNPJ completo, 14 dígitos), com chaves surrogate inteiras
+      para todas as dimensões do modelo estrela (ADR-0013).
+    columns:
+      - name: cnpj_completo
+        description: "CNPJ completo (14 dígitos, numérico com zeros à esquerda)."
+        data_type: varchar
 ```
 
 ### 3.14 Exposures
 
-**Exposures** declaram **dependências externas** (dashboard, relatório, modelo de ML) sobre os modelos —
-para saber *quem é impactado* se um modelo mudar. Aqui há um exposure para o relatório do estudo de caso:
+**Exposures** documentam os consumidores finais downstream do pipeline (painéis de BI, dashboards, aplicações, relatórios ou modelos de Machine Learning).
+
+Declaração real em `transform/models/marts/core/_core__exposures.yml`:
 
 ```yaml
+version: 2
+
 exposures:
-  - name: relatorio_estudo_caso
+  - name: painel_power_bi_estabelecimentos
+    label: Painel Power BI — estabelecimentos RFB
     type: dashboard
+    maturity: low
+    description: >
+      Painel de BI sobre o modelo estrela (ADR-0013), conectado ao Parquet de `gold/` ou ao DuckDB por
+      ODBC; veja `docs/POWER_BI.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
+    owner:
+      name: Equipe de dados
+    meta:
+      escopo: adicao
+    tags: ["escopo_adicao"]
     depends_on:
-      - ref('mart_concorrencia_municipio')
-      - ref('mart_sobrevivencia_coorte')
+      - ref('dim_data')
+      - ref('dim_municipio')
+      - ref('dim_cnae')
+      - ref('dim_natureza_juridica')
+      - ref('dim_porte')
+      - ref('dim_situacao_cadastral')
+      - ref('fct_estabelecimentos')
+      - ref('fct_resumo_mensal')
+      - ref('bridge_estabelecimento_cnae_secundario')
 ```
 
-### 3.15 Model contracts (contratos)
+Com isso, ao executar `dbt ls --select +exposure:painel_power_bi_estabelecimentos`, o dbt lista toda a árvore upstream necessária para alimentar o dashboard.
 
-**Contracts** fixam a interface de um model — **nome, ordem e tipo das colunas** — e bloqueiam mudanças
-acidentais de schema. `contract: {enforced: true}` + colunas declaradas na YAML:
+### 3.15 Model contracts (contratos de modelo)
+
+**Contratos de modelo** (`contract: {enforced: true}`) obrigam o SQL a produzir colunas exatamente com os nomes, ordem e tipos de dados estipulados no arquivo YAML. Se o SQL compilar um tipo discrepante ou omitir uma coluna, o dbt aborta a materialização antes de persistir o resultado.
+
+Declaração real em `transform/models/marts/original/_original__models.yml`:
 
 ```yaml
-- name: bh_empresas
-  config:
-    contract:
-      enforced: true
-  columns:
-    - name: cnpj_completo
-      data_type: varchar
-      constraints:
-        - type: not_null
-    - name: idade_atual
-      data_type: double precision
+models:
+  - name: bh_empresas
+    description: >
+      BH Empresas (flat table granular do notebook 3): uma linha por estabelecimento.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: cnpj_raiz
+        data_type: varchar
+      - name: cnpj_completo
+        data_type: varchar
+        data_tests:
+          - unique:
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+          - not_null:
+              config: { meta: { escopo: original }, tags: [escopo_original] }
+      - name: nome
+        data_type: varchar
+      - name: idade_atual
+        data_type: double precision
 ```
 
-Neste projeto: marts `original` e `core` têm contrato forçado (ARCHITECTURE §5.1).
+Neste projeto, todos os modelos das camadas `marts/original` e `marts/core` possuem contratos ativos e validados.
 
-### 3.16 `meta` e `tags` (governança de escopo)
+### 3.16 `meta` e `tags` (governança e rastreabilidade de escopo)
 
-- `tags` agrupam nós para seleção: `dbt ls --select tag:escopo_original`.
-- `meta` carrega metadados arbitrários, exibidos em docs e lidos por ferramentas/CI.
+- `tags`: agrupam nós para fácil filtragem na CLI (`dbt build --select tag:escopo_original`).
+- `meta`: dicionário de metadados arbitrários preservados no manifesto (`target/manifest.json`).
 
-Este projeto marca em **todo nó** `meta.escopo` ∈ `original`/`adicao`/`adaptado` + a tag correspondente
-(`escopo_original`, `escopo_adicao`, `escopo_adaptado`) — decisão do [ADR-0006](../../docs/adr/0006-marcacao-escopo.md).
-Um teste de CI falha se algum nó do projeto não tiver a marcação.
+Neste projeto, a governança de escopo ([ADR-0006](../../docs/adr/0006-marcacao-escopo.md)) classifica cada modelo, teste e seed em:
+- `original`: reprodução estrita das regras do notebook original.
+- `adicao`: novas tabelas, testes e modelos dimensionais introduzidos no port.
+- `adaptado`: modelo que corrigiu desvios ou bugs documentados do código de origem.
+
+Exemplo no YAML (`transform/models/marts/original/_original__models.yml`):
 
 ```yaml
-- name: bh_empresas
-  meta:
-    scope: original
-    escopo: original
-  tags: ['escopo_original']
+models:
+  - name: bh_empresas
+    meta:
+      escopo: original
+    tags: ["escopo_original"]
 ```
+
+Uma suite de testes de integração (`tests/integration/test_escopo_meta.py`) verifica no CI se 100% dos nós contêm `meta.escopo` e a respectiva `tag` correspondente.
 
 ### 3.17 Selectors e sintaxe de seleção
 
-**Selecionar nós** é o coração do dbt — roda só o que você quer, em qualquer *direção* do grafo. Sintaxe
-passada a `--select`/`-s` (e combinável com `--exclude`):
+Selecionar subconjuntos de modelos com precisão acelera o ciclo de desenvolvimento e viabiliza pipelines enxutos de CI. Sintaxe passada a `--select`/`-s` (e `--exclude`):
 
-| Exemplo | Significado |
+| Exemplo de Seleção | Significado Prático |
 |---|---|
-| `dbt run --select bh_empresas` | só o model `bh_empresas` |
-| `dbt run --select stg_rfb__estabelecimentos` | staging inteira |
-| `dbt build --select +bh_empresas` | `bh_empresas` + **upstream** (tudo que ela precisa) |
-| `dbt build --select bh_empresas+` | `bh_empresas` + **downstream** (quem depende dela) |
-| `dbt build --select tag:escopo_original` | todos com a tag |
-| `dbt run --select path:models/marts/core` | tudo sob o caminho |
-| `dbt run --select source:rfb.*` | models que leem fontes da `rfb` |
-| `dbt run --exclude bh_empresas` | tudo menos `bh_empresas` |
-| `dbt ls --select state:modified --state target/` | nós cujo SQL mudou vs. o estado salvo (CI slim) |
-| `dbt run --defer --state prod/` | resolve não-selecionados a partir do estado de produção |
+| `dbt run --select bh_empresas` | Apenas o modelo `bh_empresas` |
+| `dbt run --select stg_rfb__estabelecimentos` | Apenas a staging especificada |
+| `dbt build --select +bh_empresas` | `bh_empresas` e todos os seus ancestrais (**upstream**) |
+| `dbt build --select bh_empresas+` | `bh_empresas` e todos os seus dependentes (**downstream**) |
+| `dbt build --select 1+bh_empresas` | `bh_empresas` e seus pais imediatos (1 nível upstream) |
+| `dbt build --select @bh_empresas` | `bh_empresas`, seus descendentes **e todos os ancestrais** desses descendentes |
+| `dbt build --select tag:escopo_original` | Todos os nós marcados com a tag |
+| `dbt run --select path:models/marts/core` | Todos os modelos dentro da pasta informada |
+| `dbt run --select source:rfb.*` | Todos os modelos que leem diretamente fontes do grupo `rfb` |
+| `dbt build --exclude bh_empresas` | Todo o grafo, exceto o nó `bh_empresas` |
+| `dbt ls --select state:modified --state target/` | Nós alterados em relação ao `manifest.json` salvo |
+| `dbt run --defer --state prod/` | Resolve nós não selecionados a partir do schema de produção |
 
-- `+` no início = inclui **upstream** (ancestrais); `+` no fim = inclui **downstream** (descendentes).
-  Quantifique o nº de arestas com o operador "n-plus": `2+my_model` sobe 2 níveis (pai e avô);
-  `my_model+2` desce 2 níveis; `+my_model+` cobre ambos os lados. Existe ainda o operador `@my_model`,
-  que traz descendentes **e os ancestrais de todos eles** (útil em CI quando os ancestrais podem não
-  existir no schema).
-- **Set operators** (dbt ≥ 1.12): **espaço entre critérios = união (OR)**; **vírgula sem espaço =
-  interseção (AND)**. Ex.: `--select "tag:t1 tag:t2"` traz quem tem *pelo menos uma* das tags;
-  `--select "tag:t1,tag:t2"` traz só quem tem *as duas*. Verificado na CLI — os antigos `or`/`and` como
-  palavras não são mais operadores; para combinações nomeadas reutilizáveis, defina um **selector YAML**
-  em `selectors.yml` com os equivalantes `union`/`intersection` e use `--selector nome`.
-- `state:modified`, `state:new`, `state:unmodified` exigem `--state <dir>` (manifesto anterior).
+#### Set operators nativos da CLI (União e Interseção)
 
-> **Prática vital neste projeto (CI slim):** rodar `dbt build --select state:modified --state target/`
-> sobre um manifesto de referência reconstroi **só o que mudou** e **nada a mais** — combinado com
-> `--defer`, os modelos não-selecionados são resolvidos dos objetos de produção. É o padrão de CI
-> documentado na parte 3 (`03-bibliotecas-e-tecnicas.md`, em construção).
+A CLI do dbt implementa uma convenção sintática histórica e concisa:
+- **Espaço entre argumentos = União (OR)**:
+  `--select "tag:escopo_original tag:escopo_adicao"` seleciona os nós que possuem a tag `escopo_original` **OU** a tag `escopo_adicao`.
+- **Vírgula sem espaço = Interseção (AND)**:
+  `--select "tag:escopo_adicao,path:models/marts/core"` seleciona apenas os nós que possuem a tag `escopo_adicao` **E** estão localizados sob o caminho `models/marts/core`.
+- **Atenção (P1)**: Essa regra de espaço = união e vírgula = interseção sempre foi a sintaxe padrão de seleção da CLI do dbt desde suas versões iniciais. As palavras literais `or` e `and` **nunca foram operadores válidos na linha de comando** do dbt Core (usar `dbt run --select "tag:a or tag:b"` interpreta `or` como o nome de um modelo inexistente!). Para lógicas condicionais complexas com múltiplos agrupamentos, utiliza-se a definição declarativa de **YAML Selectors** em `transform/selectors.yml` (com métodos `union` e `intersection`), invocados com `--selector nome_do_seletor`.
 
 ---
 
 ## 4. Estrutura de um projeto típico
 
-Árvore comentada de um projeto dbt (a deste projeto, conforme [ARCHITECTURE §3](../../ARCHITECTURE.md#3-estrutura-do-repositório)):
+Árvore comentada do diretório `transform/` deste projeto (conforme [ARCHITECTURE §3](../../ARCHITECTURE.md#3-estrutura-do-repositório) e convenções do ADR-0014):
 
 ```
 transform/
-├── dbt_project.yml        # configuração do projeto: nome, perfil, vars, materializações por pasta
-├── profiles.yml           # conexões (targets ci/dev/s3) — aqui versionado para didática
-├── packages.yml           # dependências (dbt_utils, dbt_expectations) → dbt deps
+├── dbt_project.yml        # Configurações globais: nome, profile, vars, materializações padrão por camada
+├── profiles.yml           # Configuração de conexões e targets: ci, dev, s3 (com DuckDB e credenciais)
+├── packages.yml           # Dependências externas: dbt_utils, dbt_expectations, dbt_date
 ├── models/
 │   ├── staging/
-│   │   ├── rfb/           # stg_<fonte>__<entidade>       (view; 1:1 com a fonte)
+│   │   ├── rfb/           # stg_rfb__* (views 1:1; limpeza, lpad e tipagem)
 │   │   │   ├── _rfb__sources.yml
+│   │   │   ├── _rfb__staging.yml  (testes e unit tests)
 │   │   │   ├── stg_rfb__empresas.sql
 │   │   │   └── stg_rfb__estabelecimentos.sql
-│   │   └── basedosdados/  # stg_bd__municipios, stg_bd__cnaes, ...
-│   ├── intermediate/      # int_<entidade>__<verbo>        (table; enriquecimentos/joins)
-│   │   └── int_estabelecimentos__enriquecidos.sql
-│   └── marts/
-│       ├── original/      # bh_empresas, agg_empresas      (external → gold/)
-│       ├── core/          # dim_*, fct_*, bridge_*         (external → gold/)
-│       └── analytics/      # mart_*                         (external → gold/)
-├── macros/                # macros e testes genéricos customizados
-├── tests/                 # testes singulares (.sql) e unit tests (em YAML junto aos models)
-├── seeds/                 # parametrização estável (.csv): dominios, exceções
-├── snapshots/             # SCD2 (documentado; não usado neste projeto)
-├── analyses/              # queries ad-hoc/estudo de caso
-└── target/                # gerado: manifest.json, run_results.json, catalog.json, compiled/
-```
+│   │   └── basedosdados/  # stg_bd__* (municipios, cnaes, pib, populacao)
+│   │       ├── _bd__sources.yml
+│   │       └── _bd__staging.yml
+│   ├── intermediate/      # int_<entidade>__<verbo> (materializadas como table; joins e regras de negócio)
+│   │   ├── _intermediate__models.yml
+│   │   ├── int_municipios__conformados.sql
+│   │   ├── int_estabelecimentos__enriquecidos.sql
+│   │   └── int_cnaes_secundarios__explodidos.sql
+│   ├── marts/
+│   │   ├── original/      # bh_empresas, agg_empresas (materializadas como external em gold/*.parquet)
+│   │   │   ├── _original__models.yml
+│   │   │   ├── bh_empresas.sql
+│   │   │   └── agg_empresas.sql
+│   │   ├── core/          # Modelo Estrela Kimball: dim_*, fct_*, bridge_* (external em gold/*.parquet)
+│   │   │   ├── _core__models.yml
+│   │   │   ├── _core__exposures.yml
+│   │   │   ├── dim_data.sql, dim_municipio.sql, dim_cnae.sql, ...
+│   │   │   ├── fct_estabelecimentos.sql, fct_resumo_mensal.sql
+│   │   │   └── bridge_estabelecimento_cnae_secundario.sql
+│   │   └── analytics/     # mart_* (indicadores analíticos e estudos de caso; external em gold/*.parquet)
+│   │       ├── _analytics__models.yml
+│   │       ├── mart_concorrencia_municipio.sql
+│   │       ├── mart_fornecedores_proximos.sql
+│   │       ├── mart_sobrevivencia_coorte.sql
+│   │       └── mart_dinamica_mercado.sql
+│   ├── audit/             # Modelos de auditoria e reconciliação (ADR-0014)
+│   │   ├── _audit__models.yml
+│   │   └── audit__bh_empresas_sql_original.sql (materializado como ephemeral)
+│   └── observability/     # Modelos de telemetria e qualidade
+│       ├── _observability__sources.yml
+│       ├── _observability__models.yml
+│       └── dq_resumo_execucao.sql
+├── macros/                # Macros Jinja reutilizáveis e testes customizados
+│   ├── limpeza.sql, formatacao.sql, geo.sql, auditoria.sql
+│   └── observability/     # Macros de ciclo de vida (on-run-start e on-run-end)
+├── tests/                 # Testes singulares em SQL puro (.sql)
+│   ├── paridade_bh_empresas.sql, bh_empresas_descartes_inner_join.sql, ...
+│   └── fct_estabelecimentos_reconciliacao.sql, agg_empresas_reconciliacao.sql
+├── seeds/                 # Arquivos CSV de domínio estático (dominio_porte.csv, etc.)
+├── analyses/              # Consultas ad hoc e validações do estudo de caso
+└── target/                # Artefatos gerados: manifest.json, run_results.json, compiled/
 
 ### Convenções da dbt Labs ("How we structure our dbt projects")
 
@@ -583,7 +815,59 @@ uv run dbt test --select source:rfb.*
 
 ---
 
-## 6. Leituras recomendadas
+## 6. Armadilhas comuns no dbt
+
+O desenvolvimento com dbt e DuckDB possui algumas particularidades que costumam surpreender até engenheiros experientes. Abaixo estão as principais armadilhas identificadas no dia a dia deste projeto e como evitá-las:
+
+### 6.1 Espaço versus Vírgula na Seleção CLI (P1)
+- **O erro**: Digitar `dbt run --select "tag:escopo_original, path:models/marts"` (com um espaço após a vírgula).
+- **O que acontece**: O dbt interpreta o espaço como o operador de **união (OR)**. Em vez de selecionar apenas os modelos dos marts com a tag `escopo_original`, ele selecionará **todos os modelos** com a tag `escopo_original` MAIS **todos os modelos** da pasta `models/marts`!
+- **Como evitar**: Nunca use espaços ao redor da vírgula para interseções: `--select "tag:escopo_original,path:models/marts"`.
+
+### 6.2 Hardcoding de Tabelas sem `ref()` ou `source()`
+- **O erro**: Escrever consultas com tabelas literais como `FROM main.stg_rfb__estabelecimentos` ou `FROM 'dados/raw/estabelecimentos.parquet'`.
+- **O que acontece**: O dbt não realiza parsing do SQL puro para inferir a linhagem. Ele depende exclusivamente de `{{ ref(...) }}` e `{{ source(...) }}`. Ao omitir a macro, o modelo não entra no DAG como nó dependente, é executado fora de ordem (podendo ler dados antigos ou tabela inexistente) e quebra totalmente o `--defer` e o CI slim.
+- **Como evitar**: Sempre referencie modelos dbt com `{{ ref('nome_modelo') }}` e tabelas de ingestão com `{{ source('nome_fonte', 'nome_tabela') }}`.
+
+### 6.3 Unit tests em fontes com `external_location` sem `format: sql` (P8)
+- **O erro**: Tentar declarar mock de dados de entrada usando listas de dicionários YAML em fontes externas:
+  ```yaml
+  given:
+    - input: source('rfb', 'cnaes')
+      rows:
+        - {codigo: "123", descricao: "Teste"}
+  ```
+- **O que acontece**: No adaptador `dbt-duckdb`, tabelas declaradas com `external_location: "read_parquet(...)"` não existem como relações relacionais persistidas no catálogo interno antes da consulta. O compilador de testes unitários do dbt tenta introspeccionar as colunas e tipos da relação física para converter os dicionários `rows:` e falha com erro de compilação.
+- **Como evitar**: Use sempre `format: sql` fornecendo um bloco SQL literal com tipos explícitos (`rows: | select '123' as codigo, 'Teste' as descricao...`).
+
+### 6.4 Sobrescrita Física na Materialização `external` (P12)
+- **O erro**: Executar testes pontuais de mutação ou rodar um modelo downstream isolado achando que a camada Gold não será tocada.
+- **O que acontece**: A materialização `external` do `dbt-duckdb` executa um comando físico de `COPY (...) TO 'gold/modelo.parquet'` a cada execução bem-sucedida do nó. Se um teste ou modelo temporário alterar colunas ou filtros e rodar o modelo, o arquivo Parquet em disco é imediatamente substituído.
+- **Como evitar**: Após qualquer experimento, teste de mutação ou alteração ad hoc em modelos `external`, sempre reexecute um build limpo (`make ci` ou `dbt build --select +modelo`) antes de ler o Parquet para análises.
+
+### 6.5 Concorrência e Bloqueio de Arquivo (`lock`) no DuckDB
+- **O erro**: Abrir um shell interativo do DuckDB (ou notebook Jupyter) em `warehouse.duckdb` enquanto dispara `dbt run` ou `make ci` em outro terminal.
+- **O que acontece**: O DuckDB suporta conexões concorrentes em modo somente-leitura, mas exige **exclusividade absoluta para escrita**. Um processo dbt tentando escrever no mesmo arquivo `.duckdb` falhará imediatamente com erro de `IOException: Could not set lock on file`.
+- **Como evitar**: Certifique-se de que nenhum client SQL externo (DBeaver, terminal DuckDB, Python) esteja com o arquivo aberto com lock de gravação durante a execução do dbt.
+
+### 6.6 Confundir `dbt run` com `dbt build`
+- **O erro**: Usar rotineiramente `dbt run` no pipeline diário ou no CI.
+- **O que acontece**: `dbt run` **apenas executa modelos SQL**. Ele não executa testes de dados (`tests`), não compila seeds (`seeds/`) e não valida contratos ou regras de freshness. Dados com falhas de integridade grave podem ser persistidos na camada Gold sem qualquer alerta.
+- **Como evitar**: Em pipelines de engenharia e rotinas de integração contínua, adote **`dbt build`** como comando padrão. Ele orquestra seeds, models e testes na ordem topológica correta, interrompendo a linhagem imediatamente caso um teste upstream falhe.
+
+### 6.7 Estouro de Memória em Grandes Volumes sem `temp_directory` (P14)
+- **O erro**: Executar transformações pesadas sobre dados reais (como os 64,5 milhões de estabelecimentos da RFB) sem configurar o limite de memória ou diretório temporário.
+- **O que acontece**: O DuckDB processa consultas muito rápido mantendo buffers vetorizados na memória RAM. Em joins densos ou operações de paridade com `EXCEPT ALL`, o consumo de memória pode ultrapassar a RAM física disponível, acionando o OOM (Out Of Memory) Killer do sistema operacional.
+- **Como evitar**: Configure em `profiles.yml` o parâmetro `temp_directory` apontando para um disco veloz e declare explicitamente `memory_limit: "24GB"` (ou adequado ao ambiente). Dessa forma, quando a memória atinge o teto, o DuckDB faz *spill to disk* graciosamente sem travar.
+
+### 6.8 O comportamento do `is_incremental()` no primeiro build e no full-refresh
+- **O erro**: Esperar que um filtro delta (`WHERE data_atualizacao > (SELECT max(data_atualizacao) FROM {{ this }})`) seja executado na criação da tabela.
+- **O que acontece**: Na primeira vez em que um modelo incremental é criado, ou quando a flag `--full-refresh` é passada, a macro `is_incremental()` avalia como **`false`**. O dbt reconstrói a tabela inteira por meio de `CREATE TABLE AS SELECT`.
+- **Como evitar**: Garanta que o SQL fora do bloco condicional `{% if is_incremental() %}` seja sintaticamente autossuficiente e válido para processar todo o histórico histórico de dados.
+
+---
+
+## 7. Leituras recomendadas
 
 Documentação e referências conferidas (todas respondem HTTP 200/301 na data desta escrita; docs.getdbt.com
 agora usa o caminho `/docs/...` — URLs antigas como `/docs/build/ref` quebram/redirecionam, use as abaixo).
