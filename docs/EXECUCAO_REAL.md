@@ -194,13 +194,14 @@ foi tocado): `dbt build -s +mart_concorrencia_area_mercado --resource-type model
 
 | | Antes (grão local) | Depois (com vazios) |
 |---|---|---|
-| Linhas | 2.027.104 | **3.937.699** (1,94×) |
-| das quais vazios (`tem_estabelecimento_local` = false) | — | **1.910.595** (48,5 %) |
+| Linhas | 2.027.104 | **3.936.977** (1,94×) |
+| das quais vazios (`tem_estabelecimento_local` = false) | — | **1.909.873** (48,5 %) |
 | CNAEs / municípios distintos | — | 1.343 / 5.571 |
 | Parquet | 74 MB | 142 MB |
-| Tempo do modelo | — | 2,0 s (build das 27 dependências + modelo: 39 s) |
-| Pico de RSS do processo do dbt | — | 20,6 GB (limite DuckDB de 24 GB; o build refaz `int_estabelecimentos__enriquecidos`) |
+| Tempo do modelo | — | 2,1 s (build das 27 dependências + modelo: 41 s) |
+| Pico de RSS do processo do dbt | — | 20,8 GB (limite DuckDB de 24 GB; o build refaz `int_estabelecimentos__enriquecidos`) |
 
 Abaixo do limite combinado (3× ou 15 M linhas): sem mudança de abordagem. Os 18 testes do mart e o singular
-`area_mercado_invariantes` (nenhum par com ativos na área fica de fora) passam sobre as 3,9 M linhas.
+`area_mercado_invariantes` (nenhum par com ativos na área fica de fora) passam sobre as 3,9 M linhas. Vazios só para CNAE e município conhecidos (`-1` fica de fora: 722 linhas a
+menos que na primeira medição, 3.937.699 / 1.910.595); 0 vazios com `sk_cnae = -1`.
 O grão cruzado completo seria ~6× o original; os vazios (só onde vizinhos/RM têm ≥ 1 ativo) são ~0,94×.

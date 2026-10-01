@@ -6,6 +6,8 @@
 -- ativos/inativos no município, nos vizinhos e na região metropolitana (município incluído; NULL
 -- fora de região metropolitana). Indicadores por mil domicílios e por km² (Censo 2022) do município
 -- (0 nos vazios com denominador, NULL sem denominador) e da área de mercado (município + vizinhos);
+-- Vazios só para CNAE e município conhecidos (`sk_cnae`/`sk_municipio` <> -1); os pares locais com -1
+-- ficam como antes.
 -- NULL quando falta o denominador no município ou em qualquer vizinho (nunca parcial).
 with base as (
   select * from {{ ref('mart_concorrencia_municipio') }}
@@ -57,7 +59,7 @@ pares as (
   from base as bas
   inner join {{ ref('bridge_municipio_vizinho') }} as bri
     on bas.sk_municipio = bri.sk_municipio_vizinho
-  where bas.ativos > 0
+  where bas.ativos > 0 and bas.sk_cnae <> -1 and bri.sk_municipio <> -1
   union
   select
     reg.sk_cnae,
@@ -65,7 +67,7 @@ pares as (
   from regioes as reg
   inner join municipios as mun
     on reg.nome_regiao_metropolitana = mun.nome_regiao_metropolitana
-  where reg.ativos_regiao_metropolitana > 0
+  where reg.ativos_regiao_metropolitana > 0 and reg.sk_cnae <> -1 and mun.sk_municipio <> -1
 ),
 
 vizinhos as (

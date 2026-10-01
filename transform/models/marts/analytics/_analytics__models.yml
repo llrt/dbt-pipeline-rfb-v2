@@ -626,7 +626,8 @@ unit_tests:
       `tem_estabelecimento_local` false: A (vizinho de B e da mesma RM, com Censo → indicador local 0,
       área = 1 ativo / 5000 dom.), D (só da RM X, sem vizinho com o CNAE; sem Censo → NULL) e E
       (sem Censo, vizinho de B → NULL). F (sem vizinho nem RM com o CNAE) fica fora, e o CNAE 2,
-      que só tem inativo em B, não cria vazio algum (só ativos contam).
+      que só tem inativo em B, não cria vazio algum (só ativos contam), e o CNAE desconhecido (-1, com
+      ativos em B) também não cria vazios nos vizinhos/RM; só o par local (-1, B) permanece.
     model: mart_concorrencia_area_mercado
     config:
       meta: { incremento: enriquecimento_bd }
@@ -636,6 +637,7 @@ unit_tests:
         rows:
           - { sk_cnae: 1, cnae_principal: "1", desc_cnae_principal: "x", sk_municipio: 20, municipio: "B", uf: "ES", ativos: 1, inativos: 0 }
           - { sk_cnae: 2, cnae_principal: "2", desc_cnae_principal: "y", sk_municipio: 20, municipio: "B", uf: "ES", ativos: 0, inativos: 3 }
+          - { sk_cnae: -1, cnae_principal: "-1", desc_cnae_principal: "z", sk_municipio: 20, municipio: "B", uf: "ES", ativos: 2, inativos: 0 }
       - input: ref('dim_municipio')
         rows:
           - { sk_municipio: 10, nome_municipio: "A", sigla_uf: "ES", nome_regiao_metropolitana: "RM X", domicilios_2022: 2000, area_km2: 100.0 }
@@ -656,6 +658,7 @@ unit_tests:
         - { sk_cnae: 1, sk_municipio: 40, tem_estabelecimento_local: false, ativos: 0, inativos: 0, qtd_vizinhos: 0, ativos_vizinhos: 0, ativos_regiao_metropolitana: 1, ativos_por_mil_domicilios: null, ativos_area_por_mil_domicilios: null }
         - { sk_cnae: 1, sk_municipio: 50, tem_estabelecimento_local: false, ativos: 0, inativos: 0, qtd_vizinhos: 1, ativos_vizinhos: 1, ativos_regiao_metropolitana: null, ativos_por_mil_domicilios: null, ativos_area_por_mil_domicilios: null }
         - { sk_cnae: 2, sk_municipio: 20, tem_estabelecimento_local: true, ativos: 0, inativos: 3, qtd_vizinhos: 2, ativos_vizinhos: 0, ativos_regiao_metropolitana: 0, ativos_por_mil_domicilios: 0.0, ativos_area_por_mil_domicilios: null }
+        - { sk_cnae: -1, sk_municipio: 20, tem_estabelecimento_local: true, ativos: 2, inativos: 0, qtd_vizinhos: 2, ativos_vizinhos: 0, ativos_regiao_metropolitana: 2, ativos_por_mil_domicilios: 0.666667, ativos_area_por_mil_domicilios: null }
 
   - name: test_mart_concorrencia_municipio_densidade_por_10k_e_ranking
     description: >
