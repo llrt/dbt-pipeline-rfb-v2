@@ -439,6 +439,25 @@ _ESTABELECIMENTOS_RAW = [
         pais="",
         cidade_exterior="",
     ),
+    # P (R3-04): fabricante ativo na microrregião de Fundão, fora do município; mata a mutação que
+    # tira o `upper` da comparação de microrregião na analysis q4.
+    dict(
+        id="P",
+        raiz="17171717",
+        ordem="0001",
+        matriz_filial="1",
+        nome_fantasia="",
+        situacao="02",
+        dat_situacao=None,
+        mot_situacao="00",
+        municipio="5611",
+        cnae_principal="2071100",
+        cnaes_secundarios="",
+        dat_inicio="20180301",
+        uf="ES",
+        pais="",
+        cidade_exterior="",
+    ),
 ]
 
 # cnpj_raiz -> (razao_social, natureza_jur, porte, capital_soc) — nível empresa.
@@ -460,6 +479,7 @@ _EMPRESA_POR_RAIZ = {
     "14141414": ("ENERGIA NOVA", "2062", "05", "1000,00"),  # L
     "15151515": ("BOA ESPERANCA COMERCIO", "2135", "01", "1000,00"),  # M
     "16161616": ("AGRO FUNDAO", "2135", "00", "1000,00"),  # N
+    "17171717": ("TINTAS ARACRUZ IND", "2062", "03", "1000,00"),  # P
 }
 
 # Raízes optantes pelo MEI/Simples (A e C); demais N; toda raiz é optante do Simples.

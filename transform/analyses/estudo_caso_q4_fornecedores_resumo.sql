@@ -1,10 +1,16 @@
-{{ config(tags=['escopo_original'], meta={'escopo': 'original'}) }}
+{{ config(tags=['escopo_adaptado'], meta={'escopo': 'adaptado'}) }}
 
 -- Notebook 4, pergunta 4: empresas ATIVAS potencialmente fornecedoras, em buscas de abrangência
 -- crescente. As três primeiras usam o primeiro CNAE de `caso_cnaes_fornecedores` (fabricante) como
 -- CNAE principal em `agg_empresas`; a quarta, os demais (atacadistas) na mesorregião; as duas
 -- últimas incluem os CNAEs secundários (`bh_empresas.cnaes_secundarios`) na mesorregião e na UF.
 -- `ordem` preserva a sequência do notebook.
+--
+-- ADAPTADO (R3-04): o notebook 4 comparava `microrregiao_municipio`/`mesorregiao_municipio` do
+-- `agg_empresas` (MAIÚSCULAS, herdadas do SQL original) com `nome_microrregiao`/`nome_mesorregiao`
+-- da Base dos Dados em grafia mista ('Linhares'), então as buscas 2, 3 e 4 sempre retornavam 0 —
+-- daí a conclusão "nada nas imediações". Aqui `caso` aplica `upper()` aos nomes da BD e a
+-- comparação passa a funcionar; as respostas diferem do original justamente por isso.
 {%- set cnaes = var('caso_cnaes_fornecedores') %}
 {%- set fabricante = cnaes[0] %}
 {%- set atacadistas = cnaes[1:] %}
@@ -73,7 +79,7 @@ union all
 
 select
   5 as ordem,
-  'CNAE do caso como secundário na mesorregião' as busca,
+  'CNAE de fornecedor como secundário na mesorregião' as busca,
   count(*) as qtd_empresas
 from secundarios
 where mesorregiao_municipio in (select caso.mesorregiao from caso)
@@ -82,7 +88,7 @@ union all
 
 select
   6 as ordem,
-  'CNAE do caso como secundário na UF' as busca,
+  'CNAE de fornecedor como secundário na UF' as busca,
   count(*) as qtd_empresas
 from secundarios
 where uf = '{{ var("caso_uf") }}'

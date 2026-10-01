@@ -14,6 +14,7 @@ with estratos as (
 
 densidade as (
   select
+    est.sk_cnae,
     cnae.codigo_subclasse as cnae_principal,
     cnae.descricao_subclasse as desc_cnae_principal,
     est.sk_municipio,

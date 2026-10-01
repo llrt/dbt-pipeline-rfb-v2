@@ -204,7 +204,13 @@ Cuidados:
 - O resumo **não** tem ano de início nem natureza jurídica. Para coorte use `mart_sobrevivencia_coorte`
   (ou `fct_estabelecimentos` via DuckDB); em `fct_estabelecimentos`, `sk_data_inicio_atividade = -1` é data
   ausente e `-2` é data inválida (anterior a 1900): exclua ambos em análises de coorte.
-- **"Ativa" é a situação cadastral 02** da RFB, não prova de operação.
+- **"Ativa" no cadastro ≠ em operação (R3-19).** "Ativa" é a situação cadastral 02 da RFB: empresas sem
+  atividade seguem ATIVAS até serem declaradas INAPTAS ou baixadas. Por isso `Qtd Ativos`, a densidade de
+  concorrência e, sobretudo, as taxas de `mart_sobrevivencia_coorte` saem mais otimistas que as de fontes que
+  medem operação efetiva (ex.: IBGE, Demografia das Empresas). Registre essa ressalva nos relatórios.
+- Os marts de `analytics` (`mart_concorrencia_municipio`, `mart_dinamica_mercado`, `mart_sobrevivencia_coorte`,
+  `mart_fornecedores_proximos`) expõem `sk_municipio`/`sk_cnae` (e `sk_porte` na sobrevivência), então se
+  relacionam com `dim_municipio`/`dim_cnae` pelas mesmas chaves da estrela (R3-20).
 - `fct_estabelecimentos[capital_social]` é atributo da empresa repetido por estabelecimento: não some por
   estabelecimento; filtre `eh_matriz` (ou use o resumo).
 - **Grafia dos municípios (P18).** `bh_empresas`/`agg_empresas` guardam o município em MAIÚSCULAS

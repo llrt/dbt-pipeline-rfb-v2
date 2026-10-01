@@ -85,8 +85,8 @@ def test_contagem_estabelecimentos_e_empresas(tmp_path: Path) -> None:
     _, linhas_estab = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
     _, linhas_emp = _ler_zip_rfb(tmp_path, "Empresas0.zip")
 
-    assert len(linhas_estab) == 15
-    assert len(linhas_emp) == 14
+    assert len(linhas_estab) == 16
+    assert len(linhas_emp) == 15
 
 
 def test_dv_valido_em_todos_exceto_l(tmp_path: Path) -> None:
@@ -153,20 +153,20 @@ def test_dominio_rfb_municipios_sem_acento_maiusculo(tmp_path: Path) -> None:
     assert mapa["1182"] == "BOA ESPERANCA DO NORTE"
 
 
-def test_mes_anterior_tem_14_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> None:
+def test_mes_anterior_tem_15_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> None:
     gerar_fixtures.gerar_fixtures(tmp_path)
     _, atual = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
     _, anterior = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip", gerar_fixtures.MES_ANTERIOR)
 
-    assert len(atual) == 15
-    assert len(anterior) == 14
+    assert len(atual) == 16
+    assert len(anterior) == 15
     # O é a filial de A (raiz 11111111, ordem 0002): só existe em 2026-09.
     assert ("11111111", "0002") in {(linha[0], linha[1]) for linha in atual}
     assert ("11111111", "0002") not in {(linha[0], linha[1]) for linha in anterior}
     assert {(linha[0], linha[1]) for linha in anterior} < {(linha[0], linha[1]) for linha in atual}
 
 
-def test_mes_anterior_tem_14_empresas_e_nomes_internos_d60810(tmp_path: Path) -> None:
+def test_mes_anterior_tem_15_empresas_e_nomes_internos_d60810(tmp_path: Path) -> None:
     gerar_fixtures.gerar_fixtures(tmp_path)
     mes = gerar_fixtures.MES_ANTERIOR
 
@@ -175,7 +175,7 @@ def test_mes_anterior_tem_14_empresas_e_nomes_internos_d60810(tmp_path: Path) ->
     nome_cnaes, _ = _ler_zip_rfb(tmp_path, "Cnaes.zip", mes)
     nome_simples, _ = _ler_zip_rfb(tmp_path, "Simples.zip", mes)
 
-    assert len(empresas) == 14
+    assert len(empresas) == 15
     assert nome_empresas == "K3241.K03200Y0.D60810.EMPRECSV"
     assert nome_estab == "K3241.K03200Y0.D60810.ESTABELE"
     assert nome_cnaes == "F.K03200$Z.D60810.CNAECSV"

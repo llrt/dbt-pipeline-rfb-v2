@@ -146,10 +146,10 @@ CNPJ_M = "15151515000160"
 CNPJ_O = "11111111000272"
 
 
-def test_fato_tem_15_linhas_sem_descartes() -> None:
+def test_fato_tem_16_linhas_sem_descartes() -> None:
     assert _consultar(
         "select count(*), count(distinct cnpj_completo) from {fct_estabelecimentos}"
-    ) == [(15, 15)]
+    ) == [(16, 16)]
 
 
 def test_fato_k_l_m_presentes_com_menos_um_na_dimensao_faltante() -> None:

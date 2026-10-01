@@ -64,3 +64,35 @@ def test_relatorio_secao_de_qualidade_lista_testes_que_nao_passaram() -> None:
     assert "**1** teste: 0 aprovados, 1 avisos" in texto
     assert "`cnaes_sem_par_bd` | warn | 1 | warn | original" in texto
     assert "> Execução dbt `abc` em 2026-10-01 00:00:00." in texto
+
+
+def test_relatorio_media_de_idade_e_ponderada_por_qtd_empresas() -> None:
+    """R3-16: com dois portes ativos, a média é ponderada (e não a do primeiro porte)."""
+    tabelas = _tabelas()
+    tabelas[f"{P}q2_q3_idade_porte"] = (
+        ["porte", "media_idade", "qtd_empresas"],
+        [("DEMAIS", 10.0, 1), ("MICRO", 4.0, 3)],
+    )
+    texto = renderizar(tabelas, None)
+    assert (
+        "Idade média das ativas: **5,5** anos (média ponderada por `qtd_empresas`, 4 empresas)."
+        in texto
+    )
+
+
+def test_relatorio_tabelas_longas_mostram_top_20_e_o_total() -> None:
+    tabelas = _tabelas()
+    tabelas[f"{P}adicao_fornecedores_proximos"] = (
+        ["cnpj_completo", "distancia_km"],
+        [(f"{i:014d}", float(i)) for i in range(1, 46)],
+    )
+    texto = renderizar(tabelas, None)
+    assert "| 00000000000020 | 20,00 |" in texto
+    assert "| 00000000000021 |" not in texto
+    assert "_Mostrando as 20 primeiras de 45 linhas._" in texto
+
+
+def test_relatorio_traz_nota_de_interpretacao_de_ativa_e_da_adaptacao_da_q4() -> None:
+    texto = renderizar(_tabelas(), None)
+    assert '"ativa" é a situação cadastral da Receita Federal, não operação efetiva' in texto
+    assert "o notebook 4 original retornava 0 nas buscas por microrregião" in texto

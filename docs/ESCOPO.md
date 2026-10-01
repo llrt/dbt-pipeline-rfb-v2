@@ -29,7 +29,8 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Teste de paridade com SQL original | adição | — |
 | Star schema (`dim_*`, `fct_estabelecimentos`, bridge) | adição | "trabalhos futuros" do notebook 5 |
 | `mart_concorrencia_municipio`, `mart_sobrevivencia_coorte`, `mart_dinamica_mercado`, `mart_fornecedores_proximos` | adição | aprofundam as perguntas do notebook 0/4 |
-| Análises do estudo de caso Fundão/ES (`analyses/estudo_caso_q1..q4*`) | original | notebook 4 (perguntas 1–4, parametrizadas por `caso_*`) |
+| Análises do estudo de caso Fundão/ES (`analyses/estudo_caso_q1..q3*`, `q4_fornecedores_secundarios_uf`) | original | notebook 4 (perguntas 1–4, parametrizadas por `caso_*`) |
+| Análise `estudo_caso_q4_fornecedores_resumo` (buscas por micro e mesorregião com `upper()` dos dois lados) | adaptado | o notebook 4 comparava MAIÚSCULAS (`agg_empresas`) com a grafia mista da BD e por isso sempre retornava 0 nessas buscas; a comparação corrigida muda a resposta (R3-04) |
 | Análises das adições no estudo de caso (`analyses/estudo_caso_adicao_*`, `estudo_caso_parametros`) | adição | usam os 4 marts novos |
 | Relatório gerado do estudo de caso (`rfb relatorio`, `src/rfb_pipeline/relatorio.py`) | adição | — |
 | Testes genéricos `cnpj_dv_valido` e `data_nao_futura`, `store_failures` nos testes warn, guarda de escopo (`test_escopo_meta.py`) | adição | — |

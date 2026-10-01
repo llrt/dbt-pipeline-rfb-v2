@@ -85,10 +85,11 @@ pelo menos um registro multilinha; população 2024: Fundão 20000, Linhares 180
 | M | 15151515/0001 | BOA ESPERANCA COMERCIO | 2135 | 01 | 1182 | 4711302 | 02 | 20231201 | `00000000` | município sem par no BD |
 | N | 16161616/0001 | AGRO FUNDAO | 2135 | 00 | 5643 | 0111301 | 02 | 20000229 | — | CNAE com zero à esquerda |
 | O | 11111111/0002 | (filial de A) | — | — | 5699 | 4741500 | 02 | 20240115 | — | matriz_filial 2; nome_fantasia multilinha |
+| P | 17171717/0001 | TINTAS ARACRUZ IND | 2062 | 03 | 5611 | 2071100 | 02 | 20180301 | — | **emenda R3-04**: fabricante ativo na microrregião de Fundão (Linhares), fora do município |
 
-Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
+Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
 
-**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 14 estabelecimentos e 14 empresas. As respostas de 2026-09 acima não mudam.
+**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 15 estabelecimentos e 15 empresas. As respostas de 2026-09 acima não mudam.
 
 ---
 
@@ -107,7 +108,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 3. The system SHALL store every RFB data column as VARCHAR using the column names listed in ARCHITECTURE.md §4.2, plus `_arquivo_origem`, `_mes_referencia`, `_data_referencia`, `_ingerido_em`.
 4. WHEN a field contains `\"` before the closing quote (row K) THEN the system SHALL parse it as a value ending in `\` without rejecting the row.
 5. WHEN a quoted field spans multiple lines (row O) THEN the system SHALL keep it as a single record.
-6. WHEN the fixtures are ingested THEN the system SHALL write exactly 14 `empresas` rows, 15 `estabelecimentos` rows and 0 rejected rows.
+6. WHEN the fixtures are ingested THEN the system SHALL write exactly 15 `empresas` rows, 16 `estabelecimentos` rows and 0 rejected rows.
 7. WHEN the internal file name contains `D60912` THEN the system SHALL set `_data_referencia` to `2026-09-12`.
 8. IF the rejected-row rate for an entity exceeds `RFB_MAX_TAXA_REJEITO` THEN the system SHALL exit non-zero and SHALL keep the rejected rows under `raw/_rejeitos/`.
 9. IF a downloaded file size differs from the WebDAV `getcontentlength` THEN the system SHALL delete the file and exit non-zero without writing to `raw/`.
@@ -161,7 +162,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 **Acceptance Criteria**:
 
 1. The system SHALL build `bh_empresas` with exactly the columns `cnpj_raiz, cnpj_completo, nome, natureza_juridica, porte, cnae_principal, desc_cnae_principal, grupo_cnae_principal, cnaes_secundarios, municipio, microrregiao_municipio, mesorregiao_municipio, uf, situacao, idade_atual` under an enforced contract.
-2. WHEN built on fixtures THEN `bh_empresas` SHALL contain 12 rows (15 minus K, L, M dropped by the original inner joins).
+2. WHEN built on fixtures THEN `bh_empresas` SHALL contain 13 rows (16 minus K, L, M dropped by the original inner joins).
 3. The system SHALL map porte `0→'N/A'`, `1→'MICRO'`, `3→'PEQUENA'`, `5→'DEMAIS'`, otherwise NULL (row E → NULL).
 4. The system SHALL map situação `2→'ATIVA'`, otherwise `'INATIVA'`.
 5. WHEN situação is ATIVA THEN `idade_atual` SHALL be `round(days(data_referencia − dat_inicio)/365.25, 1)` (row A → 3.9); otherwise NULL.
@@ -210,7 +211,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 2. WHEN built on fixtures THEN `mart_sobrevivencia_coorte` summed over cohorts and portes for (4741500, ES) SHALL give eligible/survivors 6/6 at 1 year, 5/4 at 3 years and 4/2 at 5 years.
 3. The system SHALL fail (error) if any survival rate is outside [0,1] or if, within a row, taxa_1a < taxa_3a or taxa_3a < taxa_5a when both compared rates are non-null.
 4. WHEN built on fixtures THEN `mart_dinamica_mercado` for (4741500, Fundão) SHALL show aberturas in 2010, 2015, 2018, 2020, 2022 (1 each) and encerramentos in 2019, 2021, 2023, 2024 (1 each).
-5. WHEN built on fixtures THEN `mart_fornecedores_proximos` for Fundão with CNAEs {2071100, 4679601, 4679699} and radius 100 km SHALL list exactly F (Serra, 18.66 ± 0.5 km, via CNAE principal) and H (Linhares, 73.68 ± 0.5 km, via CNAE secundário).
+5. WHEN built on fixtures THEN `mart_fornecedores_proximos` for Fundão with CNAEs {2071100, 4679601, 4679699} and radius 100 km SHALL list exactly F (Serra, 18.66 ± 0.5 km, via CNAE principal), P (Aracruz, via CNAE principal; incluído pela emenda R3-04) and H (Linhares, 73.68 ± 0.5 km, via CNAE secundário).
 6. The system SHALL exclude inactive suppliers (row I) and suppliers beyond the radius (rows G at ≈129.6 km and J).
 7. The system SHALL fail (error) if any distance is negative or if a municipality's distance to itself is not 0.
 
@@ -225,7 +226,7 @@ Empresas: as 14 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 **Acceptance Criteria**:
 
 1. The system SHALL provide a generic test `cnpj_dv_valido` that validates both CNPJ check digits (fixtures: exactly 1 failure, row L, severity warn).
-2. The system SHALL provide a generic test `data_nao_futura` relative to `data_referencia` applied to every staging date column.
+2. The system SHALL provide a generic test `data_nao_futura` relative to `data_referencia` applied to every staging date column, **except** `dat_exclusao_simples` and `dat_exclusao_mei` (a exclusão do Simples/MEI com efeito futuro — fim do mês ou do ano — é legítima; no extrato real de fev/2025 todos os 1.854 e 1.766 avisos eram 2025-02-28 ou 2025-12-31). *(Emenda R3-11.)*
 3. The system SHALL store failures of `warn` tests (`store_failures`).
 4. WHEN `dbt build` finishes THEN the system SHALL append one row per executed test to `dq_historico_testes` with invocation id, test name, status, failures, severity and escopo.
 5. The system SHALL produce `docs/QUALIDADE_DADOS.md` listing every check by stage (antes/depois), marking original vs adição.

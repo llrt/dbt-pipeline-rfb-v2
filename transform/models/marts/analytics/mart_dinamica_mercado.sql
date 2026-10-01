@@ -31,6 +31,8 @@ with eventos as (
 
 select
   eve.ano,
+  eve.sk_cnae,
+  eve.sk_municipio,
   cnae.codigo_subclasse as cnae_principal,
   cnae.descricao_subclasse as desc_cnae_principal,
   mun.nome_municipio as municipio,
@@ -45,8 +47,9 @@ inner join {{ ref('dim_municipio') }} as mun
   on eve.sk_municipio = mun.sk_municipio
 group by
   eve.ano,
+  eve.sk_cnae,
+  eve.sk_municipio,
   cnae.codigo_subclasse,
   cnae.descricao_subclasse,
   mun.nome_municipio,
-  mun.sigla_uf,
-  mun.sk_municipio
+  mun.sigla_uf

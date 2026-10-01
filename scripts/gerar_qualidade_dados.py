@@ -44,6 +44,9 @@ ETAPA_SINGULAR = {
     "paridade_bh_empresas": "Original",
     "dim_data_cobre_data_referencia": "Core",
     "fct_estabelecimentos_reconciliacao": "Core",
+    "cnpj_dv_valido_casos": "Staging",
+    "data_nao_futura_casos": "Staging",
+    "caso_resolve_um_municipio": "Análises",
     "sobrevivencia_invariantes": "Análises",
     "distancias_fornecedores_validas": "Análises",
 }
@@ -85,6 +88,11 @@ def _etapa(no: dict) -> str:
 
 
 def _alvo(no: dict) -> str:
+    # `attached_node` (dbt >= 1.5) é o nó dono do teste; sem ele, cai no heurístico pelo nome (R3-12).
+    dono = no.get("attached_node")
+    if dono:
+        base = dono.split(".")[-1]
+        return f"{base}.{no['column_name']}" if no.get("column_name") else base
     pais = [p for p in no["depends_on"]["nodes"] if not p.startswith("macro")]
     nomes = [p.split(".")[-1] for p in pais]
     # o pai "dono" do teste é o que aparece no nome; mantém o primeiro como referência
@@ -157,6 +165,8 @@ def gerar(manifesto: dict) -> str:
         "- **Severidade**: `error` interrompe o `dbt build`; `warn` registra a anomalia e não interrompe.",
         "  Exceção documentada: `cnpj_dv_valido` é `warn`, mas vira erro se mais de 0,1% dos CNPJs forem",
         "  inválidos **e** houver mais de 100 inválidos (`error_if` do dbt não aceita limites relativos).",
+        "  `data_nao_futura` cobre toda data do staging, exceto `dat_exclusao_simples` e `dat_exclusao_mei`",
+        "  (exclusão com efeito futuro é legítima; R3-11).",
         "- **Escopo**: `original` (check do MVP; notebook de origem na última coluna) ou `adicao`.",
         "",
         "## Checks da ingestão (Python, antes do dbt)",

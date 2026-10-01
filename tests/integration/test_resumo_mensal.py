@@ -47,12 +47,12 @@ def test_serra_4741500_ativa_ausente_em_agosto_e_um_em_setembro() -> None:
     assert linhas == [("2026-09", 1)]  # ausente em 2026-08 (a filial só aparece em 2026-09)
 
 
-def test_soma_de_setembro_e_quinze_e_a_de_agosto_catorze() -> None:
+def test_soma_de_setembro_e_dezesseis_e_a_de_agosto_quinze() -> None:
     linhas = _consultar(
         "select mes_referencia, sum(qtd_estabelecimentos), min(sk_mes_referencia) from {resumo} "
         "group by 1 order by 1"
     )
-    assert linhas == [("2026-08", 14, 20260801), ("2026-09", 15, 20260901)]
+    assert linhas == [("2026-08", 15, 20260801), ("2026-09", 16, 20260901)]
 
 
 def test_capital_social_soma_so_as_matrizes() -> None:
@@ -62,8 +62,8 @@ def test_capital_social_soma_so_as_matrizes() -> None:
         "group by 1 order by 1"
     )
     assert [(m, int(q), float(c)) for m, q, c in linhas] == [
-        ("2026-08", 14, 14000.50),
-        ("2026-09", 14, 14000.50),  # 15 estabelecimentos, mas uma filial: 15000.50 se somasse tudo
+        ("2026-08", 15, 15000.50),
+        ("2026-09", 15, 15000.50),  # 16 estabelecimentos, mas uma filial: 16000.50 se somasse tudo
     ]
 
 
@@ -107,7 +107,7 @@ def test_reprocessar_sem_warehouse_preserva_a_particao_antiga(tmp_path: Path) ->
         "select mes_referencia, sum(qtd_estabelecimentos) from {resumo} group by 1 order by 1",
         gold=copia / "gold",
     )
-    assert linhas == [("2026-08", 14), ("2026-09", 15)]
+    assert linhas == [("2026-08", 15), ("2026-09", 16)]
 
 
 def test_particao_antiga_orfa_so_avisa_e_nao_derruba_o_mes_processado(tmp_path: Path) -> None:
