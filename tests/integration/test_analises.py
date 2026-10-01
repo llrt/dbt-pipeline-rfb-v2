@@ -47,3 +47,21 @@ def test_sobrevivencia_tintas_es_6_6_5_4_4_2(consultar) -> None:
         "where cnae_principal = '4741500' and uf = 'ES'"
     )
     assert linha == (6, 6, 5, 4, 4, 2)
+
+
+def test_dinamica_fundao_tintas_aberturas_e_encerramentos_por_ano(consultar) -> None:
+    linhas = consultar(
+        "select ano, aberturas, encerramentos, saldo from {mart_dinamica_mercado} "
+        "where cnae_principal = '4741500' and municipio = 'Fundão' order by ano"
+    )
+    assert linhas == [
+        (2010, 1, 0, 1),
+        (2015, 1, 0, 1),
+        (2018, 1, 0, 1),
+        (2019, 0, 1, -1),
+        (2020, 1, 0, 1),
+        (2021, 0, 1, -1),
+        (2022, 1, 0, 1),
+        (2023, 0, 1, -1),
+        (2024, 0, 1, -1),
+    ]

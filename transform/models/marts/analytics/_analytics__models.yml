@@ -78,6 +78,34 @@ models:
       - name: taxa_5a
         description: sobreviventes_5a / elegiveis_5a; NULL sem elegíveis.
 
+  - name: mart_dinamica_mercado
+    description: >
+      ANA-03 (adição): aberturas, encerramentos e saldo por ano × CNAE principal × município.
+      Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`).
+      Datas nulas não geram evento.
+    columns:
+      - name: ano
+        description: Ano calendário do evento (abertura ou encerramento).
+        data_tests: [not_null]
+      - name: cnae_principal
+        description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_tests: [not_null]
+      - name: desc_cnae_principal
+        description: Descrição da subclasse (Base dos Dados).
+      - name: municipio
+        description: Nome do município (acentuado, Base dos Dados).
+      - name: uf
+        description: Sigla da UF.
+      - name: aberturas
+        description: Estabelecimentos com início de atividade no ano.
+        data_tests: [not_null]
+      - name: encerramentos
+        description: Estabelecimentos inativos com data da situação no ano.
+        data_tests: [not_null]
+      - name: saldo
+        description: aberturas − encerramentos.
+        data_tests: [not_null]
+
 unit_tests:
   - name: test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia
     description: >
