@@ -239,7 +239,7 @@ unit_tests:
 
   - name: test_bh_empresas_nome_e_dominios
     description: >
-      Original AC 6–7: `nome = upper(coalesce(nome_fantasia, razao_social))`; domínios em upper
+      Original AC 6–7: `nome = upper(coalesce(nome_fantasia, razao_social))`; `grupo_cnae_principal` = grupo do CNAE (R2-13c); domínios em upper
       case (FUNDÃO, LINHARES, LITORAL NORTE ESPÍRITO-SANTENSE, ES); estabelecimento sem par em
       município BD sai (inner join).
     model: bh_empresas
@@ -262,6 +262,7 @@ unit_tests:
           nome: "TINTAS FUNDÃO"
           natureza_juridica: "SOCIEDADE EMPRESÁRIA LIMITADA"
           desc_cnae_principal: "COMÉRCIO VAREJISTA DE TINTAS"
+          grupo_cnae_principal: "COMÉRCIO VAREJISTA DE MATERIAL DE CONSTRUÇÃO"
           municipio: "FUNDÃO"
           microrregiao_municipio: "LINHARES"
           mesorregiao_municipio: "LITORAL NORTE ESPÍRITO-SANTENSE"
@@ -270,6 +271,7 @@ unit_tests:
           nome: "TINTAS CAPIXABA"
           natureza_juridica: "SOCIEDADE EMPRESÁRIA LIMITADA"
           desc_cnae_principal: "COMÉRCIO VAREJISTA DE TINTAS"
+          grupo_cnae_principal: "COMÉRCIO VAREJISTA DE MATERIAL DE CONSTRUÇÃO"
           municipio: "FUNDÃO"
           microrregiao_municipio: "LINHARES"
           mesorregiao_municipio: "LITORAL NORTE ESPÍRITO-SANTENSE"
