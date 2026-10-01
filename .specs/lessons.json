@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 4,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "surviving_mutant::para provar que um passo regrava um artefato apague o ou mude o antes do passo e afirme que voltou com o conteudo esperado checar so a existencia nao discrimina",
+      "text": "Para provar que um passo regrava um artefato, apague-o (ou mude-o) antes do passo e afirme que voltou com o conteúdo esperado; checar só a existência não discrimina.",
+      "signal": "surviving_mutant",
+      "scope": "tests/integration",
+      "status": "candidate",
+      "features": [
+        "rfb-dbt-port"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "transform/models/marts/core/fct_resumo_mensal.sql:2 (R4-D04) (tests/integration)"
+      ],
+      "created": "2026-10-01T16:41:21Z",
+      "last_seen": "2026-10-01T16:41:21Z"
+    },
+    {
+      "id": "L-002",
+      "key": "spec_precision_gap::quando uma emenda muda fixture prazo ou contagem atualize no mesmo commit todo ac e teste independente da spec que cite o valor antigo",
+      "text": "Quando uma emenda muda fixture, prazo ou contagem, atualize no mesmo commit todo AC e teste independente da spec que cite o valor antigo.",
+      "signal": "spec_precision_gap",
+      "scope": ".specs",
+      "status": "candidate",
+      "features": [
+        "rfb-dbt-port"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "spec.md:200,205,265 (CORE AC 1/6, OPS AC 1) (.specs)"
+      ],
+      "created": "2026-10-01T16:41:21Z",
+      "last_seen": "2026-10-01T16:41:21Z"
+    },
+    {
+      "id": "L-003",
+      "key": "ac_gap::um caminho alternativo de build backfill reprocesso que grava no destino final precisa dos mesmos testes error a montante do caminho normal ou gravar em area temporaria e promover so apos passar",
+      "text": "Um caminho alternativo de build (backfill, reprocesso) que grava no destino final precisa dos mesmos testes error a montante do caminho normal, ou gravar em área temporária e promover só após passar.",
+      "signal": "ac_gap",
+      "scope": "transform/selectors.yml",
+      "status": "candidate",
+      "features": [
+        "rfb-dbt-port"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "transform/selectors.yml:6-20 (R4-02) (transform/selectors.yml)"
+      ],
+      "created": "2026-10-01T16:41:21Z",
+      "last_seen": "2026-10-01T16:41:21Z"
+    }
+  ]
+}
