@@ -176,11 +176,50 @@ unit_tests:
         - { ano_coorte: 2020, estabelecimentos: 3, elegiveis_1a: 3, sobreviventes_1a: 2, taxa_1a: 0.6666666666666666, elegiveis_3a: 3, sobreviventes_3a: 1, taxa_3a: 0.3333333333333333, elegiveis_5a: 3, sobreviventes_5a: 1, taxa_5a: 0.3333333333333333 }
         - { ano_coorte: 2025, estabelecimentos: 1, elegiveis_1a: 0, sobreviventes_1a: 0, taxa_1a: null, elegiveis_3a: 0, sobreviventes_3a: 0, taxa_3a: null, elegiveis_5a: 0, sobreviventes_5a: 0, taxa_5a: null }
 
+  - name: test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario
+    description: >
+      ANA-02 (R3-07): fronteiras da regra. Com data_referencia 2026-09-12, a coorte 2023 é elegível a 1 ano
+      (31/12/2024 já passou) e NÃO a 3 anos (31/12/2026 é futuro). Um membro baixado exatamente no
+      aniversário (dat_inicio + 1 ano, dat_inicio + 3 anos) sobrevive àquele horizonte (>=), mas não ao
+      seguinte (a coorte 2020 é elegível a 5 anos).
+    model: mart_sobrevivencia_coorte
+    overrides:
+      vars:
+        data_referencia: "2026-09-12"
+    given:
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - &fct_limite { sk_cnae: 4741500, sk_porte: 1, sk_municipio: 3202207, eh_ativa: false, sk_data_inicio_atividade: 20200310, sk_data_situacao: 20230310 }
+          - { <<: *fct_limite, sk_data_inicio_atividade: 20230601, sk_data_situacao: 20240601 }
+      - input: ref('dim_data')
+        rows:
+          - { sk_data: 20200310, data: "2020-03-10" }
+          - { sk_data: 20230310, data: "2023-03-10" }
+          - { sk_data: 20230601, data: "2023-06-01" }
+          - { sk_data: 20240601, data: "2024-06-01" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4741500, codigo_subclasse: "4741500" }
+      - input: ref('dim_porte')
+        rows:
+          - { sk_porte: 1, rotulo_porte: "MICRO" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 3202207, sigla_uf: "ES" }
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows: []
+    expect:
+      rows:
+        - { ano_coorte: 2020, estabelecimentos: 1, elegiveis_1a: 1, sobreviventes_1a: 1, taxa_1a: 1.0, elegiveis_3a: 1, sobreviventes_3a: 1, taxa_3a: 1.0, elegiveis_5a: 1, sobreviventes_5a: 0, taxa_5a: 0.0 }
+        - { ano_coorte: 2023, estabelecimentos: 1, elegiveis_1a: 1, sobreviventes_1a: 1, taxa_1a: 1.0, elegiveis_3a: 0, sobreviventes_3a: 0, taxa_3a: null, elegiveis_5a: 0, sobreviventes_5a: 0, taxa_5a: null }
+
   - name: test_mart_fornecedores_proximos_haversine_e_via
     description: >
       ANA-04: com o caso em (0,0) e raio 150 km, F (CNAE principal, 1 grau de longitude ≈ 111.2 km)
       entra com via principal; H (CNAE secundário, mesmo município do caso) entra com distância 0;
-      G (2 graus ≈ 222.4 km) fica fora do raio; I (inativo) é excluído.
+      G (2 graus ≈ 222.4 km) fica fora do raio; I (inativo) é excluído. R3-08: o estabelecimento com o CNAE
+      de fornecedor no principal e no secundário sai via principal; o que tem dois secundários que casam
+      fica com o menor.
     model: mart_fornecedores_proximos
     overrides:
       vars:
@@ -200,19 +239,28 @@ unit_tests:
           - { cnpj_completo: "00000000000002", cnae_principal: "4711302" }
           - { cnpj_completo: "00000000000003", cnae_principal: "2071100" }
           - { cnpj_completo: "00000000000004", cnae_principal: "2071100" }
+          - { cnpj_completo: "00000000000005", cnae_principal: "2071100" }
+          - { cnpj_completo: "00000000000006", cnae_principal: "4711302" }
       - input: ref('bridge_estabelecimento_cnae_secundario')
         rows:
           - { cnpj_completo: "00000000000002", codigo_cnae_secundario: "4679699" }
+          - { cnpj_completo: "00000000000005", codigo_cnae_secundario: "4679699" }
+          - { cnpj_completo: "00000000000006", codigo_cnae_secundario: "4679699" }
+          - { cnpj_completo: "00000000000006", codigo_cnae_secundario: "2071100" }
       - input: ref('fct_estabelecimentos')
         rows:
           - { cnpj_completo: "00000000000001", sk_municipio: 2, eh_ativa: true }
           - { cnpj_completo: "00000000000002", sk_municipio: 1, eh_ativa: true }
           - { cnpj_completo: "00000000000003", sk_municipio: 3, eh_ativa: true }
           - { cnpj_completo: "00000000000004", sk_municipio: 2, eh_ativa: false }
+          - { cnpj_completo: "00000000000005", sk_municipio: 2, eh_ativa: true }
+          - { cnpj_completo: "00000000000006", sk_municipio: 2, eh_ativa: true }
       - input: ref('stg_rfb__estabelecimentos')
         rows:
           - { cnpj_completo: "00000000000001", cnpj_raiz: "00000000", nome_fantasia: "F" }
           - { cnpj_completo: "00000000000002", cnpj_raiz: "00000000", nome_fantasia: null }
+          - { cnpj_completo: "00000000000005", cnpj_raiz: "00000000", nome_fantasia: "P" }
+          - { cnpj_completo: "00000000000006", cnpj_raiz: "00000000", nome_fantasia: "S" }
       - input: ref('stg_rfb__empresas')
         rows:
           - { cnpj_raiz: "00000000", razao_social: "RAZAO" }
@@ -220,3 +268,6 @@ unit_tests:
       rows:
         - { cnpj_completo: "00000000000001", nome: "F", cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
         - { cnpj_completo: "00000000000002", nome: "RAZAO", cnae_fornecido: "4679699", via: "secundario", municipio: "Caso", uf: "ES", distancia_km: 0.0 }
+        # R3-08: CNAE de fornecedor no principal e no secundário -> principal; dois secundários -> o menor
+        - { cnpj_completo: "00000000000005", nome: "P", cnae_fornecido: "2071100", via: "principal", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
+        - { cnpj_completo: "00000000000006", nome: "S", cnae_fornecido: "2071100", via: "secundario", municipio: "Perto", uf: "ES", distancia_km: 111.2 }
