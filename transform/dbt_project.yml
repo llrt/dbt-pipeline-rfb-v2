@@ -25,6 +25,7 @@ vars:
   mes_referencia: null
   data_referencia: null
   ano_populacao: null
+  primeiro_dia_calendario: "1900-01-01"  # início de dim_data; antes dele a data é inválida (-2)
   caso_cnae_alvo: "4741500"
   caso_municipio: "FUNDÃO"
   caso_uf: "ES"

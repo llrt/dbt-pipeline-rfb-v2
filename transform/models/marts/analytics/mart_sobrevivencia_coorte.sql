@@ -12,7 +12,7 @@ with estabelecimentos as (
     mun.sigla_uf as uf,
     fct.eh_ativa,
     ini.data as dat_inicio,
-    sit.data as dat_situacao
+    case when sit.sk_data > 0 then sit.data end as dat_situacao  -- -1/-2: sem data de situação
   from {{ ref('fct_estabelecimentos') }} as fct
   inner join {{ ref('dim_data') }} as ini
     on fct.sk_data_inicio_atividade = ini.sk_data
@@ -24,7 +24,7 @@ with estabelecimentos as (
     on fct.sk_porte = por.sk_porte
   inner join {{ ref('dim_municipio') }} as mun
     on fct.sk_municipio = mun.sk_municipio
-  where ini.data is not null  -- sem início de atividade não há coorte
+  where ini.sk_data > 0  -- sem início de atividade (-1) ou inválido (-2) não há coorte
 ),
 
 marcados as (

@@ -244,22 +244,23 @@ models:
 
   - name: dim_data
     description: >
-      Calendário (ADR-0013): uma linha por dia do menor dia referenciado pelas fatos até
-      `data_referencia` (ou a maior data observada, se maior), com `sk_data = yyyymmdd`. Dimensão
-      de papel duplo na fato (`sk_data_inicio_atividade`, `sk_data_situacao`). Membro `-1` para
-      datas nulas.
+      Calendário (ADR-0013, emenda R3-03): uma linha por dia de 1900-01-01 até `data_referencia` (ou a
+      maior data observada, se maior), com `sk_data = yyyymmdd`. Dimensão de papel duplo na fato
+      (`sk_data_inicio_atividade`, `sk_data_situacao`). Membros `-1` NÃO INFORMADO (data nula) e `-2`
+      DATA INVÁLIDA (anterior a 1900), com datas contíguas ao calendário (1899-12-31 e 1899-12-30)
+      para que a tabela seja marcável como tabela de datas no Power BI; `ano`/`mes` ficam NULL neles.
     config:
       contract:
         enforced: true
     columns:
       - name: sk_data
         description: >
-          Chave substituta inteira no formato yyyymmdd (ex.: 20000229); `-1` é o membro NÃO INFORMADO (data nula).
+          Chave substituta inteira no formato yyyymmdd (ex.: 20000229); `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900).
         data_type: integer
         data_tests: [unique, not_null]
       - name: data
         description: >
-          Data do calendário; NULL só no membro `-1`.
+          Data do calendário, nunca nula; os membros `-1` e `-2` usam 1899-12-31 e 1899-12-30.
         data_type: date
       - name: ano
         description: >
@@ -382,7 +383,7 @@ models:
                 field: sk_situacao_cadastral
       - name: sk_data_inicio_atividade
         description: >
-          Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula ou inválida.
+          Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula; `-2` quando é anterior a 1900 (DATA INVÁLIDA).
         data_type: integer
         data_tests:
           - not_null
@@ -392,7 +393,7 @@ models:
                 field: sk_data
       - name: sk_data_situacao
         description: >
-          Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`).
+          Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`); `-2` quando é anterior a 1900 (DATA INVÁLIDA).
         data_type: integer
         data_tests:
           - not_null
@@ -436,10 +437,10 @@ models:
     config:
       contract:
         enforced: true
-    data_tests:
     # Integridade referencial: testes singulares `fct_resumo_mensal_relacionamentos_mes` (error, só o
     # mês processado: `relationships` genérico não aceita `ref` no `where`) e
     # `fct_resumo_mensal_integridade_historica` (warn, todas as partições) — R3-18.
+    data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns:
@@ -633,9 +634,13 @@ unit_tests:
 
   - name: test_dim_data_calendario_continuo_com_atributos_em_portugues
     description: >
-      BI-01: uma linha por dia do menor dia referenciado (2000-02-29, bissexto) até
-      `data_referencia` (2000-03-02), `sk_data = yyyymmdd`, nomes em português; mais o membro `-1`.
+      BI-01/R3-03: uma linha por dia do `primeiro_dia_calendario` (aqui 2000-02-29, bissexto; padrão
+      1900-01-01) até `data_referencia` (2000-03-02), `sk_data = yyyymmdd`, nomes em português; mais
+      os membros `-1` (NÃO INFORMADO) e `-2` (DATA INVÁLIDA) com datas contíguas e `ano` NULL.
     model: dim_data
+    overrides:
+      vars:
+        primeiro_dia_calendario: "2000-02-29"
     given:
       - input: ref('stg_rfb__estabelecimentos')
         rows:
@@ -646,7 +651,8 @@ unit_tests:
         - { sk_data: 20000229, data: "2000-02-29", ano: 2000, semestre: 1, trimestre: 1, mes: 2, nome_mes: "fevereiro", ano_mes: "2000-02", dia: 29, dia_semana_numero: 2, dia_semana: "terça-feira" }
         - { sk_data: 20000301, data: "2000-03-01", ano: 2000, semestre: 1, trimestre: 1, mes: 3, nome_mes: "março", ano_mes: "2000-03", dia: 1, dia_semana_numero: 3, dia_semana: "quarta-feira" }
         - { sk_data: 20000302, data: "2000-03-02", ano: 2000, semestre: 1, trimestre: 1, mes: 3, nome_mes: "março", ano_mes: "2000-03", dia: 2, dia_semana_numero: 4, dia_semana: "quinta-feira" }
-        - { sk_data: -1, data: null, ano: null, semestre: null, trimestre: null, mes: null, nome_mes: "NÃO INFORMADO", ano_mes: "NÃO INFORMADO", dia: null, dia_semana_numero: null, dia_semana: "NÃO INFORMADO" }
+        - { sk_data: -1, data: "2000-02-28", ano: null, semestre: null, trimestre: null, mes: null, nome_mes: "NÃO INFORMADO", ano_mes: "NÃO INFORMADO", dia: null, dia_semana_numero: null, dia_semana: "NÃO INFORMADO" }
+        - { sk_data: -2, data: "2000-02-27", ano: null, semestre: null, trimestre: null, mes: null, nome_mes: "DATA INVÁLIDA", ano_mes: "DATA INVÁLIDA", dia: null, dia_semana_numero: null, dia_semana: "DATA INVÁLIDA" }
 
   - name: test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado
     description: >
@@ -689,7 +695,8 @@ unit_tests:
 
   - name: test_fct_estabelecimentos_chaves_inteiras_e_menos_um
     description: >
-      CORE-01/BI-01: sk's vêm das dimensões, `-1` quando falta par ou a data é nula; `idade_anos`
+      CORE-01/BI-01/R3-03: sk's vêm das dimensões, `-1` quando falta par ou a data é nula, `-2` para data
+      anterior a 1900 (início 1194-08-15 e situação 1899-12-31 de "V"); `idade_anos`
       só para ativa (início 2022-10-15, referência 2026-09-12 → 3.9); flags `eh_matriz`/`eh_ativa`.
     model: fct_estabelecimentos
     given:
@@ -697,6 +704,7 @@ unit_tests:
         rows:
           - { cnpj_completo: "A", matriz_filial_codigo: 1, situacao_codigo: 2, dat_inicio_atividade: "2022-10-15", dat_situacao: "2022-10-15", cnae_principal: "4741500", id_municipio_ibge: "3202207", natureza_juridica_codigo: "2135", porte_codigo: 1, opcao_simples: false, opcao_mei: true, _data_referencia: "2026-09-12" }
           - { cnpj_completo: "M", matriz_filial_codigo: 2, situacao_codigo: 8, dat_inicio_atividade: "2023-12-01", dat_situacao: null, cnae_principal: "3511500", id_municipio_ibge: null, natureza_juridica_codigo: "9999", porte_codigo: null, opcao_simples: false, opcao_mei: false, _data_referencia: "2026-09-12" }
+          - { cnpj_completo: "V", matriz_filial_codigo: 1, situacao_codigo: 8, dat_inicio_atividade: "1194-08-15", dat_situacao: "1899-12-31", cnae_principal: "4741500", id_municipio_ibge: "3202207", natureza_juridica_codigo: "2135", porte_codigo: 1, opcao_simples: false, opcao_mei: false, _data_referencia: "2026-09-12" }
       - input: ref('dim_municipio')
         rows:
           - { sk_municipio: 3202207, id_municipio_ibge: "3202207" }
@@ -721,11 +729,13 @@ unit_tests:
         rows:
           - { sk_data: 20221015, data: "2022-10-15" }
           - { sk_data: 20231201, data: "2023-12-01" }
-          - { sk_data: -1, data: null }
+          - { sk_data: -1, data: "1899-12-31" }
+          - { sk_data: -2, data: "1899-12-30" }
     expect:
       rows:
         - { cnpj_completo: "A", sk_municipio: 3202207, sk_cnae: 4741500, sk_natureza_juridica: 2135, sk_porte: 1, sk_situacao_cadastral: 2, sk_data_inicio_atividade: 20221015, sk_data_situacao: 20221015, idade_anos: 3.9, opcao_mei: true, eh_matriz: true, eh_ativa: true }
         - { cnpj_completo: "M", sk_municipio: -1, sk_cnae: -1, sk_natureza_juridica: -1, sk_porte: -1, sk_situacao_cadastral: 8, sk_data_inicio_atividade: 20231201, sk_data_situacao: -1, idade_anos: null, opcao_mei: false, eh_matriz: false, eh_ativa: false }
+        - { cnpj_completo: "V", sk_municipio: 3202207, sk_cnae: 4741500, sk_natureza_juridica: 2135, sk_porte: 1, sk_situacao_cadastral: 8, sk_data_inicio_atividade: -2, sk_data_situacao: -2, idade_anos: null, opcao_mei: false, eh_matriz: true, eh_ativa: false }
 
   - name: test_int_cnaes_secundarios_explodidos
     description: "CORE-01: lista com 2 códigos gera 2 linhas; lista vazia gera 0; código repetido conta uma vez."
