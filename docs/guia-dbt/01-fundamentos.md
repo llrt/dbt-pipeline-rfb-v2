@@ -473,30 +473,36 @@ rfb:
     ci:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
-      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
+      external_root: "{{ env_var('RFB_EXTERNAL_ROOT', env_var('RAIZ_DADOS', '../dados') ~ '/gold') }}"
       threads: "{{ env_var('DBT_THREADS', 4) | as_number }}"  # paralelismo de nós do dbt
+      config_options:  # aplicado uma vez no connect (em `settings`, o SET por cursor falha após o 1º spill)
+        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
-        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
         threads: "{{ env_var('DUCKDB_THREADS', 4) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '2GB') }}"
     dev:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
-      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
+      external_root: "{{ env_var('RFB_EXTERNAL_ROOT', env_var('RAIZ_DADOS', '../dados') ~ '/gold') }}"
       threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
+      config_options:  # aplicado uma vez no connect (em `settings`, o SET por cursor falha após o 1º spill)
+        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
-        temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
         threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
+    # Modo S3 (ADR-0007): fontes e gold em RAIZ_DADOS (s3://...); o arquivo .duckdb e os temporários
+    # são SEMPRE locais (RAIZ_DADOS_LOCAL) porque o DuckDB não abre banco gravável em S3.
+    # Sem valor padrão nas credenciais: dbt falha nomeando a variável que faltar.
     s3:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS_LOCAL', '../dados') ~ '/warehouse.duckdb') }}"
-      external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
+      external_root: "{{ env_var('RFB_EXTERNAL_ROOT', env_var('RAIZ_DADOS', '../dados') ~ '/gold') }}"
       threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
       extensions:
         - httpfs
+      config_options:  # aplicado uma vez no connect (em `settings`, o SET por cursor falha após o 1º spill)
+        temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"
       settings:
-        temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"  # RBP-01: dentro de settings (no topo é ignorado)
         threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
       secrets:
@@ -513,6 +519,7 @@ rfb:
 - **Distinção de concorrência e threads (após F3a)**:
   - `DBT_THREADS`: controla o paralelismo no grafo do dbt (quantos nós independentes do DAG são executados simultaneamente).
   - `DUCKDB_THREADS`: repassado para `settings.threads` do DuckDB; controla o número de threads que o motor utiliza internamente para computar cada query (escaneamento de Parquet, hash joins e agregações).
+- **`temp_directory` em `config_options`, não em `settings` (B8, R4-08)**: o `dbt-duckdb` reaplica cada chave de `settings` com `SET` a cada cursor que abre, e o DuckDB recusa trocar o diretório temporário depois que ele já recebeu o primeiro *spill* (`Cannot switch temporary directory after the current one has been used`; ver `docs/EXECUCAO_REAL.md`). Em `config_options` a opção vai uma vez só, na abertura da conexão. Um build pequeno (fixtures) não faz spill e passa das duas formas; o erro só aparece num build real que estoura o `memory_limit`. Fora do bloco do profile (no topo) a chave é ignorada.
 
 ### 3.13 Docs (`description` e `dbt docs`)
 
@@ -861,8 +868,8 @@ O desenvolvimento com dbt e DuckDB possui algumas particularidades que costumam 
 
 ### 6.7 Gestão de Memória e Diretório Temporário no DuckDB (P14)
 - **O erro**: Achar que `memory_limit` limita o RSS total do processo ou presumir que o DuckDB não faz spill to disk por padrão.
-- **O que acontece**: O DuckDB tem por padrão `temp_directory = <banco>.tmp` e realiza spill to disk automaticamente para muitos operadores. Porém, o limite em `memory_limit` restringe apenas a memória interna gerenciada do banco, sem cobrir buffers de leitura/threads (o RSS total do processo pode exceder o valor configurado, como visto na P14). Além disso, no `dbt-duckdb`, o parâmetro de configuração `temp_directory` deve ser declarado dentro do bloco `settings:` do profile (quando colocado solto no topo do profile, o adaptador dbt-duckdb o ignora).
-- **Como evitar**: Mantenha `memory_limit` condizente com a máquina em `settings:`, configure `settings.temp_directory` quando desejar isolar temporários em volume rápido específico, e monitore a memória real necessária em operações massivas (joins densos ou paridade com `EXCEPT ALL`).
+- **O que acontece**: O DuckDB tem por padrão `temp_directory = <banco>.tmp` e realiza spill to disk automaticamente para muitos operadores. Porém, o limite em `memory_limit` restringe apenas a memória interna gerenciada do banco, sem cobrir buffers de leitura/threads (o RSS total do processo pode exceder o valor configurado, como visto na P14). Além disso, no `dbt-duckdb`, o parâmetro `temp_directory` deve ir em `config_options:` do profile: solto no topo é ignorado, e em `settings:` o adaptador o reaplica a cada cursor, o que falha depois do primeiro spill ("Cannot switch temporary directory…", B8).
+- **Como evitar**: Mantenha `memory_limit` condizente com a máquina em `settings:`, configure `config_options.temp_directory` quando desejar isolar temporários em volume rápido específico, e monitore a memória real necessária em operações massivas (joins densos ou paridade com `EXCEPT ALL`).
 
 ### 6.8 O comportamento do `is_incremental()` no primeiro build e no full-refresh
 - **O erro**: Esperar que um filtro delta (`WHERE data_atualizacao > (SELECT max(data_atualizacao) FROM {{ this }})`) seja executado na criação da tabela.
