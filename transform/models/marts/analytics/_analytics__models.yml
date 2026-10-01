@@ -14,9 +14,13 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [cnae_principal, sk_municipio]
+    config:
+      contract:
+        enforced: true
     columns:
       - name: sk_cnae
         description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -25,11 +29,14 @@ models:
                 field: sk_cnae
       - name: cnae_principal
         description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_type: varchar
         data_tests: [not_null]
       - name: desc_cnae_principal
         description: Descrição da subclasse (Base dos Dados).
+        data_type: varchar
       - name: sk_municipio
         description: Chave de `dim_municipio`; `-1` para município sem par no BD.
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -38,23 +45,30 @@ models:
                 field: sk_municipio
       - name: municipio
         description: Nome do município (acentuado, Base dos Dados).
+        data_type: varchar
       - name: uf
         description: Sigla da UF.
+        data_type: varchar
       - name: populacao
         description: População do município no `ano_populacao`; NULL sem dado.
+        data_type: bigint
       - name: ativos
         description: Estabelecimentos ativos (`situacao = 2`) do CNAE no município.
+        data_type: bigint
         data_tests: [not_null]
       - name: inativos
         description: Estabelecimentos inativos (`situacao != 2`) do CNAE no município.
+        data_type: bigint
         data_tests: [not_null]
       - name: ativos_por_10k_hab
         description: Ativos por 10 mil habitantes (2 casas); NULL quando a população é nula ou zero.
+        data_type: double
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
       - name: ranking_uf
         description: Posição do município na UF para o CNAE por `ativos_por_10k_hab` decrescente (1 = mais denso); NULL sem densidade.
+        data_type: bigint
 
   - name: mart_sobrevivencia_coorte
     description: >
@@ -66,12 +80,17 @@ models:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 1
+    config:
+      contract:
+        enforced: true
     columns:
       - name: ano_coorte
         description: Ano de `dat_inicio_atividade` do estabelecimento.
+        data_type: bigint
         data_tests: [not_null]
       - name: sk_cnae
         description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -80,9 +99,11 @@ models:
                 field: sk_cnae
       - name: cnae_principal
         description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_type: varchar
         data_tests: [not_null]
       - name: sk_porte
         description: Chave de `dim_porte` (R3-20).
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -91,28 +112,40 @@ models:
                 field: sk_porte
       - name: porte
         description: Rótulo do porte (`dim_porte`); NÃO INFORMADO para porte vazio.
+        data_type: varchar
       - name: uf
         description: Sigla da UF do município; `NI` para município sem par no BD.
+        data_type: varchar
       - name: estabelecimentos
         description: Estabelecimentos do estrato (independente de elegibilidade).
+        data_type: bigint
       - name: elegiveis_1a
         description: Estabelecimentos da coorte elegíveis ao horizonte de 1 ano (0 quando a coorte ainda não completou o horizonte).
+        data_type: bigint
       - name: sobreviventes_1a
         description: Elegíveis que sobrevivem 1 ano (ativos ou encerrados após `dat_inicio + 1 ano`).
+        data_type: bigint
       - name: taxa_1a
         description: sobreviventes_1a / elegiveis_1a; NULL sem elegíveis.
+        data_type: double
       - name: elegiveis_3a
         description: Elegíveis ao horizonte de 3 anos.
+        data_type: bigint
       - name: sobreviventes_3a
         description: Elegíveis que sobrevivem 3 anos.
+        data_type: bigint
       - name: taxa_3a
         description: sobreviventes_3a / elegiveis_3a; NULL sem elegíveis.
+        data_type: double
       - name: elegiveis_5a
         description: Elegíveis ao horizonte de 5 anos.
+        data_type: bigint
       - name: sobreviventes_5a
         description: Elegíveis que sobrevivem 5 anos.
+        data_type: bigint
       - name: taxa_5a
         description: sobreviventes_5a / elegiveis_5a; NULL sem elegíveis.
+        data_type: double
 
   - name: mart_dinamica_mercado
     description: >
@@ -123,12 +156,17 @@ models:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 1
+    config:
+      contract:
+        enforced: true
     columns:
       - name: ano
         description: Ano calendário do evento (abertura ou encerramento).
+        data_type: integer
         data_tests: [not_null]
       - name: sk_cnae
         description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -137,6 +175,7 @@ models:
                 field: sk_cnae
       - name: sk_municipio
         description: Chave de `dim_municipio` (R3-20); `-1` para município sem par no BD.
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -145,21 +184,28 @@ models:
                 field: sk_municipio
       - name: cnae_principal
         description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_type: varchar
         data_tests: [not_null]
       - name: desc_cnae_principal
         description: Descrição da subclasse (Base dos Dados).
+        data_type: varchar
       - name: municipio
         description: Nome do município (acentuado, Base dos Dados).
+        data_type: varchar
       - name: uf
         description: Sigla da UF.
+        data_type: varchar
       - name: aberturas
         description: Estabelecimentos com início de atividade no ano.
+        data_type: bigint
         data_tests: [not_null]
       - name: encerramentos
         description: Estabelecimentos inativos com data da situação no ano.
+        data_type: bigint
         data_tests: [not_null]
       - name: saldo
         description: aberturas − encerramentos.
+        data_type: bigint
         data_tests: [not_null]
 
   - name: mart_fornecedores_proximos
@@ -172,14 +218,20 @@ models:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 1
+    config:
+      contract:
+        enforced: true
     columns:
       - name: cnpj_completo
         description: CNPJ de 14 dígitos do fornecedor.
+        data_type: varchar
         data_tests: [unique, not_null]
       - name: nome
         description: Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008).
+        data_type: varchar
       - name: sk_cnae
         description: Chave de `dim_cnae` do CNAE fornecido (R3-20); `-1` se o CNAE não existe na dimensão.
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -188,14 +240,17 @@ models:
                 field: sk_cnae
       - name: cnae_fornecido
         description: CNAE (7 dígitos) que qualificou o fornecedor (principal; senão o menor secundário que casa).
+        data_type: varchar
         data_tests: [not_null]
       - name: via
         description: "`principal` ou `secundario`."
+        data_type: varchar
         data_tests:
           - accepted_values:
               arguments: { values: [principal, secundario] }
       - name: sk_municipio
         description: Chave de `dim_municipio` do município do fornecedor (R3-20).
+        data_type: integer
         data_tests:
           - not_null
           - relationships:
@@ -204,10 +259,13 @@ models:
                 field: sk_municipio
       - name: municipio
         description: Município do fornecedor.
+        data_type: varchar
       - name: uf
         description: UF do fornecedor.
+        data_type: varchar
       - name: distancia_km
         description: Distância haversine (km, 2 casas) do centroide do município do caso.
+        data_type: double
         data_tests:
           - not_null
           - dbt_utils.accepted_range:
@@ -223,6 +281,8 @@ models:
       o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em
       `gold/mart_concorrencia_area_mercado.parquet`.
     config:
+      contract:
+        enforced: true
       meta: { incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     data_tests:
@@ -236,6 +296,7 @@ models:
     columns:
       - name: sk_cnae
         description: Chave de `dim_cnae`; `-1` para CNAE sem par no BD.
+        data_type: integer
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
@@ -246,10 +307,13 @@ models:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: cnae_principal
         description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_type: varchar
       - name: desc_cnae_principal
         description: Descrição da subclasse (Base dos Dados).
+        data_type: varchar
       - name: sk_municipio
         description: Chave de `dim_municipio`; `-1` para município sem par no BD.
+        data_type: integer
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
@@ -260,54 +324,70 @@ models:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: municipio
         description: Nome do município (acentuado, Base dos Dados).
+        data_type: varchar
       - name: uf
         description: Sigla da UF.
+        data_type: varchar
       - name: nome_regiao_metropolitana
         description: Região metropolitana do município; `NÃO PERTENCE` fora de região metropolitana.
+        data_type: varchar
       - name: domicilios_2022
         description: Domicílios do município (Censo 2022); NULL sem dado.
+        data_type: bigint
       - name: area_km2
         description: Área do município em km² (Censo 2022); NULL sem dado.
+        data_type: double
       - name: ativos
         description: Estabelecimentos ativos do CNAE no município.
+        data_type: bigint
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: inativos
         description: Estabelecimentos inativos do CNAE no município.
+        data_type: bigint
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: qtd_vizinhos
         description: Municípios vizinhos do município (0 se nenhum).
+        data_type: bigint
       - name: ativos_vizinhos
         description: Estabelecimentos ativos do CNAE nos municípios vizinhos (o município fica fora).
+        data_type: bigint
       - name: inativos_vizinhos
         description: Estabelecimentos inativos do CNAE nos municípios vizinhos.
+        data_type: bigint
       - name: ativos_regiao_metropolitana
         description: Ativos do CNAE na região metropolitana do município (ele incluído); NULL fora de região metropolitana.
+        data_type: bigint
       - name: inativos_regiao_metropolitana
         description: Inativos do CNAE na região metropolitana do município (ele incluído); NULL fora de região metropolitana.
+        data_type: bigint
       - name: ativos_por_mil_domicilios
         description: Ativos do município por mil domicílios (6 casas); NULL sem domicílios.
+        data_type: double
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: ativos_por_km2
         description: Ativos do município por km² (6 casas); NULL sem área.
+        data_type: double
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: ativos_area_por_mil_domicilios
         description: Ativos do município e dos vizinhos por mil domicílios dos mesmos municípios; NULL se algum não tem Censo.
+        data_type: double
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: ativos_area_por_km2
         description: Ativos do município e dos vizinhos por km² dos mesmos municípios; NULL se algum não tem Censo.
+        data_type: double
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
