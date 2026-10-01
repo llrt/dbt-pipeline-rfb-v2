@@ -768,3 +768,22 @@ unit_tests:
       rows:
         - { cnpj_completo: "H", sk_cnae: 4679699, codigo_cnae_secundario: "4679699" }
         - { cnpj_completo: "H", sk_cnae: -1, codigo_cnae_secundario: "3511500" }
+
+  - name: test_fct_resumo_mensal_medidas_aditivas_por_grao
+    description: >
+      BI-02/R3-01/R3-10: no mesmo grão, `soma_idade_anos` é a SOMA das idades dos ativos (4,0 + 2,5 = 6,5,
+      não a média) e o capital soma só a matriz (1000, não 2000 com a filial); `qtd_matrizes` conta matrizes.
+    model: fct_resumo_mensal
+    given:
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { _mes_referencia: "2026-09" }
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - &base_resumo { cnpj_completo: "A", sk_municipio: 1, sk_cnae: 1, sk_porte: 1, sk_situacao_cadastral: 2, opcao_mei: false, idade_anos: 4.0, capital_social: 1000.00, eh_matriz: true, eh_ativa: true }
+          - { <<: *base_resumo, cnpj_completo: "B", idade_anos: 2.5, eh_matriz: false }
+          - { <<: *base_resumo, cnpj_completo: "C", sk_situacao_cadastral: 8, idade_anos: null, capital_social: 500.50, eh_ativa: false }
+    expect:
+      rows:
+        - { mes_referencia: "2026-09", sk_mes_referencia: 20260901, sk_situacao_cadastral: 2, qtd_estabelecimentos: 2, qtd_ativos: 2, soma_idade_anos: 6.5, qtd_matrizes: 1, soma_capital_social_matrizes: 1000.00 }
+        - { mes_referencia: "2026-09", sk_mes_referencia: 20260901, sk_situacao_cadastral: 8, qtd_estabelecimentos: 1, qtd_ativos: 0, soma_idade_anos: 0.0, qtd_matrizes: 1, soma_capital_social_matrizes: 500.50 }
