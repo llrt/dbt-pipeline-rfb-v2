@@ -2,9 +2,10 @@
 
 O `make ci` roda, nesta ordem e com dbt real: `rfb pipeline --mes 2026-08` (corrente) -> `rfb
 atualizar` (processa 2026-09) -> `rfb atualizar` (no-op, log em `.tmp/ci/atualizar-noop.log`) ->
-`rfb pipeline --mes 2026-08` (backfill, log em `.tmp/ci/backfill.log`). Os testes de falha do dbt
-e de retenção usam ingestão real das fixtures num `RAIZ_DADOS` temporário e um dbt falso (o caminho
-de falha não precisa do dbt de verdade).
+`rfb pipeline --mes 2026-08` (backfill, log em `.tmp/ci/backfill.log`; antes dele o `make ci`
+apaga a partição 2026-08 do resumo, para provar que o backfill a regrava, R4-04). Os testes de
+falha do dbt e de retenção usam ingestão real das fixtures num `RAIZ_DADOS` temporário e um dbt
+falso (o caminho de falha não precisa do dbt de verdade).
 """
 
 from __future__ import annotations
@@ -72,6 +73,17 @@ def test_ac8_p22_backfill_grava_so_o_resumo_e_mantem_o_gold_corrente() -> None:
     )
     meses = sorted(p.name for p in (gold / "fct_resumo_mensal").iterdir())
     assert meses == ["mes_referencia=2026-08", "mes_referencia=2026-09"]
+    # R4-04: a partição 2026-08 foi apagada antes do backfill; ele a regravou com os 15
+    # estabelecimentos do mês (a fato detalhada, de 2026-09, segue com 16)
+    serie = f"read_parquet('{gold}/fct_resumo_mensal/*/*.parquet', hive_partitioning=true)"
+    assert (
+        _contar(f"select sum(qtd_estabelecimentos) from {serie} where mes_referencia = '2026-08'")
+        == 15
+    )
+    assert (
+        _contar(f"select sum(qtd_estabelecimentos) from {serie} where mes_referencia = '2026-09'")
+        == 16
+    )
     assert not list((_raiz() / "_tmp").glob("backfill-*"))  # temporários removidos
     assert ler_estado(carregar_configuracao({"RAIZ_DADOS": str(_raiz())})).mes_referencia == (
         "2026-09"

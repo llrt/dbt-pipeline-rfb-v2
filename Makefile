@@ -22,6 +22,7 @@ ingerir:
 ## ci: unit + pipeline completo sobre fixtures sintéticas + integração + lint, sem rede (RBP-03)
 ## Sequência (P22/UPD): pipeline 2026-08 (corrente) -> atualizar (2026-09 novo) -> atualizar (no-op)
 ## -> pipeline 2026-08 de novo (backfill: só a partição do resumo; gold corrente fica em 2026-09).
+## A partição 2026-08 do resumo é apagada antes do backfill: o teste prova que ele a regrava (R4-04).
 ci: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 ci: CI_ORIGEM := --origem-local .tmp/ci/fixtures --permitir-incompleto --target ci --sem-publicar
 ci:
@@ -32,6 +33,7 @@ ci:
 	uv run rfb pipeline $(CI_ORIGEM) --mes 2026-08 --saida-relatorio .tmp/ci/relatorio-2026-08.md
 	uv run rfb atualizar $(CI_ORIGEM) --saida-relatorio .tmp/ci/relatorio.md
 	set -o pipefail; uv run rfb atualizar $(CI_ORIGEM) --saida-relatorio .tmp/ci/relatorio.md | tee .tmp/ci/atualizar-noop.log
+	rm -rf "$(RAIZ_DADOS)/gold/fct_resumo_mensal/mes_referencia=2026-08"
 	set -o pipefail; uv run rfb pipeline $(CI_ORIGEM) --mes 2026-08 --sem-relatorio | tee .tmp/ci/backfill.log
 	uv run pytest -q tests/integration
 	$(MAKE) lint
