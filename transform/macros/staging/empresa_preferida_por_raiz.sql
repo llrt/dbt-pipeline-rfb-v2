@@ -3,7 +3,8 @@
     social, natureza 0000, porte e qualificação zerados). Sem isso cada estabelecimento da raiz sairia
     duplicado nos joins (51 em 2026-09). Regra determinística sobre as colunas RAW: prefere a linha com
     razão social, depois com natureza informada (≠ 0000), depois o menor `natureza_jur`/razão social,
-    capital e porte. Usada no staging e na leitura da paridade (`audit__bh_empresas_sql_original`), que
+    capital, porte, qualificação e ente federativo: desempate total sobre as colunas da fonte (R4-05),
+    então a escolha não depende da ordem de leitura. Usada no staging e na leitura da paridade (`audit__bh_empresas_sql_original`), que
     emula a mesma adaptação (como o trim do ADR-0005). Retorna o predicado de um `QUALIFY`. -#}
 {% macro empresa_preferida_por_raiz() -%}
 row_number() over (
@@ -14,6 +15,8 @@ row_number() over (
       natureza_jur,
       razao_social,
       capital_soc,
-      porte
+      porte,
+      qualificacao_resp,
+      ente_fed_resp
   ) = 1
 {%- endmacro %}

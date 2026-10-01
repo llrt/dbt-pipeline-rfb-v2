@@ -1,33 +1,23 @@
 # Seleções nomeadas (RBP-14, adição): documentam a intenção e evitam que o `make ci` e o
 # `rfb atualizar` divirjam por flags repetidas. Uso: `dbt <comando> --selector <nome>`.
-# Os dois `backfill_*` são usados pelo `rfb pipeline` (src/rfb_pipeline/orquestracao.py) para um mês
-# mais antigo que o gold corrente (P22), com `RFB_EXTERNAL_ROOT` e `.duckdb` temporários.
+# `backfill_resumo_mensal` é usado pelo `rfb pipeline` (src/rfb_pipeline/orquestracao.py) para um mês
+# mais antigo que o gold corrente (P22), com `RFB_EXTERNAL_ROOT`, `RFB_RAIZ_SERIE` e `.duckdb`
+# temporários.
 selectors:
   - name: backfill_resumo_mensal
     description: >
-      Constrói só o necessário para `fct_resumo_mensal` (modelos e seeds a montante, sem testes), no
-      backfill de mês antigo: a série histórica ganha a partição do mês sem regravar o gold corrente.
+      Constrói e testa só o necessário para `fct_resumo_mensal` (modelos, seeds e os testes cujos pais
+      estão todos na seleção), no backfill de mês antigo: a série histórica ganha a partição do mês sem
+      regravar o gold corrente. Fora ficam os dois testes que comparam com o gold corrente e por
+      definição divergem no backfill: o de gold corrente e o de integridade histórica (as dimensões do
+      backfill são as do mês antigo; o próximo build do mês corrente confere todas as partições contra
+      as dimensões atuais). R4-02: os testes rodam antes de a partição chegar ao gold.
     definition:
       union:
         - method: fqn
           value: fct_resumo_mensal
           parents: true
-        - exclude:
-            - method: resource_type
-              value: test
-            - method: resource_type
-              value: unit_test
-
-  - name: backfill_resumo_mensal_testes
-    description: >
-      Testes do resumo mensal sobre o mês do backfill (unicidade, reconciliação e relacionamentos do
-      mês), menos os que comparam com o gold corrente e por definição divergem no backfill: o de gold
-      corrente e o de integridade histórica (as dimensões do backfill são as do mês antigo; o próximo
-      build do mês corrente confere todas as partições contra as dimensões atuais).
-    definition:
-      union:
-        - method: fqn
-          value: fct_resumo_mensal
+          indirect_selection: cautious
         - exclude:
             - method: fqn
               value: fct_resumo_mensal_gold_corrente

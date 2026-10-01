@@ -32,9 +32,9 @@
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
 | Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (79 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
-| Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (72 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (54 testes) |
+| Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (13 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (73 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (55 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
@@ -48,7 +48,7 @@
 | `cnaes.codigo` | `not_null` | error | original | 2.1.1 |
 | `empresas` | R1-21: `--vars 'mes_referencia: 2026-10'` sem partição geraria staging vazio e todos os testes passariam. | error | adicao | — |
 | `empresas` | R1-22: os checks `relationships` do original (natureza, CNAE principal e município de empresas/estabelecimentos -> domínios) comparados DENTRO de cada `_mes_referencia`. | error | original | 2.2 / 2.3 |
-| `empresas` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_raiz", "_mes_referencia"]} | warn | original | 2.2 |
+| `empresas` | `unique_combination_of_columns` {"combination_of_columns": ["cnpj_raiz", "_mes_referencia"]} | error | original | 2.2 |
 | `empresas._data_referencia` | `not_null` | error | adicao | — |
 | `empresas.cnpj_raiz` | `not_null` | error | original | 2.2 |
 | `empresas.porte` | `accepted_values` {"values": ["00", "01", "03", "05"]} | error | original | 2.2 |
@@ -107,14 +107,14 @@
 | `stg_bd__municipios.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio_rf` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
-| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.0001)"} | warn | adicao | — |
 | `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.01)"} | error | adicao | — |
+| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1000, abs(pib) * 0.0001)"} | warn | adicao | — |
 | `stg_bd__pib` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
 | `stg_bd__pib.ano` | `not_null` | error | adicao | — |
 | `stg_bd__pib.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__populacao` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
 | `stg_bd__populacao.ano` | `not_null` | error | adicao | — |
-| `stg_bd__populacao.id_municipio` | `not_null` | warn | adicao | — |
+| `stg_bd__populacao.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__populacao.populacao` | `accepted_range` {"min_value": 1} | warn | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
@@ -126,12 +126,12 @@
 | `stg_rfb__cnaes.codigo` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `unique` | error | adicao | — |
-| `stg_rfb__empresas.capital_social` | `taxa_conversao_tipada` {"coluna_raw": "capital_soc", "entidade": "empresas"} | warn | adicao | — |
+| `stg_rfb__empresas.capital_social` | `taxa_conversao_tipada` {"coluna_raw": "capital_soc", "entidade": "empresas", "uma_linha_por_raiz": true} | warn | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `not_null` | error | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `tamanho_exato` {"tamanho": 8} | error | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `unique` | error | adicao | — |
 | `stg_rfb__empresas.porte_codigo` | `accepted_values` {"values": [0, 1, 3, 5], "quote": false} | error | adicao | — |
-| `stg_rfb__empresas.porte_codigo` | `taxa_conversao_tipada` {"coluna_raw": "porte", "entidade": "empresas"} | warn | adicao | — |
+| `stg_rfb__empresas.porte_codigo` | `taxa_conversao_tipada` {"coluna_raw": "porte", "entidade": "empresas", "uma_linha_por_raiz": true} | warn | adicao | — |
 | `stg_rfb__estabelecimentos` | Staging AC 14 / ADR-0008: nenhum modelo de staging, intermediate ou marts expõe dados de contato. | error | adicao | — |
 | `stg_rfb__estabelecimentos` | `expression_is_true` {"expression": "dat_situacao is null or dat_inicio_atividade is null or dat_situacao >= dat_inicio_atividade"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos._data_referencia` | `not_null` | error | adicao | — |
@@ -197,6 +197,7 @@
 | `bh_empresas.cnpj_completo` | `not_null` | error | original | 3 |
 | `bh_empresas.cnpj_completo` | `unique` | error | original | 3 |
 | `bh_empresas.idade_atual` | `accepted_range` {"min_value": 0, "max_value": 200} | error | original | 3 |
+| `bh_empresas.nome` | `sem_cpf_no_nome` | error | adicao | — |
 | `bh_empresas.porte` | `accepted_values` {"values": ["N/A", "MICRO", "PEQUENA", "DEMAIS"]} | error | original | 3 |
 | `bh_empresas.situacao` | `accepted_values` {"values": ["ATIVA", "INATIVA"]} | error | original | 3 |
 | `empresas` | ADR-0005, emenda R2-01: `bh_empresas.nome` sai com `trim` (staging); o original, não. | warn | adicao | — |
@@ -277,6 +278,7 @@
 | `fct_resumo_mensal.sk_porte` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.sk_situacao_cadastral` | `not_null` | error | adicao | — |
 | `mart_concorrencia_area_mercado` | incremento: enriquecimento_bd. | error | adicao | — |
+| `—` | ADR-0008, emenda R4-01: casos conhecidos da máscara `mascarar_cpf_no_nome` (CPFs sintéticos com DV válido). | error | adicao | — |
 
 ### Análises (Depois)
 
@@ -323,6 +325,7 @@
 | `mart_fornecedores_proximos.cnpj_completo` | `unique` | error | adicao | — |
 | `mart_fornecedores_proximos.distancia_km` | `accepted_range` {"min_value": 0} | error | adicao | — |
 | `mart_fornecedores_proximos.distancia_km` | `not_null` | error | adicao | — |
+| `mart_fornecedores_proximos.nome` | `sem_cpf_no_nome` | error | adicao | — |
 | `mart_fornecedores_proximos.sk_cnae` | `not_null` | error | adicao | — |
 | `mart_fornecedores_proximos.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `mart_fornecedores_proximos.sk_municipio` | `not_null` | error | adicao | — |
@@ -374,12 +377,14 @@
 | `mart_fornecedores_proximos` | `test_mart_fornecedores_proximos_haversine_e_via` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario` | adicao |
+| `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_sem_data_de_inicio_fica_fora` | adicao |
 | `stg_bd__censo_2022_municipio` | `test_stg_bd__censo_2022_municipio_tipagem` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_lpad_id_municipio_rf` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_parse_centroide` | adicao |
 | `stg_bd__regioes_metropolitanas` | `test_stg_bd__regioes_metropolitanas_uma_por_municipio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_e_texto_vazio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior` | adicao |
+| `stg_rfb__empresas` | `test_stg_rfb__empresas_desempate_total_da_raiz_duplicada` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_filtra_mes_mais_recente` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_raiz_duplicada_vira_uma_linha` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_tipagem` | adicao |

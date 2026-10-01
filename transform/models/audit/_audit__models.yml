@@ -6,7 +6,7 @@ models:
       SQL do notebook 3 (`bh_empresas`) traduzido literalmente para DuckDB sobre as fontes raw,
       emulando o `inferSchema` do Spark (códigos só de dígitos como inteiro). Efêmero: só existe
       como CTE do teste `paridade_bh_empresas` (ADR-0005). Alinha `cnae_principal` (7 dígitos) e
-      `nome` (trim, emenda R2-01) no select final.
+      `nome` (trim, emenda R2-01; CPF mascarado, ADR-0008 emenda R4-01) no select final.
 
 unit_tests:
   - name: test_audit__bh_empresas_sql_original_joins_por_inteiro
@@ -26,7 +26,8 @@ unit_tests:
         rows: |
           select
               '1' as cnpj_raiz, ' AGRO UM ' as razao_social, '2062' as natureza_jur,
-              '01' as porte, '0,00' as capital_soc, '2026-09' as _mes_referencia
+              '01' as porte, '0,00' as capital_soc, '49' as qualificacao_resp,
+              null::varchar as ente_fed_resp, '2026-09' as _mes_referencia
       - input: source('rfb', 'estabelecimentos')
         format: sql
         rows: |
@@ -97,7 +98,8 @@ unit_tests:
         rows: |
           select
               '1' as cnpj_raiz, 'AGRO UM' as razao_social, '2062' as natureza_jur,
-              '01' as porte, '0,00' as capital_soc, '2026-09' as _mes_referencia
+              '01' as porte, '0,00' as capital_soc, '49' as qualificacao_resp,
+              null::varchar as ente_fed_resp, '2026-09' as _mes_referencia
       - input: source('rfb', 'estabelecimentos')
         format: sql
         rows: |

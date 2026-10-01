@@ -231,8 +231,12 @@ models:
         data_type: varchar
         data_tests: [unique, not_null]
       - name: nome
-        description: Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008).
+        description: >
+          Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do
+          empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11
+          dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008, emenda R4-01).
         data_type: varchar
+        data_tests: [sem_cpf_no_nome]
       - name: sk_cnae
         description: Chave de `dim_cnae` do CNAE fornecido (R3-20); `-1` se o CNAE não existe na dimensão.
         data_type: integer
@@ -472,6 +476,41 @@ unit_tests:
       rows:
         - { ano_coorte: 2020, estabelecimentos: 1, elegiveis_1a: 1, sobreviventes_1a: 1, taxa_1a: 1.0, elegiveis_3a: 1, sobreviventes_3a: 1, taxa_3a: 1.0, elegiveis_5a: 1, sobreviventes_5a: 0, taxa_5a: 0.0 }
         - { ano_coorte: 2023, estabelecimentos: 1, elegiveis_1a: 1, sobreviventes_1a: 1, taxa_1a: 1.0, elegiveis_3a: 0, sobreviventes_3a: 0, taxa_3a: null, elegiveis_5a: 0, sobreviventes_5a: 0, taxa_5a: null }
+
+  - name: test_mart_sobrevivencia_coorte_sem_data_de_inicio_fica_fora
+    description: >
+      ANA-02 (Fix 6 da R4): estabelecimento sem `dat_inicio_atividade` (membro -1 de `dim_data`) ou com
+      data inválida (-2) não tem coorte e fica fora de toda linha, inclusive da contagem
+      `estabelecimentos`; só o membro com início válido forma a coorte 2020.
+    model: mart_sobrevivencia_coorte
+    overrides:
+      vars:
+        data_referencia: "2026-09-12"
+    given:
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - &fct_sem_inicio { sk_cnae: 4741500, sk_porte: 1, sk_municipio: 3202207, eh_ativa: true, sk_data_inicio_atividade: -1, sk_data_situacao: -1 }
+          - { <<: *fct_sem_inicio, eh_ativa: false, sk_data_inicio_atividade: -2, sk_data_situacao: 20200101 }
+          - { <<: *fct_sem_inicio, sk_data_inicio_atividade: 20200101, sk_data_situacao: 20200101 }
+      - input: ref('dim_data')
+        rows:
+          - { sk_data: -1, data: null }
+          - { sk_data: -2, data: null }
+          - { sk_data: 20200101, data: "2020-01-01" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4741500, codigo_subclasse: "4741500" }
+      - input: ref('dim_porte')
+        rows:
+          - { sk_porte: 1, rotulo_porte: "MICRO" }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 3202207, sigla_uf: "ES" }
+      - input: ref('int_estabelecimentos__enriquecidos')
+        rows: []
+    expect:
+      rows:
+        - { ano_coorte: 2020, estabelecimentos: 1, elegiveis_1a: 1, sobreviventes_1a: 1, taxa_1a: 1.0, elegiveis_3a: 1, sobreviventes_3a: 1, taxa_3a: 1.0, elegiveis_5a: 1, sobreviventes_5a: 1, taxa_5a: 1.0 }
 
   - name: test_mart_fornecedores_proximos_haversine_e_via
     description: >

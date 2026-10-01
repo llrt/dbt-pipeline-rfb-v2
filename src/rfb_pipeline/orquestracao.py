@@ -7,9 +7,15 @@ etapas terminam bem, e é ele que diz qual mês está no gold "corrente".
 
 Ordem dos meses (P22): o build de um mês regrava os marts `external` de `gold/` (dimensões, fatos,
 marts), então um mês **mais antigo** que o do estado roda como *backfill*: os externals vão para um
-`external_root` temporário, o `.duckdb` é temporário e só a partição do mês em
-`gold/fct_resumo_mensal/` (localização fixa no modelo) chega ao gold real. Vários meses numa
+`external_root` temporário, o `.duckdb` é temporário, a partição do mês de `fct_resumo_mensal` é
+gravada noutra raiz temporária (`RFB_RAIZ_SERIE`) e, só depois de todos os testes de
+`+fct_resumo_mensal` passarem, é movida para `gold/fct_resumo_mensal/` (R4-02). Vários meses numa
 chamada são processados do mais antigo ao mais novo.
+
+Gold misto (R4-03): os marts `external` são regravados um a um durante o `dbt build` do mês
+corrente; se ele falhar no meio, parte do gold fica no mês novo e parte no antigo. O marcador
+`_estado/em_andamento.json` é gravado antes do build e apagado só quando ele termina bem; enquanto
+existir, `rfb relatorio` e `rfb publicar` recusam rodar (`verificar_gold_consistente`).
 """
 
 from __future__ import annotations
@@ -34,8 +40,9 @@ from rfb_pipeline.publicacao import ler_destino_motherduck, publicar_motherduck
 from rfb_pipeline.relatorio import DIR_TRANSFORM, SAIDA_PADRAO, gerar_relatorio
 
 ARQUIVO_ESTADO = Path("_estado") / "ultima_execucao.json"
+ARQUIVO_EM_ANDAMENTO = Path("_estado") / "em_andamento.json"
 SELETOR_BACKFILL = "backfill_resumo_mensal"
-SELETOR_BACKFILL_TESTES = "backfill_resumo_mensal_testes"
+DATASET_SERIE = "fct_resumo_mensal"
 
 # (argumentos do dbt, ambiente) -> código de saída. Injetável para testes sem dbt.
 ExecutorDbt = Callable[[Sequence[str], Mapping[str, str]], int]
@@ -93,11 +100,47 @@ def ler_estado(configuracao: Configuracao) -> Estado | None:
 def gravar_estado(configuracao: Configuracao, estado: Estado) -> Path:
     """Grava o estado atomicamente (temp + rename)."""
     destino = configuracao.raiz_dados / ARQUIVO_ESTADO
+    _gravar_json_atomico(destino, asdict(estado))
+    return destino
+
+
+# ---------------------------------------------------------------- gold em andamento (R4-03)
+
+
+def _gravar_json_atomico(destino: Path, dados: dict) -> None:
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_name(f".tmp-{destino.name}-{uuid.uuid4().hex}")
-    tmp.write_text(json.dumps(asdict(estado), ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(dados, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(destino)
+
+
+def marcar_em_andamento(configuracao: Configuracao, mes: str) -> Path:
+    """Marca o gold como em reconstrução (antes do `dbt build` do mês corrente)."""
+    destino = configuracao.raiz_dados / ARQUIVO_EM_ANDAMENTO
+    _gravar_json_atomico(
+        destino, {"mes_referencia": mes, "iniciado_em": datetime.now(UTC).isoformat()}
+    )
     return destino
+
+
+def desmarcar_em_andamento(configuracao: Configuracao) -> None:
+    (configuracao.raiz_dados / ARQUIVO_EM_ANDAMENTO).unlink(missing_ok=True)
+
+
+def verificar_gold_consistente(configuracao: Configuracao, comando: str) -> None:
+    """Recusa `rfb <comando>` enquanto um build do mês corrente não terminou bem (R4-03)."""
+    marcador = configuracao.raiz_dados / ARQUIVO_EM_ANDAMENTO
+    if not marcador.is_file():
+        return
+    try:
+        mes = json.loads(marcador.read_text(encoding="utf-8")).get("mes_referencia", "?")
+    except (json.JSONDecodeError, AttributeError):
+        mes = "?"
+    raise ErroIngestao(
+        f"rfb {comando} recusado: o gold pode estar misto (o build de {mes} começou e não "
+        f"terminou bem; marcador {marcador}). Rode `rfb pipeline --mes {mes}` de novo até concluir "
+        '(ver docs/OPERACAO.md, "Gold misto")'
+    )
 
 
 # ---------------------------------------------------------------------------- dbt
@@ -205,10 +248,13 @@ def _processar_corrente(
         "freshness",
         lambda: _dbt_ou_falha(executor, "freshness", ["source", "freshness", *target], ambiente),
     )
+    # R4-03: um build que falha no meio deixa o gold misto; o marcador só sai no sucesso
+    marcar_em_andamento(configuracao, mes)
     cron.medir(
         "dbt_build",
         lambda: _dbt_ou_falha(executor, "dbt build", ["build", *target, *_vars(mes)], ambiente),
     )
+    desmarcar_em_andamento(configuracao)
     if opcoes.saida_relatorio is not None:
         saida = opcoes.saida_relatorio
         cron.medir(
@@ -235,14 +281,21 @@ def _processar_backfill(
     executor: ExecutorDbt,
     cron: _Cronometro,
 ) -> None:
-    """Mês mais antigo que o gold corrente: só a partição de `fct_resumo_mensal` vai ao gold."""
+    """Mês mais antigo que o gold corrente: só a partição de `fct_resumo_mensal` vai ao gold.
+
+    R4-02: o build roda com os testes de `+fct_resumo_mensal` (seletor `backfill_resumo_mensal`) e
+    grava a partição em `RFB_RAIZ_SERIE` (temporária); ela só é movida para o gold depois do build
+    terminar bem. Uma falha deixa a partição do gold como estava.
+    """
     temporario = configuracao.raiz_dados / "_tmp" / f"backfill-{mes}-{uuid.uuid4().hex[:8]}"
+    serie = temporario / "serie"
     (temporario / "gold").mkdir(parents=True, exist_ok=True)
-    if configuracao.raiz_dados_s3 is None:
-        configuracao.gold_dir.mkdir(parents=True, exist_ok=True)
+    serie.mkdir(parents=True, exist_ok=True)
+    configuracao.gold_dir.mkdir(parents=True, exist_ok=True)
     ambiente = _ambiente_dbt(
         configuracao,
         RFB_EXTERNAL_ROOT=str(temporario / "gold"),
+        RFB_RAIZ_SERIE=str(serie),
         CAMINHO_DUCKDB=str(temporario / "warehouse.duckdb"),
     )
     # target-path próprio: o `transform/target/run_results.json` continua sendo o do mês corrente
@@ -255,19 +308,36 @@ def _processar_backfill(
                 ["build", "--selector", SELETOR_BACKFILL, *comuns], ambiente,
             ),
         )  # fmt: skip
-        cron.medir(
-            "dbt_test_backfill",
-            lambda: _dbt_ou_falha(
-                executor, "dbt test (backfill)",
-                ["test", "--selector", SELETOR_BACKFILL_TESTES, *comuns], ambiente,
-            ),
-        )  # fmt: skip
+        cron.medir("mover_particao", lambda: _mover_particao_ao_gold(configuracao, serie, mes))
     finally:
         shutil.rmtree(temporario, ignore_errors=True)
+    if configuracao.raiz_dados_s3 is not None:
+        cron.medir("sincronizar_particao", lambda: sincronizar(configuracao))
     if opcoes.publicar:
-        cron.medir(
-            "publicar", lambda: _publicar_se_configurado(configuracao, ["fct_resumo_mensal"])
+        cron.medir("publicar", lambda: _publicar_se_configurado(configuracao, [DATASET_SERIE]))
+
+
+def _mover_particao_ao_gold(configuracao: Configuracao, serie: Path, mes: str) -> Path:
+    """Troca `gold/fct_resumo_mensal/mes_referencia=<mês>` pela partição testada do backfill.
+
+    Dois `rename` no mesmo disco (a raiz temporária fica em `RAIZ_DADOS/_tmp`): a partição antiga
+    sai para o temporário e a nova entra no lugar. No modo `s3://` o destino é a cópia local do
+    gold, enviada ao bucket em seguida pelo `sincronizar`.
+    """
+    nome = f"mes_referencia={mes}"
+    nova = serie / DATASET_SERIE / nome
+    if not any(nova.glob("*.parquet")):
+        raise PipelineErro(
+            f"backfill de {mes}: o dbt terminou sem gravar a partição em {nova} (esperada em "
+            "RFB_RAIZ_SERIE; ver `raiz_serie` em fct_resumo_mensal)"
         )
+    destino = configuracao.gold_dir / DATASET_SERIE / nome
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    if destino.exists():
+        shutil.move(destino, serie / f".anterior-{nome}")
+    shutil.move(nova, destino)  # `rename` no mesmo disco
+    print(f"partição {nome} movida para {destino}")
+    return destino
 
 
 def _publicar_se_configurado(configuracao: Configuracao, tabelas: list[str] | None = None) -> None:
@@ -278,6 +348,7 @@ def _publicar_se_configurado(configuracao: Configuracao, tabelas: list[str] | No
     if configuracao.raiz_dados_s3 is not None:
         print("aviso: RAIZ_DADOS é s3://; publicação no MotherDuck pulada (lê o gold local)")
         return
+    verificar_gold_consistente(configuracao, "publicar")
     publicar_motherduck(configuracao, tabelas=tabelas)
 
 

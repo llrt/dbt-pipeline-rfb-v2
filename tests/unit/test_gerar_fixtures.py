@@ -86,7 +86,9 @@ def test_contagem_estabelecimentos_e_empresas(tmp_path: Path) -> None:
     _, linhas_emp = _ler_zip_rfb(tmp_path, "Empresas0.zip")
 
     assert len(linhas_estab) == 16
-    assert len(linhas_emp) == 15
+    # 15 raízes + a linha "fantasma" que repete a raiz de B (R4-05)
+    assert len(linhas_emp) == 16
+    assert len({linha[0] for linha in linhas_emp}) == 15
 
 
 def test_dv_valido_em_todos_exceto_l(tmp_path: Path) -> None:
@@ -208,7 +210,7 @@ def test_mes_anterior_tem_15_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> N
     assert {(linha[0], linha[1]) for linha in anterior} < {(linha[0], linha[1]) for linha in atual}
 
 
-def test_mes_anterior_tem_15_empresas_e_nomes_internos_d60810(tmp_path: Path) -> None:
+def test_mes_anterior_tem_15_raizes_e_nomes_internos_d60810(tmp_path: Path) -> None:
     gerar_fixtures.gerar_fixtures(tmp_path)
     mes = gerar_fixtures.MES_ANTERIOR
 
@@ -217,7 +219,8 @@ def test_mes_anterior_tem_15_empresas_e_nomes_internos_d60810(tmp_path: Path) ->
     nome_cnaes, _ = _ler_zip_rfb(tmp_path, "Cnaes.zip", mes)
     nome_simples, _ = _ler_zip_rfb(tmp_path, "Simples.zip", mes)
 
-    assert len(empresas) == 15
+    assert len(empresas) == 16  # 15 raízes + a linha "fantasma" (R4-05)
+    assert len({linha[0] for linha in empresas}) == 15
     assert nome_empresas == "K3241.K03200Y0.D60810.EMPRECSV"
     assert nome_estab == "K3241.K03200Y0.D60810.ESTABELE"
     assert nome_cnaes == "F.K03200$Z.D60810.CNAECSV"

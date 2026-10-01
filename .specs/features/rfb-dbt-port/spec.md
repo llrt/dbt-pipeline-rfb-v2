@@ -82,7 +82,7 @@ Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão
 |---|---|---|---|---|---|---|---|---|---|---|
 | A | 11111111/0001 | TINTAS FUNDAO LTDA | 2135 | 01 | 5643 | 4741500 | 02 | 20221015 | — | nome_fantasia `TINTAS FUNDÃO` |
 | B | 22222222/0001 | COLORIR TINTAS | 2062 | 03 | 5643 | 4741500 | 08 | 20150301 | 20190510 | |
-| C | 33333333/0001 | PINTE BEM | 2135 | 01 | 5643 | 4741500 | 08 | 20200110 | 20210815 | capital `1000,50` |
+| C | 33333333/0001 | PINTE BEM 52998224725 | 2135 | 01 | 5643 | 4741500 | 08 | 20200110 | 20210815 | capital `1000,50`; **emenda R4-01**: razão social de EI com CPF sintético (DV válido) depois de um espaço → `bh_empresas.nome` = `PINTE BEM ***.***.***-**` |
 | D | 44444444/0001 | CASA DAS CORES | 2062 | 05 | 5643 | 4741500 | 04 | 20100601 | 20230101 | |
 | E | 55555555/0001 | TINTAS CAPIXABA | 2305 | (vazio) | 5643 | 4741500 | 08 | 20180101 | 20240301 | nome_fantasia vazio |
 | F | 66666666/0001 | FABRICA DE TINTAS SERRA SA | 2062 | 05 | 5699 | 2071100 | 02 | 20000101 | — | |
@@ -95,11 +95,11 @@ Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão
 | M | 15151515/0001 | BOA ESPERANCA COMERCIO | 2135 | 01 | 1182 | 4711302 | 02 | 20231201 | `00000000` | município sem par no BD |
 | N | 16161616/0001 | AGRO FUNDAO | 2135 | 00 | 5643 | 0111301 | 02 | 20000229 | — | CNAE com zero à esquerda |
 | O | 11111111/0002 | (filial de A) | — | — | 5699 | 4741500 | 02 | 20240115 | — | matriz_filial 2; nome_fantasia multilinha |
-| P | 17171717/0001 | TINTAS ARACRUZ IND | 2062 | 03 | 5611 | 2071100 | 02 | 20180301 | — | **emenda R3-04**: fabricante ativo na microrregião de Fundão (Linhares), fora do município |
+| P | 17171717/0001 | TINTAS ARACRUZ IND11144477735 | 2062 | 03 | 5611 | 2071100 | 02 | 20180301 | — | **emenda R3-04**: fabricante ativo na microrregião de Fundão (Linhares), fora do município; **emenda R4-01**: CPF sintético colado ao nome → `mart_fornecedores_proximos.nome` = `TINTAS ARACRUZ IND***.***.***-**` |
 
-Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
+Empresas: as 15 raízes acima (O compartilha a raiz de A), mais uma linha "fantasma" que repete a raiz de B sem razão social, natureza `0000`, porte/qualificação `00` e capital `0,00` (**emenda R4-05**: o arquivo tem 16 linhas e 15 raízes; o staging e a paridade ficam com a linha boa e nenhuma resposta muda). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
 
-**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 15 estabelecimentos e 15 empresas. As respostas de 2026-09 acima não mudam.
+**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 15 estabelecimentos e 15 empresas (raízes; 16 linhas com a "fantasma" de B). As respostas de 2026-09 acima não mudam.
 
 ---
 
@@ -290,7 +290,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Acceptance Criteria**:
 
-1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `RAIZ_DADOS/_estado/ultima_execucao.json`.
+1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `RAIZ_DADOS/_estado/ultima_execucao.json`. *(Emenda R4-06: com `RAIZ_DADOS=s3://…` o estado fica em `RAIZ_DADOS_LOCAL/_estado/` — o disco local, não o bucket —, e a retenção do AC 5 apaga só o raw e os zips locais; as partições raw enviadas ao bucket pelo `rfb sincronizar` não são apagadas. Comportamento aceito e documentado em `docs/OPERACAO.md`.)*
 2. WHEN the most recent complete month equals the last processed month THEN `rfb atualizar` SHALL exit 0 without downloading any file and SHALL print "nenhum mês novo".
 3. IF the most recent remote month folder lacks any expected file (`Empresas0–9`, `Estabelecimentos0–9`, `Simples`, 6 domínios) THEN the system SHALL treat it as incomplete and SHALL select the previous complete month.
 4. IF `dbt build` fails THEN `rfb atualizar` SHALL exit non-zero and SHALL NOT update `ultima_execucao.json`.

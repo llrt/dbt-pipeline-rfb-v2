@@ -129,7 +129,8 @@ def publicar(
     """Publica os datasets do gold em `destino` (URI DuckDB), sob o catálogo `banco`.
 
     `destino` é `md:<banco>` (MotherDuck, token no ambiente) ou o caminho de um arquivo `.duckdb`
-    (testes). Erros do DuckDB são re-levantados como `ErroIngestao` com `segredos` mascarados.
+    (testes). Todas as tabelas são recriadas numa única transação (R4-03): ou todas mudam, ou
+    nenhuma. Erros do DuckDB são re-levantados como `ErroIngestao` com `segredos` mascarados.
     """
     _validar_identificador(banco, "banco")
     selecionados = _selecionar(descobrir_datasets(gold), tabelas)
@@ -141,20 +142,26 @@ def publicar(
     try:
         with duckdb.connect(":memory:") as con:
             con.execute(f"ATTACH {_literal(destino)}{ancora}")
+            # R4-03: tudo ou nada; uma falha no meio desfaz as tabelas já recriadas, e o destino
+            # fica com a publicação anterior inteira (não com uma mistura de dois meses)
+            con.execute("BEGIN TRANSACTION")
             for dataset in selecionados:
                 con.execute(gerar_sql_tabela(banco, dataset))
                 linhas = con.execute(
                     f'SELECT count(*) FROM "{banco}".main."{dataset.nome}"'
                 ).fetchone()[0]
-                publicada = TabelaPublicada(dataset.nome, linhas)
-                publicadas.append(publicada)
-                if ao_publicar is not None:
-                    ao_publicar(publicada)
+                publicadas.append(TabelaPublicada(dataset.nome, linhas))
+            con.execute("COMMIT")
     except duckdb.Error as exc:
         mensagem = str(exc)
         for segredo in segredos:
             mensagem = mensagem.replace(segredo, "***")
-        raise ErroIngestao(f"falha ao publicar em {destino}: {mensagem}") from None
+        raise ErroIngestao(
+            f"falha ao publicar em {destino} (transação desfeita; nada mudou): {mensagem}"
+        ) from None
+    if ao_publicar is not None:
+        for publicada in publicadas:
+            ao_publicar(publicada)
     return publicadas
 
 

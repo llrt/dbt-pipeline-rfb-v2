@@ -133,7 +133,7 @@ Por padrão, o DuckDB tenta alocar a maior parte da memória física disponível
 - **O Limite de Memória (`memory_limit`)**:
   Configure no `profiles.yml` o teto máximo (ex.: `24GB` para máquinas com 32GB de RAM, ou `2GB` no CI). Esse limite restringe o buffer pool interno do banco.
 - **Diretório Temporário (`temp_directory`)**:
-  Se o consumo ultrapassar o `memory_limit`, o DuckDB faz **spill to disk** (grava blocos intermediários de hash join em disco). Por padrão, o DuckDB já utiliza `<banco>.tmp` como diretório temporário, mas no `dbt-duckdb` é recomendável configurar `settings.temp_directory` apontando para um volume SSD rápido (`_tmp/`). Atenção: no profile do dbt-duckdb, o campo deve ir dentro de `settings:` (se colocado no topo do profile, é ignorado). Lembre-se também de que `memory_limit` limita o buffer pool do banco, mas não o RSS total do processo (que inclui buffers de rede e threads).
+  Se o consumo ultrapassar o `memory_limit`, o DuckDB faz **spill to disk** (grava blocos intermediários de hash join em disco). Por padrão, o DuckDB já utiliza `<banco>.tmp` como diretório temporário, mas no `dbt-duckdb` é recomendável configurar `temp_directory` apontando para um volume SSD rápido (`_tmp/`). Atenção: no profile do dbt-duckdb, o campo deve ir dentro de `config_options:` (aplicado uma vez, na conexão). No topo do profile ele é ignorado; em `settings:` o adaptador o reaplica com `SET` a cada cursor, e o DuckDB recusa trocar o diretório depois do primeiro spill ("Cannot switch temporary directory…", achado do B8 no dado real; R4-08). Lembre-se também de que `memory_limit` limita o buffer pool do banco, mas não o RSS total do processo (que inclui buffers de rede e threads).
 
 ---
 

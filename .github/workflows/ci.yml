@@ -7,24 +7,29 @@ on:
     branches: [main]
   pull_request:
 
+# R4-09: o GITHUB_TOKEN só lê o repositório (o job não escreve nada no GitHub).
+permissions:
+  contents: read
+
 jobs:
   ci:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      # R4-09: actions fixadas por SHA do commit (tags são mutáveis); a tag fica no comentário.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
         with:
           enable-cache: true
 
       - name: Cache dos pacotes dbt e das extensões do DuckDB
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
         with:
           path: |
             transform/dbt_packages
             ~/.duckdb/extensions
           key: dbt-${{ hashFiles('transform/package-lock.yml') }}
 
-      - run: make setup
+      - run: make setup  # `uv sync --locked`: falha se o uv.lock divergir do pyproject.toml
       - run: make ci

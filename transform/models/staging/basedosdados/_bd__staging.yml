@@ -101,9 +101,16 @@ models:
         description: Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).
         data_tests:
           # warn (B8): a BD atual (API downloadTable) traz em 2025 uma linha sem município nem UF
-          # (populacao 5877); ela não casa com nenhum município e não afeta os marts.
+          # (populacao 5877); ela não casa com nenhum município e não afeta os marts. Acima de 50
+          # linhas é erro: regressão em massa da API (sugestão da R4).
           - not_null:
-              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+              config:
+                severity: error
+                warn_if: ">0"
+                error_if: ">50"
+                store_failures: true
+                meta: { escopo: adicao }
+                tags: [escopo_adicao]
       - name: sigla_uf
         description: Sigla da UF do município.
       - name: ano
@@ -128,10 +135,11 @@ models:
           config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - dbt_utils.expression_is_true:
           arguments:
-            expression: "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.0001)"
+            expression: "abs(pib - (va + impostos_liquidos)) <= greatest(1000, abs(pib) * 0.0001)"
           config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
-      # Identidade do IBGE (pib = va + impostos): arredondamento aceito no aviso (R$ 1 ou 0,01 %); acima de 1 %
-      # é troca de coluna ou de unidade, e o build falha (RBP-06; N10).
+      # Identidade do IBGE (pib = va + impostos): arredondamento aceito no aviso (R$ 1.000 ou 0,01 %; a
+      # BD publica em milhares de reais e 477 linhas reais/mês diferem em exatamente R$ 1.000, R4-11a);
+      # acima de 1 % é troca de coluna ou de unidade, e o build falha (RBP-06; N10).
       - dbt_utils.expression_is_true:
           arguments:
             expression: "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.01)"

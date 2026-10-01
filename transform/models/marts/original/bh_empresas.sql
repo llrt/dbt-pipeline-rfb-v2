@@ -2,7 +2,8 @@
 -- joins (estabelecimentos sem empresa, natureza, CNAE BD ou município BD saem — ver o teste
 -- `bh_empresas_descartes_inner_join`). Diferenças intencionais: `idade_atual` relativa a
 -- `data_referencia` em vez de `now()` (ADR-0004) e `nome` sem espaços nas bordas (trim do staging;
--- ADR-0005, emenda R2-01).
+-- ADR-0005, emenda R2-01) e com o CPF de empresário individual mascarado (`mascarar_cpf_no_nome`;
+-- ADR-0008, emenda R4-01).
 with estabelecimentos as (
   select * from {{ ref('stg_rfb__estabelecimentos') }}
 ),
@@ -26,7 +27,7 @@ municipios_bd as (
 select
   est.cnpj_raiz,
   est.cnpj_completo,
-  upper(coalesce(est.nome_fantasia, emp.razao_social)) as nome,
+  {{ mascarar_cpf_no_nome('upper(coalesce(est.nome_fantasia, emp.razao_social))') }} as nome,
   upper(nat.descricao) as natureza_juridica,
   case emp.porte_codigo
     when 0 then 'N/A'

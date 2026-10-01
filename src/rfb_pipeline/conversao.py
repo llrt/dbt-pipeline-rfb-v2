@@ -293,7 +293,7 @@ def _converter_csv_rfb(
                 file=sys.stderr,
             )
             linha = _copiar(utf8, "utf-8")
-        except duckdb.Error as exc2:
+        except (duckdb.Error, OSError) as exc2:  # OSError: disco cheio na cópia UTF-8 (R4-11b)
             raise ConversaoErro(f"{arquivo_origem}/{csv.name}", str(exc2)) from exc2
         finally:
             utf8.unlink(missing_ok=True)

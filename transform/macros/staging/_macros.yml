@@ -28,7 +28,9 @@ macros:
     description: >
       Predicado de `QUALIFY` que mantém uma linha por `cnpj_raiz` e mês nas Empresas RFB, preferindo a
       linha com razão social e natureza informada (o extrato real 2026-09 tem uma raiz duplicada com uma
-      linha "fantasma"). Usado no staging e na leitura da paridade. Escopo adaptado (ADR-0005).
+      linha "fantasma"). Usado no staging e na leitura da paridade. Desempate total sobre as colunas
+      da fonte (R4-05). É adição; o que ela adapta é a leitura de `stg_rfb__empresas` e da paridade
+      (ADR-0005).
     meta: { escopo: adicao }
   - name: inferschema_inteiro_ou_texto
     description: >

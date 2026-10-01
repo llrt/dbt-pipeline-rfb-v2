@@ -30,13 +30,26 @@ Cada etapa imprime `== etapa <nome>: <segundos>s` e o fim do mês imprime o resu
 - O build de um mês regrava os marts `external` de `gold/` (dimensões, `fct_estabelecimentos`, marts,
   `agg_empresas`). Por isso o mês do estado é o **gold corrente**, e um mês **mais antigo** que ele roda
   como **backfill**: o dbt usa um `external_root` temporário (`RFB_EXTERNAL_ROOT`) e um `.duckdb`
-  temporário em `RAIZ_DADOS/_tmp/backfill-*`, e só a partição do mês em
-  `gold/fct_resumo_mensal/mes_referencia=AAAA-MM/` (localização fixa no modelo, macro `raiz_gold`) e o
-  histórico de DQ chegam ao gold real. Os seletores `backfill_resumo_mensal` e
-  `backfill_resumo_mensal_testes` (`transform/selectors.yml`) definem o que roda.
+  temporário em `RAIZ_DADOS/_tmp/backfill-*`, e só a partição do mês de `fct_resumo_mensal` e o
+  histórico de DQ chegam ao gold real. O seletor `backfill_resumo_mensal` (`transform/selectors.yml`)
+  constrói **e testa** `+fct_resumo_mensal` (staging, dimensões, fato e resumo, menos os dois testes
+  que comparam com o gold corrente). A partição é gravada numa raiz temporária (`RFB_RAIZ_SERIE`,
+  macro `raiz_serie`) e o `rfb pipeline` só a move para `gold/fct_resumo_mensal/mes_referencia=AAAA-MM/`
+  (`rename` no mesmo disco, substituindo a anterior) **depois** de o build inteiro passar (R4-02). Um
+  teste `error` no backfill deixa a partição do gold como estava.
 - O teste `fct_resumo_mensal_gold_corrente` (warn) acusa um gold corrente **atrasado**: se a série
   mensal tem um mês mais novo que o do build, alguém rodou um mês antigo por cima do corrente (por exemplo,
   `dbt build --vars mes_referencia` à mão). Correção: reprocesse o mês mais novo.
+- **Gold misto (R4-03).** Os marts `external` são regravados um a um durante o `dbt build` do mês
+  corrente, e um teste `error` só pula os **filhos** do modelo testado. Se o build falhar no meio, parte
+  do gold fica com o mês novo e parte com o anterior (por exemplo, `bh_empresas` novo e `agg_empresas`
+  antigo), e a partição nova do resumo pode já estar gravada. Para isso não passar calado, o pipeline
+  grava `_estado/em_andamento.json` (mês e hora) **antes** do `dbt build` e o apaga **só** quando ele
+  termina bem. Enquanto o marcador existir, `rfb relatorio` e `rfb publicar` (e a publicação no fim de um
+  backfill) recusam rodar com uma mensagem que diz o mês. **Como sair:** corrija a causa e rode
+  `rfb pipeline --mes <mês do marcador>` de novo até concluir; o build completo regrava todo o gold e
+  apaga o marcador. Um BI que leia o gold nessa janela pode misturar dois meses: agende a atualização
+  do BI depois do pipeline, não durante.
 - Um `flock` em `_estado/pipeline.lock` impede dois `pipeline`/`atualizar` simultâneos na mesma
   `RAIZ_DADOS` (a ingestão tem a sua trava, `_estado/rfb.lock`).
 
@@ -56,12 +69,25 @@ Após um `rfb atualizar` bem-sucedido:
 
 - **MotherDuck (P25, ADR-0016):** com `MOTHERDUCK_TOKEN` **e** `MOTHERDUCK_BANCO` definidos, o
   pipeline publica o gold no fim (`rfb publicar --destino motherduck`); no backfill publica só
-  `fct_resumo_mensal`. Sem as duas variáveis imprime `MotherDuck não configurado; nada publicado`.
+  `fct_resumo_mensal`. Todas as tabelas são recriadas numa **única transação** (`BEGIN … COMMIT` na
+  conexão DuckDB com o banco anexado): uma falha no meio desfaz tudo e o MotherDuck fica com a
+  publicação anterior inteira (R4-03). Testado com destino `.duckdb` local (`test_publicacao.py`); o
+  MotherDuck aceita transações com DDL, mas isso só é confirmado na 1ª publicação real (P25). Sem as duas variáveis imprime `MotherDuck não configurado; nada publicado`.
   `--sem-publicar` desliga. A publicação lê o gold **local**: com `RAIZ_DADOS=s3://` ela é pulada com
   aviso.
 - **S3/Tigris (ADR-0007):** com `RAIZ_DADOS=s3://…` o pipeline ingere em `RAIZ_DADOS_LOCAL`, roda
   `rfb sincronizar` (envia o raw) antes do dbt, usa o target `s3` (o dbt grava o gold direto no bucket)
   e o relatório lê os marts pelo `httpfs` com um secret temporário (R3-06).
+- **Estado e retenção no modo s3 ficam no disco local (R4-06, comportamento aceito).** O estado
+  (`_estado/ultima_execucao.json`, travas e o marcador `em_andamento.json`) é gravado em
+  `RAIZ_DADOS_LOCAL/_estado/`, não no bucket. Num runner efêmero ele some entre execuções: preserve-o
+  (ver "GitHub Actions") ou o `rfb atualizar` reprocessa o mês mais recente a cada dia. A retenção
+  (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`) apaga só o raw e os zips **locais**; as partições
+  `raw/rfb/<entidade>/mes_referencia=*` que o `rfb sincronizar` enviou ao bucket ficam lá e o bucket
+  cresce um mês por atualização. Como o staging lê `mes_referencia=*` mas filtra o mês do build, isso
+  custa só armazenamento; apague as partições antigas do bucket à mão (ou por regra de ciclo de vida
+  do bucket) quando quiser. Lembre que o raw tem e-mail e telefone como publicados (ADR-0008): o bucket
+  precisa ser privado.
 
 ## Requisitos de máquina (P14)
 

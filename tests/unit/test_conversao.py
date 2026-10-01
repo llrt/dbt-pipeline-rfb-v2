@@ -99,9 +99,10 @@ def test_empresas_e_estabelecimentos_contagens_da_spec(
     empresas = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
     estab = _converter(fixtures, configuracao, "estabelecimentos", ["Estabelecimentos0.zip"])
 
-    assert [(r.linhas, r.linhas_rejeitadas) for r in empresas] == [(15, 0)]
+    # 15 raízes + a linha "fantasma" de B (R4-05)
+    assert [(r.linhas, r.linhas_rejeitadas) for r in empresas] == [(16, 0)]
     assert [(r.linhas, r.linhas_rejeitadas) for r in estab] == [(16, 0)]
-    assert len(_ler(empresas[0].parquet[0])) == 15
+    assert len(_ler(empresas[0].parquet[0])) == 16
     assert len(_ler(estab[0].parquet[0])) == 16
     assert not (configuracao.rejeitos_dir / "empresas").exists()
 
@@ -114,7 +115,7 @@ def test_resultado_e_caminho_publicado(fixtures: Path, configuracao: Configuraca
         entidade="empresas",
         arquivo_origem="Empresas0.zip",
         arquivo_interno="K3241.K03200Y0.D60912.EMPRECSV",
-        linhas=15,
+        linhas=16,
         linhas_rejeitadas=0,
         parquet=(esperado,),
         data_referencia=date(2026, 9, 12),
@@ -300,7 +301,7 @@ def test_varios_zips_da_entidade_um_parquet_cada(
         f"SELECT count(*), count(DISTINCT mes_referencia) "
         f"FROM read_parquet('{glob}', hive_partitioning=true)"
     ).fetchone()
-    assert total == (30, 1)
+    assert total == (32, 1)  # 2 zips × (15 raízes + a linha "fantasma", R4-05)
 
 
 def test_reconversao_substitui_particao(fixtures: Path, configuracao: Configuracao) -> None:
@@ -580,7 +581,7 @@ def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
         )
 
     assert [(r.arquivo_origem, r.linhas) for r in resultados] == [
-        ("Empresas0.zip", 15),
+        ("Empresas0.zip", 16),
         ("Empresas1.zip", 0),
     ]
     assert all(r.parquet[0].is_file() for r in resultados)
@@ -747,4 +748,27 @@ def test_bytes_de_controle_c1_sao_relidos_em_utf8(
     nomes = sorted(r["razao_social"] for r in _ler(resultado.parquet[0]))
     assert nomes == ["ACENTUAÇÃO", "CONTROLE \x8f C1"]
     assert "1 byte(s) 0x80–0x9F" in capsys.readouterr().err
+    assert not list(tmp_path.rglob("*.utf8"))
+
+
+def test_disco_cheio_na_transcodificacao_vira_erro_de_conversao(
+    configuracao: Configuracao, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R4-11b: `OSError` na cópia UTF-8 sai como erro nomeado (sem traceback), sem sobras."""
+    from rfb_pipeline import conversao
+
+    def _disco_cheio(_origem: Path, destino: Path) -> int:
+        destino.write_bytes(b"parcial")
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(conversao, "_transcodificar_latin1_para_utf8", _disco_cheio)
+    caminho = tmp_path / "Empresas0.zip"
+    with zipfile.ZipFile(caminho, "w") as zf:
+        zf.writestr(
+            "K3241.K03200Y0.D60912.EMPRECSV", b'"00000002";"C \x8f";"2062";"05";"1,00";"01";""\n'
+        )
+    with pytest.raises(ErroIngestao, match="No space left"):
+        converter_entidade_rfb(
+            [caminho], ENTIDADES_RFB["empresas"], MES, configuracao, ingerido_em=INGERIDO_EM
+        )
     assert not list(tmp_path.rglob("*.utf8"))

@@ -172,3 +172,40 @@ def test_token_nao_aparece_em_saida_nem_erro(
 def test_sql_gerado_nunca_contem_o_token(gold: Path) -> None:
     for dataset in descobrir_datasets(gold):
         assert TOKEN not in gerar_sql_tabela("rfb", dataset)
+
+
+def test_falha_no_meio_desfaz_a_publicacao_inteira(gold: Path, tmp_path: Path) -> None:
+    """R4-03: `dim_x` é recriada antes de `dim_y` falhar; a transação a desfaz."""
+    destino = str(tmp_path / "destino.duckdb")
+    publicar(gold, destino, "rfb")
+    with duckdb.connect() as con:  # o gold do mês seguinte: dim_x muda, dim_y corrompe
+        con.execute(f"COPY (SELECT range AS a FROM range(10)) TO '{gold}/dim_x.parquet'")
+    (gold / "dim_y.parquet").write_bytes(b"isto nao e parquet")
+    vistas: list[str] = []
+    with pytest.raises(ErroIngestao, match="transação desfeita"):
+        publicar(gold, destino, "rfb", ao_publicar=lambda t: vistas.append(t.nome))
+    assert vistas == []
+    with duckdb.connect(destino, read_only=True) as con:
+        assert con.execute("SELECT count(*) FROM dim_x").fetchone() == (2,)
+        assert con.execute("SELECT count(*) FROM dim_y").fetchone() == (1,)
+
+
+def test_cli_recusa_publicar_com_build_em_andamento(
+    gold: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """R4-03: com `_estado/em_andamento.json` o gold pode estar misto; nada é publicado."""
+    from rfb_pipeline.orquestracao import marcar_em_andamento
+
+    monkeypatch.setenv("RAIZ_DADOS", str(gold.parent))
+    monkeypatch.setenv("MOTHERDUCK_TOKEN", TOKEN)
+    monkeypatch.setenv("MOTHERDUCK_BANCO", "rfb")
+
+    def _nao_deve_publicar(*_a: object, **_k: object) -> None:
+        raise AssertionError("não deveria publicar com o gold em reconstrução")
+
+    monkeypatch.setattr(cli, "publicar_motherduck", _nao_deve_publicar)
+    marcar_em_andamento(carregar_configuracao({"RAIZ_DADOS": str(gold.parent)}), "2026-09")
+    assert cli.main(["publicar", "--destino", "motherduck"]) == 1
+    erro = capsys.readouterr().err
+    assert "rfb publicar recusado" in erro and "gold pode estar misto" in erro
+    assert "rfb pipeline --mes 2026-09" in erro

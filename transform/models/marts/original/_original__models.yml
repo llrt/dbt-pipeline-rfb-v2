@@ -35,10 +35,18 @@ models:
           apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005,
           emenda R2-01): sem espaços nas bordas (`trim` do staging), que o original mantinha
           (fev/2025: ~752 razões sociais com espaço à esquerda); o teste
-          `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas.
+          `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas. **Adaptado**
+          (ADR-0008, emenda R4-01, decisão do usuário): o CPF que encerra a razão social do
+          empresário individual/MEI (todo trecho de exatamente 11 dígitos, no fim ou no meio do
+          nome, sem exigir DV: 908 CPFs reais vêm no meio) sai como `***.***.***-**`
+          (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste
+          `sem_cpf_no_nome` (error) barra CPF com DV válido.
         data_type: varchar
         meta:
           escopo: adaptado
+        data_tests:
+          - sem_cpf_no_nome:
+              config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: natureza_juridica
         description: >
           Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais).

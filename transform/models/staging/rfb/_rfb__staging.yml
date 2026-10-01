@@ -171,6 +171,7 @@ models:
               arguments:
                 coluna_raw: capital_soc
                 entidade: empresas
+                uma_linha_por_raiz: true
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: porte_codigo
         description: "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio."
@@ -184,6 +185,7 @@ models:
               arguments:
                 coluna_raw: porte
                 entidade: empresas
+                uma_linha_por_raiz: true
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: ente_federativo_responsavel
         description: Ente federativo responsável, preenchido só para órgãos/autarquias públicas.
@@ -533,6 +535,29 @@ unit_tests:
       rows:
         - { cnpj_raiz: "08314885", razao_social: "EMPRESA SINTETICA DA RAIZ", natureza_juridica_codigo: "4120" }
         - { cnpj_raiz: "11111111", razao_social: "OUTRA", natureza_juridica_codigo: "2062" }
+
+  - name: test_stg_rfb__empresas_desempate_total_da_raiz_duplicada
+    description: "R4-05: duas linhas da mesma raiz iguais em natureza, razão social, capital e porte, diferentes só na qualificação e no ente federativo -> a escolha é determinística (menor qualificação, depois menor ente; NULL por último)."
+    model: stg_rfb__empresas
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
+    given:
+      - input: source('rfb', 'empresas')
+        format: sql
+        rows: |
+          select
+              '22222222' as cnpj_raiz, 'IGUAL' as razao_social, '2062' as natureza_jur,
+              '49' as qualificacao_resp, '1,00' as capital_soc, '01' as porte,
+              null::varchar as ente_fed_resp, '2026-09' as _mes_referencia,
+              date '2026-09-12' as _data_referencia
+          union all
+          select '22222222', 'IGUAL', '2062', '05', '1,00', '01', 'UNIAO', '2026-09', date '2026-09-12'
+          union all
+          select '22222222', 'IGUAL', '2062', '05', '1,00', '01', null, '2026-09', date '2026-09-12'
+    expect:
+      rows:
+        - { cnpj_raiz: "22222222", qualificacao_responsavel_codigo: "05", ente_federativo_responsavel: "UNIAO" }
 
   - name: test_stg_rfb__estabelecimentos_cnpj_e_codigos
     description: "STG AC 9, 12, 13: `cnpj_completo` com zeros à esquerda (14 dígitos); CNAE `111301` -> `0111301`; município com 4 dígitos; texto vazio -> NULL."

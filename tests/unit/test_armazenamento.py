@@ -229,3 +229,14 @@ class TestDuckDBLeDoBucket:
         con.close()
 
         assert resultado == [(42,)]
+
+
+def test_ajuda_do_cli_descreve_o_comando_implementado(capsys) -> None:
+    """R4-10: a ajuda não diz mais "(não implementado)"."""
+    from rfb_pipeline import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(["sincronizar", "--help"])
+    saida = capsys.readouterr().out
+    assert "não implementado" not in saida
+    assert "s3://" in saida
