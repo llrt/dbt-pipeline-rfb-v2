@@ -22,7 +22,7 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Manifesto, idempotência, limiar de rejeitos | adição | — |
 | Upload para Tigris (`rfb sincronizar`) | adaptado | `subir_arquivos_tigris.py` |
 | Fontes dbt com testes de unicidade/completude/integridade/domínio | original | notebooks 2.1.1, 2.1.2, 2.2, 2.3 |
-| Freshness das fontes | adição | — |
+| Freshness das fontes (`dbt source freshness` no `make ci`) e teste `extrato_desatualizado` (idade do extrato, `warn` fora do target `ci`) | adição | — |
 | `relationships` das fontes (natureza/CNAE/município) avaliados por mês (`relacionamentos_fontes_por_mes`) | adaptado | original tinha um único mês; com meses retidos o `relationships` genérico cruzaria todos (R1-22) |
 | Staging tipado | adição | original não tinha camada explícita |
 | `bh_empresas` | original | notebook 3 |

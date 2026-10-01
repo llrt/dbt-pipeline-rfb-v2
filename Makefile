@@ -30,6 +30,7 @@ ci:
 	cd transform && uv run dbt deps
 	cd transform && uv run dbt build --target ci --selector ci_mes_antigo --vars '{mes_referencia: 2026-08}'
 	cd transform && uv run dbt test --target ci --selector ci_resumo_mes_antigo --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt source freshness --target ci
 	cd transform && uv run dbt build --target ci
 	uv run pytest -q tests/integration
 

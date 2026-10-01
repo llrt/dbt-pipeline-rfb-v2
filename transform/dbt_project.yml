@@ -31,6 +31,7 @@ vars:
   caso_uf: "ES"
   caso_cnaes_fornecedores: ["2071100", "4679601", "4679699"]
   raio_fornecedores_km: 100
+  limite_dias_extrato: 65  # `extrato_desatualizado` (RBP-04): idade máxima do extrato RFB mais recente
 
 models:
   rfb:
