@@ -38,3 +38,12 @@ def test_concorrencia_ranking_na_uf_para_tintas(consultar) -> None:
         "where cnae_principal = '4741500' and uf = 'ES' order by ranking_uf"
     )
     assert linhas[0] == ("Fundão", 1)
+
+
+def test_sobrevivencia_tintas_es_6_6_5_4_4_2(consultar) -> None:
+    (linha,) = consultar(
+        "select sum(elegiveis_1a), sum(sobreviventes_1a), sum(elegiveis_3a), sum(sobreviventes_3a), "
+        "sum(elegiveis_5a), sum(sobreviventes_5a) from {mart_sobrevivencia_coorte} "
+        "where cnae_principal = '4741500' and uf = 'ES'"
+    )
+    assert linha == (6, 6, 5, 4, 4, 2)
