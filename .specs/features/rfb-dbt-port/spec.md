@@ -313,6 +313,25 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Independent Test**: fixtures → `fct_resumo_mensal` do mês 2026-09 soma 15; todas as FKs resolvem em dimensões; `dim_data` contém `20000229`.
 
+### P2: Enriquecimento com novas bases da Base dos Dados (melhoria — pedido do usuário)
+
+**User Story**: Como analista de mercado, quero o perfil de cada município (Censo 2022) e a noção de área de mercado (vizinhos e região metropolitana), com população e PIB atualizados, para avaliar concorrência e potencial além do próprio município.
+
+**Why P2**: Melhora a qualidade das análises (dados atuais) e responde perguntas que o original não fazia; não bloqueia o MVP. Decisão: ADR-0015, AD-023.
+
+**Acceptance Criteria**:
+
+1. The system SHALL download every Base dos Dados table through `https://basedosdados.org/api/tables/downloadTable` (base64 parameters: dataset, table, `true`, `free`), and SHALL NOT use the legacy `one-click-download` path.
+2. WHEN `rfb ingerir` runs, THE system SHALL also ingest `br_ibge_censo_2022.municipio`, `br_geobr_mapas.regiao_metropolitana_2017` and `br_bd_vizinhanca.municipio` into the raw layer (all-VARCHAR, manifest, same reject/emptiness rules as the other BD tables), and `--origem-local` SHALL read them from `<origem>/bd/`.
+3. `dim_municipio` SHALL expose `populacao_censo_2022`, `domicilios_2022`, `area_km2`, `densidade_hab_km2`, `taxa_alfabetizacao`, `idade_mediana`, `indice_envelhecimento`, `razao_sexo` and `nome_regiao_metropolitana` (`NÃO PERTENCE` when the municipality is in no metropolitan region; member `-1` keeps `NÃO INFORMADO`).
+4. The system SHALL provide a conformed neighbourhood relation (pairs of neighbouring municipalities by `sk_municipio`, latest year, symmetric, no self-pairs) tested for uniqueness and referential integrity.
+5. The system SHALL provide `mart_concorrencia_area_mercado` per CNAE × municipality with active and inactive establishments in the municipality, in its neighbours and in its metropolitan region, plus active establishments per 1,000 households and per km² (NULL when the denominator is missing).
+6. The case-study report SHALL include the market-area view for the case municipality and CNAE.
+7. Every artifact of this increment SHALL carry `meta.incremento: enriquecimento_bd` and tag `incremento_enriquecimento_bd` (dbt nodes) or the equivalent marker in Python/docs (ADR-0015), and the scope guard SHALL fail when `meta.incremento` and the tag disagree.
+8. WHERE fixtures are used, THE answers for Fundão/ES and CNAE 4741500 SHALL be documented in the fixture scenario table and asserted by integration tests (neighbours, metropolitan region, per-household and per-km² indicators).
+
+**Independent Test**: fixtures → Fundão pertence à região metropolitana definida na fixture, tem os vizinhos da fixture e os indicadores da área de mercado com os valores da tabela do cenário.
+
 ---
 
 ## Edge Cases
@@ -355,8 +374,11 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 | UPD-02 | P2: Atualização mensal (AC 6–8) | Tasks | In Tasks |
 | BI-01 | P2: Modelo estrela BI (AC 1–4) | Tasks | In Tasks |
 | BI-02 | P2: Modelo estrela BI (AC 5–8) | Tasks | In Tasks |
+| ENR-01 | P2: Enriquecimento Base dos Dados (AC 1–2) | T38, T39 | In Tasks |
+| ENR-02 | P2: Enriquecimento Base dos Dados (AC 3–4) | T40 | In Tasks |
+| ENR-03 | P2: Enriquecimento Base dos Dados (AC 5–8) | T39–T41 | In Tasks |
 
-**Coverage:** 26 total, 26 mapped to tasks, 0 unmapped.
+**Coverage:** 29 total, 29 mapped to tasks, 0 unmapped.
 
 ---
 

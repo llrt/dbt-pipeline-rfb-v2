@@ -19,3 +19,4 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0012](0012-atualizacao-mensal.md) | Atualização mensal: mês novo, completude, retenção, série histórica | aceita |
 | [0013](0013-modelo-estrela-bi.md) | Modelo estrela otimizado para BI (Power BI) | aceita |
 | [0014](0014-convencao-idioma.md) | Convenção de idioma: vocabulário dbt/ferramentas em inglês, resto em português | aceita |
+| [0015](0015-enriquecimento-base-dos-dados.md) | Enriquecimento com novas bases da Base dos Dados (Fase 1) — incremento `enriquecimento_bd` | aceita |

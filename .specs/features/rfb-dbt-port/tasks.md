@@ -18,6 +18,7 @@ Legenda de classificação: complexidade **P** (pequena) / **M** (média) / **G*
 Roteamento (docs/PLANO.md): C → Opus esforço médio · G/NC → Sonnet médio · M/NC → **Sonnet médio** (decisão do usuário em 2026-09-28, AD-014; antes DeepSeek v4 flash alto) · P/NC → DeepSeek v4 flash baixo.
 Críticas ou grandes: T8, T14, T15, T28 (= 4, limite do guia). T36 (atualização mensal) é M/NC mas roda em Opus por ser E2E (regra do guia).
 Melhorias pedidas pelo usuário em 2026-09-28 (ADR-0012/0013): T32–T36 e ajustes BI em T17–T19.
+Enriquecimento com bases externas da Base dos Dados (pedido do usuário em 2026-10-01, ADR-0015): T38–T41, marcados com o incremento `enriquecimento_bd`.
 
 ---
 
@@ -113,9 +114,16 @@ T20 → T25 → T26
 T20 → T34 → T35
 ```
 
+### Phase 7c: Enriquecimento com novas bases da Base dos Dados (ADR-0015) — lote B10 (M/NC)
+
+```
+T35 → T38 → T39 → T40 → T41
+```
+
 ### Phase 8: Ponta a ponta com dados reais e atualização mensal — lote B8 (C, E2E)
 
 ```
+T41 → T28
 T27 → T28 → T36
 T34 → T36
 ```
@@ -754,7 +762,7 @@ T30 → T31
 
 **What**: `rfb pipeline` / `make pipeline MES=2026-09` (ingest → freshness → build → report, exit ≠0 em erro); execução real completa sobre 2026-09; ajuste de desempenho (materializações, memória, threads, ordem); `make ci` < 120 s; registro de tempos, volumes e resultados (incluindo paridade = 0 diferenças) em `docs/EXECUCAO_REAL.md`; relatório real gerado.
 **Where**: `src/rfb_pipeline/cli.py`
-**Depends on**: T27
+**Depends on**: T27, T41
 **Reuses**: tudo
 **Requirement**: OPS-01
 **Classificação**: M/C
@@ -767,6 +775,87 @@ T30 → T31
 **Tests**: integration
 **Gate**: build
 **Commit**: `feat(pipeline): end-to-end run on real 2026-09 data`
+
+---
+
+### T38: Download da Base dos Dados pela API atual
+
+**What**: trocar o download de todas as tabelas BD do caminho legado `one-click-download/…` (congelado em dez/2023) pela API `https://basedosdados.org/api/tables/downloadTable` (base64 de dataset, tabela, `true`, `free`); host permitido `basedosdados.org`; manter `--origem-local`, manifesto e erros; conferir que colunas de `populacao`/`pib`/`municipio`/`cnae_2` continuam compatíveis com o staging (ajustar se não).
+**Where**: `src/rfb_pipeline/basedosdados.py`
+**Depends on**: T35
+**Reuses**: `basedosdados.py`, `configuracao.py`, `esquemas.TABELAS_BD`
+**Requirement**: ENR-01
+**Classificação**: M/NC
+**Incremento**: enriquecimento BD (ADR-0015)
+
+**Done when**:
+- [ ] Unit tests com `httpx.MockTransport` cobrem URL/base64, sucesso, erro HTTP e conteúdo não gzip
+- [ ] Nenhuma referência ao caminho legado no código
+- [ ] Gate full passa
+
+**Tests**: unit
+**Gate**: full
+**Commit**: `fix(ingestao): download Base dos Dados via current downloadTable API`
+
+---
+
+### T39: Novas tabelas BD no raw + fixtures
+
+**What**: ingerir `br_ibge_censo_2022.municipio`, `br_geobr_mapas.regiao_metropolitana_2017` e `br_bd_vizinhanca.municipio` (raw all-VARCHAR, manifesto); fixtures sintéticas determinísticas para os municípios do cenário (Fundão, Serra, Vitória, Linhares, Aracruz, Belo Horizonte…) com respostas conhecidas documentadas na spec; fontes dbt e staging (`stg_bd__censo_2022_municipio`, `stg_bd__regioes_metropolitanas`, `stg_bd__vizinhanca`) com testes.
+**Where**: `src/rfb_pipeline/esquemas.py`, `scripts/gerar_fixtures.py`, `transform/models/staging/basedosdados/`
+**Depends on**: T38
+**Reuses**: padrão das tabelas BD existentes
+**Requirement**: ENR-01
+**Classificação**: M/NC
+**Incremento**: enriquecimento BD (ADR-0015)
+
+**Done when**:
+- [ ] `make ci` ingere as três tabelas; testes do gerador cobrem as linhas novas
+- [ ] Gate full passa
+
+**Tests**: unit + dbt data tests + dbt unit tests
+**Gate**: full
+**Commit**: `feat(ingestao): census 2022, metropolitan regions and neighbourhood from Base dos Dados`
+
+---
+
+### T40: `dim_municipio` enriquecida + vizinhança conformada
+
+**What**: colunas do Censo 2022 e `nome_regiao_metropolitana` em `dim_municipio` (contrato, descrições, testes); relação de vizinhança conformada por `sk_municipio` (simétrica, sem autopares, ano mais recente) com testes de unicidade e integridade.
+**Where**: `transform/models/marts/core/dim_municipio.sql`
+**Depends on**: T39
+**Reuses**: `int_municipios__conformados`
+**Requirement**: ENR-02
+**Classificação**: M/NC
+**Incremento**: enriquecimento BD (ADR-0015)
+
+**Done when**:
+- [ ] Integração: atributos de Fundão iguais aos da fixture; vizinhos de Fundão = os da fixture
+- [ ] Gate full passa
+
+**Tests**: dbt data tests + dbt unit tests + integration
+**Gate**: full
+**Commit**: `feat(dbt): census 2022 attributes, metropolitan region and neighbours in dim_municipio`
+
+---
+
+### T41: Concorrência na área de mercado + estudo de caso
+
+**What**: `mart_concorrencia_area_mercado` (CNAE × município: ativos/inativos no município, nos vizinhos e na região metropolitana; ativos por mil domicílios e por km²); seção nova no relatório do estudo de caso; `docs/POWER_BI.md`, `ARCHITECTURE.md`, `docs/ESCOPO.md` e `docs/QUALIDADE_DADOS.md` atualizados.
+**Where**: `transform/models/marts/analytics/mart_concorrencia_area_mercado.sql`
+**Depends on**: T40
+**Reuses**: `mart_concorrencia_municipio`, `relatorio.py`
+**Requirement**: ENR-03
+**Classificação**: M/NC
+**Incremento**: enriquecimento BD (ADR-0015)
+
+**Done when**:
+- [ ] Integração: indicadores de Fundão/4741500 iguais aos da tabela do cenário; relatório traz a área de mercado
+- [ ] Gate full passa
+
+**Tests**: dbt data tests + integration
+**Gate**: full
+**Commit**: `feat(analytics): competition in the market area (neighbours and metropolitan region)`
 
 ---
 
@@ -888,6 +977,10 @@ T30 → T31
 | T29 | None | Phase 9 (trilha paralela) | ✅ |
 | T30 | None (conteúdo depende das Fases 4–7 concluídas) | Phase 9 | ✅ |
 | T31 | T30 | T30 → T31 | ✅ |
+| T38 | T35 (fase anterior) | T35 → T38 | ✅ |
+| T39 | T38 | T38 → T39 | ✅ |
+| T40 | T39 | T39 → T40 | ✅ |
+| T41 | T40 | T40 → T41 | ✅ |
 
 Nota: execução dentro da fase é estritamente sequencial na ordem numérica; dependências intra-fase não desenhadas são satisfeitas pela ordem.
 
@@ -906,3 +999,5 @@ Nota: execução dentro da fase é estritamente sequencial na ordem numérica; d
 | T26, T27 | observabilidade/relatório | integration | integration | ✅ |
 | T28 | CLI + fluxo real | integration | integration | ✅ |
 | T29–T31 | Documentação | none | none | ✅ |
+| T38, T39 | Python EL + fixtures + dbt staging | unit + dbt tests | idem | ✅ |
+| T40, T41 | dbt marts + relatório | dbt data/unit tests + integration | idem | ✅ |
