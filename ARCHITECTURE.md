@@ -178,7 +178,10 @@ flowchart LR
 
 - "Mês completo" = pasta com `Empresas0–9`, `Estabelecimentos0–9`, `Simples` e os 6 domínios.
 - Histórico mensal em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/` (uma partição por mês, independente do
-  `.duckdb` e da retenção do raw). Receitas de agendamento (cron, launchd, GitHub Actions) em `docs/OPERACAO.md`.
+  `.duckdb` e da retenção do raw). O dbt grava só a partição do mês processado (`overwrite_or_ignore`) e a
+  relação `fct_resumo_mensal` lê todas as partições; `sk_mes_referencia` = 1º dia do mês (`yyyymm01`, chave
+  de `dim_data`). Para registrar um mês **antigo**, rode antes `dbt build --select +fct_resumo_mensal --vars
+  '{mes_referencia: AAAA-MM}'` (sobrescreve o gold "corrente") e, por último, o build do mês corrente. Receitas de agendamento (cron, launchd, GitHub Actions) em `docs/OPERACAO.md`.
 
 ## 5. T — Projeto dbt (`transform/`)
 

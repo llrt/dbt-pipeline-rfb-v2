@@ -5,6 +5,7 @@ Lê `RAIZ_DADOS` do ambiente — `make ci` processa 2026-08 (build do mês antig
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -77,3 +78,17 @@ def test_reprocessar_sem_warehouse_preserva_a_particao_antiga(tmp_path: Path) ->
         gold=copia / "gold",
     )
     assert linhas == [("2026-08", 14), ("2026-09", 15)]
+
+
+def test_exposure_do_power_bi_depende_de_todas_as_dimensoes_e_fatos() -> None:
+    manifesto = TRANSFORM / "target" / "manifest.json"
+    if not manifesto.is_file():
+        pytest.skip("rode `dbt build` antes")
+    exposicoes = json.loads(manifesto.read_text(encoding="utf-8"))["exposures"]
+    (exposicao,) = exposicoes.values()
+    assert exposicao["type"] == "dashboard"
+    modelos = {n.split(".")[-1] for n in exposicao["depends_on"]["nodes"]}
+    assert modelos >= {
+        "dim_data", "dim_municipio", "dim_cnae", "dim_natureza_juridica", "dim_porte",
+        "dim_situacao_cadastral", "fct_estabelecimentos", "fct_resumo_mensal",
+    }  # fmt: skip

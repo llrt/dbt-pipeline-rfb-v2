@@ -720,9 +720,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Integração: após processar 2026-08 e 2026-09, duas partições; (Serra, 4741500, ATIVA) = 0/ausente em 2026-08 e 1 em 2026-09; soma de 2026-09 = 15
-- [ ] Apagar `warehouse.duckdb` e rodar 2026-09 de novo mantém a partição 2026-08
-- [ ] Gate full passa
+- [x] Integração: após processar 2026-08 e 2026-09, duas partições; (Serra, 4741500, ATIVA) = 0/ausente em 2026-08 e 1 em 2026-09; soma de 2026-09 = 15
+- [x] Apagar `warehouse.duckdb` e rodar 2026-09 de novo mantém a partição 2026-08
+- [x] Gate full passa
 
 **Tests**: dbt data tests + integration
 **Gate**: full
@@ -740,9 +740,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] `dbt ls --resource-type exposure` lista a exposure; `dbt parse` ok
-- [ ] Documento cobre todos os itens do AC BI-7
-- [ ] Gate full passa
+- [x] `dbt ls --resource-type exposure` lista a exposure; `dbt parse` ok
+- [x] Documento cobre todos os itens do AC BI-7
+- [x] Gate full passa
 
 **Tests**: none
 **Gate**: full
