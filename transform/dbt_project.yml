@@ -2,7 +2,7 @@ name: "rfb"
 version: "1.0.0"
 config-version: 2
 profile: "rfb"
-require-dbt-version: [">=1.8.0", "<2.0.0"]
+require-dbt-version: [">=1.10.5", "<2.0.0"]
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
