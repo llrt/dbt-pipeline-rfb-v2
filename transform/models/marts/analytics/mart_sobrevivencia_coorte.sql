@@ -4,7 +4,6 @@
 -- está ativo ou se `dat_situacao >= dat_inicio + N anos`. Inativo sem `dat_situacao` não sobrevive
 -- (sem evidência). Como a elegibilidade é da coorte e não do membro, sobreviventes_N ⊆ sobreviventes_M
 -- (N > M) e as taxas são monotônicas. Taxa = NULL quando a coorte ainda não é elegível no horizonte.
-{%- set horizontes = [1, 3, 5] %}
 with estabelecimentos as (
   select
     year(ini.data) as ano_coorte,
@@ -31,10 +30,12 @@ with estabelecimentos as (
 marcados as (
   select
     *,
-    {%- for n in horizontes %}
-    make_date(ano_coorte + {{ n }}, 12, 31) <= {{ data_referencia(ref('int_estabelecimentos__enriquecidos')) }} as elegivel_{{ n }}a,
-    eh_ativa or coalesce(dat_situacao >= dat_inicio + to_years({{ n }}), false) as sobrevive_{{ n }}a{{ "," if not loop.last }}
-    {%- endfor %}
+    make_date(ano_coorte + 1, 12, 31) <= {{ data_referencia(ref('int_estabelecimentos__enriquecidos')) }} as elegivel_1a,
+    eh_ativa or coalesce(dat_situacao >= dat_inicio + to_years(1), false) as sobrevive_1a,
+    make_date(ano_coorte + 3, 12, 31) <= {{ data_referencia(ref('int_estabelecimentos__enriquecidos')) }} as elegivel_3a,
+    eh_ativa or coalesce(dat_situacao >= dat_inicio + to_years(3), false) as sobrevive_3a,
+    make_date(ano_coorte + 5, 12, 31) <= {{ data_referencia(ref('int_estabelecimentos__enriquecidos')) }} as elegivel_5a,
+    eh_ativa or coalesce(dat_situacao >= dat_inicio + to_years(5), false) as sobrevive_5a
   from estabelecimentos
 )
 
@@ -44,11 +45,17 @@ select
   porte,
   uf,
   count(*) as estabelecimentos,
-  {%- for n in horizontes %}
-  count(*) filter (where elegivel_{{ n }}a) as elegiveis_{{ n }}a,
-  count(*) filter (where elegivel_{{ n }}a and sobrevive_{{ n }}a) as sobreviventes_{{ n }}a,
-  count(*) filter (where elegivel_{{ n }}a and sobrevive_{{ n }}a)::double
-  / nullif(count(*) filter (where elegivel_{{ n }}a), 0) as taxa_{{ n }}a{{ "," if not loop.last }}
-  {%- endfor %}
+  count(*) filter (where elegivel_1a) as elegiveis_1a,
+  count(*) filter (where elegivel_1a and sobrevive_1a) as sobreviventes_1a,
+  count(*) filter (where elegivel_1a and sobrevive_1a)::double
+  / nullif(count(*) filter (where elegivel_1a), 0) as taxa_1a,
+  count(*) filter (where elegivel_3a) as elegiveis_3a,
+  count(*) filter (where elegivel_3a and sobrevive_3a) as sobreviventes_3a,
+  count(*) filter (where elegivel_3a and sobrevive_3a)::double
+  / nullif(count(*) filter (where elegivel_3a), 0) as taxa_3a,
+  count(*) filter (where elegivel_5a) as elegiveis_5a,
+  count(*) filter (where elegivel_5a and sobrevive_5a) as sobreviventes_5a,
+  count(*) filter (where elegivel_5a and sobrevive_5a)::double
+  / nullif(count(*) filter (where elegivel_5a), 0) as taxa_5a
 from marcados
 group by ano_coorte, cnae_principal, porte, uf
