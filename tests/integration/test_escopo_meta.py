@@ -8,7 +8,9 @@ pytest de integração). Sem o manifesto, o teste é pulado. Regras:
 - testes de dados (genéricos e singulares): `meta.escopo` válido + a tag `escopo_<meta.escopo>`;
   o dbt propaga as tags da fonte/modelo pai ao teste, então tags de escopo extras são toleradas
   (ex.: teste `adicao` sobre uma fonte `original`);
-- macros (incl. testes genéricos): `meta.escopo` válido (macros não têm tags no dbt).
+- macros (incl. testes genéricos): `meta.escopo` válido (macros não têm tags no dbt);
+- hooks `on-run-*` (nós `operation`): ignorados — não aceitam config no dbt; a macro que chamam
+  já é verificada.
 """
 
 from __future__ import annotations
@@ -29,6 +31,8 @@ def nos_com_problema(manifesto: dict) -> list[str]:
     for secao in SECOES:
         for id_no, no in manifesto.get(secao, {}).items():
             if no.get("package_name") != "rfb":
+                continue
+            if no.get("resource_type") == "operation":
                 continue
             config = no.get("config") or {}
             escopo = (no.get("meta") or config.get("meta") or {}).get("escopo")

@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: observabilidade
+    description: Tabelas de observabilidade mantidas por macros de `on-run-start`/`on-run-end` (não são modelos).
+    schema: main
+    tables:
+      - name: dq_historico_testes
+        description: >
+          Histórico acumulado dos resultados de testes dbt, uma linha por teste por execução
+          (DQ-02). Criada por `criar_historico_testes` e alimentada por
+          `registrar_resultados_testes`; persiste no `warehouse.duckdb`.
+        meta:
+          escopo: adicao
+        tags: [escopo_adicao]
+        columns:
+          - name: invocation_id
+            description: Identificador da execução dbt (`invocation_id`).
+          - name: executado_em
+            description: Momento do registro (fim da execução).
+          - name: nome_teste
+            description: Nome do teste dbt (genérico, singular ou unitário).
+          - name: tipo_teste
+            description: "`test` (dados) ou `unit_test`."
+          - name: status
+            description: "`pass`, `warn`, `fail`, `error` ou `skipped`."
+          - name: falhas
+            description: Número de linhas com falha (NULL em testes unitários e pulados).
+          - name: severidade
+            description: "`error` ou `warn` conforme a configuração do teste."
+          - name: escopo
+            description: "Escopo do teste (ADR-0006): original, adicao ou adaptado."

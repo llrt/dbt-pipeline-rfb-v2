@@ -11,6 +11,12 @@ test-paths: ["tests"]
 analysis-paths: ["analyses"]
 snapshot-paths: ["snapshots"]
 
+on-run-start:
+  - "{{ criar_historico_testes() }}"
+
+on-run-end:
+  - "{{ registrar_resultados_testes(results) }}"
+
 clean-targets:
   - "target"
   - "dbt_packages"
@@ -65,7 +71,7 @@ seeds:
 
 # Testes de dados sem escopo explícito são adição; os do original declaram `meta.escopo: original`
 # (e a tag) no próprio teste. Testes genéricos herdam a configuração pelo caminho do YAML em que são
-# declarados; só core/ e analytics/ (100% adição) recebem a tag aqui — nos demais (inclusive os dos seeds,
+# declarados; só core/, analytics/ e observability/ (100% adição) recebem a tag aqui — nos demais (inclusive os dos seeds,
 # cujo FQN não inclui diretório) cada teste declara `meta` + tag (tags são aditivas: uma tag de projeto duplicaria `escopo_original`).
 data_tests:
   rfb:
@@ -76,6 +82,8 @@ data_tests:
         +tags: ["escopo_adicao"]
       analytics:
         +tags: ["escopo_adicao"]
+    observability:
+      +tags: ["escopo_adicao"]
 
 unit_tests:
   rfb:
