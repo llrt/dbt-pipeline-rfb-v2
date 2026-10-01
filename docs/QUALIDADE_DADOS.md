@@ -107,8 +107,8 @@
 | `stg_bd__municipios.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio_rf` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
-| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.0001)"} | warn | adicao | — |
 | `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.01)"} | error | adicao | — |
+| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1000, abs(pib) * 0.0001)"} | warn | adicao | — |
 | `stg_bd__pib` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
 | `stg_bd__pib.ano` | `not_null` | error | adicao | — |
 | `stg_bd__pib.id_municipio` | `not_null` | error | adicao | — |
@@ -377,6 +377,7 @@
 | `mart_fornecedores_proximos` | `test_mart_fornecedores_proximos_haversine_e_via` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario` | adicao |
+| `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_sem_data_de_inicio_fica_fora` | adicao |
 | `stg_bd__censo_2022_municipio` | `test_stg_bd__censo_2022_municipio_tipagem` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_lpad_id_municipio_rf` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_parse_centroide` | adicao |
