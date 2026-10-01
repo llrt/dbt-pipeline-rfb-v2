@@ -98,10 +98,9 @@ models:
           - data_nao_futura:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_simples
-        description: Data de exclusão do Simples; NULL se `00000000` no raw.
-        data_tests:
-          - data_nao_futura:
-              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+        description: >
+          Data de exclusão do Simples; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
+          futuro (fim do mês ou do ano) é legítima (R3-11).
       - name: opcao_mei
         description: "`true` se optante pelo MEI, `false` caso contrário."
       - name: dat_opcao_mei
@@ -110,10 +109,9 @@ models:
           - data_nao_futura:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_mei
-        description: Data de exclusão do MEI; NULL se `00000000` no raw.
-        data_tests:
-          - data_nao_futura:
-              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+        description: >
+          Data de exclusão do MEI; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
+          futuro é legítima (R3-11).
 
   - name: stg_rfb__empresas
     description: >

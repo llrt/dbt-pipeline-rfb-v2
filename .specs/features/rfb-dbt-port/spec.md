@@ -226,7 +226,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 **Acceptance Criteria**:
 
 1. The system SHALL provide a generic test `cnpj_dv_valido` that validates both CNPJ check digits (fixtures: exactly 1 failure, row L, severity warn).
-2. The system SHALL provide a generic test `data_nao_futura` relative to `data_referencia` applied to every staging date column.
+2. The system SHALL provide a generic test `data_nao_futura` relative to `data_referencia` applied to every staging date column, **except** `dat_exclusao_simples` and `dat_exclusao_mei` (a exclusão do Simples/MEI com efeito futuro — fim do mês ou do ano — é legítima; no extrato real de fev/2025 todos os 1.854 e 1.766 avisos eram 2025-02-28 ou 2025-12-31). *(Emenda R3-11.)*
 3. The system SHALL store failures of `warn` tests (`store_failures`).
 4. WHEN `dbt build` finishes THEN the system SHALL append one row per executed test to `dq_historico_testes` with invocation id, test name, status, failures, severity and escopo.
 5. The system SHALL produce `docs/QUALIDADE_DADOS.md` listing every check by stage (antes/depois), marking original vs adição.
