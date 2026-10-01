@@ -110,6 +110,48 @@ def test_reprocessar_sem_warehouse_preserva_a_particao_antiga(tmp_path: Path) ->
     assert linhas == [("2026-08", 14), ("2026-09", 15)]
 
 
+def test_particao_antiga_orfa_so_avisa_e_nao_derruba_o_mes_processado(tmp_path: Path) -> None:
+    """R3-18: chave órfã em 2026-08 → teste do mês (2026-09) passa; o histórico dá `warn`."""
+    copia = tmp_path / "dados"
+    shutil.copytree(RAIZ, copia, ignore=shutil.ignore_patterns("_tmp"))
+    antiga = copia / "gold" / "fct_resumo_mensal" / "mes_referencia=2026-08" / "data_0.parquet"
+    with duckdb.connect() as con:
+        con.execute(
+            f"copy (select * replace (999999 as sk_municipio) from read_parquet('{antiga}')) "
+            f"to '{tmp_path / 'orfa.parquet'}' (format parquet)"
+        )
+    shutil.move(tmp_path / "orfa.parquet", antiga)
+    env = {**os.environ, "RAIZ_DADOS": str(copia), "DBT_PROFILES_DIR": str(TRANSFORM)}
+    env.pop("CAMINHO_DUCKDB", None)
+    alvo = tmp_path / "target"
+    subprocess.run(  # recria a visão do warehouse copiado sobre as partições da cópia
+        [
+            "uv", "run", "dbt", "build", "--target", "ci", "--select", "+fct_resumo_mensal",
+            "--exclude", "resource_type:test resource_type:unit_test",
+            "--vars", "{mes_referencia: 2026-09}", "--target-path", str(alvo),
+        ],
+        cwd=TRANSFORM, env=env, check=True, capture_output=True,
+    )  # fmt: skip
+    subprocess.run(
+        [
+            "uv", "run", "dbt", "test", "--target", "ci",
+            "--select", "fct_resumo_mensal_relacionamentos_mes fct_resumo_mensal_integridade_historica",
+            "--vars", "{mes_referencia: 2026-09}", "--target-path", str(alvo),
+        ],
+        cwd=TRANSFORM, env=env, check=False, capture_output=True,
+    )  # fmt: skip
+    resultados = json.loads((alvo / "run_results.json").read_text(encoding="utf-8"))["results"]
+    status = {
+        r["unique_id"].split(".")[2]: r["status"]
+        for r in resultados
+        if r["unique_id"].startswith("test.")
+    }
+    assert status == {
+        "fct_resumo_mensal_relacionamentos_mes": "pass",
+        "fct_resumo_mensal_integridade_historica": "warn",
+    }
+
+
 def test_exposure_do_power_bi_depende_de_todas_as_dimensoes_e_fatos() -> None:
     manifesto = TRANSFORM / "target" / "manifest.json"
     if not manifesto.is_file():
