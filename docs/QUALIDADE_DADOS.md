@@ -31,7 +31,7 @@
 | Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (43 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (45 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (59 testes) |
 | Análises | Depois | Marts analíticos: invariantes numéricas. (21 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
@@ -113,7 +113,7 @@
 | `stg_rfb__estabelecimentos.cnpj_completo` | `tamanho_exato` {"tamanho": 14} | error | adicao | — |
 | `stg_rfb__estabelecimentos.cnpj_completo` | `unique` | error | adicao | — |
 | `stg_rfb__estabelecimentos.cnpj_raiz` | `not_null` | error | adicao | — |
-| `stg_rfb__estabelecimentos.dat_inicio_atividade` | `accepted_range` {"min_value": "date '1800-01-01'"} | warn | adicao | — |
+| `stg_rfb__estabelecimentos.dat_inicio_atividade` | `accepted_range` {"min_value": "date '1900-01-01'"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos.municipio_rfb_codigo` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
 | `stg_rfb__estabelecimentos.situacao_codigo` | `accepted_values` {"values": [1, 2, 3, 4, 8], "quote": false} | error | adicao | — |
 | `stg_rfb__motivos.codigo` | `not_null` | error | adicao | — |
@@ -175,7 +175,7 @@
 | `dim_cnae.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `dim_cnae.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `dim_cnae.sk_cnae` | `unique` | error | adicao | — |
-| `dim_data` | BI-01: o calendário contém o dia de `data_referencia` e não tem lacunas entre o primeiro e o último dia (uma linha por dia). | error | adicao | — |
+| `dim_data` | BI-01 / R3-03: o calendário começa em 1900-01-01, contém o dia de `data_referencia`, não tem lacunas (uma linha por dia) e os membros -1/-2 ficam contíguos (1899-12-31 e 1899-12-30), com data, para que a tabela possa ser marcada como tabela de datas no Power BI. Retorna uma linha por violação. | error | adicao | — |
 | `dim_data.sk_data` | `not_null` | error | adicao | — |
 | `dim_data.sk_data` | `unique` | error | adicao | — |
 | `dim_data.sk_data_inicio_atividade` | `relationships` {"to": "ref('dim_data')", "field": "sk_data"} | error | adicao | — |
@@ -211,6 +211,20 @@
 | `fct_estabelecimentos.sk_natureza_juridica` | `not_null` | error | adicao | — |
 | `fct_estabelecimentos.sk_porte` | `not_null` | error | adicao | — |
 | `fct_estabelecimentos.sk_situacao_cadastral` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal` | BI-02 / ADR-0013: a partição do mês processado em `fct_resumo_mensal` reconcilia com `fct_estabelecimentos` (quantidade, ativos, matrizes, capital das matrizes e soma da idade); soma errada ou partição ausente retornam uma linha. | error | adicao | — |
+| `fct_resumo_mensal` | R3-18 / BI-02: toda chave da partição do mês processado existe na dimensão correspondente. | error | adicao | — |
+| `fct_resumo_mensal` | R3-18: as chaves de TODAS as partições de `fct_resumo_mensal` existem nas dimensões atuais. | warn | adicao | — |
+| `fct_resumo_mensal` | `unique_combination_of_columns` {"combination_of_columns": ["mes_referencia", "sk_municipio", "sk_cnae", "sk_porte", "sk_situacao_cadastral", "opcao_mei"]} | error | adicao | — |
+| `fct_resumo_mensal.mes_referencia` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.opcao_mei` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.qtd_ativos` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.qtd_estabelecimentos` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.qtd_matrizes` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.sk_cnae` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.sk_mes_referencia` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.sk_municipio` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.sk_porte` | `not_null` | error | adicao | — |
+| `fct_resumo_mensal.sk_situacao_cadastral` | `not_null` | error | adicao | — |
 
 ### Análises (Depois)
 
@@ -261,6 +275,7 @@
 | `dim_municipio` | `test_dim_municipio_membro_nao_informado` | adicao |
 | `dim_natureza_juridica` | `test_dim_natureza_juridica_sk_e_membro_nao_informado` | adicao |
 | `fct_estabelecimentos` | `test_fct_estabelecimentos_chaves_inteiras_e_menos_um` | adicao |
+| `fct_resumo_mensal` | `test_fct_resumo_mensal_medidas_aditivas_por_grao` | adicao |
 | `int_cnaes_secundarios__explodidos` | `test_int_cnaes_secundarios_explodidos` | adicao |
 | `int_estabelecimentos__enriquecidos` | `test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado` | adicao |
 | `int_municipios__conformados` | `test_int_municipios_conformados_ano_mais_recente` | adicao |

@@ -9,3 +9,8 @@ macros:
   - name: test_data_nao_futura
     description: "Teste genérico: a data da coluna não pode ser posterior a `data_referencia`."
     meta: { escopo: adicao }
+  - name: resumo_chaves_orfas
+    description: >
+      Chaves de `fct_resumo_mensal` sem par nas dimensões (R3-18); só o mês processado (`error`) ou todas
+      as partições (`warn`).
+    meta: { escopo: adicao }

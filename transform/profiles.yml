@@ -1,3 +1,6 @@
+# Duas variáveis distintas: `DBT_THREADS` = quantos nós o dbt roda em paralelo (`threads`, inteiro);
+# `DUCKDB_THREADS` = threads do motor DuckDB por consulta (`settings.threads`). Antes, `DUCKDB_THREADS`
+# virava a string de `threads` do dbt e nunca chegava ao DuckDB (R3-05).
 rfb:
   target: dev
   outputs:
@@ -5,17 +8,19 @@ rfb:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
-      threads: "{{ env_var('DUCKDB_THREADS', 4) }}"
+      threads: "{{ env_var('DBT_THREADS', 4) | as_number }}"  # paralelismo de nós do dbt
       temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
+        threads: "{{ env_var('DUCKDB_THREADS', 4) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '2GB') }}"
     dev:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
-      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
+      threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
       temp_directory: "{{ env_var('RAIZ_DADOS', '../dados') }}/_tmp"
       settings:
+        threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
     # Modo S3 (ADR-0007): fontes e gold em RAIZ_DADOS (s3://...); o arquivo .duckdb e os temporários
     # são SEMPRE locais (RAIZ_DADOS_LOCAL) porque o DuckDB não abre banco gravável em S3.
@@ -24,11 +29,12 @@ rfb:
       type: duckdb
       path: "{{ env_var('CAMINHO_DUCKDB', env_var('RAIZ_DADOS_LOCAL', '../dados') ~ '/warehouse.duckdb') }}"
       external_root: "{{ env_var('RAIZ_DADOS', '../dados') }}/gold"
-      threads: "{{ env_var('DUCKDB_THREADS', 8) }}"
+      threads: "{{ env_var('DBT_THREADS', 8) | as_number }}"  # paralelismo de nós do dbt
       temp_directory: "{{ env_var('RAIZ_DADOS_LOCAL', '../dados') }}/_tmp"
       extensions:
         - httpfs
       settings:
+        threads: "{{ env_var('DUCKDB_THREADS', 8) }}"  # threads do motor DuckDB
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '24GB') }}"
       secrets:
         - type: s3

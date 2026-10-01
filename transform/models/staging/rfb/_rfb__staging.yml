@@ -211,11 +211,12 @@ models:
         description: >
           Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a
           menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste warn
-          abaixo as registra (spec Original AC 12, emenda R2-02).
+          abaixo as registra (spec Original AC 12, emenda R2-02). O limite é 1900-01-01, o início de
+          `dim_data`: antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA, emenda R3-03).
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
-                min_value: "date '1800-01-01'"
+                min_value: "date '1900-01-01'"
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
           - data_nao_futura:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }

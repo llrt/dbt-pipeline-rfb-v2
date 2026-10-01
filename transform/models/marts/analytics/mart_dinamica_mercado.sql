@@ -1,7 +1,8 @@
 -- ANA-03: dinâmica de mercado. Grão = ano × CNAE principal × município. `aberturas` = estabelecimentos
 -- com `dat_inicio` no ano; `encerramentos` = inativos (`situacao != 2`, regra do original) com
--- `dat_situacao` no ano; `saldo` = aberturas − encerramentos. Datas nulas (`-1` em `dim_data`) não
--- geram evento. Um estabelecimento pode gerar os dois eventos, em anos diferentes.
+-- `dat_situacao` no ano; `saldo` = aberturas − encerramentos. Datas nulas (`-1`) ou inválidas
+-- (`-2`) em `dim_data` (ano NULL) não geram evento. Um estabelecimento pode gerar os dois eventos,
+-- em anos diferentes.
 with eventos as (
   select
     ini.ano,
