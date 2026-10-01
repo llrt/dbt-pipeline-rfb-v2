@@ -1,0 +1,25 @@
+version: 2
+
+exposures:
+  - name: painel_power_bi_estabelecimentos
+    label: Painel Power BI — estabelecimentos RFB
+    type: dashboard
+    maturity: low
+    description: >
+      Painel de BI sobre o modelo estrela (ADR-0013), conectado ao Parquet de `gold/` ou ao DuckDB por
+      ODBC; veja `docs/POWER_BI.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
+    owner:
+      name: Equipe de dados
+    meta:
+      escopo: adicao
+    tags: ["escopo_adicao"]
+    depends_on:
+      - ref('dim_data')
+      - ref('dim_municipio')
+      - ref('dim_cnae')
+      - ref('dim_natureza_juridica')
+      - ref('dim_porte')
+      - ref('dim_situacao_cadastral')
+      - ref('fct_estabelecimentos')
+      - ref('fct_resumo_mensal')
+      - ref('bridge_estabelecimento_cnae_secundario')

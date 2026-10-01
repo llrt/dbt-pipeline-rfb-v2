@@ -27,7 +27,10 @@ ci:
 	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-08 --permitir-incompleto
 	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
 	mkdir -p $(RAIZ_DADOS)/gold
-	cd transform && uv run dbt deps && uv run dbt build --target ci
+	cd transform && uv run dbt deps
+	cd transform && uv run dbt build --target ci --select +fct_resumo_mensal --exclude 'resource_type:test resource_type:unit_test' --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt test --target ci --select fct_resumo_mensal --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt build --target ci
 	uv run pytest -q tests/integration
 
 ## pipeline: pipeline ponta a ponta sobre dados reais (não implementado — T28)
