@@ -10,6 +10,85 @@ analíticas, sem modelo para BI.
 >
 > **Tamanho do resumo (medido em fev/2025, 64,5 M estabelecimentos):** 5,44 M linhas por mês e 55 MB de Parquet por partição (64,5 M estabelecimentos; 5.571 municípios e 1.342 subclasses; build de `+fct_resumo_mensal +dim_data` em 140 s, pico de RSS 13,9 GB com `DUCKDB_THREADS=4`). O grão anterior tinha 22,0 M linhas (202 MB). Mesmo assim, 24 meses somam ~130 M linhas: para o Import use os **últimos 24 meses**, e para séries mais longas filtre município/CNAE na consulta (ODBC com SQL nativo) ou agregue por classe.
 
+## Como o Power BI acessa os dados
+
+Há três caminhos para chegar aos marts. Todos partem do mesmo `gold/` (o contrato do projeto); o que muda é
+o conector, o modo de consulta e a operação de atualização.
+
+| | 1. Parquet em `gold/` | 2. Arquivo DuckDB local | 3. MotherDuck (após `rfb publicar`) |
+|---|---|---|---|
+| **Conector no Power BI** | Parquet (um arquivo) ou Pasta + `Parquet.Document` (série mensal) | ODBC (driver do DuckDB); conector Power Query customizado é legado | **PostgreSQL** (nativo), pelo Postgres endpoint |
+| **Instalação** | nenhuma | driver ODBC do DuckDB (Windows) + DSN | nenhuma (precisa do token e do host `pg.<região>-aws.motherduck.com`) |
+| **Modo** | Import | Import | Import **ou** DirectQuery |
+| **O que lê** | os `*.parquet` | `warehouse.duckdb`, com **views** sobre o gold | tabelas copiadas do gold (`rfb publicar`) |
+| **Atualização no Service** | gateway para arquivos locais; ou arquivos online (Azure Blob/ADLS Gen2) | gateway (+ driver ODBC instalado na máquina do gateway) | On-premises Data Gateway (Import) ou consulta ao vivo (DirectQuery, via gateway) |
+| **Trava de arquivo** | não (Parquet é só leitura) | **sim**: um processo gravando bloqueia os demais (veja abaixo) | não |
+| **Custo/dependência** | zero | zero | conta MotherDuck (limites e preço do plano do usuário) |
+
+### 1. Parquet em `gold/` (mais simples)
+
+1. *Obter dados → Parquet* e informe o caminho de um `*.parquet` (ex.: `dados\gold\dim_municipio.parquet`).
+   Repita para cada dimensão e para a fato escolhida. O conector Parquet suporta **só Import**.
+2. **Série mensal particionada** (`fct_resumo_mensal/mes_referencia=AAAA-MM/*.parquet`): use *Obter dados →
+   Pasta*, aponte para `gold\fct_resumo_mensal`, filtre as colunas `Folder Path`/`Name` para os meses
+   desejados e expanda o conteúdo com `Parquet.Document`. **A coluna da partição não está dentro dos
+   arquivos**: obtenha o mês de `sk_mes_referencia` (já na fato, `yyyymm01`) ou do nome da pasta
+   (`Folder Path`).
+3. Atualização no Service: arquivos locais exigem **On-premises Data Gateway** (o conector Parquet pede o
+   gateway para arquivo local). Enviar o Parquet ao OneDrive/SharePoint **não** é o caminho documentado: a
+   "OneDrive refresh" da Microsoft cobre .pbix, .xlsx e .csv, e o conector Parquet só lê sistema de
+   arquivos local, Azure Blob e ADLS Gen2 (*a confirmar* se a Pasta do SharePoint aceita Parquet).
+
+### 2. Arquivo DuckDB local (`warehouse.duckdb`)
+
+1. Instale o driver ODBC do DuckDB no Windows (`odbc_install.exe`, com administrador) e crie um DSN em
+   `odbcad32.exe` apontando para o caminho do `warehouse.duckdb`.
+2. No Power BI: *Obter dados → ODBC*, escolha o DSN e selecione as views (`fct_resumo_mensal` etc.).
+   Modo **Import**. O conector Power Query customizado para DuckDB é considerado **legado** pela MotherDuck;
+   não o recomendamos.
+3. **Travas.** O DuckDB só admite **um processo com o arquivo aberto em leitura e escrita** (vários só em
+   modo somente leitura). Com o Power BI conectado, o `dbt build` pode falhar ao abrir o arquivo, e o
+   Power BI não conecta enquanto o `dbt build` roda. Mitigações: **copie** `warehouse.duckdb` para outro
+   caminho e conecte à cópia, ou prefira o caminho 1 (Parquet). Abrir em somente leitura (opção
+   `access_mode=READ_ONLY` do DuckDB; *a confirmar* a sintaxe no DSN) evita conflito entre leitores, mas
+   não com o `dbt build`, que escreve.
+4. As views apontam para os Parquet de `gold/`: a máquina que lê precisa enxergar esses caminhos.
+
+### 3. MotherDuck (após `rfb publicar`)
+
+1. Publique o gold (ver README, `make publicar`; precisa de `MOTHERDUCK_TOKEN` e `MOTHERDUCK_BANCO`).
+2. No Power BI Desktop: *Obter dados → Banco de dados PostgreSQL*. Servidor: `pg.<região>-aws.motherduck.com`
+   (sua região consta nas configurações do Postgres endpoint do MotherDuck); Banco: o nome do banco publicado;
+   modo **Import** (instantâneo em memória, atualizado por agendamento) **ou DirectQuery** (consulta ao vivo,
+   para dados sempre atuais). Credenciais (Básica): usuário `postgres`, senha = **token** do MotherDuck.
+3. No Power BI Service, instale o **On-premises Data Gateway** (modo padrão, não pessoal) e crie a conexão
+   PostgreSQL com o mesmo servidor e banco (idênticos ao .pbix, inclusive maiúsculas/minúsculas),
+   autenticação Básica, conexão criptografada. Import: agendamento de atualização no modelo semântico;
+   DirectQuery: sem atualização, consulta ao vivo pelo gateway.
+
+### Qual escolher
+
+| Cenário | Recomendação |
+|---|---|
+| Exploração local, uma pessoa, Windows | **1 (Parquet)**: sem driver, sem travas |
+| Relatório compartilhado, atualização mensal agendada | **3 (MotherDuck, Import)** ou 1 com gateway; o mês muda uma vez por mês |
+| Dados sempre atuais, vários consumidores | **3 (MotherDuck, DirectQuery)**, sobre `fct_resumo_mensal` |
+| Fato detalhada (`fct_estabelecimentos`, ~65 M de linhas) | **Não** no Import: use `fct_resumo_mensal` (últimos 24 meses); detalhe só por consulta SQL ou DirectQuery filtrado |
+| Precisa do SQL do DuckDB (views, consultas nativas) | 2 (ODBC), sobre **cópia** do arquivo |
+
+### Fontes oficiais
+
+- [MotherDuck — Power BI Desktop](https://motherduck.com/docs/integrations/bi-tools/powerbi/powerbi-desktop/) e
+  [Power BI Service](https://motherduck.com/docs/integrations/bi-tools/powerbi/powerbi-service/) (conector
+  PostgreSQL, endpoint, Import/DirectQuery, gateway; conector DuckDB customizado descontinuado).
+- [DuckDB — driver ODBC no Windows](https://duckdb.org/docs/current/clients/odbc/windows.html) e
+  [concorrência](https://duckdb.org/docs/current/connect/concurrency.html) (um processo de escrita; vários
+  só de leitura).
+- [Power Query — conector Parquet](https://learn.microsoft.com/en-us/power-query/connectors/parquet)
+  (Import; local exige gateway), [atualização de dados](https://learn.microsoft.com/en-us/power-bi/connect-data/refresh-data)
+  e [On-premises data gateway](https://learn.microsoft.com/en-us/data-integration/gateway/service-gateway-onprem).
+- Decisão do projeto: [ADR-0016](adr/0016-publicacao-motherduck.md).
+
 ## 1. O modelo estrela
 
 ```mermaid

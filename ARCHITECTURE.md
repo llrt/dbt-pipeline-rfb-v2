@@ -79,6 +79,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   ├── conversao.py              # zip → CSV → Parquet (DuckDB), rejeitos, escrita atômica
 │   ├── manifesto.py             # manifesto JSON por execução (checksums, contagens)
 │   ├── armazenamento.py              # local vs s3/Tigris (secret DuckDB, sync boto3)
+│   ├── publicacao.py                 # publicação opcional do gold no MotherDuck (ADR-0016)
 │   ├── report.py               # relatório do estudo de caso e de DQ (Markdown)
 │   └── cli.py                  # rfb ingerir | sync | pipeline | report
 ├── scripts/gerar_fixtures.py     # gera fixtures sintéticas no formato RFB/BD
@@ -323,6 +324,7 @@ Severidade: estrutura (PK, contratos, relacionamentos no core, paridade) = `erro
 | `make docs` | `dbt docs generate` (+ `serve`) |
 | `make lint` | ruff + sqlfluff |
 | `make sincronizar` | envia `raw/` e `gold/` para `s3://` (Tigris) |
+| `make publicar` | `rfb publicar --destino motherduck [--tabelas a,b]`: recria no MotherDuck as tabelas do `gold/`; só com `MOTHERDUCK_TOKEN` e `MOTHERDUCK_BANCO` (sem eles, "nada publicado", saída 0; ADR-0016) |
 | `make atualizar` | `rfb atualizar`: processa o mês novo mais recente, se houver (ADR-0012) |
 
 Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local),
@@ -331,6 +333,13 @@ Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo tempor�
 
 **Fluxo S3 (ADR-0007):** `rfb ingerir` (local, `RAIZ_DADOS_LOCAL`) → `rfb sincronizar` (`raw/` e `gold/`, comparação por
 tamanho + sha256) → `dbt build --target s3`. Variáveis vazias equivalem a ausentes; ver `.env.example`.
+
+**Consumo por BI e publicação opcional (adição, [ADR-0016](docs/adr/0016-publicacao-motherduck.md)):** o `gold/` em
+Parquet é o contrato; o Power BI o acessa por (1) Parquet direto, (2) `warehouse.duckdb` via ODBC (views sobre o gold;
+um escritor por vez) ou (3) MotherDuck, após `rfb publicar` (desacoplado do dbt: `ATTACH 'md:<banco>'` +
+`CREATE OR REPLACE TABLE … AS SELECT * FROM read_parquet(…)`, com `hive_partitioning` na série mensal; o token vem do
+ambiente e nunca entra em SQL/log). Com `RAIZ_DADOS=s3://` a publicação recusa (lê gold local). Comparativo e passo a passo:
+[docs/POWER_BI.md](docs/POWER_BI.md#como-o-power-bi-acessa-os-dados).
 
 ## 8. Segurança e privacidade
 

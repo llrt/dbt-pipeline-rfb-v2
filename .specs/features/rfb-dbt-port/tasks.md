@@ -896,8 +896,8 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] As três opções descritas com modo, instalação, atualização e limitações, com fontes oficiais
-- [ ] Gate build passa
+- [x] As três opções descritas com modo, instalação, atualização e limitações, com fontes oficiais
+- [x] Gate build passa
 
 **Tests**: none
 **Gate**: build
