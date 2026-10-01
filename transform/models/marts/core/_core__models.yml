@@ -1,0 +1,171 @@
+version: 2
+
+models:
+  - name: int_municipios__conformados
+    description: >
+      Município conformado (Base dos Dados + população do `ano_populacao` + PIB do último ano), uma
+      linha por município IBGE. Base de `dim_municipio`; não inclui o membro `-1`.
+    columns:
+      - name: sk_municipio
+        description: Código IBGE como inteiro (chave substituta determinística).
+        data_tests: [unique, not_null]
+      - name: codigo_rfb
+        description: Código RFB do município; único (duplicata multiplicaria linhas da fato).
+        data_tests:
+          - unique:
+              config: { severity: warn }
+
+  - name: dim_municipio
+    description: >
+      Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias
+      geográficas em colunas, centroide, população e PIB. Membro `-1` "NÃO INFORMADO" para
+      estabelecimentos sem município na Base dos Dados (exterior, município criado após a base).
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: sk_municipio
+        description: >
+          Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga.
+        data_type: integer
+        data_tests: [unique, not_null]
+      - name: id_municipio_ibge
+        description: >
+          Código IBGE do município (7 dígitos). Linhagem: `stg_bd__municipios.id_municipio`.
+        data_type: varchar
+      - name: codigo_rfb
+        description: >
+          Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`.
+        data_type: varchar
+        data_tests:
+          - not_null
+          - unique:
+              config: { severity: warn }
+      - name: nome_municipio
+        description: >
+          Nome do município (acentuado, Base dos Dados).
+        data_type: varchar
+      - name: sigla_uf
+        description: >
+          Sigla da UF do município.
+        data_type: varchar
+      - name: nome_uf
+        description: >
+          Nome da UF.
+        data_type: varchar
+      - name: nome_regiao
+        description: >
+          Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
+        data_type: varchar
+      - name: id_mesorregiao
+        description: >
+          Código IBGE da mesorregião.
+        data_type: varchar
+      - name: nome_mesorregiao
+        description: >
+          Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município).
+        data_type: varchar
+      - name: id_microrregiao
+        description: >
+          Código IBGE da microrregião.
+        data_type: varchar
+      - name: nome_microrregiao
+        description: >
+          Nome da microrregião.
+        data_type: varchar
+      - name: id_regiao_intermediaria
+        description: >
+          Código IBGE da região geográfica intermediária.
+        data_type: varchar
+      - name: nome_regiao_intermediaria
+        description: >
+          Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata).
+        data_type: varchar
+      - name: id_regiao_imediata
+        description: >
+          Código IBGE da região geográfica imediata.
+        data_type: varchar
+      - name: nome_regiao_imediata
+        description: >
+          Nome da região geográfica imediata.
+        data_type: varchar
+      - name: latitude
+        description: >
+          Latitude do centroide do município (graus decimais).
+        data_type: double
+      - name: longitude
+        description: >
+          Longitude do centroide do município (graus decimais).
+        data_type: double
+      - name: ano_populacao
+        description: >
+          Ano da população usada: var `ano_populacao` ou o último ano disponível.
+        data_type: integer
+      - name: populacao
+        description: >
+          População estimada do município no `ano_populacao`; NULL sem dado.
+        data_type: bigint
+      - name: ano_pib
+        description: >
+          Ano do PIB usado (último ano disponível).
+        data_type: integer
+      - name: pib
+        description: >
+          PIB do município (R$ mil) em `ano_pib`; NULL sem dado.
+        data_type: double
+
+unit_tests:
+  - name: test_int_municipios_conformados_ano_mais_recente
+    description: "CORE-01: sem a var `ano_populacao`, usa o último ano de população (2024: 20000, não 2023: 19000); PIB do último ano."
+    model: int_municipios__conformados
+    given:
+      - input: ref('stg_bd__municipios')
+        rows:
+          - { id_municipio: "3202207", id_municipio_rf: "5643", nome: "Fundão", sigla_uf: "ES" }
+          - { id_municipio: "3203205", id_municipio_rf: "5663", nome: "Linhares", sigla_uf: "ES" }
+      - input: ref('stg_bd__populacao')
+        rows:
+          - { id_municipio: "3202207", ano: 2023, populacao: 19000 }
+          - { id_municipio: "3202207", ano: 2024, populacao: 20000 }
+          - { id_municipio: "3203205", ano: 2023, populacao: 170000 }
+      - input: ref('stg_bd__pib')
+        rows:
+          - { id_municipio: "3202207", ano: 2020, pib: 1.0 }
+          - { id_municipio: "3202207", ano: 2021, pib: 350000.0 }
+    expect:
+      rows:
+        - { sk_municipio: 3202207, codigo_rfb: "5643", ano_populacao: 2024, populacao: 20000, ano_pib: 2021, pib: 350000.0 }
+        - { sk_municipio: 3203205, codigo_rfb: "5663", ano_populacao: null, populacao: null, ano_pib: null, pib: null }
+
+  - name: test_int_municipios_conformados_var_ano_populacao
+    description: "CORE-01: a var `ano_populacao` sobrescreve o último ano (2023: 19000)."
+    model: int_municipios__conformados
+    overrides:
+      vars:
+        ano_populacao: 2023
+    given:
+      - input: ref('stg_bd__municipios')
+        rows:
+          - { id_municipio: "3202207", id_municipio_rf: "5643", nome: "Fundão", sigla_uf: "ES" }
+      - input: ref('stg_bd__populacao')
+        rows:
+          - { id_municipio: "3202207", ano: 2023, populacao: 19000 }
+          - { id_municipio: "3202207", ano: 2024, populacao: 20000 }
+      - input: ref('stg_bd__pib')
+        rows:
+          - { id_municipio: "3202207", ano: 2021, pib: 350000.0 }
+    expect:
+      rows:
+        - { sk_municipio: 3202207, ano_populacao: 2023, populacao: 19000 }
+
+  - name: test_dim_municipio_membro_nao_informado
+    description: "ADR-0013: além dos municípios, existe o membro `-1` NÃO INFORMADO (nunca nulo nas chaves e hierarquias)."
+    model: dim_municipio
+    given:
+      - input: ref('int_municipios__conformados')
+        rows:
+          - { sk_municipio: 3202207, id_municipio_ibge: "3202207", codigo_rfb: "5643", nome_municipio: "Fundão", sigla_uf: "ES", populacao: 20000 }
+    expect:
+      rows:
+        - { sk_municipio: 3202207, codigo_rfb: "5643", nome_municipio: "Fundão", sigla_uf: "ES", nome_uf: null, populacao: 20000 }
+        - { sk_municipio: -1, codigo_rfb: "-1", nome_municipio: "NÃO INFORMADO", sigla_uf: "NI", nome_uf: "NÃO INFORMADO", populacao: null }
