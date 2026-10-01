@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: mart_concorrencia_municipio
+    description: >
+      ANA-01 (adição): densidade de concorrência por CNAE principal × município. `ativos` e `inativos`
+      pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 /
+      população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e
+      CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [cnae_principal, sk_municipio]
+    columns:
+      - name: cnae_principal
+        description: Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.
+        data_tests: [not_null]
+      - name: desc_cnae_principal
+        description: Descrição da subclasse (Base dos Dados).
+      - name: sk_municipio
+        description: Chave de `dim_municipio`; `-1` para município sem par no BD.
+        data_tests: [not_null]
+      - name: municipio
+        description: Nome do município (acentuado, Base dos Dados).
+      - name: uf
+        description: Sigla da UF.
+      - name: populacao
+        description: População do município no `ano_populacao`; NULL sem dado.
+      - name: ativos
+        description: Estabelecimentos ativos (`situacao = 2`) do CNAE no município.
+        data_tests: [not_null]
+      - name: inativos
+        description: Estabelecimentos inativos (`situacao != 2`) do CNAE no município.
+        data_tests: [not_null]
+      - name: ativos_por_10k_hab
+        description: Ativos por 10 mil habitantes (2 casas); NULL quando a população é nula ou zero.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+      - name: ranking_uf
+        description: Posição do município na UF para o CNAE por `ativos_por_10k_hab` decrescente (1 = mais denso); NULL sem densidade.
