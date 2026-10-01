@@ -24,10 +24,12 @@ sources:
         tags: [escopo_original]
         data_tests:
           # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
+          # warn (B8): o extrato real 2026-09 traz uma raiz duplicada (linha "fantasma"); o staging
+          # deduplica (`empresa_preferida_por_raiz`) e o `unique` do staging continua error.
           - dbt_utils.unique_combination_of_columns:
               arguments:
                 combination_of_columns: [cnpj_raiz, _mes_referencia]
-              config: { meta: { escopo: original }, tags: [escopo_original] }
+              config: { severity: warn, store_failures: true, meta: { escopo: original }, tags: [escopo_original] }
         columns:
           # FK natureza_jur -> naturezas: teste singular `relacionamentos_fontes_por_mes` (por mês, R1-22).
           - name: cnpj_raiz

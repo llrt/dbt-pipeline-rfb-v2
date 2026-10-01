@@ -143,7 +143,9 @@ models:
     description: >
       Empresas (CNPJ raiz) da RFB, tipadas e limpas, do mês de referência selecionado
       (`filtro_mes_referencia`): códigos com zeros à esquerda (`lpad_codigo`), capital social em
-      DECIMAL (`decimal_rfb`), porte inteiro e textos vazios convertidos em NULL.
+      DECIMAL (`decimal_rfb`), porte inteiro e textos vazios convertidos em NULL. Uma linha por
+      `cnpj_raiz` (adaptado, B8): uma raiz duplicada no extrato (2026-09: 08314885, com uma linha sem
+      razão social e natureza 0000) é reduzida à linha mais informativa (`empresa_preferida_por_raiz`).
     columns:
       - name: cnpj_raiz
         description: 8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).
@@ -343,6 +345,9 @@ unit_tests:
   - name: test_stg_rfb__cnaes_lpad_e_texto_vazio
     description: "`lpad_codigo` preenche até 7 dígitos; `texto_ou_nulo` converte descrição vazia em NULL."
     model: stg_rfb__cnaes
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       # `source('rfb', 'cnaes')` usa `external_location` (read_parquet); sem relação física para
       # o dbt introspeccionar tipos de coluna, então a fixture é SQL literal (não `rows` dict).
@@ -360,6 +365,9 @@ unit_tests:
   - name: test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior
     description: "Código maior que o tamanho fica intacto (o `lpad` do DuckDB truncaria); `tamanho_exato` o acusa."
     model: stg_rfb__cnaes
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'cnaes')
         format: sql
@@ -372,6 +380,9 @@ unit_tests:
   - name: test_stg_rfb__municipios_lpad_codigo
     description: "`lpad_codigo` preenche até 4 dígitos mesmo quando o raw já vem sem zeros à esquerda."
     model: stg_rfb__municipios
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'municipios')
         format: sql
@@ -384,6 +395,9 @@ unit_tests:
   - name: test_stg_rfb__simples_datas_invalidas_viram_null
     description: "`0`, `00000000`, `20230230` (inexistente), vazio e lixo viram NULL; data válida vira DATE."
     model: stg_rfb__simples
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'simples')
         format: sql
@@ -416,6 +430,9 @@ unit_tests:
   - name: test_stg_rfb__simples_flags_e_datas
     description: "`S`/`N` vira booleano; data `00000000` vira NULL; data válida vira DATE."
     model: stg_rfb__simples
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'simples')
         format: sql
@@ -442,6 +459,9 @@ unit_tests:
   - name: test_stg_rfb__empresas_tipagem
     description: "STG AC 11–13: capital `1000,50` -> 1000.50 (inválido -> NULL); porte inteiro (vazio -> NULL); texto vazio -> NULL; lpad dos códigos."
     model: stg_rfb__empresas
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'empresas')
         format: sql
@@ -472,6 +492,9 @@ unit_tests:
   - name: test_stg_rfb__empresas_filtra_mes_mais_recente
     description: "STG AC 15: sem a var `mes_referencia`, só o maior `_mes_referencia` disponível entra."
     model: stg_rfb__empresas
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'empresas')
         format: sql
@@ -487,9 +510,36 @@ unit_tests:
       rows:
         - { cnpj_raiz: "11111111", razao_social: "NOVA", _mes_referencia: "2026-09" }
 
+  - name: test_stg_rfb__empresas_raiz_duplicada_vira_uma_linha
+    description: "Adaptado (B8, extrato real 2026-09): raiz duplicada com uma linha sem razão social e natureza 0000 -> fica a linha informativa; a ordem das linhas não importa."
+    model: stg_rfb__empresas
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
+    given:
+      - input: source('rfb', 'empresas')
+        format: sql
+        rows: |
+          select
+              '08314885' as cnpj_raiz, null::varchar as razao_social, '0000' as natureza_jur,
+              '00' as qualificacao_resp, '0,00' as capital_soc, null::varchar as porte,
+              null::varchar as ente_fed_resp, '2026-09' as _mes_referencia,
+              date '2026-09-12' as _data_referencia
+          union all
+          select '08314885', 'EMPRESA SINTETICA DA RAIZ', '4120', '05', '0,00', '05', null, '2026-09', date '2026-09-12'
+          union all
+          select '11111111', 'OUTRA', '2062', '49', '1,00', '01', null, '2026-09', date '2026-09-12'
+    expect:
+      rows:
+        - { cnpj_raiz: "08314885", razao_social: "EMPRESA SINTETICA DA RAIZ", natureza_juridica_codigo: "4120" }
+        - { cnpj_raiz: "11111111", razao_social: "OUTRA", natureza_juridica_codigo: "2062" }
+
   - name: test_stg_rfb__estabelecimentos_cnpj_e_codigos
     description: "STG AC 9, 12, 13: `cnpj_completo` com zeros à esquerda (14 dígitos); CNAE `111301` -> `0111301`; município com 4 dígitos; texto vazio -> NULL."
     model: stg_rfb__estabelecimentos
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'estabelecimentos')
         format: sql
@@ -524,6 +574,9 @@ unit_tests:
   - name: test_stg_rfb__estabelecimentos_datas
     description: "STG AC 10: datas `0`, `00000000` e `20230230` (inexistente) -> NULL; `20000229` (ano bissexto) -> 2000-02-29; cada coluna de data lê o próprio campo raw (RBP-13, N19)."
     model: stg_rfb__estabelecimentos
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'estabelecimentos')
         format: sql
@@ -558,6 +611,9 @@ unit_tests:
   - name: test_stg_rfb__estabelecimentos_cnaes_secundarios
     description: "`'4679699,4744099'` -> lista de 2; itens com espaço/sem zero à esquerda -> trim + 7 dígitos; vazio/NULL -> texto NULL e lista vazia."
     model: stg_rfb__estabelecimentos
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'estabelecimentos')
         format: sql
@@ -587,6 +643,9 @@ unit_tests:
   - name: test_stg_rfb__estabelecimentos_filtra_mes_mais_recente
     description: "STG AC 15 (R2-04): sem a var `mes_referencia`, só o maior `_mes_referencia` disponível entra."
     model: stg_rfb__estabelecimentos
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'estabelecimentos')
         format: sql
@@ -613,6 +672,9 @@ unit_tests:
   - name: test_stg_rfb__municipios_var_nula_usa_o_maior_mes
     description: "Com `mes_referencia` nula, o staging lê só o maior mês retido no raw (Staging AC 15)."
     model: stg_rfb__municipios
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'municipios')
         format: sql

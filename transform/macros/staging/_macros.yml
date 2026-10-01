@@ -24,3 +24,15 @@ macros:
       Data de referência determinística (ADR-0004): var `data_referencia` ou `_data_referencia`
       do mês selecionado. Substitui `now()`/`current_date` em todos os modelos.
     meta: { escopo: adaptado }
+  - name: empresa_preferida_por_raiz
+    description: >
+      Predicado de `QUALIFY` que mantém uma linha por `cnpj_raiz` e mês nas Empresas RFB, preferindo a
+      linha com razão social e natureza informada (o extrato real 2026-09 tem uma raiz duplicada com uma
+      linha "fantasma"). Usado no staging e na leitura da paridade. Escopo adaptado (ADR-0005).
+    meta: { escopo: adicao }
+  - name: inferschema_inteiro_ou_texto
+    description: >
+      Emula o `inferSchema` do Spark na paridade: a coluna vira inteiro (como texto, sem zeros à
+      esquerda) só se todos os valores do mês forem inteiros; senão fica o texto original (CNPJ
+      alfanumérico, extrato real 2026-09).
+    meta: { escopo: adicao }

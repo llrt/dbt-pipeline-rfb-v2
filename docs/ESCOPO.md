@@ -27,6 +27,8 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Staging tipado | adição | original não tinha camada explícita |
 | `bh_empresas` | original | notebook 3 |
 | `bh_empresas.idade_atual` relativa a `data_referencia` | adaptado | notebook 3 usava `now()` (ADR-0004) |
+| Uma linha por `cnpj_raiz` nas Empresas (`empresa_preferida_por_raiz` no staging e na leitura da paridade) | adaptado | o extrato real de 2026-09 traz a raiz 08314885 duas vezes (uma linha "fantasma" sem razão social, natureza 0000); o SQL original duplicaria os 51 estabelecimentos dela. O teste de unicidade da fonte vira `warn` com `store_failures` (B8, `docs/EXECUCAO_REAL.md`) |
+| Conversão de CSV com bytes 0x80–0x9F (transcodificação latin-1 → UTF-8 em Python antes do DuckDB) | adaptado | o leitor latin-1 do DuckDB recusa esses bytes, que o extrato real 2026-09 traz em 5 campos; o Spark do original os lia como latin-1 (B8) |
 | `agg_empresas` | original | notebook 3 |
 | Teste de paridade com SQL original | adição | — |
 | Star schema (`dim_*`, `fct_estabelecimentos`, bridge) | adição | "trabalhos futuros" do notebook 5 |
@@ -39,6 +41,8 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Endurecimento da revisão RBP: teste genérico `taxa_conversao_tipada`, checks de volume (`dbt_expectations`), contratos nos marts de analytics, `selectors.yml`, guardas de cobertura de descrições, `make ci` com unit + lint e workflow `.github/workflows/ci.yml` (não executado até o repositório ser publicado) | adição | docs/revisoes/RBP-triagem.md |
 | Histórico de testes (`dq_historico_testes`, `dq_resumo_execucao`) e catálogo `docs/QUALIDADE_DADOS.md` | adição | — |
 | Atualização mensal (`rfb atualizar`, completude do mês, retenção, estado) | adição (pedido do usuário) | original era carga estática única (notebook 0, "Observações") — ADR-0012 |
+| Pipeline ponta a ponta (`rfb pipeline`/`make pipeline`), backfill de mês antigo só do resumo (P22), teste `fct_resumo_mensal_gold_corrente`, publicação no fim quando o MotherDuck está configurado, `docs/OPERACAO.md` | adição (pedido do usuário) | ADR-0012/0016; original rodava os notebooks à mão |
+| Histórico de DQ exportado para `gold/dq_historico_testes/` (Parquet por execução) | adição | RBP-12: sobrevive ao descarte do `warehouse.duckdb` |
 | Série histórica `fct_resumo_mensal` particionada por mês | adição (pedido do usuário) | ADR-0012/0013 |
 | Modelo estrela otimizado para Power BI (`sk_*` inteiras, `dim_data`, hierarquias, fato agregada, guia + exposure) | adição (pedido do usuário) | "modelo estrela/snowflake para self-service" citado como trabalho futuro no notebook 5 — ADR-0013 |
 | Grafia dos municípios: `bh_empresas`/`agg_empresas` em MAIÚSCULAS (herdada do SQL original); `dim_municipio` e os marts de analytics na grafia da Base dos Dados ("Fundão"). Para cruzar use `upper(nome_municipio)` + `sigla_uf` (ou `sk_municipio`) | adaptado | P18: a paridade com o original exige as MAIÚSCULAS; a dimensão de BI mantém o texto acentuado da fonte |

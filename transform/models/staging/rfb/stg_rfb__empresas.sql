@@ -10,3 +10,5 @@ select
   _data_referencia
 from {{ source('rfb', 'empresas') }}
 where {{ filtro_mes_referencia(source('rfb', 'empresas')) }}
+-- adaptado (B8): raiz duplicada no extrato real vira uma linha (ver `empresa_preferida_por_raiz`)
+qualify {{ empresa_preferida_por_raiz() }}

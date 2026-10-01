@@ -17,13 +17,16 @@ unit_tests:
       Spark, string × int dá NULL; sem o `try_cast`, o DuckDB aborta na conversão implícita).
       `nome` com espaços nas bordas sai com trim (alinhamento R2-01).
     model: audit__bh_empresas_sql_original
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
     given:
       - input: source('rfb', 'empresas')
         format: sql
         rows: |
           select
               '1' as cnpj_raiz, ' AGRO UM ' as razao_social, '2062' as natureza_jur,
-              '01' as porte, '2026-09' as _mes_referencia
+              '01' as porte, '0,00' as capital_soc, '2026-09' as _mes_referencia
       - input: source('rfb', 'estabelecimentos')
         format: sql
         rows: |
@@ -78,3 +81,48 @@ unit_tests:
           uf: "RO"
           situacao: "INATIVA"
           idade_atual: null
+
+  - name: test_audit__bh_empresas_sql_original_cnpj_alfanumerico
+    description: >
+      B8 (extrato real 2026-09): com um `cnpj_ordem` alfanumérico no mês, o `inferSchema` do Spark
+      deixaria a coluna como texto; a emulação faz o mesmo (`inferschema_inteiro_ou_texto`) e o CNPJ
+      alfanumérico sai inteiro, igual ao `bh_empresas` (antes virava `'0000000105'`).
+    model: audit__bh_empresas_sql_original
+    overrides:
+      vars:
+        mes_referencia: null  # o build real passa --vars mes_referencia; o teste usa o mês das fixtures
+    given:
+      - input: source('rfb', 'empresas')
+        format: sql
+        rows: |
+          select
+              '1' as cnpj_raiz, 'AGRO UM' as razao_social, '2062' as natureza_jur,
+              '01' as porte, '0,00' as capital_soc, '2026-09' as _mes_referencia
+      - input: source('rfb', 'estabelecimentos')
+        format: sql
+        rows: |
+          with est(cnpj_ordem) as (values ('0001'), ('E08G'))
+          select
+              '00000001' as cnpj_raiz, cnpj_ordem, '05' as cnpj_dv,
+              null::varchar as nome_fantasia, '02' as situacao, '20221015' as dat_inicio_atividade,
+              '0111301' as cnae_principal, null::varchar as cnaes_secundarios,
+              '0001' as municipio, '2026-09' as _mes_referencia,
+              date '2026-09-12' as _data_referencia
+          from est
+      - input: source('rfb', 'naturezas')
+        format: sql
+        rows: |
+          select '2062' as codigo, 'Sociedade Empresária Limitada' as descricao, '2026-09' as _mes_referencia
+      - input: source('basedosdados', 'cnae_2')
+        format: sql
+        rows: |
+          select '111301' as subclasse, 'Cultivo de arroz' as descricao_subclasse, 'Grupo' as descricao_grupo
+      - input: source('basedosdados', 'municipio')
+        format: sql
+        rows: |
+          select '1' as id_municipio_rf, 'Alta Floresta' as nome, 'Cacoal' as nome_microrregiao,
+              'Leste Rondoniense' as nome_mesorregiao, 'RO' as sigla_uf
+    expect:
+      rows:
+        - { cnpj_completo: "00000001000105" }
+        - { cnpj_completo: "00000001E08G05" }
