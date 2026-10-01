@@ -290,7 +290,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A), mais uma linha "fanta
 
 **Acceptance Criteria**:
 
-1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `RAIZ_DADOS/_estado/ultima_execucao.json`.
+1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `RAIZ_DADOS/_estado/ultima_execucao.json`. *(Emenda R4-06: com `RAIZ_DADOS=s3://…` o estado fica em `RAIZ_DADOS_LOCAL/_estado/` — o disco local, não o bucket —, e a retenção do AC 5 apaga só o raw e os zips locais; as partições raw enviadas ao bucket pelo `rfb sincronizar` não são apagadas. Comportamento aceito e documentado em `docs/OPERACAO.md`.)*
 2. WHEN the most recent complete month equals the last processed month THEN `rfb atualizar` SHALL exit 0 without downloading any file and SHALL print "nenhum mês novo".
 3. IF the most recent remote month folder lacks any expected file (`Empresas0–9`, `Estabelecimentos0–9`, `Simples`, 6 domínios) THEN the system SHALL treat it as incomplete and SHALL select the previous complete month.
 4. IF `dbt build` fails THEN `rfb atualizar` SHALL exit non-zero and SHALL NOT update `ultima_execucao.json`.

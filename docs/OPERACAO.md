@@ -78,6 +78,16 @@ Após um `rfb atualizar` bem-sucedido:
 - **S3/Tigris (ADR-0007):** com `RAIZ_DADOS=s3://…` o pipeline ingere em `RAIZ_DADOS_LOCAL`, roda
   `rfb sincronizar` (envia o raw) antes do dbt, usa o target `s3` (o dbt grava o gold direto no bucket)
   e o relatório lê os marts pelo `httpfs` com um secret temporário (R3-06).
+- **Estado e retenção no modo s3 ficam no disco local (R4-06, comportamento aceito).** O estado
+  (`_estado/ultima_execucao.json`, travas e o marcador `em_andamento.json`) é gravado em
+  `RAIZ_DADOS_LOCAL/_estado/`, não no bucket. Num runner efêmero ele some entre execuções: preserve-o
+  (ver "GitHub Actions") ou o `rfb atualizar` reprocessa o mês mais recente a cada dia. A retenção
+  (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`) apaga só o raw e os zips **locais**; as partições
+  `raw/rfb/<entidade>/mes_referencia=*` que o `rfb sincronizar` enviou ao bucket ficam lá e o bucket
+  cresce um mês por atualização. Como o staging lê `mes_referencia=*` mas filtra o mês do build, isso
+  custa só armazenamento; apague as partições antigas do bucket à mão (ou por regra de ciclo de vida
+  do bucket) quando quiser. Lembre que o raw tem e-mail e telefone como publicados (ADR-0008): o bucket
+  precisa ser privado.
 
 ## Requisitos de máquina (P14)
 
