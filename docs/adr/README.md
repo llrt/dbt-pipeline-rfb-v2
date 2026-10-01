@@ -20,3 +20,4 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0013](0013-modelo-estrela-bi.md) | Modelo estrela otimizado para BI (Power BI) | aceita |
 | [0014](0014-convencao-idioma.md) | Convenção de idioma: vocabulário dbt/ferramentas em inglês, resto em português | aceita |
 | [0015](0015-enriquecimento-base-dos-dados.md) | Enriquecimento com novas bases da Base dos Dados (Fase 1) — incremento `enriquecimento_bd` | aceita |
+| [0016](0016-publicacao-motherduck.md) | Publicação opcional do gold no MotherDuck e formas de acesso pelo Power BI | aceita |

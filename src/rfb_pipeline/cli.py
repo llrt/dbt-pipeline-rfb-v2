@@ -39,6 +39,7 @@ from rfb_pipeline.manifesto import (
     sha256_arquivo,
     trava_execucao,
 )
+from rfb_pipeline.publicacao import publicar_motherduck
 from rfb_pipeline.relatorio import SAIDA_PADRAO, gerar_relatorio
 
 SAIDA_NAO_IMPLEMENTADA = 2
@@ -352,6 +353,17 @@ def _cmd_sincronizar(_argumentos: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_publicar(argumentos: argparse.Namespace) -> int:
+    configuracao = carregar_configuracao()
+    tabelas = (
+        [t.strip() for t in argumentos.tabelas.split(",") if t.strip()]
+        if argumentos.tabelas
+        else None
+    )
+    publicar_motherduck(configuracao, tabelas=tabelas)
+    return 0
+
+
 def _cmd_pipeline(_argumentos: argparse.Namespace) -> None:
     _nao_implementado("pipeline")
 
@@ -394,6 +406,20 @@ def _construir_analisador() -> argparse.ArgumentParser:
         "sincronizar", help="Sincroniza raw/ e gold/ a S3 (não implementado)."
     )
     p_sincronizar.set_defaults(func=_cmd_sincronizar)
+
+    p_publicar = sub.add_parser(
+        "publicar",
+        help="Publica o gold no MotherDuck (só com MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO).",
+    )
+    p_publicar.add_argument(
+        "--destino", choices=["motherduck"], required=True, help="Destino da publicação."
+    )
+    p_publicar.add_argument(
+        "--tabelas",
+        default=None,
+        help="Lista separada por vírgulas (padrão: todas as tabelas do gold).",
+    )
+    p_publicar.set_defaults(func=_cmd_publicar)
 
     p_pipeline = sub.add_parser("pipeline", help="Pipeline ponta a ponta (não implementado).")
     p_pipeline.set_defaults(func=_cmd_pipeline)

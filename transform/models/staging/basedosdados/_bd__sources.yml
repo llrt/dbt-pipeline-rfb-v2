@@ -4,7 +4,7 @@ sources:
   - name: basedosdados
     description: >
       Tabelas públicas do portal Base dos Dados (csv.gz baixados de
-      `storage.googleapis.com/basedosdados-public`), convertidas para Parquet raw. Todas as
+      `basedosdados.org/api/tables/downloadTable`), convertidas para Parquet raw. Todas as
       colunas são VARCHAR (ARCHITECTURE.md §4.2); a tipagem acontece no staging.
     loader: rfb_pipeline (Python, DuckDB read_csv)
     tables:
@@ -120,16 +120,108 @@ sources:
           - name: ano
             description: Ano de referência do PIB.
           - name: pib
-            description: PIB total do município no ano, em mil R$.
+            description: PIB total do município no ano, em R$.
           - name: impostos_liquidos
-            description: Impostos líquidos de subsídios, em mil R$.
+            description: Impostos líquidos de subsídios, em R$.
           - name: va
-            description: Valor adicionado total, em mil R$.
+            description: Valor adicionado total, em R$.
           - name: va_agropecuaria
-            description: Valor adicionado da agropecuária, em mil R$.
+            description: Valor adicionado da agropecuária, em R$.
           - name: va_industria
-            description: Valor adicionado da indústria, em mil R$.
+            description: Valor adicionado da indústria, em R$.
           - name: va_servicos
-            description: Valor adicionado dos serviços, em mil R$.
+            description: Valor adicionado dos serviços, em R$.
           - name: va_adespss
-            description: Valor adicionado da administração, defesa, educação e saúde públicas, em mil R$.
+            description: Valor adicionado da administração, defesa, educação e saúde públicas, em R$.
+
+      # --- incremento: enriquecimento_bd (ADR-0015) ---
+      - name: censo_2022_municipio
+        description: >
+          `br_ibge_censo_2022.municipio`: Censo 2022 por município (população, domicílios, área em
+          km², alfabetização, idade mediana, razão de sexo, índice de envelhecimento, populações
+          indígena e quilombola). Fonte: `censo_2022_municipio.csv.gz`.
+        meta:
+          escopo: adicao
+          incremento: enriquecimento_bd
+          external_location: >-
+            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/censo_2022_municipio/*.parquet')
+        tags: [escopo_adicao, incremento_enriquecimento_bd]
+        columns:
+          - name: id_municipio
+            description: Código IBGE do município (FK lógica para `municipio.id_municipio`).
+            data_tests:
+              - unique:
+                  config:
+                    meta: { escopo: adicao, incremento: enriquecimento_bd }
+                    tags: [escopo_adicao, incremento_enriquecimento_bd]
+          - name: sigla_uf
+            description: Sigla da UF do município.
+          - name: domicilios
+            description: Domicílios (Censo 2022).
+          - name: populacao
+            description: População residente (Censo 2022).
+          - name: area
+            description: Área territorial do município, em km².
+          - name: taxa_alfabetizacao
+            description: Taxa de alfabetização (fração de 0 a 1).
+          - name: idade_mediana
+            description: Idade mediana, em anos.
+          - name: razao_sexo
+            description: Razão de sexo (homens por 100 mulheres).
+          - name: indice_envelhecimento
+            description: Índice de envelhecimento (idosos por 100 jovens).
+          - name: populacao_indigena
+            description: População indígena.
+          - name: populacao_indigena_terra_indigena
+            description: População indígena residente em terras indígenas.
+          - name: populacao_quilombola
+            description: População quilombola.
+          - name: populacao_quilombola_territorio_quilombola
+            description: População quilombola residente em territórios quilombolas.
+
+      - name: regiao_metropolitana_2017
+        description: >
+          `br_geobr_mapas.regiao_metropolitana_2017`: região metropolitana (ou RIDE, aglomeração,
+          colar) de cada município, segundo o GeoBR 2017. A coluna `geometria` (WKT) existe no
+          raw e é descartada no staging. Fonte: `regiao_metropolitana_2017.csv.gz`.
+        meta:
+          escopo: adicao
+          incremento: enriquecimento_bd
+          external_location: >-
+            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/regiao_metropolitana_2017/*.parquet')
+        tags: [escopo_adicao, incremento_enriquecimento_bd]
+        columns:
+          - name: nome_regiao_metropolitana
+            description: "Nome da região metropolitana (ex.: `RM Grande Vitória`)."
+          - name: tipo
+            description: "Tipo da unidade (`RM`, `RIDE`, `AGLO`, `CM`)."
+          - name: subcategoria_metropolitana
+            description: Subcategoria (núcleo, colar, área de expansão...); frequentemente vazia.
+          - name: id_municipio
+            description: "Código IBGE do município (FK lógica para `municipio.id_municipio`). Um município pode aparecer em mais de uma região."
+          - name: sigla_uf
+            description: Sigla da UF do município.
+          - name: legislacao
+            description: Lei que instituiu a região.
+          - name: data_legislacao
+            description: Data da lei (pode ser vazia).
+          - name: geometria
+            description: Geometria em WKT (grande; não usada pelo modelo).
+
+      - name: vizinhanca_municipio
+        description: >
+          `br_bd_vizinhanca.municipio`: pares de municípios vizinhos por ano de malha. Fonte:
+          `vizinhanca_municipio.csv.gz`.
+        meta:
+          escopo: adicao
+          incremento: enriquecimento_bd
+          external_location: >-
+            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/vizinhanca_municipio/*.parquet')
+        tags: [escopo_adicao, incremento_enriquecimento_bd]
+        columns:
+          - name: ano
+            description: Ano da malha municipal do par.
+          - name: id_municipio_1
+            description: Código IBGE de um município do par.
+          - name: id_municipio_2
+            description: Código IBGE do município vizinho.

@@ -66,6 +66,16 @@ Aracruz `POINT(-40.1758978602985 -19.7659695292442)`, Vitória `POINT(-39.176338
 pelo menos um registro multilinha; população 2024: Fundão 20000, Linhares 180000, Aracruz 100000, Serra
 520000, Vitória 330000, cada Água Branca 10000; população 2023: Fundão 19000.
 
+**BD — incremento `enriquecimento_bd` (ADR-0015; adições ao cenário, nenhuma resposta acima muda):**
+
+| Tabela (arquivo `bd/…csv.gz`) | Conteúdo da fixture |
+|---|---|
+| `censo_2022_municipio` | 7 municípios (Água Branca/PI **ausente** de propósito: denominadores NULL). **Fundão** = Censo real: 6715 domicílios, 17951 hab., 287 km², alfabetização 0,93371, idade mediana 37, razão de sexo 97,67, índice de envelhecimento 67,68. Linhares 55000 dom./166786 hab./3502 km²; Aracruz 40000/94765/1436; Serra 160000/520653/553; Vitória 140000/322869/93; Água Branca/AL 3300/9873/454; Água Branca/PB 3200/9000/236 |
+| `regiao_metropolitana_2017` | `RM Grande Vitória` (tipo `RM`) com **Fundão, Serra e Vitória**; Linhares, Aracruz e as Águas Brancas ficam sem RM (`NÃO PERTENCE`); `geometria` sintética, descartada no staging |
+| `vizinhanca_municipio` | ano **2020** (mais recente): Fundão–Aracruz (duplicada), Fundão–Serra, Serra–Vitória (nos dois sentidos), Aracruz–Linhares, autopar Linhares–Linhares; ano **2019** (deve ser ignorado): Fundão–Linhares. Pares só em um sentido: o modelo simetriza. **Vizinhos conformados de Fundão = {Aracruz, Serra}**; Serra = {Fundão, Vitória}; Aracruz = {Fundão, Linhares}; Linhares = {Aracruz}; Vitória = {Serra} |
+
+Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão = 17951/287 ≈ 62,55; Fundão no município: ativos 1, inativos 4; nos vizinhos (Aracruz + Serra): ativos 1 (O, Serra), inativos 0; na região metropolitana (Fundão + Serra + Vitória): ativos 2, inativos 4; ativos por mil domicílios (município) = 1/6715×1000 ≈ 0,1489; ativos por km² (município) = 1/287 ≈ 0,003484.
+
 **Estabelecimentos** (todos com DV correto, exceto L):
 
 | id | cnpj_raiz/ordem | razão social (empresa) | natureza | porte | município | CNAE principal | situação | início | dat_situacao | observação |
@@ -332,6 +342,22 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 
 **Independent Test**: fixtures → Fundão pertence à região metropolitana definida na fixture, tem os vizinhos da fixture e os indicadores da área de mercado com os valores da tabela do cenário.
 
+### P2: Publicação no MotherDuck e acesso pelo Power BI (melhoria — pedido do usuário)
+
+**User Story**: Como analista de BI, quero publicar as tabelas finais numa conta MotherDuck quando ela estiver configurada e saber exatamente como o Power BI acessa os dados (Parquet, DuckDB local ou MotherDuck), para escolher o caminho certo para o meu cenário.
+
+**Why P2**: Facilita o consumo compartilhado e o DirectQuery; não bloqueia o MVP. Decisão: ADR-0016, AD-025.
+
+**Acceptance Criteria**:
+
+1. WHEN `rfb publicar --destino motherduck` runs AND `MOTHERDUCK_TOKEN` and `MOTHERDUCK_BANCO` are set, THE system SHALL recreate in the MotherDuck database one table per gold dataset (dimensions, facts, bridges, original and analytics marts, and every partition of `fct_resumo_mensal`) from the Parquet files, and SHALL report table names and row counts.
+2. IF `MOTHERDUCK_TOKEN` or `MOTHERDUCK_BANCO` is missing, THEN the command SHALL publish nothing and SHALL exit 0 with a clear message.
+3. The publication SHALL accept a selection of tables (`--tabelas`) and SHALL be idempotent (re-running replaces the tables).
+4. The token SHALL never be logged, written to files or committed.
+5. `docs/POWER_BI.md` SHALL describe the access options — Parquet in `gold/`, local DuckDB file through the DuckDB ODBC driver, MotherDuck through the PostgreSQL endpoint — with Import/DirectQuery support, installation, refresh in Power BI Service (gateway), file-locking caveats and a recommendation per scenario.
+
+**Independent Test**: publicação num destino DuckDB local (arquivo) recria as tabelas do gold com as mesmas contagens; sem as variáveis, o comando não publica e sai 0.
+
 ---
 
 ## Edge Cases
@@ -377,8 +403,10 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 | ENR-01 | P2: Enriquecimento Base dos Dados (AC 1–2) | T38, T39 | In Tasks |
 | ENR-02 | P2: Enriquecimento Base dos Dados (AC 3–4) | T40 | In Tasks |
 | ENR-03 | P2: Enriquecimento Base dos Dados (AC 5–8) | T39–T41 | In Tasks |
+| PUB-01 | P2: Publicação MotherDuck (AC 1–4) | T42 | In Tasks |
+| PUB-02 | P2: Acesso pelo Power BI (AC 5) | T43 | In Tasks |
 
-**Coverage:** 29 total, 29 mapped to tasks, 0 unmapped.
+**Coverage:** 31 total, 31 mapped to tasks, 0 unmapped.
 
 ---
 

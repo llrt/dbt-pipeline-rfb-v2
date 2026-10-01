@@ -28,19 +28,20 @@
 
 | Etapa | Momento | O que valida |
 |---|---|---|
-| Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (34 testes) |
+| Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (35 testes) |
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
-| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (43 testes) |
+| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (58 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (59 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (37 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (68 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (48 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
 
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
+| `censo_2022_municipio.id_municipio` | `unique` | error | adicao | — |
 | `cnaes` | Reproduz o check do notebook 2.1.2 (qualidade dos domínios): CNAEs RFB sem par na Base dos Dados. | warn | original | 2.1.2 |
 | `cnaes` | `unique_combination_of_columns` {"combination_of_columns": ["codigo", "_mes_referencia"]} | error | original | 2.1.1 |
 | `cnaes._data_referencia` | `not_null` | error | adicao | — |
@@ -92,12 +93,27 @@
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
 | `estabelecimentos` | DQ-01 / R3-09: casos conhecidos do teste `data_nao_futura`. | error | adicao | — |
+| `stg_bd__censo_2022_municipio.area_km2` | `accepted_range` {"min_value": 0, "inclusive": false} | error | adicao | — |
+| `stg_bd__censo_2022_municipio.area_km2` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.domicilios` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_bd__censo_2022_municipio.id_municipio` | `unique` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.populacao` | `not_null` | error | adicao | — |
+| `stg_bd__censo_2022_municipio.taxa_alfabetizacao` | `accepted_range` {"min_value": 0, "max_value": 1} | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `not_null` | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_bd__cnaes.subclasse` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio_rf` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.id_municipio` | `unique` | error | adicao | — |
+| `stg_bd__regioes_metropolitanas.nome_regiao_metropolitana` | `not_null` | error | adicao | — |
+| `stg_bd__vizinhanca.ano` | `not_null` | error | adicao | — |
+| `stg_bd__vizinhanca.id_municipio_1` | `not_null` | error | adicao | — |
+| `stg_bd__vizinhanca.id_municipio_2` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `unique` | error | adicao | — |
@@ -173,6 +189,12 @@
 | `bridge_estabelecimento_cnae_secundario.cnpj_completo` | `relationships` {"to": "ref('fct_estabelecimentos')", "field": "cnpj_completo"} | error | adicao | — |
 | `bridge_estabelecimento_cnae_secundario.sk_cnae` | `not_null` | error | adicao | — |
 | `bridge_estabelecimento_cnae_secundario.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
+| `bridge_municipio_vizinho` | `unique_combination_of_columns` {"combination_of_columns": ["sk_municipio", "sk_municipio_vizinho"]} | error | adicao | — |
+| `bridge_municipio_vizinho` | incremento: enriquecimento_bd. | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio` | `not_null` | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio_vizinho` | `not_null` | error | adicao | — |
+| `bridge_municipio_vizinho.sk_municipio_vizinho` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `dim_cnae.codigo_subclasse` | `not_null` | error | adicao | — |
 | `dim_cnae.codigo_subclasse` | `unique` | error | adicao | — |
 | `dim_cnae.sk_cnae` | `not_null` | error | adicao | — |
@@ -180,10 +202,12 @@
 | `dim_data` | BI-01 / R3-03: o calendário começa em 1900-01-01, contém o dia de `data_referencia`, não tem lacunas (uma linha por dia) e os membros -1/-2 ficam contíguos (1899-12-31 e 1899-12-30), com data, para que a tabela possa ser marcada como tabela de datas no Power BI. Retorna uma linha por violação. | error | adicao | — |
 | `dim_data.sk_data` | `not_null` | error | adicao | — |
 | `dim_data.sk_data` | `unique` | error | adicao | — |
-| `dim_municipio.codigo_rfb` | `not_null` | error | adicao | — |
+| `dim_municipio.codigo_rfb` | `not_null` | warn | adicao | — |
 | `dim_municipio.codigo_rfb` | `unique` | warn | adicao | — |
+| `dim_municipio.nome_regiao_metropolitana` | `not_null` | error | adicao | — |
 | `dim_municipio.sk_municipio` | `not_null` | error | adicao | — |
 | `dim_municipio.sk_municipio` | `unique` | error | adicao | — |
+| `dim_municipio.taxa_alfabetizacao` | `accepted_range` {"min_value": 0, "max_value": 1} | error | adicao | — |
 | `dim_natureza_juridica.codigo_natureza_juridica` | `not_null` | error | adicao | — |
 | `dim_natureza_juridica.codigo_natureza_juridica` | `unique` | error | adicao | — |
 | `dim_natureza_juridica.sk_natureza_juridica` | `not_null` | error | adicao | — |
@@ -227,12 +251,24 @@
 | `fct_resumo_mensal.sk_municipio` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.sk_porte` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.sk_situacao_cadastral` | `not_null` | error | adicao | — |
+| `mart_concorrencia_area_mercado` | incremento: enriquecimento_bd. | error | adicao | — |
 
 ### Análises (Depois)
 
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
 | `dim_municipio` | CASE-01 / ANA-04 (R3-15): `caso_municipio` + `caso_uf` devem resolver para exatamente 1 município em `dim_municipio`. | error | adicao | — |
+| `mart_concorrencia_area_mercado` | `unique_combination_of_columns` {"combination_of_columns": ["sk_cnae", "sk_municipio"]} | error | adicao | — |
+| `mart_concorrencia_area_mercado.ativos` | `not_null` | error | adicao | — |
+| `mart_concorrencia_area_mercado.ativos_area_por_km2` | `accepted_range` {"min_value": 0} | error | adicao | — |
+| `mart_concorrencia_area_mercado.ativos_area_por_mil_domicilios` | `accepted_range` {"min_value": 0} | error | adicao | — |
+| `mart_concorrencia_area_mercado.ativos_por_km2` | `accepted_range` {"min_value": 0} | error | adicao | — |
+| `mart_concorrencia_area_mercado.ativos_por_mil_domicilios` | `accepted_range` {"min_value": 0} | error | adicao | — |
+| `mart_concorrencia_area_mercado.inativos` | `not_null` | error | adicao | — |
+| `mart_concorrencia_area_mercado.sk_cnae` | `not_null` | error | adicao | — |
+| `mart_concorrencia_area_mercado.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
+| `mart_concorrencia_area_mercado.sk_municipio` | `not_null` | error | adicao | — |
+| `mart_concorrencia_area_mercado.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `mart_concorrencia_municipio` | `unique_combination_of_columns` {"combination_of_columns": ["cnae_principal", "sk_municipio"]} | error | adicao | — |
 | `mart_concorrencia_municipio.ativos` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio.ativos_por_10k_hab` | `accepted_range` {"min_value": 0} | error | adicao | — |
@@ -288,8 +324,10 @@
 | `bh_empresas` | `test_bh_empresas_porte` | adicao |
 | `bh_empresas` | `test_bh_empresas_situacao_e_idade` | adicao |
 | `bridge_estabelecimento_cnae_secundario` | `test_bridge_estabelecimento_cnae_secundario_sk_e_menos_um` | adicao |
+| `bridge_municipio_vizinho` | `test_bridge_municipio_vizinho_simetrica_ano_recente` | adicao |
 | `dim_cnae` | `test_dim_cnae_sk_inteira_e_membro_nao_informado` | adicao |
 | `dim_data` | `test_dim_data_calendario_continuo_com_atributos_em_portugues` | adicao |
+| `dim_municipio` | `test_dim_municipio_censo_2022_e_regiao_metropolitana` | adicao |
 | `dim_municipio` | `test_dim_municipio_membro_nao_informado` | adicao |
 | `dim_natureza_juridica` | `test_dim_natureza_juridica_sk_e_membro_nao_informado` | adicao |
 | `fct_estabelecimentos` | `test_fct_estabelecimentos_chaves_inteiras_e_menos_um` | adicao |
@@ -298,11 +336,14 @@
 | `int_estabelecimentos__enriquecidos` | `test_int_estabelecimentos_enriquecidos_flags_e_nada_descartado` | adicao |
 | `int_municipios__conformados` | `test_int_municipios_conformados_ano_mais_recente` | adicao |
 | `int_municipios__conformados` | `test_int_municipios_conformados_var_ano_populacao` | adicao |
+| `mart_concorrencia_area_mercado` | `test_mart_concorrencia_area_mercado_vizinhos_e_regiao` | adicao |
 | `mart_fornecedores_proximos` | `test_mart_fornecedores_proximos_haversine_e_via` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario` | adicao |
+| `stg_bd__censo_2022_municipio` | `test_stg_bd__censo_2022_municipio_tipagem` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_lpad_id_municipio_rf` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_parse_centroide` | adicao |
+| `stg_bd__regioes_metropolitanas` | `test_stg_bd__regioes_metropolitanas_uma_por_municipio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_e_texto_vazio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_filtra_mes_mais_recente` | adicao |

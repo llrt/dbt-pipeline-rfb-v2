@@ -1,7 +1,8 @@
-"""Download das tabelas da Base dos Dados (municipio, cnae_2, populacao, pib)."""
+"""Download das tabelas da Base dos Dados pela API `downloadTable` (ADR-0015)."""
 
 from __future__ import annotations
 
+import base64
 import shutil
 import time
 from collections.abc import Callable
@@ -11,7 +12,22 @@ import httpx
 
 from rfb_pipeline.cliente_rfb import baixar_com_retentativas
 from rfb_pipeline.configuracao import Configuracao
-from rfb_pipeline.esquemas import TABELAS_BD
+from rfb_pipeline.erros import BaixaArquivoErro
+from rfb_pipeline.esquemas import TABELAS_BD, TabelaBD
+
+_MAGIA_GZIP = b"\x1f\x8b"
+
+
+def _b64(texto: str) -> str:
+    return base64.b64encode(texto.encode("utf-8")).decode("ascii")
+
+
+def url_download_bd(base_url: str, tabela: TabelaBD) -> str:
+    """URL da API `downloadTable`: dataset, tabela, `true` e `free` em base64 (≤ 100 MB, grátis)."""
+    return (
+        f"{base_url}?p={_b64(tabela.dataset)}&q={_b64(tabela.tabela)}"
+        f"&d={_b64('true')}&s={_b64('free')}"
+    )
 
 
 def baixar_tabelas_bd(
@@ -21,7 +37,7 @@ def baixar_tabelas_bd(
     origem_local: Path | None = None,
     dormir: Callable[[float], None] = time.sleep,
 ) -> dict[str, Path]:
-    """Baixa (ou copia de `origem_local`) as 4 tabelas da Base dos Dados.
+    """Baixa (ou copia de `origem_local`) todas as tabelas de `TABELAS_BD` da Base dos Dados.
 
     Retorna um dict `nome da tabela -> caminho do arquivo <nome>.csv.gz` em `destino_dir`.
     Com `origem_local`, copia `<origem_local>/bd/<nome>.csv.gz` em vez de baixar da rede.
@@ -37,8 +53,7 @@ def baixar_tabelas_bd(
                 origem = origem_local / "bd" / f"{nome}.csv.gz"
                 shutil.copyfile(origem, destino)
             else:
-                caminho_remoto = f"{tabela.dataset}/{tabela.tabela}/{tabela.tabela}.csv.gz"
-                url = f"{configuracao.bd_base_url}{caminho_remoto}"
+                url = url_download_bd(configuracao.bd_base_url, tabela)
                 baixar_com_retentativas(
                     cliente_http,
                     url,
@@ -50,9 +65,19 @@ def baixar_tabelas_bd(
                     max_retomadas=configuracao.max_retomadas,
                     tempo_limite_total_s=configuracao.tempo_limite_total_s,
                 )
+                _exigir_gzip(destino, url)
             resultado[nome] = destino
     finally:
         if http is None:
             cliente_http.close()
 
     return resultado
+
+
+def _exigir_gzip(destino: Path, url: str) -> None:
+    """A API pode responder 200 com corpo que não é gzip; recusa e não deixa o arquivo."""
+    with destino.open("rb") as fh:
+        cabecalho = fh.read(2)
+    if cabecalho != _MAGIA_GZIP:
+        destino.unlink(missing_ok=True)
+        raise BaixaArquivoErro(destino.name, f"conteúdo não é gzip ({url})")

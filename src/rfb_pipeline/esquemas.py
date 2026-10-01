@@ -142,6 +142,7 @@ class TabelaBD:
     nome: str
     dataset: str
     tabela: str
+    incremento: str | None = None  # marcador do incremento (ADR-0015)
 
 
 TABELAS_BD: dict[str, TabelaBD] = {
@@ -149,4 +150,23 @@ TABELAS_BD: dict[str, TabelaBD] = {
     "cnae_2": TabelaBD(nome="cnae_2", dataset="br_bd_diretorios_brasil", tabela="cnae_2"),
     "populacao": TabelaBD(nome="populacao", dataset="br_ibge_populacao", tabela="municipio"),
     "pib": TabelaBD(nome="pib", dataset="br_ibge_pib", tabela="municipio"),
+    # incremento: enriquecimento_bd
+    "censo_2022_municipio": TabelaBD(
+        nome="censo_2022_municipio",
+        dataset="br_ibge_censo_2022",
+        tabela="municipio",
+        incremento="enriquecimento_bd",
+    ),
+    "regiao_metropolitana_2017": TabelaBD(
+        nome="regiao_metropolitana_2017",
+        dataset="br_geobr_mapas",
+        tabela="regiao_metropolitana_2017",
+        incremento="enriquecimento_bd",
+    ),
+    "vizinhanca_municipio": TabelaBD(
+        nome="vizinhanca_municipio",
+        dataset="br_bd_vizinhanca",
+        tabela="municipio",
+        incremento="enriquecimento_bd",
+    ),
 }

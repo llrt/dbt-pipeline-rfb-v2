@@ -79,6 +79,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   ├── conversao.py              # zip → CSV → Parquet (DuckDB), rejeitos, escrita atômica
 │   ├── manifesto.py             # manifesto JSON por execução (checksums, contagens)
 │   ├── armazenamento.py              # local vs s3/Tigris (secret DuckDB, sync boto3)
+│   ├── publicacao.py                 # publicação opcional do gold no MotherDuck (ADR-0016)
 │   ├── report.py               # relatório do estudo de caso e de DQ (Markdown)
 │   └── cli.py                  # rfb ingerir | sync | pipeline | report
 ├── scripts/gerar_fixtures.py     # gera fixtures sintéticas no formato RFB/BD
@@ -111,7 +112,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 | Fonte | Local | Arquivos |
 |---|---|---|
 | RFB CNPJ | WebDAV público `https://arquivos.receitafederal.gov.br/public.php/webdav/` (usuário = token do share `YggdBLfdninEJX9`, senha vazia), pastas `YYYY-MM/` | `Empresas{0..9}.zip`, `Estabelecimentos{0..9}.zip`, `Simples.zip`, `Cnaes.zip`, `Municipios.zip`, `Naturezas.zip`, `Motivos.zip`, `Paises.zip`, `Qualificacoes.zip` (**não** `Socios*`) |
-| Base dos Dados | `https://storage.googleapis.com/basedosdados-public/one-click-download/<dataset>/<tabela>/<tabela>.csv.gz` | `br_bd_diretorios_brasil/municipio`, `br_bd_diretorios_brasil/cnae_2`, `br_ibge_populacao/municipio`, `br_ibge_pib/municipio` |
+| Base dos Dados | API `https://basedosdados.org/api/tables/downloadTable?p=<b64 dataset>&q=<b64 tabela>&d=<b64 "true">&s=<b64 "free">` (gzip, grátis até 100 MB; ADR-0015) | `br_bd_diretorios_brasil/municipio`, `br_bd_diretorios_brasil/cnae_2`, `br_ibge_populacao/municipio`, `br_ibge_pib/municipio`; **incremento enriquecimento BD (ADR-0015):** `br_ibge_censo_2022/municipio`, `br_geobr_mapas/regiao_metropolitana_2017`, `br_bd_vizinhanca/municipio` |
 
 A URL antiga do original (`/dados/cnpj/dados_abertos_cnpj/2025-02/`) retorna 404 e o mês 2025-02 não está
 mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
@@ -227,7 +228,9 @@ flowchart LR
   **descarta** `email`, `ddd*`, `tel*`, `fax` ([ADR-0008](docs/adr/0008-minimizacao-dados-pessoais.md)).
 - `stg_rfb__simples`, `stg_rfb__cnaes`, `stg_rfb__municipios`, `stg_rfb__naturezas`, `stg_rfb__motivos`.
 - `stg_bd__municipios` (ids como texto, `centroide` → `latitude`/`longitude`), `stg_bd__cnaes`
-  (subclasse lpad 7), `stg_bd__populacao`, `stg_bd__pib`.
+  (subclasse lpad 7), `stg_bd__populacao`, `stg_bd__pib`; **incremento enriquecimento BD (ADR-0015):**
+  `stg_bd__censo_2022_municipio`, `stg_bd__regioes_metropolitanas` (uma região por município; descarta a
+  `geometria`), `stg_bd__vizinhanca`.
 
 **Intermediate:**
 - `int_municipios__conformados`: RFB ↔ IBGE (via BD) + região imediata/intermediária, micro/meso, população do ano, PIB.
@@ -268,9 +271,16 @@ erDiagram
 - `fct_estabelecimentos` (grão CNPJ, só chaves inteiras + flags + medidas; `cnpj_completo` degenerado) — detalhe/DuckDB.
 - `fct_resumo_mensal` (agregada, aditiva, histórico por partição mensal; grão mês × município × CNAE × porte × situação × MEI; capital só das matrizes) — **modo Import do Power BI**.
 - `bridge_estabelecimento_cnae_secundario` (opcional no BI, muitos-para-muitos). Guia: `docs/POWER_BI.md`.
+- **Incremento enriquecimento BD (ADR-0015):** `dim_municipio` ganha `populacao_censo_2022`, `domicilios_2022`,
+  `area_km2`, `densidade_hab_km2`, `taxa_alfabetizacao`, `idade_mediana`, `indice_envelhecimento`, `razao_sexo` e
+  `nome_regiao_metropolitana` (`NÃO PERTENCE` fora de RM); `bridge_municipio_vizinho` (pares simétricos, ano mais
+  recente, sem autopares; opcional no BI).
 
 **Análises (adição):**
 - `mart_concorrencia_municipio`: CNAE × município → ativos, inativos, ativos por 10 mil hab., ranking na UF.
+- `mart_concorrencia_area_mercado` (**incremento enriquecimento BD**): CNAE × município → ativos/inativos no
+  município, nos vizinhos e na região metropolitana, e ativos por mil domicílios e por km² (município e área =
+  município + vizinhos; NULL sem denominador).
 - `mart_sobrevivencia_coorte`: coorte (ano de início) × CNAE × porte × UF → n, sobreviventes a 1/3/5 anos, taxas.
   Sobrevivência a N anos: início ≤ `data_referencia − N anos` e (ativa **ou** data de baixa ≥ início + N anos).
 - `mart_dinamica_mercado`: ano × CNAE × município → aberturas, encerramentos (situação 08 com `dat_situacao`), saldo.
@@ -314,6 +324,7 @@ Severidade: estrutura (PK, contratos, relacionamentos no core, paridade) = `erro
 | `make docs` | `dbt docs generate` (+ `serve`) |
 | `make lint` | ruff + sqlfluff |
 | `make sincronizar` | envia `raw/` e `gold/` para `s3://` (Tigris) |
+| `make publicar` | `rfb publicar --destino motherduck [--tabelas a,b]`: recria no MotherDuck as tabelas do `gold/`; só com `MOTHERDUCK_TOKEN` e `MOTHERDUCK_BANCO` (sem eles, "nada publicado", saída 0; ADR-0016) |
 | `make atualizar` | `rfb atualizar`: processa o mês novo mais recente, se houver (ADR-0012) |
 
 Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local),
@@ -323,11 +334,18 @@ Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo tempor�
 **Fluxo S3 (ADR-0007):** `rfb ingerir` (local, `RAIZ_DADOS_LOCAL`) → `rfb sincronizar` (`raw/` e `gold/`, comparação por
 tamanho + sha256) → `dbt build --target s3`. Variáveis vazias equivalem a ausentes; ver `.env.example`.
 
+**Consumo por BI e publicação opcional (adição, [ADR-0016](docs/adr/0016-publicacao-motherduck.md)):** o `gold/` em
+Parquet é o contrato; o Power BI o acessa por (1) Parquet direto, (2) `warehouse.duckdb` via ODBC (views sobre o gold;
+um escritor por vez) ou (3) MotherDuck, após `rfb publicar` (desacoplado do dbt: `ATTACH 'md:<banco>'` +
+`CREATE OR REPLACE TABLE … AS SELECT * FROM read_parquet(…)`, com `hive_partitioning` na série mensal; o token vem do
+ambiente e nunca entra em SQL/log). Com `RAIZ_DADOS=s3://` a publicação recusa (lê gold local). Comparativo e passo a passo:
+[docs/POWER_BI.md](docs/POWER_BI.md#como-o-power-bi-acessa-os-dados).
+
 ## 8. Segurança e privacidade
 
 - Nenhum segredo no repositório; `.env` gitignored, `.env.example` só com nomes de variáveis.
 - Sem dados de sócios; contatos (email/telefone) descartados no staging ([ADR-0008](docs/adr/0008-minimizacao-dados-pessoais.md)).
-- Downloads só via HTTPS de hosts em allowlist (`arquivos.receitafederal.gov.br`, `storage.googleapis.com`).
+- Downloads só via HTTPS de hosts em allowlist (`arquivos.receitafederal.gov.br`, `basedosdados.org`).
 - Extração de zip protegida contra path traversal (zip-slip).
 
 ## 9. Riscos e mitigação

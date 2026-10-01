@@ -50,7 +50,7 @@ class TestFluxoCompleto:
             assert particao.is_dir(), f"partição ausente: {particao}"
             assert list(particao.glob("*.parquet")), f"nenhum parquet em {particao}"
 
-    def test_datasets_das_4_tabelas_bd_foram_criados(self) -> None:
+    def test_datasets_das_tabelas_bd_foram_criados(self) -> None:
         for tabela in TABELAS_BD:
             parquet = _raiz_dados() / "raw" / "bd" / tabela / f"{tabela}.parquet"
             assert parquet.is_file(), f"parquet ausente: {parquet}"
