@@ -25,6 +25,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-017 | Convenção de idioma (decisão do usuário 2026-09-29): inglês só no vocabulário padrão do dbt/ferramentas (lista fechada no ADR-0014); todo o resto em português; lote RN aplica as renomeações após o B5 | active | 2026-09-29 |
 | AD-018 | Extrato real de fev/2025 (mesmo mês do MVP; CSVs do projeto v1, só leitura) entra no B8 para paridade **numérica** com os resultados publicados no notebook 4 do original, além da execução real de 2026-09 | active | 2026-09-29 |
 | AD-019 | Emendas da R2: `bh_empresas.nome` com trim declarado como adaptação (ADR-0005); idade fora de [0,200] = warn com error_if >100 (spec Original AC 12) | active | 2026-09-29 |
+| AD-020 | Emendas da R3: resumo mensal sem `ano_inicio_atividade`/`natureza` e capital só de matrizes (ADR-0013, BI-02 AC 5); `dim_data` desde 1900 com −1/−2 sentinela (BI-01 AC 2); notebook 4 q4 com `upper` = adaptado; `data_nao_futura` fora das exclusões do Simples (DQ-01 AC 2); `DBT_THREADS` × `DUCKDB_THREADS` | active | 2026-10-01 |
 
 ## Handoff
 
