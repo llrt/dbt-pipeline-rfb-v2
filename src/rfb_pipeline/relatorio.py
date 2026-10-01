@@ -24,6 +24,7 @@ RAIZ_REPO = Path(__file__).resolve().parents[2]
 DIR_TRANSFORM = RAIZ_REPO / "transform"
 SAIDA_PADRAO = RAIZ_REPO / "docs" / "RELATORIO_ESTUDO_CASO.md"
 PREFIXO_ANALISES = "estudo_caso_"
+LIMITE_LINHAS = 20  # tabelas longas mostram as N primeiras linhas e o total (R3-16)
 
 
 class RelatorioErro(ErroIngestao):
@@ -125,11 +126,20 @@ def _numero(valor: object, casas: int | None = None) -> str:
     return str(valor)
 
 
-def _tabela(tabela: Tabela, formatos: dict[str, int] | None = None) -> str:
+def _tabela(
+    tabela: Tabela, formatos: dict[str, int] | None = None, limite: int | None = None
+) -> str:
+    """Tabela Markdown; com `limite`, mostra só as primeiras linhas e informa o total."""
     colunas, linhas = tabela
     formatos = formatos or {}
     if not linhas:
         return "_Nenhum resultado._"
+    total = len(linhas)
+    if limite is not None and total > limite:
+        linhas = linhas[:limite]
+        rodape = f"_Mostrando as {limite} primeiras de {total} linhas._"
+    else:
+        rodape = None
     cabecalho = "| " + " | ".join(colunas) + " |"
     separador = "|" + "|".join("---" for _ in colunas) + "|"
     corpo = [
@@ -138,7 +148,7 @@ def _tabela(tabela: Tabela, formatos: dict[str, int] | None = None) -> str:
         + " |"
         for linha in linhas
     ]
-    return "\n".join([cabecalho, separador, *corpo])
+    return "\n".join([cabecalho, separador, *corpo, *(["", rodape] if rodape else [])])
 
 
 def _plural(n: int, singular: str, plural: str) -> str:
@@ -183,11 +193,14 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
         _tabela(resultados[f"{PREFIXO_ANALISES}q2_q3_idade_porte"], {"media_idade": 1}),
         "",
     ]
-    if idade:
-        unica = idade[0]
+    com_idade = [r for r in idade if r["media_idade"] is not None and r["qtd_empresas"]]
+    if com_idade:
+        total_idade = sum(r["qtd_empresas"] for r in com_idade)
+        media = sum(r["media_idade"] * r["qtd_empresas"] for r in com_idade) / total_idade
         linhas += [
-            f"Idade média das ativas: **{_numero(unica['media_idade'], 1)}** anos "
-            f"(porte {unica['porte']}).",
+            f"Idade média das ativas: **{_numero(media, 1)}** anos "
+            f"(média ponderada por `qtd_empresas`, {total_idade} "
+            f"{_plural(total_idade, 'empresa', 'empresas')}).",
             "",
         ]
     linhas += [
@@ -202,13 +215,19 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
         "",
         "Estabelecimentos ativos da UF com o CNAE de fornecedor entre os secundários:",
         "",
-        _tabela(resultados[f"{PREFIXO_ANALISES}q4_fornecedores_secundarios_uf"]),
+        _tabela(
+            resultados[f"{PREFIXO_ANALISES}q4_fornecedores_secundarios_uf"], limite=LIMITE_LINHAS
+        ),
         "",
         "## Análises novas (adição)",
         "",
         "### Densidade de concorrência (ativos por 10 mil habitantes)",
         "",
-        _tabela(resultados[f"{PREFIXO_ANALISES}adicao_concorrencia"], {"ativos_por_10k_hab": 2}),
+        _tabela(
+            resultados[f"{PREFIXO_ANALISES}adicao_concorrencia"],
+            {"ativos_por_10k_hab": 2},
+            LIMITE_LINHAS,
+        ),
         "",
     ]
     no_caso = next((r for r in conc if str(r["municipio"]).upper() == caso["municipio"]), None)
@@ -233,6 +252,11 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
         )
     linhas += [
         "",
+        '> **Como ler:** "ativa" é a situação cadastral da Receita Federal, não operação efetiva. '
+        "Empresas sem atividade continuam ATIVAS até serem declaradas INAPTAS ou baixadas, então as "
+        "taxas de sobrevivência saem mais altas que as de fontes que medem operação (ex.: IBGE, "
+        "Demografia das Empresas).",
+        "",
         "### Dinâmica de mercado (aberturas e encerramentos por ano)",
         "",
         _tabela(resultados[f"{PREFIXO_ANALISES}adicao_dinamica"]),
@@ -240,7 +264,11 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
         f"### Fornecedores ativos em até {caso['raio_fornecedores_km']} km (CNAEs "
         f"{caso['cnaes_fornecedores']})",
         "",
-        _tabela(resultados[f"{PREFIXO_ANALISES}adicao_fornecedores_proximos"], {"distancia_km": 2}),
+        _tabela(
+            resultados[f"{PREFIXO_ANALISES}adicao_fornecedores_proximos"],
+            {"distancia_km": 2},
+            LIMITE_LINHAS,
+        ),
         "",
     ]
     if not proximos:

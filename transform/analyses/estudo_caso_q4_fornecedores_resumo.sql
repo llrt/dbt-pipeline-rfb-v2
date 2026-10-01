@@ -79,7 +79,7 @@ union all
 
 select
   5 as ordem,
-  'CNAE do caso como secundário na mesorregião' as busca,
+  'CNAE de fornecedor como secundário na mesorregião' as busca,
   count(*) as qtd_empresas
 from secundarios
 where mesorregiao_municipio in (select caso.mesorregiao from caso)
@@ -88,7 +88,7 @@ union all
 
 select
   6 as ordem,
-  'CNAE do caso como secundário na UF' as busca,
+  'CNAE de fornecedor como secundário na UF' as busca,
   count(*) as qtd_empresas
 from secundarios
 where uf = '{{ var("caso_uf") }}'
