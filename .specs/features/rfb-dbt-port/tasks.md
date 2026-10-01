@@ -876,9 +876,9 @@ T30 → T31
 **Classificação**: M/NC
 
 **Done when**:
-- [ ] Unit: SQL gerado, seleção de tabelas, ausência de variáveis (sai 0, nada publicado), token ausente dos logs
-- [ ] Integração: publicação das fixtures num destino DuckDB local com as mesmas contagens do gold
-- [ ] Gate full passa
+- [x] Unit: SQL gerado, seleção de tabelas, ausência de variáveis (sai 0, nada publicado), token ausente dos logs
+- [x] Integração: publicação das fixtures num destino DuckDB local com as mesmas contagens do gold
+- [x] Gate full passa
 
 **Tests**: unit + integration
 **Gate**: full

@@ -48,9 +48,10 @@ MODULOS_ESPERADOS = {
     "erros",
     "esquemas",
     "manifesto",
+    "publicacao",
     "relatorio",
 }
-SUBCOMANDOS_ESPERADOS = {"ingerir", "sincronizar", "pipeline", "relatorio", "atualizar"}
+SUBCOMANDOS_ESPERADOS = {"ingerir", "sincronizar", "pipeline", "relatorio", "atualizar", "publicar"}
 ALVOS_MAKE_ESPERADOS = {
     "setup",
     "fixtures",
@@ -63,6 +64,7 @@ ALVOS_MAKE_ESPERADOS = {
     "relatorio",
     "clean",
     "atualizar",
+    "publicar",
 }
 
 
@@ -108,7 +110,8 @@ PREFIXOS_VARIAVEIS = (
     "AWS_",
     "DUCKDB_",
     "DBT_",
-)  # RFB_* é do projeto; os demais, de terceiros
+    "MOTHERDUCK_",
+)  # RFB_* é do projeto; os demais, de terceiros/serviços
 VARIAVEIS_TERCEIROS = {"S3_URL_STYLE"}
 _PADROES_VARIAVEL = (
     r"""(?:environ\.get|env\.get|_texto\(env,|env_var)\(?\s*["']([A-Z][A-Z0-9_]+)["']""",
