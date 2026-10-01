@@ -40,3 +40,15 @@ def test_duckdb_threads_chega_ao_motor_e_dbt_threads_ao_dbt(
     assert resultado.returncode == 0, saida
     assert f"Concurrency: {dbt} threads" in saida
     assert f"| {duckdb} |" in saida.replace("  ", " ")
+
+
+def test_temp_directory_do_profile_chega_ao_motor(tmp_path: Path) -> None:
+    """RBP-01: `temp_directory` no topo do profile é ignorado; só vale dentro de `settings`."""
+    resultado = _dbt(
+        tmp_path,
+        "show", "--inline", "select current_setting('temp_directory') like '%/_tmp' as ok",
+        threads={"DBT_THREADS": "2", "DUCKDB_THREADS": "2"},
+    )  # fmt: skip
+    saida = resultado.stdout + resultado.stderr
+    assert resultado.returncode == 0, saida
+    assert "| True |" in saida.replace("  ", " ")

@@ -42,3 +42,19 @@ def test_relatorio_e_deterministico_exceto_a_linha_da_execucao(tmp_path: Path) -
         return [linha for linha in texto.splitlines() if not linha.startswith("> Execução dbt")]
 
     assert corpo(_gerar(tmp_path / "a.md")) == corpo(_gerar(tmp_path / "b.md"))
+
+
+def test_secao_de_qualidade_lista_os_avisos_do_historico_real(tmp_path: Path) -> None:
+    """RBP-08 (N17): os avisos da última execução do `make ci` aparecem no relatório."""
+    from rfb_pipeline.relatorio import ler_qualidade
+
+    warehouse = Path(os.environ["RAIZ_DADOS"]) / "warehouse.duckdb"
+    qualidade = ler_qualidade(warehouse)
+    assert qualidade is not None, "histórico de testes ausente; rode `make ci`"
+    resumo, pendentes = qualidade
+    avisos = {nome for nome, status, *_ in pendentes if status == "warn"}
+    assert avisos, "o `make ci` tem avisos conhecidos (cnaes_sem_par_bd, cnpj_dv_valido…)"
+    assert len(avisos) == resumo["avisos"]
+    texto = _gerar(tmp_path / "relatorio.md")
+    for nome in avisos:
+        assert f"`{nome}` | warn" in texto

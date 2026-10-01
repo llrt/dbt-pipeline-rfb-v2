@@ -1941,9 +1941,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "boto3" },
-    { name = "dbt-core" },
-    { name = "dbt-duckdb" },
-    { name = "duckdb", specifier = ">=1.5" },
+    { name = "dbt-core", specifier = ">=1.10.5,<2" },
+    { name = "dbt-duckdb", specifier = ">=1.10,<2" },
+    { name = "duckdb", specifier = ">=1.5,<2" },
     { name = "httpx" },
     { name = "moto", extras = ["server"], marker = "extra == 'dev'" },
     { name = "pre-commit", marker = "extra == 'dev'" },

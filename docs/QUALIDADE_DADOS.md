@@ -30,11 +30,11 @@
 |---|---|---|
 | Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (35 testes) |
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
-| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (58 testes) |
+| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (79 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (12 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (68 testes) |
-| Análises | Depois | Marts analíticos: invariantes numéricas. (48 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (71 testes) |
+| Análises | Depois | Marts analíticos: invariantes numéricas. (54 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
 ### Fontes (Antes)
@@ -107,6 +107,15 @@
 | `stg_bd__municipios.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__municipios.id_municipio` | `unique` | error | adicao | — |
 | `stg_bd__municipios.id_municipio_rf` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
+| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.0001)"} | warn | adicao | — |
+| `stg_bd__pib` | `expression_is_true` {"expression": "abs(pib - (va + impostos_liquidos)) <= greatest(1, abs(pib) * 0.01)"} | error | adicao | — |
+| `stg_bd__pib` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
+| `stg_bd__pib.ano` | `not_null` | error | adicao | — |
+| `stg_bd__pib.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__populacao` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
+| `stg_bd__populacao.ano` | `not_null` | error | adicao | — |
+| `stg_bd__populacao.id_municipio` | `not_null` | error | adicao | — |
+| `stg_bd__populacao.populacao` | `accepted_range` {"min_value": 1} | warn | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `not_null` | error | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_bd__regioes_metropolitanas.id_municipio` | `unique` | error | adicao | — |
@@ -117,11 +126,14 @@
 | `stg_rfb__cnaes.codigo` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `unique` | error | adicao | — |
+| `stg_rfb__empresas.capital_social` | `taxa_conversao_tipada` {"coluna_raw": "capital_soc", "entidade": "empresas"} | warn | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `not_null` | error | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `tamanho_exato` {"tamanho": 8} | error | adicao | — |
 | `stg_rfb__empresas.cnpj_raiz` | `unique` | error | adicao | — |
 | `stg_rfb__empresas.porte_codigo` | `accepted_values` {"values": [0, 1, 3, 5], "quote": false} | error | adicao | — |
+| `stg_rfb__empresas.porte_codigo` | `taxa_conversao_tipada` {"coluna_raw": "porte", "entidade": "empresas"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos` | Staging AC 14 / ADR-0008: nenhum modelo de staging, intermediate ou marts expõe dados de contato. | error | adicao | — |
+| `stg_rfb__estabelecimentos` | `expression_is_true` {"expression": "dat_situacao is null or dat_inicio_atividade is null or dat_situacao >= dat_inicio_atividade"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos._data_referencia` | `not_null` | error | adicao | — |
 | `stg_rfb__estabelecimentos.cnae_principal` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__estabelecimentos.cnpj_completo` | `cnpj_dv_valido` | warn | adicao | — |
@@ -131,10 +143,15 @@
 | `stg_rfb__estabelecimentos.cnpj_raiz` | `not_null` | error | adicao | — |
 | `stg_rfb__estabelecimentos.dat_inicio_atividade` | `accepted_range` {"min_value": "date '1900-01-01'"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos.dat_inicio_atividade` | `data_nao_futura` | warn | adicao | — |
+| `stg_rfb__estabelecimentos.dat_inicio_atividade` | `taxa_conversao_tipada` {"coluna_raw": "dat_inicio_atividade", "entidade": "estabelecimentos", "sentinelas": ["00000000", "0"]} | warn | adicao | — |
 | `stg_rfb__estabelecimentos.dat_situacao` | `data_nao_futura` | warn | adicao | — |
+| `stg_rfb__estabelecimentos.dat_situacao` | `taxa_conversao_tipada` {"coluna_raw": "dat_situacao", "entidade": "estabelecimentos", "sentinelas": ["00000000", "0"]} | warn | adicao | — |
 | `stg_rfb__estabelecimentos.dat_situacao_especial` | `data_nao_futura` | warn | adicao | — |
+| `stg_rfb__estabelecimentos.dat_situacao_especial` | `taxa_conversao_tipada` {"coluna_raw": "dat_sit_especial", "entidade": "estabelecimentos", "sentinelas": ["00000000", "0"]} | warn | adicao | — |
+| `stg_rfb__estabelecimentos.matriz_filial_codigo` | `taxa_conversao_tipada` {"coluna_raw": "ind_matriz_filial", "entidade": "estabelecimentos"} | warn | adicao | — |
 | `stg_rfb__estabelecimentos.municipio_rfb_codigo` | `tamanho_exato` {"tamanho": 4} | error | adicao | — |
 | `stg_rfb__estabelecimentos.situacao_codigo` | `accepted_values` {"values": [1, 2, 3, 4, 8], "quote": false} | error | adicao | — |
+| `stg_rfb__estabelecimentos.situacao_codigo` | `taxa_conversao_tipada` {"coluna_raw": "situacao", "entidade": "estabelecimentos"} | warn | adicao | — |
 | `stg_rfb__motivos.codigo` | `not_null` | error | adicao | — |
 | `stg_rfb__motivos.codigo` | `tamanho_exato` {"tamanho": 2} | error | adicao | — |
 | `stg_rfb__motivos.codigo` | `unique` | error | adicao | — |
@@ -147,8 +164,12 @@
 | `stg_rfb__simples.cnpj_raiz` | `not_null` | error | adicao | — |
 | `stg_rfb__simples.cnpj_raiz` | `tamanho_exato` {"tamanho": 8} | error | adicao | — |
 | `stg_rfb__simples.cnpj_raiz` | `unique` | error | adicao | — |
+| `stg_rfb__simples.dat_exclusao_mei` | `taxa_conversao_tipada` {"coluna_raw": "dat_exclusao_mei", "entidade": "simples", "sentinelas": ["00000000", "0"]} | warn | adicao | — |
+| `stg_rfb__simples.dat_exclusao_simples` | `taxa_conversao_tipada` {"coluna_raw": "dat_exclusao_simples", "entidade": "simples", "sentinelas": ["00000000", "0"]} | warn | adicao | — |
 | `stg_rfb__simples.dat_opcao_mei` | `data_nao_futura` | warn | adicao | — |
+| `stg_rfb__simples.dat_opcao_mei` | `taxa_conversao_tipada` {"coluna_raw": "dat_opcao_mei", "entidade": "simples", "sentinelas": ["00000000", "0"]} | warn | adicao | — |
 | `stg_rfb__simples.dat_opcao_simples` | `data_nao_futura` | warn | adicao | — |
+| `stg_rfb__simples.dat_opcao_simples` | `taxa_conversao_tipada` {"coluna_raw": "dat_opcao_simples", "entidade": "simples", "sentinelas": ["00000000", "0"]} | warn | adicao | — |
 | `—` | DQ-01 / R3-09: casos conhecidos do teste `cnpj_dv_valido`. | error | adicao | — |
 
 ### Intermediate (Depois)
@@ -221,6 +242,8 @@
 | `dim_situacao_cadastral.sk_situacao_cadastral` | `not_null` | error | adicao | — |
 | `dim_situacao_cadastral.sk_situacao_cadastral` | `unique` | error | adicao | — |
 | `fct_estabelecimentos` | CORE-01: a fato não descarta nem duplica estabelecimentos (mesma contagem do staging do mês) e usa a chave -1 exatamente onde falta par na dimensão (flags `tem_*` da camada intermediate). | error | adicao | — |
+| `fct_estabelecimentos` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
+| `fct_estabelecimentos` | `expression_is_true` {"expression": "not opcao_mei or opcao_simples"} | warn | adicao | — |
 | `fct_estabelecimentos.cnpj_completo` | `not_null` | error | adicao | — |
 | `fct_estabelecimentos.cnpj_completo` | `unique` | error | adicao | — |
 | `fct_estabelecimentos.sk_cnae` | `not_null` | error | adicao | — |
@@ -240,6 +263,7 @@
 | `fct_resumo_mensal` | BI-02 / ADR-0013: a partição do mês processado em `fct_resumo_mensal` reconcilia com `fct_estabelecimentos` (quantidade, ativos, matrizes, capital das matrizes e soma da idade); soma errada ou partição ausente retornam uma linha. | error | adicao | — |
 | `fct_resumo_mensal` | R3-18 / BI-02: toda chave da partição do mês processado existe na dimensão correspondente. | error | adicao | — |
 | `fct_resumo_mensal` | R3-18: as chaves de TODAS as partições de `fct_resumo_mensal` existem nas dimensões atuais. | warn | adicao | — |
+| `fct_resumo_mensal` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
 | `fct_resumo_mensal` | `unique_combination_of_columns` {"combination_of_columns": ["mes_referencia", "sk_municipio", "sk_cnae", "sk_porte", "sk_situacao_cadastral", "opcao_mei"]} | error | adicao | — |
 | `fct_resumo_mensal.mes_referencia` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.opcao_mei` | `not_null` | error | adicao | — |
@@ -258,6 +282,7 @@
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
 | `dim_municipio` | CASE-01 / ANA-04 (R3-15): `caso_municipio` + `caso_uf` devem resolver para exatamente 1 município em `dim_municipio`. | error | adicao | — |
+| `mart_concorrencia_area_mercado` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
 | `mart_concorrencia_area_mercado` | `unique_combination_of_columns` {"combination_of_columns": ["sk_cnae", "sk_municipio"]} | error | adicao | — |
 | `mart_concorrencia_area_mercado.ativos` | `not_null` | error | adicao | — |
 | `mart_concorrencia_area_mercado.ativos_area_por_km2` | `accepted_range` {"min_value": 0} | error | adicao | — |
@@ -269,6 +294,8 @@
 | `mart_concorrencia_area_mercado.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `mart_concorrencia_area_mercado.sk_municipio` | `not_null` | error | adicao | — |
 | `mart_concorrencia_area_mercado.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
+| `mart_concorrencia_municipio` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
+| `mart_concorrencia_municipio` | `expression_is_true` {"expression": "coalesce(populacao, 0) = 0 or ativos_por_10k_hab = round(ativos * 10000.0 / populacao, 2)"} | error | adicao | — |
 | `mart_concorrencia_municipio` | `unique_combination_of_columns` {"combination_of_columns": ["cnae_principal", "sk_municipio"]} | error | adicao | — |
 | `mart_concorrencia_municipio.ativos` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio.ativos_por_10k_hab` | `accepted_range` {"min_value": 0} | error | adicao | — |
@@ -278,6 +305,7 @@
 | `mart_concorrencia_municipio.sk_cnae` | `relationships` {"to": "ref('dim_cnae')", "field": "sk_cnae"} | error | adicao | — |
 | `mart_concorrencia_municipio.sk_municipio` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
+| `mart_dinamica_mercado` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
 | `mart_dinamica_mercado.aberturas` | `not_null` | error | adicao | — |
 | `mart_dinamica_mercado.ano` | `not_null` | error | adicao | — |
 | `mart_dinamica_mercado.cnae_principal` | `not_null` | error | adicao | — |
@@ -288,6 +316,7 @@
 | `mart_dinamica_mercado.sk_municipio` | `not_null` | error | adicao | — |
 | `mart_dinamica_mercado.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `mart_fornecedores_proximos` | ANA-04 AC 7: nenhuma distância negativa e distância 0 para fornecedor no próprio município do caso (a distância de um ponto a si mesmo é nula). | error | adicao | — |
+| `mart_fornecedores_proximos` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
 | `mart_fornecedores_proximos.cnae_fornecido` | `not_null` | error | adicao | — |
 | `mart_fornecedores_proximos.cnpj_completo` | `not_null` | error | adicao | — |
 | `mart_fornecedores_proximos.cnpj_completo` | `unique` | error | adicao | — |
@@ -299,6 +328,7 @@
 | `mart_fornecedores_proximos.sk_municipio` | `relationships` {"to": "ref('dim_municipio')", "field": "sk_municipio"} | error | adicao | — |
 | `mart_fornecedores_proximos.via` | `accepted_values` {"values": ["principal", "secundario"]} | error | adicao | — |
 | `mart_sobrevivencia_coorte` | ANA-02 AC 3: taxas em [0,1] e, dentro da linha, taxa_1a >= taxa_3a >= taxa_5a quando ambas as taxas comparadas são não nulas. | error | adicao | — |
+| `mart_sobrevivencia_coorte` | `expect_table_row_count_to_be_between` {"min_value": 1} | error | adicao | — |
 | `mart_sobrevivencia_coorte.ano_coorte` | `not_null` | error | adicao | — |
 | `mart_sobrevivencia_coorte.cnae_principal` | `not_null` | error | adicao | — |
 | `mart_sobrevivencia_coorte.sk_cnae` | `not_null` | error | adicao | — |
@@ -337,6 +367,8 @@
 | `int_municipios__conformados` | `test_int_municipios_conformados_ano_mais_recente` | adicao |
 | `int_municipios__conformados` | `test_int_municipios_conformados_var_ano_populacao` | adicao |
 | `mart_concorrencia_area_mercado` | `test_mart_concorrencia_area_mercado_vizinhos_e_regiao` | adicao |
+| `mart_concorrencia_municipio` | `test_mart_concorrencia_municipio_densidade_por_10k_e_ranking` | adicao |
+| `mart_dinamica_mercado` | `test_mart_dinamica_mercado_aberturas_encerramentos_e_saldo` | adicao |
 | `mart_fornecedores_proximos` | `test_mart_fornecedores_proximos_haversine_e_via` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia` | adicao |
 | `mart_sobrevivencia_coorte` | `test_mart_sobrevivencia_coorte_limites_de_elegibilidade_e_aniversario` | adicao |

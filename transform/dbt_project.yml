@@ -2,7 +2,7 @@ name: "rfb"
 version: "1.0.0"
 config-version: 2
 profile: "rfb"
-require-dbt-version: [">=1.8.0", "<2.0.0"]
+require-dbt-version: [">=1.10.5", "<2.0.0"]
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
@@ -31,6 +31,7 @@ vars:
   caso_uf: "ES"
   caso_cnaes_fornecedores: ["2071100", "4679601", "4679699"]
   raio_fornecedores_km: 100
+  limite_dias_extrato: 65  # `extrato_desatualizado` (RBP-04): idade máxima do extrato RFB mais recente
 
 models:
   rfb:

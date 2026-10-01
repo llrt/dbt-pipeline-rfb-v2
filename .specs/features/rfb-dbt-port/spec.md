@@ -150,7 +150,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A). Simples: A e C optant
 5. The system SHALL test `porte ∈ {00,01,03,05}` (nulls allowed) and `situacao ∈ {01,02,03,04,08}`.
 6. The system SHALL test that RFB municipalities without a BD pair are exactly those listed in seed `excecoes_conhecidas_municipio` (fixtures: 9707, 1182), with severity error for any other.
 7. WHEN RFB CNAEs have no BD pair THEN the system SHALL raise a `warn` reporting their count (fixtures: 1).
-8. WHILE `_ingerido_em` is older than 35 days the system SHALL report source freshness `warn`, and older than 65 days `error`.
+8. WHILE `_ingerido_em` is older than 35 days the system SHALL report source freshness `warn`, and older than 65 days `error`. *(Emenda RBP-04: `dbt source freshness --target ci` roda no `make ci`; como `_ingerido_em` mede quando ingerimos e não a data do extrato, o teste singular `extrato_desatualizado` — `warn`, ativo só fora do target `ci` — avisa quando o `_data_referencia` mais recente de `empresas`, `estabelecimentos` ou `simples` é mais velho que `limite_dias_extrato` = 65 dias.)*
 9. WHEN staging runs THEN `stg_rfb__estabelecimentos.cnpj_completo` SHALL be `lpad(raiz,8)||lpad(ordem,4)||lpad(dv,2)` with exactly 14 digits.
 10. WHEN a date field is `0`, `00000000` or not a valid `YYYYMMDD` THEN staging SHALL output NULL.
 11. WHEN `capital_soc` is `1000,50` THEN `stg_rfb__empresas.capital_social` SHALL equal 1000.50.

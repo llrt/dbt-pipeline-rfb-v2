@@ -1,0 +1,41 @@
+# Seleções nomeadas (RBP-14, adição): documentam a intenção e evitam que o `make ci` e o
+# `rfb atualizar` divirjam por flags repetidas. Uso: `dbt <comando> --selector <nome>`.
+selectors:
+  - name: ci_mes_antigo
+    description: >
+      Constrói só o necessário para `fct_resumo_mensal` (modelos e seeds a montante, sem testes), no
+      mês antigo do `make ci`: a série histórica precisa da partição do mês anterior.
+    definition:
+      union:
+        - method: fqn
+          value: fct_resumo_mensal
+          parents: true
+        - exclude:
+            - method: resource_type
+              value: test
+            - method: resource_type
+              value: unit_test
+
+  - name: ci_resumo_mes_antigo
+    description: Testes do resumo mensal sobre o mês antigo (integridade histórica entre as duas partições).
+    definition:
+      method: fqn
+      value: fct_resumo_mensal
+
+  - name: original
+    description: Nós do escopo `original` (port dos notebooks 0–5), com os testes.
+    definition:
+      method: tag
+      value: escopo_original
+
+  - name: adicao
+    description: Nós do escopo `adicao` (staging, intermediários, core, analytics, observabilidade), com os testes.
+    definition:
+      method: tag
+      value: escopo_adicao
+
+  - name: incremento_enriquecimento_bd
+    description: Nós do incremento `enriquecimento_bd` (ADR-0015), com os testes.
+    definition:
+      method: tag
+      value: incremento_enriquecimento_bd

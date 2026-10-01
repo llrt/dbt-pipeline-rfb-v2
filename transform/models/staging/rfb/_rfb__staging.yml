@@ -97,10 +97,23 @@ models:
         data_tests:
           - data_nao_futura:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_opcao_simples
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_simples
         description: >
           Data de exclusão do Simples; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
           futuro (fim do mês ou do ano) é legítima (R3-11).
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_exclusao_simples
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: opcao_mei
         description: "`true` se optante pelo MEI, `false` caso contrário."
       - name: dat_opcao_mei
@@ -108,10 +121,23 @@ models:
         data_tests:
           - data_nao_futura:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_opcao_mei
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_exclusao_mei
         description: >
           Data de exclusão do MEI; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
           futuro é legítima (R3-11).
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_exclusao_mei
+                entidade: simples
+                sentinelas: ['00000000', '0']
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
 
   - name: stg_rfb__empresas
     description: >
@@ -138,6 +164,12 @@ models:
         description: Código de qualificação do responsável pela empresa perante a RFB, 2 dígitos.
       - name: capital_social
         description: Capital social declarado, DECIMAL(18,2) (`1000,50` -> 1000.50); inválido -> NULL.
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: capital_soc
+                entidade: empresas
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: porte_codigo
         description: "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio."
         data_tests:
@@ -146,6 +178,11 @@ models:
                 values: [0, 1, 3, 5]
                 quote: false
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: porte
+                entidade: empresas
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: ente_federativo_responsavel
         description: Ente federativo responsável, preenchido só para órgãos/autarquias públicas.
       - name: _mes_referencia
@@ -159,6 +196,12 @@ models:
       `cnpj_completo` com 14 dígitos, datas `YYYYMMDD` -> DATE (`0`, `00000000` e inválidas ->
       NULL), códigos com zeros à esquerda, CNAEs secundários como texto original e como lista.
       **Sem** colunas de contato (`email`, `ddd*`, `tel*`, `fax`) — ADR-0008.
+    data_tests:
+      # RBP-13: a situação atual não pode ser anterior ao início da atividade (datas nulas ficam de fora).
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "dat_situacao is null or dat_inicio_atividade is null or dat_situacao >= dat_inicio_atividade"
+          config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
     columns:
       - name: cnpj_raiz
         description: 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).
@@ -184,6 +227,12 @@ models:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: matriz_filial_codigo
         description: "1 = matriz, 2 = filial."
+        data_tests:
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: ind_matriz_filial
+                entidade: estabelecimentos
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: nome_fantasia
         description: Nome fantasia do estabelecimento; NULL se vazio.
       - name: situacao_codigo
@@ -194,10 +243,21 @@ models:
                 values: [1, 2, 3, 4, 8]
                 quote: false
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: situacao
+                entidade: estabelecimentos
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: dat_situacao
         description: Data da situação cadastral atual (para ativos, costuma ser a data de início).
         data_tests:
           - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_situacao
+                entidade: estabelecimentos
+                sentinelas: ['00000000', '0']
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: motivo_situacao_codigo
         description: Código do motivo da situação cadastral (2 dígitos; FK lógica para `stg_rfb__motivos`).
@@ -217,6 +277,12 @@ models:
                 min_value: "date '1900-01-01'"
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
           - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_inicio_atividade
+                entidade: estabelecimentos
+                sentinelas: ['00000000', '0']
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: cnae_principal
         description: Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).
@@ -256,6 +322,12 @@ models:
         description: Data da situação especial.
         data_tests:
           - data_nao_futura:
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - taxa_conversao_tipada:
+              arguments:
+                coluna_raw: dat_sit_especial
+                entidade: estabelecimentos
+                sentinelas: ['00000000', '0']
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: _mes_referencia
         description: Mês de referência (`YYYY-MM`) do extrato RFB.
@@ -450,25 +522,27 @@ unit_tests:
           dat_situacao_especial: null
 
   - name: test_stg_rfb__estabelecimentos_datas
-    description: "STG AC 10: datas `0`, `00000000` e `20230230` (inexistente) -> NULL; `20000229` (ano bissexto) -> 2000-02-29."
+    description: "STG AC 10: datas `0`, `00000000` e `20230230` (inexistente) -> NULL; `20000229` (ano bissexto) -> 2000-02-29; cada coluna de data lê o próprio campo raw (RBP-13, N19)."
     model: stg_rfb__estabelecimentos
     given:
       - input: source('rfb', 'estabelecimentos')
         format: sql
         rows: |
-          with datas(cnpj_raiz, dat_inicio_atividade) as (
-              values ('1', '0'), ('2', '00000000'), ('3', '20230230'), ('4', '20000229')
+          with datas(cnpj_raiz, dat_inicio_atividade, dat_situacao, dat_sit_especial) as (
+              values
+                  ('1', '0', '0', '0'), ('2', '00000000', '00000000', '00000000'),
+                  ('3', '20230230', '20230230', '20230230'), ('4', '20000229', '20010301', '20020415')
           )
           select
               cnpj_raiz, '0001' as cnpj_ordem, '00' as cnpj_dv, '1' as ind_matriz_filial,
               null::varchar as nome_fantasia, '02' as situacao,
-              dat_inicio_atividade as dat_situacao, '00' as mot_situacao,
+              dat_situacao, '00' as mot_situacao,
               null::varchar as cidade_exterior, null::varchar as pais, dat_inicio_atividade,
               '4741500' as cnae_principal, null::varchar as cnaes_secundarios,
               null::varchar as tip_logradouro, null::varchar as logradouro,
               null::varchar as num_logradouro, null::varchar as compl_logradouro,
               null::varchar as bairro, null::varchar as cep, 'ES' as uf, '5643' as municipio,
-              null::varchar as sit_especial, dat_inicio_atividade as dat_sit_especial,
+              null::varchar as sit_especial, dat_sit_especial,
               '2026-09' as _mes_referencia, date '2026-09-12' as _data_referencia
           from datas
     expect:
@@ -478,8 +552,8 @@ unit_tests:
         - { cnpj_raiz: "00000003", dat_inicio_atividade: null, dat_situacao: null, dat_situacao_especial: null }
         - cnpj_raiz: "00000004"
           dat_inicio_atividade: "2000-02-29"
-          dat_situacao: "2000-02-29"
-          dat_situacao_especial: "2000-02-29"
+          dat_situacao: "2001-03-01"
+          dat_situacao_especial: "2002-04-15"
 
   - name: test_stg_rfb__estabelecimentos_cnaes_secundarios
     description: "`'4679699,4744099'` -> lista de 2; itens com espaço/sem zero à esquerda -> trim + 7 dígitos; vazio/NULL -> texto NULL e lista vazia."

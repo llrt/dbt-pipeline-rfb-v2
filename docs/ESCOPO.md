@@ -22,7 +22,7 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Manifesto, idempotência, limiar de rejeitos | adição | — |
 | Upload para Tigris (`rfb sincronizar`) | adaptado | `subir_arquivos_tigris.py` |
 | Fontes dbt com testes de unicidade/completude/integridade/domínio | original | notebooks 2.1.1, 2.1.2, 2.2, 2.3 |
-| Freshness das fontes | adição | — |
+| Freshness das fontes (`dbt source freshness` no `make ci`) e teste `extrato_desatualizado` (idade do extrato, `warn` fora do target `ci`) | adição | — |
 | `relationships` das fontes (natureza/CNAE/município) avaliados por mês (`relacionamentos_fontes_por_mes`) | adaptado | original tinha um único mês; com meses retidos o `relationships` genérico cruzaria todos (R1-22) |
 | Staging tipado | adição | original não tinha camada explícita |
 | `bh_empresas` | original | notebook 3 |
@@ -36,6 +36,7 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Análises das adições no estudo de caso (`analyses/estudo_caso_adicao_*`, `estudo_caso_parametros`) | adição | usam os 4 marts novos |
 | Relatório gerado do estudo de caso (`rfb relatorio`, `src/rfb_pipeline/relatorio.py`) | adição | — |
 | Testes genéricos `cnpj_dv_valido` e `data_nao_futura`, `store_failures` nos testes warn, guarda de escopo (`test_escopo_meta.py`) | adição | — |
+| Endurecimento da revisão RBP: teste genérico `taxa_conversao_tipada`, checks de volume (`dbt_expectations`), contratos nos marts de analytics, `selectors.yml`, guardas de cobertura de descrições, `make ci` com unit + lint e workflow `.github/workflows/ci.yml` (não executado até o repositório ser publicado) | adição | docs/revisoes/RBP-triagem.md |
 | Histórico de testes (`dq_historico_testes`, `dq_resumo_execucao`) e catálogo `docs/QUALIDADE_DADOS.md` | adição | — |
 | Atualização mensal (`rfb atualizar`, completude do mês, retenção, estado) | adição (pedido do usuário) | original era carga estática única (notebook 0, "Observações") — ADR-0012 |
 | Série histórica `fct_resumo_mensal` particionada por mês | adição (pedido do usuário) | ADR-0012/0013 |

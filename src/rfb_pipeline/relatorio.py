@@ -112,7 +112,9 @@ def ler_qualidade(warehouse: Path) -> tuple[dict, list[tuple]] | None:
                 "order by nome_teste",
                 [ultimo[0]],
             ).fetchall()
-        except duckdb.Error:
+        except (
+            duckdb.CatalogException
+        ):  # só "tabela inexistente"; outro erro (coluna renomeada) propaga
             return None
     chaves = ["invocation_id", "executado_em", "testes", "aprovados", "avisos", "falhos", "pulados"]
     return dict(zip(chaves, ultimo, strict=True)), pendentes

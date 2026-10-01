@@ -19,19 +19,22 @@ fixtures:
 ingerir:
 	uv run rfb ingerir $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
 
-## ci: pipeline local completo sobre fixtures sintéticas, sem rede, em < 120s
+## ci: unit + pipeline completo sobre fixtures sintéticas + integração + lint, sem rede (RBP-03)
 ci: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 ci:
+	uv run pytest -q tests/unit
 	rm -rf .tmp/ci
 	uv run python scripts/gerar_fixtures.py --saida .tmp/ci/fixtures
 	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-08 --permitir-incompleto
 	uv run rfb ingerir --origem-local .tmp/ci/fixtures --mes 2026-09 --permitir-incompleto
 	mkdir -p $(RAIZ_DADOS)/gold
 	cd transform && uv run dbt deps
-	cd transform && uv run dbt build --target ci --select +fct_resumo_mensal --exclude 'resource_type:test resource_type:unit_test' --vars '{mes_referencia: 2026-08}'
-	cd transform && uv run dbt test --target ci --select fct_resumo_mensal --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt build --target ci --selector ci_mes_antigo --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt test --target ci --selector ci_resumo_mes_antigo --vars '{mes_referencia: 2026-08}'
+	cd transform && uv run dbt source freshness --target ci
 	cd transform && uv run dbt build --target ci
 	uv run pytest -q tests/integration
+	$(MAKE) lint
 
 ## pipeline: pipeline ponta a ponta sobre dados reais (não implementado — T28)
 pipeline:
