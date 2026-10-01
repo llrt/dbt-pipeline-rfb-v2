@@ -111,7 +111,7 @@ flowchart LR
 | R3 | concluída: **APROVADO COM RESSALVAS** (0 bloq., 6 imp., 11 menores, 3 sug.; 25 mutações, 9 sobreviventes; build real fev/2025 completo verde em 275 s, pico 24,5 GB) — triagem em `docs/revisoes/R3-triagem.md` | 4558c4e6 · Claude Opus alto (traycer-review) | `22d2352` |
 | F3a | concluído, verificado (181 unit + 76 integração; dbt PASS=250 WARN=4 ERROR=0; real fev/2025: resumo 5,44 M linhas/55 MB por mês, `dim_data` 45.697 dias contínuos 1899-12-30→2025-02-08 sem NULL, −2 em 8+2 datas; M17 morta) e integrado — R3-01, 02, 03, 05, 10, 14, 18, P16, P18, P21 | 21086135 · Claude Sonnet médio | 11 commits `0b22904`…`1d26fb9` |
 | RBP | concluída: guia **aprovado c/ ressalvas** (43 erros, 8 imp.; P2 reaberta) e projeto **aprovado c/ ressalvas** (0 bloq., 4 imp., 9 menores, 2 sug.; 23 mutações, 5 sobreviventes) — triagem em `docs/revisoes/RBP-triagem.md` | 98a4dc3f · Claude Opus alto (traycer-review) | `45afc02` |
-| FBPg | em andamento — correções do guia RBP-G01..G43 + P2/P9 | (Gemini 3.8 Flash high) | — |
+| FBPg | em andamento — correções do guia RBP-G01..G43 + P2/P9 | 080e5291 · Gemini 3.8 Flash high (`openrouter`) | — |
 | FBPa | planejado (após B10) — correções do projeto RBP-01..11, 13, 14 | (Sonnet médio) | — |
 | B10 | em andamento — enriquecimento Base dos Dados, Fase 1 (T38–T41; ADR-0015, AD-023; incremento `enriquecimento_bd`), paralelo à RBP | 11ae6890 · Claude Sonnet médio | — |
 | F3b | concluído, verificado (184 unit + 80 integração; dbt PASS=267 WARN=4 ERROR=0; M03/M04/M08/M11/M13/M21 mortas — M21 refeita pelo líder; fixture P emenda ANA-04 AC 5; real: relatório 159 linhas, `cnpj_dv_valido` 18 s) e integrado — R3-04, 07–09, 11–13, 15–17, 19, 20 | 688cd14e · Claude Sonnet médio | 11 commits `2155921`…`0cc60bc` |
