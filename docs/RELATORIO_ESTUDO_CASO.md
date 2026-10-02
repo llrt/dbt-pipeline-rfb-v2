@@ -152,9 +152,9 @@ Indicadores de Fundão/ES: **0,0000** ativos por mil domicílios e **0,000000** 
 
 ## Qualidade dos dados (última execução dbt)
 
-> Execução dbt `d6c94c28-884c-40f9-a07c-3aefd3b0e606` em 2026-10-01 12:39:04.
+> Execução dbt `b2d50f2c-d6fa-47f6-bf89-54389020bb22` em 2026-10-02 12:26:35.
 
-**312** testes: 298 aprovados, 14 avisos, 0 falhos, 0 pulados.
+**319** testes: 306 aprovados, 13 avisos, 0 falhos, 0 pulados.
 
 | Teste | Status | Linhas com falha | Severidade | Escopo |
 |---|---|---|---|---|
@@ -167,8 +167,7 @@ Indicadores de Fundão/ES: **0,0000** ativos por mil domicílios e **0,000000** 
 | `data_nao_futura_stg_rfb__simples_dat_opcao_simples` | warn | 222 | warn | adicao |
 | `dbt_utils_accepted_range_stg_rfb__estabelecimentos_dat_inicio_atividade__date_1900_01_01_` | warn | 4 | warn | adicao |
 | `dbt_utils_expression_is_true_fct_estabelecimentos_not_opcao_mei_or_opcao_simples` | warn | 494 | warn | adicao |
-| `dbt_utils_expression_is_true_stg_bd__pib_abs_pib_va_impostos_liquidos_greatest_1_abs_pib_0_0001_` | warn | 477 | warn | adicao |
 | `dbt_utils_expression_is_true_stg_rfb__estabelecimentos_dat_situacao_is_null_or_dat_inicio_atividade_is_null_or_dat_situacao_dat_inicio_atividade` | warn | 1058 | warn | adicao |
-| `dbt_utils_source_unique_combination_of_columns_rfb_empresas_cnpj_raiz___mes_referencia` | warn | 1 | warn | original |
+| `dbt_utils_source_unique_combination_of_columns_rfb_empresas_cnpj_raiz___mes_referencia` | warn | 1 | error | original |
 | `not_null_dim_municipio_codigo_rfb` | warn | 1 | warn | adicao |
-| `not_null_stg_bd__populacao_id_municipio` | warn | 1 | warn | adicao |
+| `not_null_stg_bd__populacao_id_municipio` | warn | 1 | error | adicao |
