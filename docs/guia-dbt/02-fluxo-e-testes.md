@@ -585,10 +585,11 @@ Garantem que os dados brutos depositados pelo módulo de ingestão não estejam 
 # transform/models/staging/rfb/_rfb__sources.yml
 sources:
   - name: rfb
-    loaded_at_field: _ingerido_em
-    freshness:
-      warn_after: {count: 35, period: day}
-      error_after: {count: 65, period: day}
+    config:
+      loaded_at_field: _ingerido_em
+      freshness:
+        warn_after: { count: 35, period: day }
+        error_after: { count: 65, period: day }
 ```
 
 Execução dedicada:

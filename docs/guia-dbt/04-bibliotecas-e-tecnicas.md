@@ -194,8 +194,9 @@ O adaptador `dbt-duckdb` não é apenas um conector relacional comum; ele foi ar
     - name: rfb
       tables:
         - name: empresas
-          meta:
-            external_location: "{{ env_var('RAIZ_DADOS') }}/raw/rfb/empresas/mes_referencia=*/*.parquet"
+          config:
+            meta:
+              external_location: "{{ env_var('RAIZ_DADOS') }}/raw/rfb/empresas/mes_referencia=*/*.parquet"
 ```
 - **Materialização `external` em Modelos**: Grava o resultado do `SELECT` diretamente em um arquivo externo (Parquet, CSV ou JSON) sem inflar o arquivo `.duckdb`:
   ```sql

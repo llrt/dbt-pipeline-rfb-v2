@@ -13,11 +13,12 @@ sources:
           `br_bd_diretorios_brasil.municipio`: catálogo curado de municípios do IBGE, com ids,
           UF, hierarquia regional e centroide geográfico (notebook 2.1.2). Fonte:
           `municipio.csv.gz`.
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/municipio/*.parquet')
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/municipio/*.parquet')
         columns:
           - name: id_municipio
             description: Código IBGE do município (7 dígitos).
@@ -49,11 +50,12 @@ sources:
           `br_bd_diretorios_brasil.cnae_2`: catálogo curado de CNAEs (subclasse, classe, grupo,
           divisão, seção) segundo a versão 2.x do IBGE (notebook 2.1.2). Fonte:
           `cnae_2.csv.gz`.
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/cnae_2/*.parquet')
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/cnae_2/*.parquet')
         columns:
           - name: subclasse
             description: Subclasse CNAE (7 dígitos; FK lógica para `rfb.cnaes.codigo`).
@@ -80,11 +82,12 @@ sources:
         description: >
           `br_ibge_populacao.municipio`: população estimada por município e ano (adição: não
           usada pelo modelo original). Fonte: `populacao.csv.gz`.
-        meta:
-          escopo: adicao
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/populacao/*.parquet')
-        tags: [escopo_adicao]
+        config:
+          tags: [escopo_adicao]
+          meta:
+            escopo: adicao
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/populacao/*.parquet')
         data_tests:
           - dbt_utils.unique_combination_of_columns:
               arguments:
@@ -104,11 +107,12 @@ sources:
         description: >
           `br_ibge_pib.municipio`: PIB municipal e seus componentes (adição: não usada pelo
           modelo original). Fonte: `pib.csv.gz`.
-        meta:
-          escopo: adicao
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/pib/*.parquet')
-        tags: [escopo_adicao]
+        config:
+          tags: [escopo_adicao]
+          meta:
+            escopo: adicao
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/pib/*.parquet')
         data_tests:
           - dbt_utils.unique_combination_of_columns:
               arguments:
@@ -140,12 +144,13 @@ sources:
           `br_ibge_censo_2022.municipio`: Censo 2022 por município (população, domicílios, área em
           km², alfabetização, idade mediana, razão de sexo, índice de envelhecimento, populações
           indígena e quilombola). Fonte: `censo_2022_municipio.csv.gz`.
-        meta:
-          escopo: adicao
-          incremento: enriquecimento_bd
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/censo_2022_municipio/*.parquet')
-        tags: [escopo_adicao, incremento_enriquecimento_bd]
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_bd]
+          meta:
+            escopo: adicao
+            incremento: enriquecimento_bd
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/censo_2022_municipio/*.parquet')
         columns:
           - name: id_municipio
             description: Código IBGE do município (FK lógica para `municipio.id_municipio`).
@@ -184,12 +189,13 @@ sources:
           `br_geobr_mapas.regiao_metropolitana_2017`: região metropolitana (ou RIDE, aglomeração,
           colar) de cada município, segundo o GeoBR 2017. A coluna `geometria` (WKT) existe no
           raw e é descartada no staging. Fonte: `regiao_metropolitana_2017.csv.gz`.
-        meta:
-          escopo: adicao
-          incremento: enriquecimento_bd
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/regiao_metropolitana_2017/*.parquet')
-        tags: [escopo_adicao, incremento_enriquecimento_bd]
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_bd]
+          meta:
+            escopo: adicao
+            incremento: enriquecimento_bd
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/regiao_metropolitana_2017/*.parquet')
         columns:
           - name: nome_regiao_metropolitana
             description: "Nome da região metropolitana (ex.: `RM Grande Vitória`)."
@@ -212,12 +218,13 @@ sources:
         description: >
           `br_bd_vizinhanca.municipio`: pares de municípios vizinhos por ano de malha. Fonte:
           `vizinhanca_municipio.csv.gz`.
-        meta:
-          escopo: adicao
-          incremento: enriquecimento_bd
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/vizinhanca_municipio/*.parquet')
-        tags: [escopo_adicao, incremento_enriquecimento_bd]
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_bd]
+          meta:
+            escopo: adicao
+            incremento: enriquecimento_bd
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/vizinhanca_municipio/*.parquet')
         columns:
           - name: ano
             description: Ano da malha municipal do par.

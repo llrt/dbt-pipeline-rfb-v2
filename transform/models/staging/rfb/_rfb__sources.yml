@@ -7,21 +7,23 @@ sources:
       pela ingestão Python (`src/rfb_pipeline`). Todas as colunas de dado são VARCHAR
       (ARCHITECTURE.md §4.2); a tipagem acontece no staging.
     loader: rfb_pipeline (Python, DuckDB read_csv)
-    loaded_at_field: _ingerido_em
-    freshness:
-      warn_after: { count: 35, period: day }
-      error_after: { count: 65, period: day }
+    config:
+      loaded_at_field: _ingerido_em
+      freshness:
+        warn_after: { count: 35, period: day }
+        error_after: { count: 65, period: day }
     tables:
       - name: empresas
         description: >
           Uma linha por empresa (CNPJ raiz, 8 primeiros dígitos). Notebook original: 1 (carga) e
           2.2 (qualidade). Fonte: `Empresas{0..9}.zip`.
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         data_tests:
           # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
           # warn até 100 raízes (B8): o extrato real 2026-09 traz uma raiz duplicada (linha "fantasma");
@@ -79,12 +81,13 @@ sources:
         description: >
           Uma linha por estabelecimento (CNPJ completo: raiz + ordem + DV). Notebook original: 1
           (carga) e 2.3 (qualidade). Fonte: `Estabelecimentos{0..9}.zip`.
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         data_tests:
           # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
           - dbt_utils.unique_combination_of_columns:
@@ -180,12 +183,13 @@ sources:
         description: >
           Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (adição:
           não fazia parte do modelo original). Fonte: `Simples.zip`.
-        meta:
-          escopo: adicao
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/simples/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_adicao]
+        config:
+          tags: [escopo_adicao]
+          meta:
+            escopo: adicao
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/simples/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         columns:
           - name: cnpj_raiz
             description: 8 primeiros dígitos do CNPJ (FK lógica para `empresas.cnpj_raiz`).
@@ -213,12 +217,13 @@ sources:
         description: >
           Tabela de domínio: código e descrição de cada subclasse CNAE segundo a RFB (notebook
           2.1.1). A Base dos Dados traz uma versão mais rica (`basedosdados.cnae_2`).
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/cnaes/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/cnaes/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         data_tests:
           # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
           - dbt_utils.unique_combination_of_columns:
@@ -245,12 +250,13 @@ sources:
         description: >
           Tabela de domínio: código RFB e nome de cada município (notebook 2.1.1). Não traz UF;
           o cruzamento com UF/região vem de `basedosdados.municipio`.
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/municipios/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/municipios/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         data_tests:
           # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
           - dbt_utils.unique_combination_of_columns:
@@ -275,12 +281,13 @@ sources:
 
       - name: naturezas
         description: "Tabela de domínio: código e descrição de cada natureza jurídica (notebook 2.1.1)."
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/naturezas/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/naturezas/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         data_tests:
           # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
           - dbt_utils.unique_combination_of_columns:
@@ -305,12 +312,13 @@ sources:
 
       - name: motivos
         description: "Tabela de domínio: código e descrição de cada motivo de situação cadastral (notebook 2.1.1)."
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/motivos/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_original]
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/motivos/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         data_tests:
           # Raw retém múltiplos meses (atualização mensal): unicidade é por mês, não global.
           - dbt_utils.unique_combination_of_columns:
@@ -337,12 +345,13 @@ sources:
         description: >
           Tabela de domínio: código e descrição de cada país (adição: não usada pelo modelo
           original). Fonte: `Paises.zip`.
-        meta:
-          escopo: adicao
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/paises/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_adicao]
+        config:
+          tags: [escopo_adicao]
+          meta:
+            escopo: adicao
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/paises/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         columns:
           - name: codigo
             description: Código do país segundo a tabela da RFB.
@@ -360,12 +369,13 @@ sources:
         description: >
           Tabela de domínio: código e descrição de cada qualificação de responsável (adição: não
           usada pelo modelo original). Fonte: `Qualificacoes.zip`.
-        meta:
-          escopo: adicao
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/qualificacoes/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
-        tags: [escopo_adicao]
+        config:
+          tags: [escopo_adicao]
+          meta:
+            escopo: adicao
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/qualificacoes/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
         columns:
           - name: codigo
             description: Código de qualificação do responsável.

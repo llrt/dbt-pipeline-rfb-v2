@@ -1,3 +1,4 @@
+{# `options` é do dbt-duckdb (dbt-core); o dbt v2 ainda o rejeita (dbt#16526) — bloqueio da migração, ADR-0017. #}
 {{ config(
     location=raiz_serie() ~ '/fct_resumo_mensal',
     options={'partition_by': 'mes_referencia', 'overwrite_or_ignore': true}

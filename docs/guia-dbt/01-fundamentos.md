@@ -259,14 +259,16 @@ sources:
     tables:
       - name: empresas
         description: "Parquet bruto all-VARCHAR de Empresas0.zip"
-        meta:
-          escopo: original
-          external_location: >-
-            read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
-            hive_partitioning=false)
+        config:
+          tags: [escopo_original]
+          meta:
+            escopo: original
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
+              hive_partitioning=false)
 ```
 
-No `dbt-duckdb`, embora seja possível configurar `meta.external_location` no nível da fonte usando o placeholder `{name}`, neste projeto cada tabela declara explicitamente sua própria `external_location` com o padrão `read_parquet('.../<entidade>/mes_referencia=*/*.parquet', hive_partitioning=false)`. Isso permite ler todas as partições do raw sem fixar mês no YAML (o filtro do mês ativo é feito dinamicamente no staging via macro `filtro_mes_referencia`). Todas as fontes RFB e BD usam isso, derivando o caminho de `env_var('RAIZ_DADOS')` (arquivo em `dados/` ou bucket `s3://`).
+No `dbt-duckdb`, embora seja possível configurar `config.meta.external_location` no nível da fonte usando o placeholder `{name}`, neste projeto cada tabela declara explicitamente sua própria `external_location` com o padrão `read_parquet('.../<entidade>/mes_referencia=*/*.parquet', hive_partitioning=false)`. Isso permite ler todas as partições do raw sem fixar mês no YAML (o filtro do mês ativo é feito dinamicamente no staging via macro `filtro_mes_referencia`). Todas as fontes RFB e BD usam isso, derivando o caminho de `env_var('RAIZ_DADOS')` (arquivo em `dados/` ou bucket `s3://`).
 
 ### 3.3 Seeds
 
@@ -557,9 +559,10 @@ exposures:
       ODBC; veja `docs/POWER_BI.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
     owner:
       name: Equipe de dados
-    meta:
-      escopo: adicao
-    tags: ["escopo_adicao"]
+    config:
+      tags: ["escopo_adicao"]
+      meta:
+        escopo: adicao
     depends_on:
       - ref('dim_data')
       - ref('dim_municipio')
@@ -621,10 +624,17 @@ Exemplo no YAML (`transform/models/marts/original/_original__models.yml`):
 ```yaml
 models:
   - name: bh_empresas
-    meta:
-      escopo: original
-    tags: ["escopo_original"]
+    config:
+      tags: ["escopo_original"]
+      meta:
+        escopo: original
 ```
+
+Desde o dbt 1.10, `meta` e `tags` de fontes, modelos, colunas e exposures ficam **dentro de `config:`**. No nível
+de topo do nó eles estão obsoletos, e o dbt v2 (Fusion) os rejeita. Este projeto já usa o formato novo, aplicado com o
+[`dbt-autofix`](https://github.com/dbt-labs/dbt-autofix) ([ADR-0017](../../docs/adr/0017-avaliacao-dbt-fusion.md)). Na mesma
+linha, `freshness` e `loaded_at_field` das fontes também ficam em `config:`. Os argumentos de testes genéricos ficam
+em `arguments:`, e a flag `require_generic_test_arguments_property` do `dbt_project.yml` torna isso obrigatório.
 
 Uma suite de testes de integração (`tests/integration/test_escopo_meta.py`) verifica no CI se 100% dos nós contêm `meta.escopo` e a respectiva `tag` correspondente.
 

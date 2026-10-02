@@ -10,9 +10,10 @@ exposures:
       ODBC; veja `docs/POWER_BI.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
     owner:
       name: Equipe de dados
-    meta:
-      escopo: adicao
-    tags: ["escopo_adicao"]
+    config:
+      tags: ["escopo_adicao"]
+      meta:
+        escopo: adicao
     depends_on:
       - ref('dim_data')
       - ref('dim_municipio')

@@ -52,6 +52,8 @@ O que funcionou sem mudança:
   semanas de GA.
 - **Antecipação permitida, sem risco:** o item 1 (`dbt-autofix` nos YAMLs) vale para os dois motores e pode
   entrar num lote próprio, verificado por `make ci`, quando o usuário pedir.
+  *Aplicado em 2026-10-02 no lote AF (AD-036).* O `options` da `fct_resumo_mensal` ficou fora, porque movê-lo para
+  `meta` desliga a partição no dbt-core. No dbt v2, o `parse` caiu de 67 erros para 1, justamente esse `options`.
 - **Critérios para reavaliar** (todos necessários):
   1. `options` da materialização `external` aceito no v2, com `partition_by` gravando partições hive
      (dbt#16526 fechado), ou um caminho alternativo validado no backfill;
@@ -67,8 +69,9 @@ O que funcionou sem mudança:
 
 **Consequências.**
 - Nada muda no código agora.
-- A dívida conhecida fica registrada: YAML no formato antigo, sqlfluff com templater dbt e dependência de
-  `options` e `config_options`, que são específicos do dbt-duckdb do v1.
+- A dívida conhecida fica registrada: sqlfluff com templater dbt e dependência de `options` e
+  `config_options`, que são específicos do dbt-duckdb do v1. O YAML no formato antigo deixou de ser dívida
+  com o lote AF.
 - O guia dbt segue descrevendo o dbt-core.
 
 Fontes: [DuckDB Now Ships inside dbt v2](https://duckdb.org/2026/09/22/dbt-fusion),

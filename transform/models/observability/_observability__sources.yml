@@ -10,9 +10,10 @@ sources:
           Histórico acumulado dos resultados de testes dbt, uma linha por teste por execução
           (DQ-02). Criada por `criar_historico_testes` e alimentada por
           `registrar_resultados_testes`; persiste no `warehouse.duckdb`.
-        meta:
-          escopo: adicao
-        tags: [escopo_adicao]
+        config:
+          tags: [escopo_adicao]
+          meta:
+            escopo: adicao
         columns:
           - name: invocation_id
             description: Identificador da execução dbt (`invocation_id`).

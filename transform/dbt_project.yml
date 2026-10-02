@@ -92,3 +92,9 @@ unit_tests:
     +meta:
       escopo: adicao
     +tags: ["escopo_adicao"]
+
+# ADR-0017: YAML no formato aceito pelo dbt-core 1.10+ e pelo dbt v2 (Fusion) — `meta`, `tags`, `freshness` e
+# `loaded_at_field` dentro de `config:` (dbt-autofix). A flag faz os argumentos de testes genéricos virem só de
+# `arguments:` (já é o formato usado aqui) e é o padrão no dbt v2.
+flags:
+  require_generic_test_arguments_property: true

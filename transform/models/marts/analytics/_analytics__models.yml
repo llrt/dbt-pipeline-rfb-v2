@@ -353,7 +353,7 @@ models:
           true se o município tem ao menos um estabelecimento (ativo ou inativo) do CNAE; false nos
           vazios de mercado (vizinhos ou região metropolitana têm ativo, o município não).
         data_type: boolean
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }

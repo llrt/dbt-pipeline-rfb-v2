@@ -158,27 +158,27 @@ models:
         description: >
           População residente do Censo 2022; NULL sem dado do Censo.
         data_type: bigint
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
       - name: domicilios_2022
         description: >
           Domicílios do Censo 2022 (denominador de ativos por mil domicílios); NULL sem dado.
         data_type: bigint
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
       - name: area_km2
         description: >
           Área territorial do município em km² (Censo 2022); NULL sem dado.
         data_type: double
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
       - name: densidade_hab_km2
         description: >
           População do Censo 2022 por km² (2 casas); NULL sem Censo ou sem área, nunca zero.
         data_type: double
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
       - name: taxa_alfabetizacao
         description: >
           Taxa de alfabetização do Censo 2022 (fração de 0 a 1).
         data_type: double
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0, max_value: 1 }
@@ -187,22 +187,22 @@ models:
         description: >
           Idade mediana em anos (Censo 2022).
         data_type: double
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
       - name: indice_envelhecimento
         description: >
           Índice de envelhecimento (idosos por 100 jovens) do Censo 2022.
         data_type: double
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
       - name: razao_sexo
         description: >
           Razão de sexo (homens por 100 mulheres) do Censo 2022.
         data_type: double
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
       - name: nome_regiao_metropolitana
         description: >
           Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1.
         data_type: varchar
-        meta: { incremento: enriquecimento_bd }
+        config: { meta: { incremento: enriquecimento_bd } }
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }

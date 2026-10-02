@@ -42,8 +42,9 @@ models:
           (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste
           `sem_cpf_no_nome` (error) barra CPF com DV válido.
         data_type: varchar
-        meta:
-          escopo: adaptado
+        config:
+          meta:
+            escopo: adaptado
         data_tests:
           - sem_cpf_no_nome:
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -128,8 +129,9 @@ models:
           linhas (spec Original AC 12, emenda R2-02). A data não é anulada no staging, para manter
           a paridade.
         data_type: double
-        meta:
-          escopo: adaptado
+        config:
+          meta:
+            escopo: adaptado
         data_tests:
           # warn_if/error_if só valem com severity error (padrão): 1..100 linhas -> WARN, >100 -> ERROR.
           - dbt_utils.accepted_range:

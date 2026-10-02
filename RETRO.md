@@ -95,7 +95,12 @@ foi o B8 (US$ 16,25, E2E real); Opus 5.5 respondeu por 69 % do custo (líder, cr
 - *(Resolvido após a entrega)* **GitHub Actions**: o 1º run no repositório publicado falhou porque o Makefile usava `set -o pipefail` e o `/bin/sh` do Ubuntu é `dash` (no macOS é bash); corrigido com `SHELL := /bin/bash`, run verde em ~6,5 min. Lição: o CI local roda no mesmo SO do desenvolvedor — fixe o shell do make.
 - *(Resolvido após a entrega)* **Avisos do CI**: as actions rodavam em Node 20 (descontinuado nos runners) e o `ubuntu-latest` migra para o Ubuntu 26 em 2026-10-19. Atualizadas para Node 24 (checkout v7.0.1, setup-uv v10.2.0, cache v6.1.0, ainda por SHA), runner fixado em `ubuntu-24.04` e `workflow_dispatch` para disparo manual; 3 runs verdes (AD-034). Lição: run verde com anotações amarelas é dívida com data marcada — fixar o runner e revisar as actions junto com o pin por SHA.
 - **Release [v1.0.0](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.0.0)** publicada no GitHub (tag anotada em `8294e6e`, CI verde), com a lista de features; versão do pacote 1.0.0.
-- **dbt Fusion (dbt v2)**: avaliado em 2026-10-02 e **adiado** ([ADR-0017](docs/adr/0017-avaliacao-dbt-fusion.md)); reavaliar quando os critérios do ADR forem atendidos. O `dbt-autofix` dos YAMLs pode ser antecipado.
+- **dbt Fusion (dbt v2)**: avaliado em 2026-10-02 e **adiado** ([ADR-0017](docs/adr/0017-avaliacao-dbt-fusion.md)); reavaliar quando os critérios do ADR forem atendidos. O `dbt-autofix` dos YAMLs já foi aplicado (lote AF, AD-036), e no v2 resta só o bloqueio do `options`.
+- **Incidente (2026-10-02): teste não hermético publicou no MotherDuck real.** Com o token real no `.env`, o
+  `test_cli_sem_variaveis_sai_com_zero` apagava as variáveis do ambiente, mas a CLI as relia do `.env` e publicava 3 tabelas
+  sintéticas (`dim_x`, `dim_y`, `fct_serie`) no banco `dbt_rfb`. Correção: `tests/conftest.py` desliga o `load_dotenv`
+  em todos os testes (AD-036). Lição: teste que remove variáveis de ambiente precisa também isolar as fontes que as
+  recarregam (`.env`); revisar isso quando um segredo real passa a existir na máquina.
 - Sugestões R4-11 pendentes: warn de controles C1 nos nomes, raiz alfanumérica em teste de unidade,
   gitleaks/detect-secrets, teto de descompressão contra zip bomb.
 - *(Resolvido após a entrega)* **Limpeza**: 32 worktrees integrados/órfãos e ~49 GB de cópias de dados reais removidos com aprovação do usuário (AD-031).
