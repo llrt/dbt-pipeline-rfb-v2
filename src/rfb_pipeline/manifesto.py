@@ -16,6 +16,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+from rfb_pipeline import __version__
 from rfb_pipeline.configuracao import Configuracao
 from rfb_pipeline.erros import ExecucaoEmAndamentoErro
 
@@ -31,7 +32,7 @@ __all__ = [
     "sha256_arquivo",
 ]
 
-VERSAO_PIPELINE = "0.1.0"
+VERSAO_PIPELINE = __version__
 _BLOCO_HASH = 1024 * 1024
 
 

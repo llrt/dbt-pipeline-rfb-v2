@@ -1,6 +1,6 @@
 [project]
 name = "rfb-pipeline"
-version = "0.1.0"
+version = "1.0.0"
 description = "Port do MVP RFB/CNPJ a dbt + DuckDB."
 readme = "README.md"
 requires-python = ">=3.12"

@@ -1,5 +1,7 @@
 # Inteligência de mercado com dados de CNPJ — dbt + DuckDB + Parquet
 
+[![ci](https://github.com/llrt/dbt-pipeline-rfb-v2/actions/workflows/ci.yml/badge.svg)](https://github.com/llrt/dbt-pipeline-rfb-v2/actions/workflows/ci.yml)
+
 Port do [MVP de Engenharia de Dados (PUC-Rio)](https://github.com/llrt/pos_dados_puc_rio-mvp_sprint_eng_dados)
 — originalmente notebooks Spark no Databricks Community Edition — para um pipeline **dbt** com **DuckDB**
 sobre arquivos **Parquet** locais (ou em S3/Tigris). Base: dados abertos de CNPJ da Receita Federal e
