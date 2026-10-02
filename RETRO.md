@@ -1,8 +1,8 @@
 # RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1)
 
 > Retrospectiva do líder (agente Traycer "Migração dbt DuckDB MVP v2", Claude Opus 5.5), 28/09 a 01/10/2026.
-> Custos por agente: [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md). Decisões: `.specs/STATE.md` (AD-001..AD-034)
-> e `docs/adr/` (0001–0016). Revisões: `docs/revisoes/`.
+> Custos por agente: [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md). Decisões: `.specs/STATE.md` (AD-001..AD-035)
+> e `docs/adr/` (0001–0017). Revisões: `docs/revisoes/`.
 
 ## 1. O que foi entregue
 
@@ -95,6 +95,7 @@ foi o B8 (US$ 16,25, E2E real); Opus 5.5 respondeu por 69 % do custo (líder, cr
 - *(Resolvido após a entrega)* **GitHub Actions**: o 1º run no repositório publicado falhou porque o Makefile usava `set -o pipefail` e o `/bin/sh` do Ubuntu é `dash` (no macOS é bash); corrigido com `SHELL := /bin/bash`, run verde em ~6,5 min. Lição: o CI local roda no mesmo SO do desenvolvedor — fixe o shell do make.
 - *(Resolvido após a entrega)* **Avisos do CI**: as actions rodavam em Node 20 (descontinuado nos runners) e o `ubuntu-latest` migra para o Ubuntu 26 em 2026-10-19. Atualizadas para Node 24 (checkout v7.0.1, setup-uv v10.2.0, cache v6.1.0, ainda por SHA), runner fixado em `ubuntu-24.04` e `workflow_dispatch` para disparo manual; 3 runs verdes (AD-034). Lição: run verde com anotações amarelas é dívida com data marcada — fixar o runner e revisar as actions junto com o pin por SHA.
 - **Release [v1.0.0](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.0.0)** publicada no GitHub (tag anotada em `8294e6e`, CI verde), com a lista de features; versão do pacote 1.0.0.
+- **dbt Fusion (dbt v2)**: avaliado em 2026-10-02 e **adiado** ([ADR-0017](docs/adr/0017-avaliacao-dbt-fusion.md)); reavaliar quando os critérios do ADR forem atendidos. O `dbt-autofix` dos YAMLs pode ser antecipado.
 - Sugestões R4-11 pendentes: warn de controles C1 nos nomes, raiz alfanumérica em teste de unidade,
   gitleaks/detect-secrets, teto de descompressão contra zip bomb.
 - *(Resolvido após a entrega)* **Limpeza**: 32 worktrees integrados/órfãos e ~49 GB de cópias de dados reais removidos com aprovação do usuário (AD-031).
