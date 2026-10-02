@@ -39,8 +39,11 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 | AD-031 | Limpeza aprovada pelo usuário: 29 worktrees Landed do v2 + 3 órfãos da tentativa de 24/09 removidos via `traycer worktree delete` (32/32, 0 falhas; branches mantidas); cópias de dados reais nos scratchpads de R2, R3, F2a, F3a, F3b (~49 GB) apagadas. Dados reais regeneráveis com `make pipeline`/`rfb ingerir --origem-local`. Worktrees do projeto v1 intocados | active | 2026-10-01 |
 | AD-032 | Repositório publicado como **público** em https://github.com/llrt/dbt-pipeline-rfb-v2 (só `main`), a pedido do usuário. Antes: auditoria (sem segredos, sem arquivos de dados, só CPFs sintéticos) e reescrita do histórico (`git filter-repo --replace-text`) para remover o nome real de pessoa física de um teste antigo — árvore final idêntica; hashes mudaram (referências a commits nos docs apontam para os hashes antigos). Backup do histórico original em bundle local; branches de lote continuam só locais | active | 2026-10-01 |
 | AD-033 | 1º run do GitHub Actions falhou (`set -o pipefail` no `dash` do Ubuntu); Makefile passa a usar `SHELL := /bin/bash`; run verde (https://github.com/llrt/dbt-pipeline-rfb-v2/actions/runs/36914961504) | active | 2026-10-01 |
+| AD-034 | CI atualizado após avisos do GitHub: actions em Node 24 (o Node 20 foi descontinuado nos runners), ainda fixadas por SHA — checkout v7.0.1, setup-uv v10.2.0, cache v6.1.0; runner fixado em `ubuntu-24.04` (o `ubuntu-latest` migra para o 26 a partir de 2026-10-19); `workflow_dispatch` para disparo manual. Versão do pacote 1.0.0 (fonte única em `rfb_pipeline.__version__`, lida pelo manifesto) e badge do CI no README. 3 runs verdes (push, push, manual: 36943703394, 36943779780, 36944397114). **Release v1.0.0** (tag anotada no commit `8294e6e`): https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.0.0 | active | 2026-10-01 |
 
 ## Handoff
+
+> **v1 encerrada e publicada (AD-030..AD-034, release v1.0.0).** O texto abaixo é o handoff histórico da 3ª pausa e não descreve o estado atual; o que fica para depois da entrega está no `RETRO.md` §7.
 
 **3ª pausa, 2026-09-29 18:40 (pedido do usuário).** `main` limpo em `66d221f` (+ commit deste handoff); último verde: 164 unit + 22 integração; `make ci` PASS=92 WARN=2 ERROR=0; lint ok.
 
