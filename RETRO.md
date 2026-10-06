@@ -99,7 +99,7 @@ foi o B8 (US$ 16,25, E2E real); Opus 5.5 respondeu por 69 % do custo (líder, cr
 - **Incidente (2026-10-02): teste não hermético publicou no MotherDuck real.** Com o token real no `.env`, o
   `test_cli_sem_variaveis_sai_com_zero` apagava as variáveis do ambiente, mas a CLI as relia do `.env` e publicava 3 tabelas
   sintéticas (`dim_x`, `dim_y`, `fct_serie`) no banco `dbt_rfb`. Correção: `tests/conftest.py` desliga o `load_dotenv`
-  em todos os testes (AD-036). Lição: teste que remove variáveis de ambiente precisa também isolar as fontes que as
+  em todos os testes (AD-036). As 3 tabelas foram removidas pelo usuário em 2026-10-06; incidente encerrado. Lição: teste que remove variáveis de ambiente precisa também isolar as fontes que as
   recarregam (`.env`); revisar isso quando um segredo real passa a existir na máquina.
 - Sugestões R4-11 pendentes: warn de controles C1 nos nomes, raiz alfanumérica em teste de unidade,
   gitleaks/detect-secrets, teto de descompressão contra zip bomb.
