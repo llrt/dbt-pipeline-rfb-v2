@@ -331,7 +331,12 @@ models:
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte.
         data_type: integer
-        entity: { type: primary, name: porte }
+        entity:
+          type: primary
+          name: porte
+          description: >
+            Porte da empresa no cadastro da RFB (00 não informado, 01 ME, 03 EPP, 05 demais), declarado no
+            registro, não apurado pela receita. MEI não é um porte: é a opção `opcao_mei`.
         data_tests: [unique, not_null]
       - name: codigo_porte
         description: >
@@ -363,7 +368,12 @@ models:
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação.
         data_type: integer
-        entity: { type: primary, name: situacao_cadastral }
+        entity:
+          type: primary
+          name: situacao_cadastral
+          description: >
+            Situação cadastral da inscrição do estabelecimento (IN RFB 2.119/2022, art. 9º). ATIVA é situação
+            do cadastro, não prova de operação.
         data_tests: [unique, not_null]
       - name: codigo_situacao_cadastral
         description: >
@@ -570,7 +580,13 @@ models:
       - name: cnpj_completo
         description: CNPJ completo (14 dígitos); dimensão degenerada e chave da linha.
         data_type: varchar
-        entity: { type: primary, name: estabelecimento }
+        entity:
+          type: primary
+          name: estabelecimento
+          description: >
+            Estabelecimento (CNPJ completo, 14 posições): matriz ou filial. Não é a empresa: a empresa é o
+            CNPJ básico (8 primeiros caracteres) e pode ter vários estabelecimentos; para contar empresas use
+            as matrizes (`qtd_matrizes`). Ver docs/CAMADA_SEMANTICA.md, Parte A.
         data_tests: [unique, not_null]
       - name: sk_municipio
         description: >
