@@ -223,7 +223,7 @@ rfbo:OpcaoSimplesNacional a owl:Class ;
 rfbo:OpcaoMEI a owl:Class ;
     rdfs:subClassOf rfbo:OpcaoSimplesNacional ;
     rdfs:label "Opção pelo MEI (SIMEI)"@pt ;
-    rdfs:comment "Microempreendedor individual: empresário individual optante pelo Simples Nacional, com receita bruta anual de até R$ 81.000,00, um único estabelecimento, sem participar de outra empresa e com no máximo um empregado (LC 123/2006, arts. 18-A e 18-C). Todo MEI é optante pelo Simples; o contrário não vale."@pt ;
+    rdfs:comment "Microempreendedor individual: empresário individual optante pelo Simples Nacional, com receita bruta anual de até R$ 81.000,00, um único estabelecimento, sem participar de outra empresa e com no máximo um empregado (LC 123/2006, arts. 18-A e 18-C, redação vigente em 2026-10-10; o PLP 186/2026, em tramitação, propõe R$ 110 mil em 2027, R$ 140 mil em 2028 e dois empregados). Todo MEI é optante pelo Simples; o contrário não vale."@pt ;
     rfbo:modeloDbt "stg_rfb__simples" ;
     rfbo:colunaDbt "stg_rfb__simples.opcao_mei" , "stg_rfb__simples.dat_opcao_mei" ,
         "stg_rfb__simples.dat_exclusao_mei" , "fct_estabelecimentos.opcao_mei" , "fct_resumo_mensal.opcao_mei" ;

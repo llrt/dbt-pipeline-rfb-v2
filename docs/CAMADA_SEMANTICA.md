@@ -204,6 +204,18 @@ Simples Nacional [CGSN 140, art. 115, § 1º]. O arquivo Simples traz a opção 
 Os limites de R$ 81.000,00 e R$ 251.600,00 foram conferidos em 2026-10-10 nas três fontes acima. Eles mudam por
 lei; confira antes de citá-los num relatório.
 
+**Mudança em discussão: PLP nº 186/2026.** O projeto, do Poder Executivo, foi apresentado em 29/06/2026. Ele
+propõe subir o teto do MEI para R$ 110 mil em 2027 e R$ 140 mil em 2028 e permitir até **dois empregados**
+[Câmara-Notícia]. Em 2026-10-10, **não está aprovado**:
+
+- na Câmara, a situação é "Aguardando Despacho do Presidente da Câmara dos Deputados" [Câmara-PLP 186];
+- o MEMP diz que os valores "ainda não estão em vigor" e que vale o limite de R$ 81 mil [MEMP-Teto];
+- nenhuma lei complementar de 2026 publicada até então trata do MEI [Planalto-LCP], e o texto compilado da LC 123
+  segue com R$ 81.000,00 e um empregado [LC 123].
+
+A mesma página do MEMP diz, em outra resposta, que o MEI "agora" pode contratar dois funcionários, o que contradiz
+a lei vigente. Valem a LC 123 e a tramitação.
+
 No projeto:
 
 - `opcao_simples` e `opcao_mei` (em `stg_rfb__simples` e em `fct_estabelecimentos`);
@@ -449,7 +461,7 @@ fora do diagrama: são regras do projeto, não conceitos da RFB.
 | Matriz / filial | identificador 1 / 2 do leiaute (`eh_matriz`) |
 | ME / EPP | microempresa / empresa de pequeno porte, pela receita bruta anual (LC 123, art. 3º); no cadastro, declaradas |
 | Simples Nacional | regime de tributação unificado da LC 123 para ME e EPP (`opcao_simples`) |
-| MEI | empresário individual no SIMEI, receita até R$ 81 mil/ano (`opcao_mei`); não é porte nem natureza jurídica |
+| MEI | empresário individual no SIMEI, receita até R$ 81 mil/ano em 2026 (PLP 186/2026 propõe mudar) (`opcao_mei`); não é porte nem natureza jurídica |
 | Situação cadastral | ATIVA, SUSPENSA, INAPTA, BAIXADA ou NULA, por estabelecimento |
 | Ativo | situação ATIVA no extrato; não prova operação |
 | Abertura | estabelecimento contado na data de início de atividade (regra do projeto) |
@@ -562,6 +574,10 @@ Acessadas em **2026-10-10**.
 | CGSN 140 | [Resolução CGSN nº 140, de 22 de maio de 2018](http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=92278), texto multivigente | prazo da opção (art. 6º); MEI, ocupações e limite do transportador (art. 100); empregado do MEI (art. 105); desenquadramento do SIMEI não exclui do Simples (art. 115) |
 | Lei 8.934 | [Lei nº 8.934, de 18 de novembro de 1994](https://www.planalto.gov.br/ccivil_03/leis/l8934.htm) | arquivamento das declarações de microempresa no registro (art. 32, II, d) |
 | Portal do Empreendedor | gov.br, [O que você precisa saber antes de se tornar um MEI](https://www.gov.br/empresas-e-negocios/pt-br/empreendedor/quero-ser-mei/o-que-voce-precisa-saber-antes-de-se-tornar-um-mei) | requisitos do MEI; R$ 81.000,00 e R$ 251.600,00 |
+| Câmara-PLP 186 | Câmara dos Deputados, [ficha de tramitação do PLP 186/2026](https://www.camara.leg.br/proposicoesWeb/fichadetramitacao?idProposicao=2635476) | autor, apresentação (29/06/2026), situação "Aguardando Despacho do Presidente da Câmara dos Deputados"; último andamento em 24/08/2026 (requerimento de apensação) |
+| Câmara-Notícia | Agência Câmara, [Projeto do governo aumenta teto da receita de MEI para até R$ 140 mil em 2028](https://www.camara.leg.br/noticias/1286510-projeto-do-governo-aumenta-teto-da-receita-de-mei-para-ate-r-140-mil-em-2028/) (30/06/2026) | conteúdo do PLP: R$ 110 mil (2027), R$ 140 mil (2028), até dois empregados |
+| MEMP-Teto | Ministério do Empreendedorismo, [Teto do MEI](https://www.gov.br/memp/pt-br/teto-do-mei) (modificado em 16/09/2026) | PLP "em tramitação", valores "ainda não estão em vigor", limite de R$ 81 mil válido |
+| Planalto-LCP | Presidência da República, [quadro das leis complementares](https://www.planalto.gov.br/ccivil_03/leis/lcp/quadro_lcp.htm) | nenhuma LC de 2026 (até a LC 237, de 15/09/2026) altera o MEI |
 | CONCLA-NJ | IBGE/CONCLA, [Tabela de Natureza Jurídica 2021](https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html) | grupos e códigos de natureza jurídica |
 | CONCLA-CNAE | IBGE/CONCLA, [busca online CNAE-Subclasses 2.3, subclasse 4741-5/00](https://concla.ibge.gov.br/busca-online-cnae.html?view=subclasse&tipo=cnae&versaosubclasse=10&subclasse=4741500) | hierarquia da CNAE e o exemplo de tintas |
 
