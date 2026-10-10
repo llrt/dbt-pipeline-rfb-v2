@@ -40,6 +40,8 @@ saved_queries:
     description: >
       Aberturas (data de início) e encerramentos (não ativos, pela data da situação) por ano e seção CNAE no
       extrato corrente, com o saldo; mesma regra e mesmos números de `mart_dinamica_mercado` somado por ano e seção.
+      O último ano é parcial (vai até a data do extrato), e os encerramentos incluem inaptidões declaradas em
+      lote: para fechamentos definitivos, use a métrica `baixas`.
     config:
       meta: { escopo: adicao }
       tags: [escopo_adicao]

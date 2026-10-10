@@ -107,14 +107,18 @@ models:
         expr: elegiveis_1a
         config: { meta: { escopo: adicao } }
       - name: sobreviventes_1a
-        description: Elegíveis que sobrevivem 1 ano(s).
+        description: >
+          Elegíveis que seguiam ativos 1 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do
+          aniversário de 1 ano(s) da abertura. Não é "ainda ativo".
         type: simple
         agg: sum
         expr: sobreviventes_1a
         config: { meta: { escopo: adicao } }
       - name: taxa_sobrevivencia_1a
         label: Taxa de Sobrevivência 1a
-        description: Sobreviventes / elegíveis a 1 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+        description: >
+          Sobreviventes / elegíveis a 1 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+          Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 1 ano(s), não só "ainda ativo".
         type: ratio
         numerator: sobreviventes_1a
         denominator: elegiveis_1a
@@ -126,14 +130,18 @@ models:
         expr: elegiveis_3a
         config: { meta: { escopo: adicao } }
       - name: sobreviventes_3a
-        description: Elegíveis que sobrevivem 3 ano(s).
+        description: >
+          Elegíveis que seguiam ativos 3 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do
+          aniversário de 3 ano(s) da abertura. Não é "ainda ativo".
         type: simple
         agg: sum
         expr: sobreviventes_3a
         config: { meta: { escopo: adicao } }
       - name: taxa_sobrevivencia_3a
         label: Taxa de Sobrevivência 3a
-        description: Sobreviventes / elegíveis a 3 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+        description: >
+          Sobreviventes / elegíveis a 3 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+          Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 3 ano(s), não só "ainda ativo".
         type: ratio
         numerator: sobreviventes_3a
         denominator: elegiveis_3a
@@ -145,14 +153,18 @@ models:
         expr: elegiveis_5a
         config: { meta: { escopo: adicao } }
       - name: sobreviventes_5a
-        description: Elegíveis que sobrevivem 5 ano(s).
+        description: >
+          Elegíveis que seguiam ativos 5 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do
+          aniversário de 5 ano(s) da abertura. Não é "ainda ativo".
         type: simple
         agg: sum
         expr: sobreviventes_5a
         config: { meta: { escopo: adicao } }
       - name: taxa_sobrevivencia_5a
         label: Taxa de Sobrevivência 5a
-        description: Sobreviventes / elegíveis a 5 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+        description: >
+          Sobreviventes / elegíveis a 5 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+          Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 5 ano(s), não só "ainda ativo".
         type: ratio
         numerator: sobreviventes_5a
         denominator: elegiveis_5a

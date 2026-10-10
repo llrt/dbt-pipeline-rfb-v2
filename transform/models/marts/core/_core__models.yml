@@ -564,6 +564,20 @@ models:
           - "not {{ Dimension('estabelecimento__eh_ativa') }}"
           - "{{ TimeDimension('estabelecimento__data_situacao', 'day') }} is not null"
         config: { meta: { escopo: adicao } }
+      - name: baixas
+        label: Baixas
+        description: >
+          Estabelecimentos BAIXADOS pela data da situação cadastral (`metric_time` = data da situação), só com
+          data válida: o fechamento definitivo, sem as inaptidões, suspensões e nulidades de `encerramentos`
+          (a inaptidão chega em lotes administrativos e pode ser revertida).
+        type: simple
+        agg: count
+        expr: cnpj_completo
+        agg_time_dimension: data_situacao
+        filter:
+          - "{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'BAIXADA'"
+          - "{{ TimeDimension('estabelecimento__data_situacao', 'day') }} is not null"
+        config: { meta: { escopo: adicao } }
       - name: saldo_aberturas_encerramentos
         label: Saldo (aberturas − encerramentos)
         description: >
