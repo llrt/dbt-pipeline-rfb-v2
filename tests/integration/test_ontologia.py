@@ -5,7 +5,10 @@ Cobertura nos dois sentidos, para a documentação não envelhecer:
 - todo nome que a ontologia mapeia (`rfbo:entidadeSemantica`, `rfbo:dimensaoSemantica`,
   `rfbo:metricaDbt`, `rfbo:modeloDbt`, `rfbo:colunaDbt`) existe em
   `transform/target/semantic_manifest.json` ou no `manifest.json`;
-- toda entidade semântica e toda métrica do manifesto está mapeada em algum conceito.
+- toda entidade semântica e toda métrica do manifesto está mapeada em algum conceito;
+- afinidade (RSEM-08): toda métrica está num conceito que anota o modelo semântico dela, pela
+  entidade, pelo modelo, pelo modelo de uma coluna ou pela entidade de uma dimensão. Pega a
+  métrica mapeada no conceito errado (`qtd_ativos_mei` em `Porte`, por exemplo).
 
 Os manifestos vêm do `dbt parse` do `make ci`; sem eles, os testes de cobertura são pulados.
 """
@@ -96,3 +99,52 @@ def test_toda_entidade_e_metrica_do_manifesto_esta_mapeada(grafo: Graph) -> None
         mapeados = {nome for _, nome in _mapeados(grafo, RFBO[anotacao])}
         faltantes = validos[anotacao] - mapeados
         assert not faltantes, f"sem conceito na ontologia (rfbo:{anotacao}): {sorted(faltantes)}"
+
+
+def _ancoras_das_metricas() -> dict[str, set[str]]:
+    """Modelos semânticos (e as entidades principais deles) de onde cada métrica tira os dados."""
+    semantico = json.loads((TARGET / "semantic_manifest.json").read_text(encoding="utf-8"))
+    entidade = {
+        modelo["name"]: {e["name"] for e in modelo["entities"] if e["type"] == "primary"}
+        | ({modelo["primary_entity"]} if modelo.get("primary_entity") else set())
+        for modelo in semantico["semantic_models"]
+    }
+    metricas = {m["name"]: m for m in semantico["metrics"]}
+
+    def ancoras(nome: str) -> set[str]:
+        parametros = metricas[nome]["type_params"]
+        if parametros.get("metric_aggregation_params"):
+            modelo = parametros["metric_aggregation_params"]["semantic_model"]
+            return {modelo} | entidade[modelo]
+        entradas = [parametros.get("numerator"), parametros.get("denominator")]
+        entradas += parametros.get("metrics") or []
+        return set().union(*(ancoras(e["name"]) for e in entradas if e))
+
+    return {nome: ancoras(nome) for nome in metricas}
+
+
+def _ancoras_do_conceito(grafo: Graph, conceito: URIRef) -> set[str]:
+    """Nomes do projeto que o conceito anota, reduzidos a modelo ou entidade."""
+
+    def valores(anotacao: str) -> set[str]:
+        return {str(v) for v in grafo.objects(conceito, RFBO[anotacao])}
+
+    return (
+        valores("entidadeSemantica")
+        | valores("modeloDbt")
+        | {coluna.split(".", 1)[0] for coluna in valores("colunaDbt")}
+        | {dimensao.split("__", 1)[0] for dimensao in valores("dimensaoSemantica")}
+    )
+
+
+@sem_manifesto
+def test_metrica_esta_num_conceito_do_mesmo_modelo_semantico(grafo: Graph) -> None:
+    ancoras = _ancoras_das_metricas()
+    sem_afinidade = []
+    for conceito, valor in grafo.subject_objects(RFBO.metricaDbt):
+        metrica = str(valor)
+        if not ancoras[metrica] & _ancoras_do_conceito(grafo, conceito):
+            modelos = sorted(ancoras[metrica])
+            sem_afinidade.append(f"{grafo.qname(conceito)} rfbo:metricaDbt {metrica!r} ({modelos})")
+    erro = "métrica num conceito que não anota o modelo dela:\n" + "\n".join(sem_afinidade)
+    assert not sem_afinidade, erro

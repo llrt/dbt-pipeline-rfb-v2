@@ -4,7 +4,9 @@
 # anotação `rfbo:entidadeSemantica`, `rfbo:dimensaoSemantica`, `rfbo:metricaDbt`, `rfbo:modeloDbt` e
 # `rfbo:colunaDbt` ligam cada conceito aos nomes do projeto. `tests/integration/test_ontologia.py` confere
 # que todo nome mapeado existe no `semantic_manifest.json`/`manifest.json` e que toda entidade semântica e
-# toda métrica do manifesto está mapeada. Explicação para leitores: docs/CAMADA_SEMANTICA.md, Parte A.
+# toda métrica do manifesto está mapeada; e que toda métrica está num conceito que anota o modelo semântico
+# dela (afinidade: `rfbo:entidadeSemantica`, `rfbo:modeloDbt`, o modelo de `rfbo:colunaDbt` ou a entidade de
+# `rfbo:dimensaoSemantica`). Explicação para leitores: docs/CAMADA_SEMANTICA.md, Parte A.
 # Fontes acessadas em 2026-10-10 (links completos na Parte A, seção A7).
 
 @prefix rfbo: <https://github.com/llrt/dbt-pipeline-rfb-v2/ontologia/rfb_cnpj#> .
@@ -27,6 +29,8 @@
 # ---------------------------------------------------------------------------------------------------------
 # Propriedades de anotação (mapeamento para o projeto)
 # ---------------------------------------------------------------------------------------------------------
+
+dcterms:source a owl:AnnotationProperty .
 
 rfbo:entidadeSemantica a owl:AnnotationProperty ;
     rdfs:label "entidade semântica"@pt ;
@@ -60,7 +64,8 @@ rfbo:Empresa a owl:Class ;
     rdfs:label "Empresa"@pt ;
     rdfs:comment "Entidade inscrita no CNPJ, identificada pelo CNPJ básico (8 primeiros caracteres). Um registro no arquivo Empresas. Não é uma entidade semântica: os atributos da empresa (natureza, porte, capital, Simples/MEI) estão denormalizados no estabelecimento, e a contagem de empresas usa as matrizes."@pt ;
     rfbo:modeloDbt "stg_rfb__empresas" ;
-    rfbo:colunaDbt "stg_rfb__empresas.cnpj_raiz" , "int_estabelecimentos__enriquecidos.cnpj_raiz" ;
+    rfbo:colunaDbt "stg_rfb__empresas.cnpj_raiz" , "int_estabelecimentos__enriquecidos.cnpj_raiz" ,
+        "fct_resumo_mensal.qtd_matrizes" ;
     rfbo:metricaDbt "qtd_matrizes" .
 
 rfbo:Estabelecimento a owl:Class ;
@@ -68,17 +73,18 @@ rfbo:Estabelecimento a owl:Class ;
     rdfs:comment "Local onde a entidade exerce suas atividades (IN RFB 2.119/2022, art. 5º), identificado pelo CNPJ completo de 14 posições. Um registro no arquivo Estabelecimentos; é o grão de `fct_estabelecimentos`."@pt ;
     rfbo:entidadeSemantica "estabelecimento" ;
     rfbo:modeloDbt "stg_rfb__estabelecimentos" , "int_estabelecimentos__enriquecidos" , "fct_estabelecimentos" ;
-    rfbo:colunaDbt "fct_estabelecimentos.cnpj_completo" ;
+    rfbo:colunaDbt "fct_estabelecimentos.cnpj_completo" , "fct_resumo_mensal.qtd_estabelecimentos" ;
     rfbo:metricaDbt "qtd_estabelecimentos" .
 
 rfbo:Matriz a owl:Class ;
     rdfs:subClassOf rfbo:Estabelecimento ;
     owl:disjointWith rfbo:Filial ;
     rdfs:label "Matriz"@pt ;
-    rdfs:comment "Estabelecimento com identificador matriz/filial = 1. A inscrição da entidade corresponde à matriz; a baixa da matriz implica a baixa das filiais (IN RFB 2.119/2022, art. 24, § 2º)."@pt ;
+    rdfs:comment "Estabelecimento com identificador matriz/filial = 1. Leitura do projeto: a inscrição da entidade corresponde à matriz (IN RFB 2.119/2022, art. 4º, § 1º, e art. 9º; não é texto expresso). A baixa da matriz implica a baixa das filiais (art. 24, § 2º)."@pt ;
     rfbo:codigoRfb "1" ;
     rfbo:modeloDbt "dominio_matriz_filial" ;
-    rfbo:colunaDbt "stg_rfb__estabelecimentos.matriz_filial_codigo" , "fct_estabelecimentos.eh_matriz" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.matriz_filial_codigo" , "fct_estabelecimentos.eh_matriz" ,
+        "fct_resumo_mensal.qtd_matrizes" ;
     rfbo:dimensaoSemantica "estabelecimento__eh_matriz" ;
     rfbo:metricaDbt "qtd_matrizes" .
 
@@ -152,7 +158,8 @@ rfbo:capitalSocial a owl:DatatypeProperty ;
     rdfs:comment "Capital social da empresa (arquivo Empresas). Repetido em cada estabelecimento de `fct_estabelecimentos`: some só nas matrizes."@pt ;
     rdfs:domain rfbo:Empresa ;
     rdfs:range xsd:decimal ;
-    rfbo:colunaDbt "stg_rfb__empresas.capital_social" , "fct_estabelecimentos.capital_social" ;
+    rfbo:colunaDbt "stg_rfb__empresas.capital_social" , "fct_estabelecimentos.capital_social" ,
+        "fct_resumo_mensal.soma_capital_social_matrizes" ;
     rfbo:metricaDbt "capital_social_total" , "capital_social_medio" .
 
 rfbo:enteFederativoResponsavel a owl:DatatypeProperty ;
@@ -214,7 +221,7 @@ rfbo:PorteDemais a rfbo:Porte ;
 
 rfbo:OpcaoSimplesNacional a owl:Class ;
     rdfs:label "Opção pelo Simples Nacional"@pt ;
-    rdfs:comment "Opção da ME/EPP pelo regime do Simples Nacional (LC 123/2006, art. 16), com data de opção e de exclusão (arquivo Simples, por CNPJ básico)."@pt ;
+    rdfs:comment "Registro da empresa no arquivo Simples (no máximo um por CNPJ básico), com a opção (S, N ou em branco), a data de opção e a data de exclusão. Uma instância é o registro, não prova a opção pelo regime (LC 123/2006, art. 16): o registro com opção N, ou com data de exclusão, é de quem não está no Simples. O projeto marca como optante (`opcao_simples`) só a opção S; sem registro, não optante."@pt ;
     rfbo:modeloDbt "stg_rfb__simples" ;
     rfbo:colunaDbt "stg_rfb__simples.opcao_simples" , "stg_rfb__simples.dat_opcao_simples" ,
         "stg_rfb__simples.dat_exclusao_simples" , "fct_estabelecimentos.opcao_simples" ;
@@ -223,7 +230,7 @@ rfbo:OpcaoSimplesNacional a owl:Class ;
 rfbo:OpcaoMEI a owl:Class ;
     rdfs:subClassOf rfbo:OpcaoSimplesNacional ;
     rdfs:label "Opção pelo MEI (SIMEI)"@pt ;
-    rdfs:comment "Microempreendedor individual: empresário individual optante pelo Simples Nacional, com receita bruta anual de até R$ 81.000,00, um único estabelecimento, sem participar de outra empresa e com no máximo um empregado (LC 123/2006, arts. 18-A e 18-C, redação vigente em 2026-10-10; o PLP 186/2026, em tramitação, propõe R$ 110 mil em 2027, R$ 140 mil em 2028 e dois empregados). Todo MEI é optante pelo Simples; o contrário não vale."@pt ;
+    rdfs:comment "Microempreendedor individual: optante pelo Simples Nacional no SIMEI, empresário individual (art. 966 do Código Civil) ou empreendedor de atividades extrativistas, autorizadas pelo CGSN ou rurais (LC 123/2006, art. 18-A, § 1º, I a III, redação da LC 188/2021), com receita bruta anual de até R$ 81.000,00, um único estabelecimento, sem participar de outra empresa e com no máximo um empregado (arts. 18-A e 18-C, redação vigente em 2026-10-10; o PLP 186/2026, em tramitação, propõe R$ 110 mil em 2027, R$ 140 mil em 2028 e dois empregados). Todo MEI é optante pelo Simples; o contrário não vale. No dado real de 2026-09 há MEI com filial (3.749 filiais) e com natureza de sociedade (1.238 estabelecimentos): `qtd_ativos_mei` conta estabelecimentos."@pt ;
     rfbo:modeloDbt "stg_rfb__simples" ;
     rfbo:colunaDbt "stg_rfb__simples.opcao_mei" , "stg_rfb__simples.dat_opcao_mei" ,
         "stg_rfb__simples.dat_exclusao_mei" , "fct_estabelecimentos.opcao_mei" , "fct_resumo_mensal.opcao_mei" ;
@@ -258,7 +265,7 @@ rfbo:Ativa a rfbo:SituacaoCadastral ;
     rdfs:label "Ativa"@pt ;
     rdfs:comment "Inscrição ativa. Não significa que o estabelecimento esteja em operação."@pt ;
     rfbo:codigoRfb "2" ;
-    rfbo:colunaDbt "fct_estabelecimentos.eh_ativa" ;
+    rfbo:colunaDbt "fct_estabelecimentos.eh_ativa" , "fct_resumo_mensal.qtd_ativos" ;
     rfbo:dimensaoSemantica "estabelecimento__eh_ativa" ;
     rfbo:metricaDbt "qtd_ativos" , "pct_ativos" .
 
@@ -269,18 +276,18 @@ rfbo:Suspensa a rfbo:SituacaoCadastral ;
 
 rfbo:Inapta a rfbo:SituacaoCadastral ;
     rdfs:label "Inapta"@pt ;
-    rdfs:comment "IN RFB 2.119/2022, art. 38: omissão de declarações por 90 dias ou mais, inexistência de fato, irregularidade no comércio exterior, suspensão por um ano ou mais, entre outras."@pt ;
+    rdfs:comment "IN RFB 2.119/2022, art. 38: pode ser declarada com omissão de declarações por 90 dias ou mais, inexistência de fato, irregularidade no comércio exterior, suspensão por um ano ou mais, entre outras. A declaração é por ato declaratório executivo com a relação das inscrições (art. 39), em lote."@pt ;
     rfbo:codigoRfb "4" .
 
 rfbo:Baixada a rfbo:SituacaoCadastral ;
     rdfs:label "Baixada"@pt ;
-    rdfs:comment "IN RFB 2.119/2022, arts. 24 e 31: baixa a pedido (extinção, incorporação, fusão, cisão total, falência) ou de ofício (inapta não regularizada em 180 dias, registro extinto, ordem judicial, óbito do MEI). Pode ser restabelecida (art. 26)."@pt ;
-    rfbo:codigoRfb "8" .
+    rdfs:comment "IN RFB 2.119/2022, arts. 24 e 31: baixa a pedido (extinção, incorporação, fusão, cisão total, falência) ou de ofício (pode ocorrer com a inapta não regularizada em 180 dias, registro extinto, ordem judicial, óbito do MEI). Pode ser restabelecida (art. 26)."@pt ;
+    rfbo:codigoRfb "08" .
 
 rfbo:Nula a rfbo:SituacaoCadastral ;
     rdfs:label "Nula"@pt ;
     rdfs:comment "IN RFB 2.119/2022, art. 34: ato cadastral declarado nulo (CNPJ em duplicidade para o mesmo estabelecimento, vício no ato, inscrição de entidade não obrigada); efeitos desde o início."@pt ;
-    rfbo:codigoRfb "1" .
+    rfbo:codigoRfb "01" .
 
 rfbo:dataSituacaoCadastral a owl:DatatypeProperty ;
     rdfs:label "data da situação cadastral"@pt ;
@@ -321,7 +328,7 @@ rfbo:idadeAnos a owl:DatatypeProperty ;
     rdfs:comment "Anos entre a data de início de atividade e a data do extrato; só para ativos."@pt ;
     rdfs:domain rfbo:Estabelecimento ;
     rdfs:range xsd:decimal ;
-    rfbo:colunaDbt "fct_estabelecimentos.idade_anos" ;
+    rfbo:colunaDbt "fct_estabelecimentos.idade_anos" , "fct_resumo_mensal.soma_idade_anos" ;
     rfbo:metricaDbt "soma_idade_anos_ativos" , "idade_media_anos" .
 
 # ---------------------------------------------------------------------------------------------------------
@@ -448,9 +455,16 @@ rfbo:Encerramento a owl:Class ;
     rfbo:dimensaoSemantica "estabelecimento__data_situacao" , "estabelecimento__eh_ativa" ;
     rfbo:metricaDbt "encerramentos" , "saldo_aberturas_encerramentos" .
 
+rfbo:Baixa a owl:Class ;
+    rdfs:subClassOf rfbo:Encerramento ;
+    rdfs:label "Baixa"@pt ;
+    rdfs:comment "Encerramento definitivo: um estabelecimento BAIXADO na data da situação válida. Diferente do encerramento, não inclui as inaptidões (declaradas em lote e reversíveis), as suspensões nem as nulidades."@pt ;
+    rfbo:dimensaoSemantica "estabelecimento__data_situacao" , "situacao_cadastral__rotulo_situacao_cadastral" ;
+    rfbo:metricaDbt "baixas" .
+
 rfbo:CoorteDeAbertura a owl:Class ;
     rdfs:label "Coorte de abertura"@pt ;
-    rdfs:comment "Estabelecimentos agrupados pelo ano de início de atividade, com elegíveis e sobreviventes (ainda ativos) a 1, 3 e 5 anos."@pt ;
+    rdfs:comment "Estabelecimentos agrupados pelo ano de início de atividade, com elegíveis e sobreviventes a 1, 3 e 5 anos. Sobrevivente a N anos é o elegível que seguia ativo N anos depois da abertura: ativo no extrato ou encerrado a partir do aniversário de N anos. Não é \"ainda ativo\"."@pt ;
     rfbo:entidadeSemantica "coorte_sobrevivencia" ;
     rfbo:modeloDbt "mart_sobrevivencia_coorte" ;
     rfbo:metricaDbt "elegiveis_1a" , "sobreviventes_1a" , "taxa_sobrevivencia_1a" ,
