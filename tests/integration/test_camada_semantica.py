@@ -154,28 +154,36 @@ def _dinamica(linhas: list[dict[str, str]], *chave: str) -> dict[tuple[str, ...]
     }
 
 
-def test_dinamica_por_ano_bate_com_o_mart(tmp_path: Path) -> None:
-    """Mesma regra de `mart_dinamica_mercado`: abertura pela data de início, encerramento = não
-    ativo pela data da situação, datas -1/-2 sem evento; saldo = aberturas − encerramentos."""
+def _pre_condicoes_da_dinamica() -> None:
+    """Casos da fixture sem os quais uma regra errada passaria batido nos testes da dinâmica."""
     fato = "'{gold}/fct_estabelecimentos.parquet'"
     inicio = DATA_VALIDA.format(sk="sk_data_inicio_atividade")
     situacao = DATA_VALIDA.format(sk="sk_data_situacao")
-    # Pré-condições da fixture: sem elas, trocar a data do encerramento ou o filtro passaria batido.
-    ((inativos_em_outro_ano,),) = _sql(
-        f"select count(*) from {fato} where not eh_ativa and {inicio} <> {situacao}"
+    ((em_outro_ano, ativos_com_situacao, inativos_sem_situacao, sem_inicio),) = _sql(
+        f"""select count(*) filter (where not eh_ativa and {inicio} <> {situacao}),
+                   count(*) filter (where eh_ativa and {situacao} is not null),
+                   count(*) filter (where not eh_ativa and sk_data_situacao <= 0),
+                   count(*) filter (where sk_data_inicio_atividade <= 0)
+            from {fato}"""
     )
-    assert inativos_em_outro_ano > 0
-    ((ativos_com_data_situacao,),) = _sql(
-        f"select count(*) from {fato} where eh_ativa and {situacao} is not null"
-    )
-    assert ativos_com_data_situacao > 0
+    assert em_outro_ano > 0, "fixture sem inativo com ano de início diferente do da situação"
+    assert ativos_com_situacao > 0, "fixture sem ativo com data da situação válida"
+    # Linha Q da fixture: sem o filtro de data válida, as chaves -1/-2 viram um ano nulo no `mf`.
+    assert inativos_sem_situacao > 0, "fixture sem inativo com data da situação -1/-2"
+    assert sem_inicio > 0, "fixture sem estabelecimento com data de início -1/-2"
+
+
+def test_dinamica_por_ano_bate_com_o_mart(tmp_path: Path) -> None:
+    """Mesma regra de `mart_dinamica_mercado`: abertura pela data de início, encerramento = não
+    ativo pela data da situação, datas -1/-2 sem evento; saldo = aberturas − encerramentos."""
+    _pre_condicoes_da_dinamica()
     esperado = {
         (str(ano),): (abe, enc, sal)
         for ano, abe, enc, sal in _sql(
             f"select ano, sum(aberturas), sum(encerramentos), sum(saldo) from {DINAMICA} group by 1"
         )
     }
-    assert any(0 in valores[:2] for valores in esperado.values())  # ano com eventos só de um lado
+    assert any(0 in valores[:2] for valores in esperado.values()), "sem ano só de um lado"
     linhas = _consulta(
         tmp_path, "--metrics", "aberturas,encerramentos,saldo_aberturas_encerramentos",
         "--group-by", "metric_time__year",
@@ -184,6 +192,7 @@ def test_dinamica_por_ano_bate_com_o_mart(tmp_path: Path) -> None:
 
 
 def test_dinamica_por_ano_e_secao_bate_com_o_mart(tmp_path: Path) -> None:
+    _pre_condicoes_da_dinamica()
     linhas = _consulta(tmp_path, "--saved-query", "dinamica_anual_por_secao_cnae")
     esperado = {
         (str(ano), secao): (abe, enc, sal)

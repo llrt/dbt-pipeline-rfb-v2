@@ -458,10 +458,30 @@ _ESTABELECIMENTOS_RAW = [
         pais="",
         cidade_exterior="",
     ),
+    # Q (FSEM): baixado sem data de início nem data da situação (`00000000`, chave -1 nas duas),
+    # longe do estudo de caso; não gera abertura nem encerramento em `mart_dinamica_mercado` nem
+    # nas métricas `aberturas`/`encerramentos` (mata a mutação que tira o filtro de data válida).
+    dict(
+        id="Q",
+        raiz="18181818",
+        ordem="0001",
+        matriz_filial="1",
+        nome_fantasia="",
+        situacao="08",
+        dat_situacao="00000000",
+        mot_situacao="01",
+        municipio="1901",
+        cnae_principal="0111301",
+        cnaes_secundarios="",
+        dat_inicio="00000000",
+        uf="PB",
+        pais="",
+        cidade_exterior="",
+    ),
 ]
 
 # cnpj_raiz -> (razao_social, natureza_jur, porte, capital_soc) — nível empresa.
-# 14 raízes (A-N); O reaproveita a raiz de A (11111111).
+# 16 raízes (A-N, P, Q); O reaproveita a raiz de A (11111111).
 _EMPRESA_POR_RAIZ = {
     "11111111": ("TINTAS FUNDAO LTDA", "2135", "01", "1000,00"),  # A
     "22222222": ("COLORIR TINTAS", "2062", "03", "1000,00"),  # B
@@ -483,6 +503,7 @@ _EMPRESA_POR_RAIZ = {
     "16161616": ("AGRO FUNDAO", "2135", "00", "1000,00"),  # N
     # CPF colado ao nome (sem espaço; R4-01): exercita a máscara em `mart_fornecedores_proximos`.
     "17171717": ("TINTAS ARACRUZ IND11144477735", "2062", "03", "1000,00"),  # P
+    "18181818": ("SITIO AGUA BRANCA", "2062", "01", "1000,00"),  # Q
 }
 
 # Raízes optantes pelo MEI/Simples (A e C); demais N; toda raiz é optante do Simples.

@@ -98,10 +98,11 @@ Respostas derivadas para (CNAE 4741500, Fundão): `densidade_hab_km2` de Fundão
 | N | 16161616/0001 | AGRO FUNDAO | 2135 | 00 | 5643 | 0111301 | 02 | 20000229 | — | CNAE com zero à esquerda |
 | O | 11111111/0002 | (filial de A) | — | — | 5699 | 4741500 | 02 | 20240115 | — | matriz_filial 2; nome_fantasia multilinha |
 | P | 17171717/0001 | TINTAS ARACRUZ IND11144477735 | 2062 | 03 | 5611 | 2071100 | 02 | 20180301 | — | **emenda R3-04**: fabricante ativo na microrregião de Fundão (Linhares), fora do município; **emenda R4-01**: CPF sintético colado ao nome → `mart_fornecedores_proximos.nome` = `TINTAS ARACRUZ IND***.***.***-**` |
+| Q | 18181818/0001 | SITIO AGUA BRANCA | 2062 | 01 | 1901 | 0111301 | 08 | `00000000` | `00000000` | **lote FSEM (camada semântica)**: baixado sem data de início nem data da situação (`sk_data_inicio_atividade = sk_data_situacao = -1`); não gera abertura nem encerramento em `mart_dinamica_mercado` nem nas métricas `aberturas`/`encerramentos` |
 
-Empresas: as 15 raízes acima (O compartilha a raiz de A), mais uma linha "fantasma" que repete a raiz de B sem razão social, natureza `0000`, porte/qualificação `00` e capital `0,00` (**emenda R4-05**: o arquivo tem 16 linhas e 15 raízes; o staging e a paridade ficam com a linha boa e nenhuma resposta muda). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
+Empresas: as 16 raízes acima (O compartilha a raiz de A), mais uma linha "fantasma" que repete a raiz de B sem razão social, natureza `0000`, porte/qualificação `00` e capital `0,00` (**emenda R4-05**: o arquivo tem 17 linhas e 16 raízes; o staging e a paridade ficam com a linha boa e nenhuma resposta muda). Simples: A e C optantes pelo MEI (`opcao_mei = S`).
 
-**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 15 estabelecimentos e 15 empresas (raízes; 16 linhas com a "fantasma" de B). As respostas de 2026-09 acima não mudam.
+**Segundo mês (2026-08, para atualização/série):** pasta `rfb/2026-08/` idêntica à de 2026-09 **exceto**: (a) sem a linha O (a filial de Serra só aparece no extrato de 2026-09); (b) nomes internos com `D60810` (`_data_referencia = 2026-08-10`). Logo 2026-08 tem 16 estabelecimentos e 16 empresas (raízes; 17 linhas com a "fantasma" de B). As respostas de 2026-09 acima não mudam.
 
 ---
 
@@ -120,7 +121,7 @@ Empresas: as 15 raízes acima (O compartilha a raiz de A), mais uma linha "fanta
 3. The system SHALL store every RFB data column as VARCHAR using the column names listed in ARCHITECTURE.md §4.2, plus `_arquivo_origem`, `_mes_referencia`, `_data_referencia`, `_ingerido_em`.
 4. WHEN a field contains `\"` before the closing quote (row K) THEN the system SHALL parse it as a value ending in `\` without rejecting the row.
 5. WHEN a quoted field spans multiple lines (row O) THEN the system SHALL keep it as a single record.
-6. WHEN the fixtures are ingested THEN the system SHALL write exactly 15 `empresas` rows, 16 `estabelecimentos` rows and 0 rejected rows.
+6. WHEN the fixtures are ingested THEN the system SHALL write exactly 17 `empresas` rows (16 roots + the R4-05 "ghost" row), 17 `estabelecimentos` rows and 0 rejected rows. *(Recalibrated by lote FSEM: row Q.)*
 7. WHEN the internal file name contains `D60912` THEN the system SHALL set `_data_referencia` to `2026-09-12`.
 8. IF the rejected-row rate for an entity exceeds `RFB_MAX_TAXA_REJEITO` THEN the system SHALL exit non-zero and SHALL keep the rejected rows under `raw/_rejeitos/`.
 9. IF a downloaded file size differs from the WebDAV `getcontentlength` THEN the system SHALL delete the file and exit non-zero without writing to `raw/`.

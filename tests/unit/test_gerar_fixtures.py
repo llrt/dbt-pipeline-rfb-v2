@@ -85,10 +85,10 @@ def test_contagem_estabelecimentos_e_empresas(tmp_path: Path) -> None:
     _, linhas_estab = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
     _, linhas_emp = _ler_zip_rfb(tmp_path, "Empresas0.zip")
 
-    assert len(linhas_estab) == 16
-    # 15 raízes + a linha "fantasma" que repete a raiz de B (R4-05)
-    assert len(linhas_emp) == 16
-    assert len({linha[0] for linha in linhas_emp}) == 15
+    assert len(linhas_estab) == 17
+    # 16 raízes + a linha "fantasma" que repete a raiz de B (R4-05)
+    assert len(linhas_emp) == 17
+    assert len({linha[0] for linha in linhas_emp}) == 16
 
 
 def test_dv_valido_em_todos_exceto_l(tmp_path: Path) -> None:
@@ -197,20 +197,20 @@ def test_dominio_rfb_municipios_sem_acento_maiusculo(tmp_path: Path) -> None:
     assert mapa["1182"] == "BOA ESPERANCA DO NORTE"
 
 
-def test_mes_anterior_tem_15_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> None:
+def test_mes_anterior_tem_16_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> None:
     gerar_fixtures.gerar_fixtures(tmp_path)
     _, atual = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
     _, anterior = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip", gerar_fixtures.MES_ANTERIOR)
 
-    assert len(atual) == 16
-    assert len(anterior) == 15
+    assert len(atual) == 17
+    assert len(anterior) == 16
     # O é a filial de A (raiz 11111111, ordem 0002): só existe em 2026-09.
     assert ("11111111", "0002") in {(linha[0], linha[1]) for linha in atual}
     assert ("11111111", "0002") not in {(linha[0], linha[1]) for linha in anterior}
     assert {(linha[0], linha[1]) for linha in anterior} < {(linha[0], linha[1]) for linha in atual}
 
 
-def test_mes_anterior_tem_15_raizes_e_nomes_internos_d60810(tmp_path: Path) -> None:
+def test_mes_anterior_tem_16_raizes_e_nomes_internos_d60810(tmp_path: Path) -> None:
     gerar_fixtures.gerar_fixtures(tmp_path)
     mes = gerar_fixtures.MES_ANTERIOR
 
@@ -219,8 +219,8 @@ def test_mes_anterior_tem_15_raizes_e_nomes_internos_d60810(tmp_path: Path) -> N
     nome_cnaes, _ = _ler_zip_rfb(tmp_path, "Cnaes.zip", mes)
     nome_simples, _ = _ler_zip_rfb(tmp_path, "Simples.zip", mes)
 
-    assert len(empresas) == 16  # 15 raízes + a linha "fantasma" (R4-05)
-    assert len({linha[0] for linha in empresas}) == 15
+    assert len(empresas) == 17  # 16 raízes + a linha "fantasma" (R4-05)
+    assert len({linha[0] for linha in empresas}) == 16
     assert nome_empresas == "K3241.K03200Y0.D60810.EMPRECSV"
     assert nome_estab == "K3241.K03200Y0.D60810.ESTABELE"
     assert nome_cnaes == "F.K03200$Z.D60810.CNAECSV"

@@ -69,22 +69,22 @@ def test_ac8_p22_backfill_grava_so_o_resumo_e_mantem_o_gold_corrente() -> None:
     log = (CI / "backfill.log").read_text("utf-8")
     assert "2026-08 [backfill] concluído" in log
     gold = _raiz() / "gold"
-    # a fato detalhada continua sendo a de 2026-09 (16 estabelecimentos; 2026-08 tem 15)
+    # a fato detalhada continua sendo a de 2026-09 (17 estabelecimentos; 2026-08 tem 16)
     assert (
-        _contar(f"select count(*) from read_parquet('{gold}/fct_estabelecimentos.parquet')") == 16
+        _contar(f"select count(*) from read_parquet('{gold}/fct_estabelecimentos.parquet')") == 17
     )
     meses = sorted(p.name for p in (gold / "fct_resumo_mensal").iterdir())
     assert meses == ["mes_referencia=2026-08", "mes_referencia=2026-09"]
-    # R4-04: a partição 2026-08 foi apagada antes do backfill; ele a regravou com os 15
-    # estabelecimentos do mês (a fato detalhada, de 2026-09, segue com 16)
+    # R4-04: a partição 2026-08 foi apagada antes do backfill; ele a regravou com os 16
+    # estabelecimentos do mês (a fato detalhada, de 2026-09, segue com 17)
     serie = f"read_parquet('{gold}/fct_resumo_mensal/*/*.parquet', hive_partitioning=true)"
     assert (
         _contar(f"select sum(qtd_estabelecimentos) from {serie} where mes_referencia = '2026-08'")
-        == 15
+        == 16
     )
     assert (
         _contar(f"select sum(qtd_estabelecimentos) from {serie} where mes_referencia = '2026-09'")
-        == 16
+        == 17
     )
     # R4-02: o backfill testou antes de mover (os testes rodaram no próprio build)
     assert "partição mes_referencia=2026-08 movida para" in log

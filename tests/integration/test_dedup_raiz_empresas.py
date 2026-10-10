@@ -50,7 +50,7 @@ def test_raiz_duplicada_no_raw_vira_uma_linha_no_staging() -> None:
         (raizes,) = con.sql(f"select count(*) from {schema}.stg_rfb__empresas").fetchone()
     assert por_raiz == []
     assert b == [("COLORIR TINTAS", "2062")]
-    assert raizes == 15
+    assert raizes == 16
 
 
 def test_raiz_duplicada_avisa_na_fonte_e_b_sai_uma_vez_no_gold(consultar) -> None:
