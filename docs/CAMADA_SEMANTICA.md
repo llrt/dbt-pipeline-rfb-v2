@@ -5,7 +5,569 @@
 > salvas. Qualquer ferramenta compatível calcula as métricas do mesmo jeito, sem reescrever a regra em DAX,
 > SQL ou planilha.
 
-## 1. Onde está e em qual padrão
+O documento tem duas partes:
+
+- **[Parte A — Negócio](#parte-a--negócio):** o que os dados significam. As bases, os conceitos do cadastro CNPJ
+  (empresa × estabelecimento, porte, MEI, situação cadastral…), o ciclo de vida, a ontologia que liga os conceitos
+  às entidades e métricas, um glossário e perguntas frequentes com `mf query`. Leia antes de usar as métricas.
+- **[Parte B — Estrutura técnica](#parte-b--estrutura-técnica):** como a camada é construída: arquivos, entidades,
+  métricas, consultas salvas, testes e limites.
+
+Toda regra legal ou de negócio da Parte A tem a fonte indicada entre colchetes, como [IN 2.119, art. 9º]. A
+lista completa, com link e data de acesso, está em [A7](#a7-fontes). Os números de exemplo vêm das **fixtures
+sintéticas do `make ci`**, não do cadastro real.
+
+## Parte A — Negócio
+
+### A1. As bases
+
+**Dados abertos do CNPJ (Receita Federal).** O CNPJ é o cadastro da RFB com as informações cadastrais das
+pessoas jurídicas e de outras entidades de interesse das administrações tributárias. A RFB publica uma cópia em
+dados abertos, com **atualização mensal** [Dados.gov.br]. Cada mês é um extrato completo do cadastro: uma
+**fotografia**, não um registro de eventos. O projeto baixa os arquivos de cada mês
+([ADR-0003](adr/0003-fonte-rfb-webdav.md)) e usa:
+
+| Arquivo da RFB | Uma linha por | O que traz | Staging |
+|---|---|---|---|
+| Empresas | empresa (CNPJ básico) | razão social, natureza jurídica, qualificação do responsável, capital social, porte, ente federativo responsável | `stg_rfb__empresas` |
+| Estabelecimentos | estabelecimento (CNPJ completo) | matriz/filial, nome fantasia, situação cadastral (data e motivo), início de atividade, CNAE principal e secundárias, endereço, município, situação especial | `stg_rfb__estabelecimentos` |
+| Simples | empresa (CNPJ básico) | opção pelo Simples e pelo MEI, com as datas de opção e de exclusão | `stg_rfb__simples` |
+| Domínios | código | CNAEs, municípios, naturezas jurídicas e motivos da situação cadastral (o leiaute descreve os três primeiros; o arquivo de motivos é publicado junto) | `stg_rfb__cnaes`, `stg_rfb__municipios`, `stg_rfb__naturezas`, `stg_rfb__motivos` |
+
+O leiaute [RFB-Leiaute] também descreve o arquivo **Sócios** (quadro societário, com CPF parcialmente ocultado) e os
+domínios de países e de qualificações. O projeto **não** ingere Sócios e descarta e-mail e telefones no staging
+([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)). Ninguém aqui responde "quem é dono de quê".
+
+Os códigos de situação cadastral, porte e matriz/filial não têm arquivo de domínio na RFB: estão no leiaute e o
+projeto os guarda nos seeds `dominio_situacao_cadastral`, `dominio_porte` e `dominio_matriz_filial`.
+
+**Base dos Dados.** O portal Base dos Dados publica tabelas públicas já tratadas
+([ADR-0015](adr/0015-enriquecimento-base-dos-dados.md)). O projeto usa:
+
+- diretório de municípios (código IBGE, código RFB, UF, meso/microrregião, regiões intermediária e imediata,
+  centroide): `stg_bd__municipios`;
+- CNAE com a hierarquia completa: `stg_bd__cnaes`;
+- população estimada (`stg_bd__populacao`) e PIB municipal (`stg_bd__pib`);
+- incremento `enriquecimento_bd`: Censo 2022 por município (`stg_bd__censo_2022_municipio`), regiões
+  metropolitanas (`stg_bd__regioes_metropolitanas`) e vizinhança entre municípios (`stg_bd__vizinhanca`).
+
+Esses dados viram atributos de `dim_municipio` e `dim_cnae`. Na camada semântica, aparecem como dimensões
+(`municipio__sigla_uf`, `cnae__descricao_secao`…), nunca como métricas (ver [B7](#b7-limites-e-cuidados)).
+
+### A2. Conceitos
+
+#### CNPJ
+
+O número de inscrição tem **14 posições** [RFB-Leiaute]:
+
+| Parte | Posições | Nome no leiaute | Coluna no projeto |
+|---|---|---|---|
+| básico (raiz) | 1 a 8 | CNPJ BÁSICO | `cnpj_raiz` |
+| ordem | 9 a 12 | CNPJ ORDEM ("número do estabelecimento") | `cnpj_ordem` |
+| dígitos verificadores | 13 e 14 | CNPJ DV | `cnpj_dv` |
+
+`cnpj_completo` é a concatenação das três partes. O básico identifica a **empresa**; o completo, o
+**estabelecimento**.
+
+**CNPJ alfanumérico.** Desde julho de 2026, as 12 primeiras posições podem ter letras maiúsculas (A a Z) além de
+números; os 2 dígitos verificadores continuam numéricos, calculados pelo módulo 11 [IN 2.119, art. 2º, parágrafo
+único; RFB-Alfanumérico]. O primeiro foi gerado em 31/07/2026 [RFB-Notícia]. Os CNPJs numéricos continuam válidos e
+não mudam [RFB-Alfanumérico, perguntas 6 e 7]. Por isso:
+
+- não trate o CNPJ como número (o projeto o guarda como texto);
+- não use "ordem `0001`" como sinônimo de matriz: o que diz se é matriz é o identificador matriz/filial
+  (`eh_matriz`).
+
+O teste `cnpj_dv_valido` já confere os dígitos dos dois formatos.
+
+#### Empresa × estabelecimento
+
+É a distinção mais importante para usar as métricas.
+
+- **Empresa** é a entidade inscrita no CNPJ (sociedade, empresário individual, órgão público, associação…). É
+  identificada pelo **CNPJ básico** e tem uma linha no arquivo Empresas.
+- **Estabelecimento** é o "local privado ou público, edificado ou não, móvel ou imóvel, próprio ou de terceiros,
+  físico ou virtual, onde a entidade exerce suas atividades" [IN 2.119, art. 5º]. Toda entidade e cada um de seus
+  estabelecimentos precisa de inscrição [IN 2.119, art. 4º]. Cada estabelecimento tem um CNPJ completo e uma
+  linha no arquivo Estabelecimentos.
+
+Uma empresa tem **um ou mais** estabelecimentos. Atributos ficam em lugares diferentes: natureza jurídica, porte,
+capital social e opção pelo Simples/MEI são **da empresa**; situação cadastral, CNAE, endereço, município e data
+de início de atividade são **do estabelecimento** [RFB-Leiaute].
+
+No projeto, o grão das fatos é o **estabelecimento** (`fct_estabelecimentos`, entidade semântica
+`estabelecimento`). Não há uma entidade semântica "empresa": os atributos da empresa foram copiados para cada
+estabelecimento dela. Consequências:
+
+- `qtd_estabelecimentos` e `qtd_ativos` contam **estabelecimentos**, não empresas;
+- para contar **empresas**, conte as **matrizes** (`qtd_matrizes`). Nas fixtures, em 2026-09, são 17
+  estabelecimentos e 16 matrizes: uma empresa tem uma filial;
+- atributos da empresa repetidos (capital social) não podem ser somados por estabelecimento.
+
+#### Matriz × filial
+
+O identificador matriz/filial vale 1 (matriz) ou 2 (filial) [RFB-Leiaute]; o projeto o guarda em
+`matriz_filial_codigo` e na flag `eh_matriz`. A inscrição da entidade corresponde à matriz; as filiais têm
+inscrição própria [IN 2.119, art. 9º]. A entidade pode transformar uma filial em matriz [IN 2.119, art. 4º, § 3º],
+e a baixa da matriz implica a baixa de todas as filiais [IN 2.119, art. 24, § 2º].
+
+Contar empresas pelas matrizes supõe uma matriz por CNPJ básico. As fixtures cumprem isso; o projeto não
+verificou o dado real.
+
+#### Razão social × nome fantasia
+
+- **Razão social** é o "nome empresarial da pessoa jurídica" e está no arquivo Empresas [RFB-Leiaute]
+  (`razao_social`). No empresário individual e no MEI, ela termina com o CPF do titular; o projeto mascara esse
+  trecho no gold ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)).
+- **Nome fantasia** é do estabelecimento (`nome_fantasia`) e pode vir vazio.
+
+Nenhum dos dois é dimensão da camada semântica: são nomes, não categorias.
+
+#### Natureza jurídica
+
+É a forma jurídica da entidade, com código de 4 dígitos no arquivo Empresas e descrição no domínio Naturezas
+[RFB-Leiaute]. A tabela oficial é a da CONCLA/IBGE, organizada em cinco grupos [CONCLA-NJ]:
+
+| Grupo | Exemplos (código CONCLA – descrição) |
+|---|---|
+| 1. Administração Pública | 101-5 Órgão Público do Poder Executivo Federal; 103-1 Órgão Público do Poder Executivo Municipal; 124-4 Município |
+| 2. Entidades Empresariais | 213-5 Empresário (Individual); 206-2 Sociedade Empresária Limitada; 205-4 Sociedade Anônima Fechada; 204-6 Sociedade Anônima Aberta |
+| 3. Entidades sem Fins Lucrativos | 399-9 Associação Privada |
+| 4. Pessoas Físicas | — |
+| 5. Organizações Internacionais e Outras Instituições Extraterritoriais | — |
+
+O ente federativo responsável só é preenchido para as naturezas do grupo 1XXX [RFB-Leiaute]
+(`ente_federativo_responsavel`). Nas fixtures do CI, o código `2062` traz a descrição "Sociedade Empresária
+Limitada", a mesma do 206-2 da CONCLA.
+
+**MEI não é natureza jurídica.** O MEI é um empresário individual [LC 123, art. 18-A, § 1º], cuja natureza
+na tabela é 213-5 Empresário (Individual) [CONCLA-NJ]. Para achar MEI, use `opcao_mei`, não a natureza.
+
+No projeto: `dim_natureza_juridica`, entidade `natureza_juridica`, dimensões
+`natureza_juridica__descricao_natureza_juridica` e `natureza_juridica__codigo_natureza_juridica`. Só a fato
+detalhada a tem: o resumo mensal não tem natureza jurídica.
+
+#### Capital social
+
+É o "capital social da empresa", no arquivo Empresas [RFB-Leiaute]. O projeto o repete em cada estabelecimento de
+`fct_estabelecimentos` (`capital_social`). Some **só nas matrizes**: é o que fazem `capital_social_total` e
+`capital_social_medio` (capital por matriz, ou seja, por empresa).
+
+#### Porte
+
+Código do porte da empresa [RFB-Leiaute], no seed `dominio_porte`:
+
+| Leiaute | Seed (`codigo`, `rotulo`) | Significado | Limite de receita bruta anual |
+|---|---|---|---|
+| 00 – Não informado | 0, N/A | não informado | — |
+| 01 – Micro empresa | 1, MICRO | microempresa (ME) | até R$ 360.000,00 [LC 123, art. 3º, I] |
+| 03 – Empresa de pequeno porte | 3, PEQUENA | empresa de pequeno porte (EPP) | acima de R$ 360.000,00 e até R$ 4.800.000,00 [LC 123, art. 3º, II] |
+| 05 – Demais | 5, DEMAIS | nem ME nem EPP | — |
+
+Cuidados:
+
+- **O porte é declarado, não medido.** O enquadramento como ME ou EPP é feito por declaração arquivada no registro
+  (Junta Comercial) [Lei 8.934, art. 32, II, d; LC 123, art. 3º]. Os dados abertos não trazem a receita; não há
+  como conferir o porte com eles.
+- **MEI não é porte.** Não há código de porte para MEI no leiaute; o MEI é uma opção de tributação (veja abaixo).
+- Os limites acima são os da LC 123 em vigor em 2026-10-10 (redação da LC 155/2016) [LC 123].
+- O seed descreve "05 DEMAIS" como "Demais (médio e grande porte)". "Médio e grande porte" é um rótulo do projeto:
+  o leiaute diz só "Demais".
+- "Não informado" aparece de dois jeitos: o código 00 da RFB (rótulo `N/A`) e o membro `-1` (`NÃO INFORMADO`) do
+  modelo estrela, para porte vazio ou fora do domínio.
+
+No projeto: `dim_porte`, entidade `porte`, dimensões `porte__rotulo_porte` e `porte__codigo_porte`.
+
+#### Simples Nacional e MEI
+
+**Simples Nacional** é o "Regime Especial Unificado de Arrecadação de Tributos e Contribuições devidos pelas
+Microempresas e Empresas de Pequeno Porte" [LC 123, art. 12]. A opção é
+anual, irretratável no ano-calendário [LC 123, art. 16] e formalizada até o último dia útil de janeiro, com
+efeito desde 1º de janeiro [CGSN 140, art. 6º, § 1º]. O arquivo Simples traz, por CNPJ básico, a opção (S, N ou
+em branco), a data de opção e a data de exclusão [RFB-Leiaute].
+
+**MEI (microempreendedor individual)** é o empresário individual optante pelo Simples Nacional que recolhe em
+valores fixos mensais (o SIMEI) [LC 123, art. 18-A]. Para ser MEI:
+
+- receita bruta anual de **até R$ 81.000,00** no ano anterior [LC 123, art. 18-A, § 1º; CGSN 140, art. 100;
+  Portal do Empreendedor]. No ano de abertura, o limite é de R$ 6.750,00 por mês de atividade [LC 123, art. 18-A,
+  § 2º]. O transportador autônomo de cargas tem limite de R$ 251.600,00 [CGSN 140, art. 100, § 1º-A, I; Portal
+  do Empreendedor];
+- só as ocupações permitidas [CGSN 140, art. 100; Portal do Empreendedor];
+- **um único estabelecimento** e nenhuma participação em outra empresa como titular, sócio ou administrador
+  [LC 123, art. 18-A, § 4º, II e III];
+- no máximo **um empregado**, com salário mínimo ou piso da categoria [LC 123, art. 18-C; CGSN 140, art. 105].
+
+Todo MEI é optante pelo Simples; o contrário não vale. Sair do SIMEI (desenquadramento) não exclui a empresa do
+Simples Nacional [CGSN 140, art. 115, § 1º]. O arquivo Simples traz a opção pelo MEI e suas datas [RFB-Leiaute].
+
+Os limites de R$ 81.000,00 e R$ 251.600,00 foram conferidos em 2026-10-10 nas três fontes acima. Eles mudam por
+lei; confira antes de citá-los num relatório.
+
+No projeto:
+
+- `opcao_simples` e `opcao_mei` (em `stg_rfb__simples` e em `fct_estabelecimentos`);
+- empresa **sem registro** no arquivo Simples vira `false` nas duas flags. O leiaute também prevê o valor "em
+  branco – outros";
+- a fato tem um teste: MEI implica Simples (`not opcao_mei or opcao_simples`);
+- a flag é a situação **no extrato**: as datas de opção e exclusão ficam no staging (`dat_opcao_mei`,
+  `dat_exclusao_mei`, `dat_opcao_simples`, `dat_exclusao_simples`);
+- métricas `qtd_ativos_mei` e `pct_mei_entre_ativos`; dimensões `resumo_mensal__opcao_mei` e
+  `estabelecimento__opcao_mei`.
+
+#### Situação cadastral
+
+A inscrição no CNPJ da entidade ou de cada filial está numa de cinco situações [IN 2.119, art. 9º]. Os códigos são
+os do leiaute [RFB-Leiaute], iguais aos do seed `dominio_situacao_cadastral`:
+
+| Código | Situação | Quando ocorre (resumo) | Fonte |
+|---|---|---|---|
+| 2 | **ATIVA** | inscrição regular | [IN 2.119, art. 9º] |
+| 3 | **SUSPENSA** | interrupção temporária das atividades comunicada pela entidade; inconsistência cadastral; não localização no endereço; indício de interposição fraudulenta de sócio; procedimento de inaptidão em curso; ordem judicial; entre outras | [IN 2.119, art. 37] |
+| 4 | **INAPTA** | omissão de declarações por **90 dias ou mais** após o prazo; inexistência de fato (sem patrimônio ou capacidade operacional, não localizada, atividades paralisadas sem comunicação); irregularidade no comércio exterior; fraude; **suspensa há um ano ou mais**; entre outras | [IN 2.119, art. 38] |
+| 8 | **BAIXADA** | a pedido: extinção (liquidação, incorporação, fusão, cisão total) ou fim da falência. De ofício: inapta não regularizada em **180 dias**, registro extinto no órgão de registro, ordem judicial, falência ou liquidação extrajudicial, óbito do MEI, decisão administrativa | [IN 2.119, arts. 24 e 31] |
+| 1 | **NULA** | o ato cadastral foi declarado nulo: mais de um CNPJ para o mesmo estabelecimento, vício no ato ou inscrição de quem não devia ser inscrito. O efeito retroage ao início do ato | [IN 2.119, art. 34] |
+
+Pontos que mudam a leitura das métricas:
+
+- **"Ativa" não quer dizer "em operação".** As situações cadastrais "não se confundem com a condição de atividade ou
+  inatividade para fins tributários" [IN 2.119, art. 9º, parágrafo único]. Um estabelecimento parado segue ATIVO
+  até ser suspenso, declarado inapto ou baixado (ressalva R3-19 do [guia Power BI](POWER_BI.md)).
+- **Motivo.** Cada situação tem um motivo codificado [RFB-Leiaute], descrito no arquivo de motivos da RFB. O projeto o guarda no
+  staging (`motivo_situacao_codigo`, `stg_rfb__motivos`) e não o leva à estrela.
+- **Data da situação** é a "data do evento da situação cadastral" [RFB-Leiaute] (`dat_situacao`). Num ativo,
+  costuma coincidir com a data de início de atividade (observação do projeto, sem fonte da RFB).
+
+No projeto: `dim_situacao_cadastral`, entidade `situacao_cadastral`, dimensão
+`situacao_cadastral__rotulo_situacao_cadastral` e a flag `eh_ativa` (código 2).
+
+#### Situação especial
+
+É a "situação especial da empresa" e a "data em que a empresa entrou em situação especial", campos do arquivo
+Estabelecimentos [RFB-Leiaute]. O leiaute não lista os valores possíveis. O projeto mantém os campos só no staging
+(`situacao_especial`, `dat_situacao_especial`).
+
+#### Data de início de atividade
+
+É a "data de início da atividade" do **estabelecimento** [RFB-Leiaute] (`dat_inicio_atividade`). No projeto:
+
+- base da **idade** (`idade_anos`, só para ativos, em relação à data do extrato) e das métricas
+  `idade_media_anos` e `soma_idade_anos_ativos`;
+- base das **aberturas** (`aberturas`) e das **coortes** de sobrevivência (`mart_sobrevivencia_coorte`).
+
+Data ausente vira a chave `-1` e data anterior a 1900 vira `-2`. Nenhuma das duas gera evento nem coorte.
+
+#### CNAE principal e secundárias
+
+A **CNAE** (Classificação Nacional de Atividades Econômicas) é mantida pela CONCLA/IBGE, hoje na versão
+CNAE-Subclasses 2.3. Tem cinco níveis, por exemplo para a pergunta-guia do projeto [CONCLA-CNAE]:
+
+| Nível | Código | Exemplo |
+|---|---|---|
+| Seção | G | Comércio; reparação de veículos automotores e motocicletas |
+| Divisão | 47 | Comércio varejista |
+| Grupo | 47.4 | Comércio varejista de material de construção |
+| Classe | 47.41-5 | Comércio varejista de tintas e materiais para pintura |
+| Subclasse | 4741-5/00 | Comércio varejista de tintas e materiais para pintura |
+
+Cada estabelecimento tem **um CNAE fiscal principal** e **zero ou mais secundários**, estes separados por vírgula
+no arquivo [RFB-Leiaute]. No projeto:
+
+- o principal vira `cnae_principal` (7 dígitos, como `4741500`) e `sk_cnae`;
+- `dim_cnae` traz os cinco níveis (dimensões `cnae__codigo_subclasse`, `cnae__descricao_secao` etc.), da Base dos
+  Dados;
+- os secundários ficam na ponte `bridge_estabelecimento_cnae_secundario`, fora da camada semântica (ver
+  [B7](#b7-limites-e-cuidados)).
+
+As métricas usam **só o CNAE principal**: um estabelecimento que vende tintas como atividade secundária não entra
+em `cnae__codigo_subclasse = '4741500'`.
+
+#### Município: código RFB × código IBGE
+
+O arquivo Estabelecimentos traz a UF e o "código do município de jurisdição onde se encontra o estabelecimento"
+[RFB-Leiaute]. Esse código é da **tabela da RFB** (domínio Municípios, 4 dígitos), **não é o código IBGE**
+(7 dígitos). O projeto converte um no outro pelo diretório de municípios da Base dos Dados (`codigo_rfb` →
+`id_municipio_ibge`) e usa o código IBGE como chave (`sk_municipio`).
+
+Sem par, o estabelecimento fica no membro `-1` de `dim_municipio`. Os casos conhecidos estão no seed
+`excecoes_conhecidas_municipio`: o código 9707 (EXTERIOR, UF `EX`) e municípios criados depois da base.
+
+### A3. Ciclo de vida
+
+A RFB não publica "eventos": publica a **situação atual** de cada estabelecimento, com a data e o motivo dela. O
+diagrama mostra as transições previstas na IN RFB 2.119/2022 [IN 2.119].
+
+```mermaid
+stateDiagram-v2
+    [*] --> ATIVA : inscrição (art. 4º)
+    ATIVA --> SUSPENSA : art. 37 (interrupção comunicada, inconsistência, não localizada…)
+    SUSPENSA --> ATIVA : regularização / restabelecimento (art. 37, § 3º)
+    ATIVA --> INAPTA : art. 38 (omissão ≥ 90 dias, inexistência de fato…)
+    SUSPENSA --> INAPTA : suspensa ≥ 1 ano (arts. 38, X, e 46)
+    INAPTA --> ATIVA : regularização (arts. 39, 46, § 2º, e 47)
+    INAPTA --> SUSPENSA : motivo da suspensão anterior persiste (art. 47, par. único)
+    ATIVA --> BAIXADA : a pedido (art. 24) ou de ofício (art. 31)
+    INAPTA --> BAIXADA : de ofício, 180 dias sem regularizar (art. 31, I)
+    BAIXADA --> ATIVA : restabelecimento (art. 26)
+    ATIVA --> NULA : nulidade do ato cadastral (art. 34)
+```
+
+Notas:
+
+- A suspensão pela interrupção comunicada e por ordem judicial só vira inaptidão depois de **5 anos** [IN 2.119,
+  art. 46, § 1º].
+- A baixa da matriz leva junto todas as filiais [IN 2.119, art. 24, § 2º]. A baixa não apaga dívidas: tributos
+  ainda podem ser lançados e cobrados depois dela [IN 2.119, art. 24, § 4º].
+- **Empresa × estabelecimento no ciclo de vida.** Nos dados abertos, a situação cadastral está no arquivo
+  Estabelecimentos. Como a inscrição da entidade é a da matriz [IN 2.119, art. 9º], o projeto lê a "situação da
+  empresa" como a da matriz: filtre `eh_matriz`. Uma empresa ATIVA pode
+  ter filiais baixadas.
+
+**O que o extrato mensal mostra, e o que não mostra.**
+
+- Mostra a **situação no dia do extrato** e a **data do último evento** de situação. Transições intermediárias
+  entre dois extratos não aparecem: um estabelecimento suspenso e reativado no mesmo mês segue ATIVO.
+- Comparando dois extratos se vê a **variação líquida** do estoque (é o que fazem `qtd_ativos_mes_anterior` e
+  `variacao_mensal_ativos`), não quem entrou e quem saiu. Se um CNPJ deixar de constar no extrato, o projeto deixa de vê-lo.
+- O cadastro guarda também o que já foi encerrado: as análises originais do MVP observaram que a base traz "todas
+  as empresas que já foram abertas na história, incluindo as que foram fechadas"
+  ([notebook 2.2](referencia-original/2.2_Qualidade_dos_Dados_Empresas.md)). Por isso `qtd_estabelecimentos`
+  inclui baixados; use `qtd_ativos` para o estoque ativo.
+
+**Ligação com as métricas.**
+
+| Pergunta | Métrica | Regra do projeto |
+|---|---|---|
+| Quantos estão ativos hoje? | `qtd_ativos` | situação ATIVA no extrato do mês. **Ativa ≠ em operação** |
+| Quantos abriram no período? | `aberturas` | estabelecimentos do extrato corrente pela **data de início de atividade** válida |
+| Quantos encerraram no período? | `encerramentos` | estabelecimentos **não ativos** (nula, suspensa, inapta **ou** baixada, não só baixada) pela **data da situação** válida |
+| Saldo | `saldo_aberturas_encerramentos` | aberturas − encerramentos |
+| Quantos sobrevivem? | `taxa_sobrevivencia_3a` etc. | ainda ativos entre os elegíveis da coorte de abertura |
+
+Aberturas e encerramentos são **eventos derivados** pelo projeto (regra de `mart_dinamica_mercado`), não eventos
+publicados pela RFB. Como só existe a situação atual, um inativo reativado deixa de contar como encerramento, e um
+suspenso conta como encerramento enquanto estiver suspenso.
+
+### A4. Ontologia
+
+A ontologia formal está em [`docs/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) (OWL, Turtle). Ela define os
+conceitos e as relações e anota em cada conceito a entidade semântica, as dimensões, as métricas, os modelos e as
+colunas do projeto. O teste `tests/integration/test_ontologia.py` confere a cobertura nos dois sentidos: todo nome
+anotado existe nos manifestos do dbt, e toda entidade semântica e toda métrica está mapeada.
+
+```mermaid
+classDiagram
+    direction LR
+    class Empresa {
+        CNPJ básico
+        razão social
+        capital social
+    }
+    class Estabelecimento {
+        CNPJ completo
+        nome fantasia
+        data de início de atividade
+        data da situação
+    }
+    class Matriz
+    class Filial
+    class NaturezaJuridica
+    class Porte
+    class OpcaoSimplesNacional {
+        data de opção
+        data de exclusão
+    }
+    class OpcaoMEI
+    class SituacaoCadastral
+    class MotivoSituacaoCadastral
+    class SubclasseCnae
+    class ClasseCnae
+    class GrupoCnae
+    class DivisaoCnae
+    class SecaoCnae
+    class Municipio
+    class UnidadeFederativa
+    class RegiaoGeografica
+
+    Empresa "1" --> "1..*" Estabelecimento : possui
+    Estabelecimento <|-- Matriz
+    Estabelecimento <|-- Filial
+    Empresa --> "1" NaturezaJuridica : tem
+    Empresa --> "1" Porte : tem
+    Empresa --> "0..1" OpcaoSimplesNacional : tem
+    OpcaoSimplesNacional <|-- OpcaoMEI
+    Estabelecimento --> "1" SituacaoCadastral : tem
+    Estabelecimento --> "0..1" MotivoSituacaoCadastral : tem
+    Estabelecimento --> "1" SubclasseCnae : CNAE principal
+    Estabelecimento --> "0..*" SubclasseCnae : CNAEs secundárias
+    SubclasseCnae --> ClasseCnae : subordinada a
+    ClasseCnae --> GrupoCnae : subordinada a
+    GrupoCnae --> DivisaoCnae : subordinada a
+    DivisaoCnae --> SecaoCnae : subordinada a
+    Estabelecimento --> "1" Municipio : localiza-se em
+    Municipio --> "1" UnidadeFederativa : pertence a
+    Municipio --> RegiaoGeografica : pertence a
+```
+
+Os conceitos analíticos do projeto (fotografia mensal, abertura, encerramento e coorte) estão na ontologia, mas
+fora do diagrama: são regras do projeto, não conceitos da RFB.
+
+**Onde cada conceito está no projeto.** Colunas no formato modelo.coluna.
+
+| Conceito | Staging | Estrela | Semântica (entidade / dimensão) | Métricas |
+|---|---|---|---|---|
+| Empresa | `stg_rfb__empresas.cnpj_raiz` | — (atributos copiados em `fct_estabelecimentos`) | — (sem entidade) | `qtd_matrizes` |
+| Estabelecimento | `stg_rfb__estabelecimentos.cnpj_completo` | `fct_estabelecimentos.cnpj_completo` | `estabelecimento` | `qtd_estabelecimentos` |
+| Matriz / filial | `stg_rfb__estabelecimentos.matriz_filial_codigo` | `fct_estabelecimentos.eh_matriz` | `estabelecimento__eh_matriz` | `qtd_matrizes` |
+| Razão social | `stg_rfb__empresas.razao_social` | — | — | — |
+| Nome fantasia | `stg_rfb__estabelecimentos.nome_fantasia` | — | — | — |
+| Natureza jurídica | `stg_rfb__empresas.natureza_juridica_codigo` | `dim_natureza_juridica` | `natureza_juridica` / `natureza_juridica__descricao_natureza_juridica` | via `aberturas`, `encerramentos` |
+| Capital social | `stg_rfb__empresas.capital_social` | `fct_estabelecimentos.capital_social` | — | `capital_social_total`, `capital_social_medio` |
+| Porte | `stg_rfb__empresas.porte_codigo` | `dim_porte` | `porte` / `porte__rotulo_porte` | todas, como recorte |
+| Simples Nacional | `stg_rfb__simples.opcao_simples` | `fct_estabelecimentos.opcao_simples` | `estabelecimento__opcao_simples` | — |
+| MEI | `stg_rfb__simples.opcao_mei` | `fct_estabelecimentos.opcao_mei`, `fct_resumo_mensal.opcao_mei` | `resumo_mensal__opcao_mei`, `estabelecimento__opcao_mei` | `qtd_ativos_mei`, `pct_mei_entre_ativos` |
+| Situação cadastral | `stg_rfb__estabelecimentos.situacao_codigo` | `dim_situacao_cadastral`, `fct_estabelecimentos.eh_ativa` | `situacao_cadastral` / `situacao_cadastral__rotulo_situacao_cadastral`, `estabelecimento__eh_ativa` | `qtd_ativos`, `pct_ativos` |
+| Data da situação | `stg_rfb__estabelecimentos.dat_situacao` | `fct_estabelecimentos.sk_data_situacao` | `estabelecimento__data_situacao` | `encerramentos` |
+| Motivo da situação | `stg_rfb__estabelecimentos.motivo_situacao_codigo` | — | — | — |
+| Situação especial | `stg_rfb__estabelecimentos.situacao_especial` | — | — | — |
+| Início de atividade | `stg_rfb__estabelecimentos.dat_inicio_atividade` | `fct_estabelecimentos.sk_data_inicio_atividade`, `fct_estabelecimentos.idade_anos` | `estabelecimento__data_inicio_atividade` | `aberturas`, `idade_media_anos`, `soma_idade_anos_ativos` |
+| CNAE principal | `stg_rfb__estabelecimentos.cnae_principal` | `dim_cnae`, `fct_estabelecimentos.sk_cnae` | `cnae` / `cnae__codigo_subclasse` … `cnae__descricao_secao` | todas, como recorte |
+| CNAEs secundárias | `stg_rfb__estabelecimentos.cnaes_secundarios_lista` | `bridge_estabelecimento_cnae_secundario` | — (fora da camada) | — |
+| Município | `stg_rfb__estabelecimentos.municipio_rfb_codigo` | `dim_municipio` | `municipio` / `municipio__nome_municipio`, `municipio__sigla_uf`, `municipio__nome_regiao` … | todas, como recorte |
+| Fotografia mensal | — | `fct_resumo_mensal` | `resumo_mensal` | `qtd_ativos_mes_anterior`, `variacao_mensal_ativos`, `variacao_mensal_ativos_pct` |
+| Abertura / encerramento | — | `mart_dinamica_mercado` | `estabelecimento` | `aberturas`, `encerramentos`, `saldo_aberturas_encerramentos` |
+| Coorte de abertura | — | `mart_sobrevivencia_coorte` | `coorte_sobrevivencia` | `elegiveis_3a`, `sobreviventes_3a`, `taxa_sobrevivencia_3a` (e 1a, 5a) |
+
+### A5. Glossário rápido
+
+| Termo | Significado |
+|---|---|
+| CNPJ básico (raiz) | 8 primeiros caracteres do CNPJ; identifica a empresa (`cnpj_raiz`) |
+| CNPJ completo | 14 posições; identifica o estabelecimento (`cnpj_completo`) |
+| Empresa | entidade inscrita no CNPJ; no projeto, contada pelas matrizes |
+| Estabelecimento | local onde a empresa atua (matriz ou filial); grão das fatos |
+| Matriz / filial | identificador 1 / 2 do leiaute (`eh_matriz`) |
+| ME / EPP | microempresa / empresa de pequeno porte, pela receita bruta anual (LC 123, art. 3º); no cadastro, declaradas |
+| Simples Nacional | regime de tributação unificado da LC 123 para ME e EPP (`opcao_simples`) |
+| MEI | empresário individual no SIMEI, receita até R$ 81 mil/ano (`opcao_mei`); não é porte nem natureza jurídica |
+| Situação cadastral | ATIVA, SUSPENSA, INAPTA, BAIXADA ou NULA, por estabelecimento |
+| Ativo | situação ATIVA no extrato; não prova operação |
+| Abertura | estabelecimento contado na data de início de atividade (regra do projeto) |
+| Encerramento | estabelecimento não ativo contado na data da situação (regra do projeto) |
+| Fotografia mensal | o extrato de um mês; não se somam meses |
+| CNAE | classificação de atividades da CONCLA/IBGE; seção → divisão → grupo → classe → subclasse |
+| Município RFB | código de 4 dígitos da RFB, diferente do código IBGE |
+| Membro `-1` | "NÃO INFORMADO": valor sem par na dimensão |
+
+### A6. Perguntas frequentes
+
+Os exemplos rodam em `transform/`, com `RAIZ_DADOS` apontando para os dados (no CI, `.tmp/ci/dados`). As saídas
+mostradas vêm das **fixtures do `make ci`** (meses 2026-08 e 2026-09), não do cadastro real.
+
+**Quantos MEI ativos há em cada UF?**
+
+```bash
+uv run mf query --metrics qtd_ativos_mei,qtd_ativos,pct_mei_entre_ativos --group-by metric_time__month,municipio__sigla_uf
+uv run mf query --metrics qtd_ativos_mei --group-by metric_time__month --where "{{ Dimension('municipio__sigla_uf') }} = 'ES'"
+```
+
+Nas fixtures, o ES tem 2 MEI ativos em 2026-09 (1 em 2026-08). Recorte sem MEI sai vazio, não zero.
+
+**Quantas empresas há, e não estabelecimentos?**
+
+```bash
+uv run mf query --metrics qtd_matrizes,qtd_estabelecimentos --group-by metric_time__month
+uv run mf query --metrics qtd_matrizes,qtd_estabelecimentos --group-by metric_time__month --where "{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'ATIVA'"
+```
+
+```text
+metric_time__month      qtd_matrizes    qtd_estabelecimentos
+--------------------  --------------  ----------------------
+2026-09-01T00:00:00               16                      17
+2026-08-01T00:00:00               16                      16
+```
+
+Com o filtro de ATIVA, 2026-09 tem 10 matrizes ativas e 11 estabelecimentos ativos. A situação filtrada é a da
+matriz, não a da empresa como um todo.
+
+**Por que não posso somar os meses?**
+
+Cada mês é uma fotografia do cadastro inteiro. O mesmo estabelecimento ativo aparece em todos os meses em que segue
+ativo; somar 2026-08 (10) e 2026-09 (11) daria 21 ativos que não existem. As métricas de contagem do resumo
+declaram `non_additive_dimension`: num período maior que o mês, vale o **último** mês.
+
+```bash
+uv run mf query --metrics qtd_ativos --group-by metric_time__month
+uv run mf query --metrics qtd_ativos --group-by metric_time__year
+```
+
+A segunda consulta devolve 11 para 2026 (o valor de 2026-09), não 21.
+
+**Como os estabelecimentos se distribuem por situação cadastral?**
+
+```bash
+uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__month,situacao_cadastral__rotulo_situacao_cadastral
+```
+
+Nas fixtures, em 2026-09: 11 ATIVA, 1 INAPTA, 5 BAIXADA.
+
+**Qual a idade média dos ativos por porte num mês?**
+
+```bash
+uv run mf query --metrics qtd_ativos,idade_media_anos --group-by porte__rotulo_porte --where "{{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+```
+
+Lembre que o porte é declarado e que `N/A` (código 00) e `NÃO INFORMADO` (membro `-1`) são coisas diferentes.
+
+**Os encerramentos são só baixas?**
+
+Não. Pela regra do projeto, encerramento é todo estabelecimento não ativo com data da situação válida:
+
+```bash
+uv run mf query --metrics encerramentos --group-by metric_time__year,situacao_cadastral__rotulo_situacao_cadastral
+```
+
+Nas fixtures, há encerramentos BAIXADA e INAPTA. Um dos 5 baixados não aparece porque não tem data da situação.
+
+**Quantas aberturas houve por natureza jurídica, e por matriz ou filial?**
+
+```bash
+uv run mf query --metrics aberturas --group-by natureza_juridica__descricao_natureza_juridica
+uv run mf query --metrics aberturas,encerramentos --group-by estabelecimento__eh_matriz
+```
+
+Natureza jurídica só existe na fato detalhada: combine-a com `aberturas` e `encerramentos`, não com as métricas do
+resumo mensal.
+
+**Quantos ativos há por seção da CNAE?**
+
+```bash
+uv run mf query --metrics qtd_ativos --group-by metric_time__month,cnae__descricao_secao --where "{{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+```
+
+O recorte é pelo CNAE **principal**. O membro `NÃO INFORMADO` reúne CNAEs sem par na Base dos Dados.
+
+### A7. Fontes
+
+Acessadas em **2026-10-10**.
+
+| Chave | Fonte | O que sustenta |
+|---|---|---|
+| RFB-Leiaute | Receita Federal, [Novo Layout dos Dados Abertos do CNPJ](https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf) (PDF, 6 p.) | arquivos e campos (Empresas, Estabelecimentos, Simples, Sócios e os domínios de países, municípios, qualificações, naturezas e CNAEs); códigos de porte, matriz/filial, situação cadastral e opção Simples/MEI; ente federativo só no grupo 1XXX; CNAEs secundárias separadas por vírgula; CPF ocultado em Sócios |
+| Dados.gov.br | Portal de Dados Abertos, [Cadastro Nacional da Pessoa Jurídica – CNPJ](https://dados.gov.br/dados/conjuntos-dados/cadastro-nacional-da-pessoa-juridica---cnpj) | o que é o CNPJ; atualização mensal |
+| IN 2.119 | [Instrução Normativa RFB nº 2.119, de 6 de dezembro de 2022](http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=127567), texto multivigente (alterações até a IN RFB nº 2.345/2026) | formato alfanumérico (art. 2º); inscrição (art. 4º); estabelecimento (art. 5º); situações e "não se confundem com atividade" (art. 9º); baixa (arts. 24, 26, 31); nulidade (art. 34); suspensão (art. 37); inaptidão (arts. 38, 39, 46, 47) |
+| RFB-Alfanumérico | Receita Federal, [Perguntas e respostas: CNPJ alfanumérico](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf) | 14 posições, letras A–Z, DV por módulo 11; CNPJs atuais não mudam; os dois formatos coexistem |
+| RFB-Notícia | Receita Federal, [Receita Federal gera o primeiro CNPJ em formato alfanumérico](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/julho/receita-federal-gera-o-primeiro-cnpj-em-formato-alfanumerico) (31/07/2026) | data do primeiro CNPJ alfanumérico |
+| LC 123 | [Lei Complementar nº 123, de 14 de dezembro de 2006](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm), texto compilado do Planalto | limites de ME e EPP (art. 3º); Simples Nacional (art. 12); opção pelo Simples (art. 16); MEI: limite, estabelecimento único, sem outra empresa (art. 18-A); um empregado (art. 18-C) |
+| CGSN 140 | [Resolução CGSN nº 140, de 22 de maio de 2018](http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=92278), texto multivigente | prazo da opção (art. 6º); MEI, ocupações e limite do transportador (art. 100); empregado do MEI (art. 105); desenquadramento do SIMEI não exclui do Simples (art. 115) |
+| Lei 8.934 | [Lei nº 8.934, de 18 de novembro de 1994](https://www.planalto.gov.br/ccivil_03/leis/l8934.htm) | arquivamento das declarações de microempresa no registro (art. 32, II, d) |
+| Portal do Empreendedor | gov.br, [O que você precisa saber antes de se tornar um MEI](https://www.gov.br/empresas-e-negocios/pt-br/empreendedor/quero-ser-mei/o-que-voce-precisa-saber-antes-de-se-tornar-um-mei) | requisitos do MEI; R$ 81.000,00 e R$ 251.600,00 |
+| CONCLA-NJ | IBGE/CONCLA, [Tabela de Natureza Jurídica 2021](https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html) | grupos e códigos de natureza jurídica |
+| CONCLA-CNAE | IBGE/CONCLA, [busca online CNAE-Subclasses 2.3, subclasse 4741-5/00](https://concla.ibge.gov.br/busca-online-cnae.html?view=subclasse&tipo=cnae&versaosubclasse=10&subclasse=4741500) | hierarquia da CNAE e o exemplo de tintas |
+
+## Parte B — Estrutura técnica
+
+### B1. Onde está e em qual padrão
 
 Usamos o **padrão novo** de YAML da camada semântica, suportado pelo dbt-core 1.12+ e pelo dbt v2 (Fusion).
 As anotações ficam **junto do modelo**, no mesmo YAML que já documenta colunas e testes:
@@ -15,13 +577,14 @@ As anotações ficam **junto do modelo**, no mesmo YAML que já documenta coluna
 | [`transform/models/marts/core/_core__models.yml`](../transform/models/marts/core/_core__models.yml) | modelos semânticos das dimensões e das duas fatos, métricas do resumo mensal e da fato detalhada, *time spine* (`dim_data`) |
 | [`transform/models/marts/analytics/_analytics__models.yml`](../transform/models/marts/analytics/_analytics__models.yml) | modelo semântico e métricas de `mart_sobrevivencia_coorte` |
 | [`transform/models/marts/_marts__saved_queries.yml`](../transform/models/marts/_marts__saved_queries.yml) | consultas salvas (*saved queries*) |
+| [`docs/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) | ontologia: conceitos de negócio mapeados para entidades, dimensões e métricas ([A4](#a4-ontologia)) |
 
 Elementos do padrão usados aqui:
 
 | Chave (no modelo) | Função |
 |---|---|
 | `semantic_model: { enabled: true }` | transforma o modelo dbt num modelo semântico |
-| `entity:` (na coluna) | chave de junção: `primary` (o grão do modelo) ou `foreign` (aponta para outra entidade) |
+| `entity:` (na coluna) | chave de junção: `primary` (o grão do modelo) ou `foreign` (aponta para outra entidade); aceita `description` |
 | `dimension:` (na coluna) | atributo para agrupar e filtrar (`categorical` ou `time`) |
 | `derived_semantics.dimensions` | dimensão calculada por expressão SQL (ex.: data a partir de `sk_data`) |
 | `agg_time_dimension` | dimensão de tempo padrão das métricas do modelo (vira `metric_time` nas consultas) |
@@ -29,7 +592,7 @@ Elementos do padrão usados aqui:
 | `metrics:` | métricas `simple`, `ratio` e `derived` do próprio modelo |
 | `time_spine:` | calendário diário que o MetricFlow usa para deslocamentos e janelas |
 
-## 2. Entidades e junções
+### B2. Entidades e junções
 
 ```mermaid
 erDiagram
@@ -58,9 +621,10 @@ erDiagram
 | `mart_sobrevivencia_coorte` | `coorte_sobrevivencia` (grão composto) | tempo `coorte` (anual), `uf` |
 
 Nas consultas, a dimensão de outro modelo é acessada pela entidade: `municipio__sigla_uf`, `cnae__descricao_secao`,
-`porte__rotulo_porte`. O membro `-1` (NÃO INFORMADO) de cada dimensão aparece como um valor normal.
+`porte__rotulo_porte`. O membro `-1` (NÃO INFORMADO) de cada dimensão aparece como um valor normal. Não existe
+entidade "empresa": ver [A2](#empresa--estabelecimento).
 
-## 3. Métricas
+### B3. Métricas
 
 As métricas do resumo mensal são as **mesmas medidas DAX** do [guia Power BI](POWER_BI.md#3-medidas-dax-sugeridas),
 agora definidas uma vez e fora da ferramenta de BI.
@@ -95,7 +659,7 @@ de contagem do resumo declaram `non_additive_dimension: { name: mes, window_agg:
 **Ratios somam antes de dividir.** `idade_media_anos` e `taxa_sobrevivencia_3a` dividem somas, nunca tiram média
 de médias. Por isso a taxa de um estado ou de um ano é ponderada pelo número de estabelecimentos.
 
-## 4. Consultas salvas
+### B4. Consultas salvas
 
 | Saved query | Pergunta |
 |---|---|
@@ -104,7 +668,7 @@ de médias. Por isso a taxa de um estado ou de um ano é ponderada pelo número 
 | `dinamica_anual_por_secao_cnae` | aberturas, encerramentos e saldo por ano e seção CNAE |
 | `sobrevivencia_por_coorte_e_porte` | taxas de sobrevivência a 1, 3 e 5 anos por coorte e porte |
 
-## 5. Como usar
+### B5. Como usar
 
 O CLI do MetricFlow (`mf`, pacote `dbt-metricflow`) vem nas dependências de desenvolvimento (`make setup`). Ele lê o
 projeto dbt de `transform/` e consulta o DuckDB de `RAIZ_DADOS` (o mesmo `warehouse.duckdb` do pipeline).
@@ -132,11 +696,12 @@ Outros consumidores:
 
 - **Documento OSI.** O `dbt parse` grava `transform/target/osi_document.json`, a camada semântica no formato
   aberto *Open Semantic Interchange*, para ferramentas que o leem.
-- **Power BI.** Continua com as medidas DAX do guia: o Power BI não lê MetricFlow diretamente. A tabela da §3 é o
-  dicionário entre as duas. Use `mf query --csv` ou `--explain` para conferir um número do painel.
+- **Power BI.** Continua com as medidas DAX do guia: o Power BI não lê MetricFlow diretamente. A tabela da
+  [B3](#b3-métricas) é o dicionário entre as duas. Use `mf query --csv` ou `--explain` para conferir um número do
+  painel.
 - **dbt Semantic Layer (dbt platform).** O mesmo YAML serve, se um dia o projeto for para a plataforma.
 
-## 6. Garantias (testes)
+### B6. Garantias (testes)
 
 - `tests/integration/test_camada_semantica.py`:
   - `mf validate-configs` sem erros, inclusive contra o warehouse;
@@ -148,10 +713,16 @@ Outros consumidores:
   - sobrevivência somando os estratos.
 - `tests/integration/test_escopo_meta.py`: modelos semânticos, métricas e *saved queries* com `meta.escopo`
   (e tag, nas *saved queries*).
-- Mutações verificadas (todas reprovadas pelos testes): tirar o `non_additive_dimension`, deslocar 2 meses no lugar de 1
-  e remover o `meta.escopo` de uma métrica.
+- `tests/integration/test_ontologia.py`: a ontologia parseia, tem rótulos em português, e cobre a camada nos dois
+  sentidos (todo nome anotado existe nos manifestos; toda entidade e toda métrica tem conceito).
+- Mutações verificadas (todas reprovadas pelos testes):
+  - tirar o `non_additive_dimension`;
+  - deslocar 2 meses no lugar de 1;
+  - remover o `meta.escopo` de uma métrica;
+  - tirar o mapeamento de uma métrica da ontologia;
+  - mapear um conceito para um nome inexistente.
 
-## 7. Limites e cuidados
+### B7. Limites e cuidados
 
 - **Densidades por população ou domicílio** (ativos por 10 mil hab., por mil domicílios) **não** viraram métricas: a
   população é atributo da dimensão e precisaria ser somada uma vez por município, o que o MetricFlow não faz numa
@@ -175,7 +746,7 @@ Outros consumidores:
 
   A migração do motor continua adiada pelo ADR-0017.
 
-## 8. Como estender
+### B8. Como estender
 
 1. Métrica nova sobre um modelo que já é semântico: acrescente-a em `metrics:` do modelo, com `description`, `label`,
    `config: { meta: { escopo: adicao } }`. Contagens do resumo mensal levam o `non_additive_dimension`.
@@ -183,4 +754,7 @@ Outros consumidores:
    ou uma `derived_semantics.dimensions` com `expr`.
 3. Modelo novo: `semantic_model: { enabled: true, config: { meta: { escopo: adicao } } }`, uma entidade
    `primary` (ou `primary_entity`), `foreign` para as dimensões e `agg_time_dimension`.
-4. Rode `make semantica` e acrescente um caso em `test_camada_semantica.py` que compare a métrica com o SQL direto.
+4. Mapeie a métrica ou a entidade nova num conceito de [`docs/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl)
+   (`rfbo:metricaDbt`, `rfbo:entidadeSemantica`) e na tabela da [A4](#a4-ontologia): o `test_ontologia.py` falha
+   sem isso.
+5. Rode `make semantica` e acrescente um caso em `test_camada_semantica.py` que compare a métrica com o SQL direto.

@@ -206,7 +206,7 @@ muda. No Power BI:
 ## 3. Medidas DAX sugeridas
 
 As medidas usam as tabelas e colunas reais do modelo. Crie-as numa tabela `Medidas`. Cada uma tem uma métrica
-equivalente na [camada semântica](CAMADA_SEMANTICA.md#3-métricas) (MetricFlow, ADR-0018). Use
+equivalente na [camada semântica](CAMADA_SEMANTICA.md#b3-métricas) (MetricFlow, ADR-0018). Use
 `mf query --metrics ...` para conferir um número do painel.
 
 ```dax
