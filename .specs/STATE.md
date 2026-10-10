@@ -48,6 +48,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 <br>• revisão independente RSEM: aprovável com ressalvas, 12 achados, 7 mutações sobreviventes;
 <br>• lote FRSEM: os 12 achados; métrica `baixas`; todas as métricas comparadas com SQL; afinidade na ontologia; verificador da doc no `make ci`.
 <br>Total: 26 métricas; 15 casos em `test_camada_semantica.py`, 4 de ontologia e 1 de doc. Bugs do dbt-core 1.12.5 contornados: *partial parse* e `fill_nulls_with` | active | 2026-10-09 |
+| AD-038 | PR #1 (camada semântica, contexto de negócio, ontologia) integrado pelo usuário (merge commit `e36b6f5`). **Release v1.1.0**: versão do pacote 1.1.0 (PR de versão) e tag anotada no merge desse PR; notas com a lista de mudanças desde a v1.0.1 | active | 2026-10-10 |
 
 ## Handoff
 
