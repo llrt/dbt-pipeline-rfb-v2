@@ -99,11 +99,11 @@ def test_empresas_e_estabelecimentos_contagens_da_spec(
     empresas = _converter(fixtures, configuracao, "empresas", ["Empresas0.zip"])
     estab = _converter(fixtures, configuracao, "estabelecimentos", ["Estabelecimentos0.zip"])
 
-    # 15 raízes + a linha "fantasma" de B (R4-05)
-    assert [(r.linhas, r.linhas_rejeitadas) for r in empresas] == [(16, 0)]
-    assert [(r.linhas, r.linhas_rejeitadas) for r in estab] == [(16, 0)]
-    assert len(_ler(empresas[0].parquet[0])) == 16
-    assert len(_ler(estab[0].parquet[0])) == 16
+    # 16 raízes + a linha "fantasma" de B (R4-05)
+    assert [(r.linhas, r.linhas_rejeitadas) for r in empresas] == [(17, 0)]
+    assert [(r.linhas, r.linhas_rejeitadas) for r in estab] == [(18, 0)]
+    assert len(_ler(empresas[0].parquet[0])) == 17
+    assert len(_ler(estab[0].parquet[0])) == 18
     assert not (configuracao.rejeitos_dir / "empresas").exists()
 
 
@@ -115,7 +115,7 @@ def test_resultado_e_caminho_publicado(fixtures: Path, configuracao: Configuraca
         entidade="empresas",
         arquivo_origem="Empresas0.zip",
         arquivo_interno="K3241.K03200Y0.D60912.EMPRECSV",
-        linhas=16,
+        linhas=17,
         linhas_rejeitadas=0,
         parquet=(esperado,),
         data_referencia=date(2026, 9, 12),
@@ -301,7 +301,7 @@ def test_varios_zips_da_entidade_um_parquet_cada(
         f"SELECT count(*), count(DISTINCT mes_referencia) "
         f"FROM read_parquet('{glob}', hive_partitioning=true)"
     ).fetchone()
-    assert total == (32, 1)  # 2 zips × (15 raízes + a linha "fantasma", R4-05)
+    assert total == (34, 1)  # 2 zips × (16 raízes + a linha "fantasma", R4-05)
 
 
 def test_reconversao_substitui_particao(fixtures: Path, configuracao: Configuracao) -> None:
@@ -581,7 +581,7 @@ def test_arquivo_vazio_entre_nao_vazios_gera_aviso_e_publica(
         )
 
     assert [(r.arquivo_origem, r.linhas) for r in resultados] == [
-        ("Empresas0.zip", 16),
+        ("Empresas0.zip", 17),
         ("Empresas1.zip", 0),
     ]
     assert all(r.parquet[0].is_file() for r in resultados)

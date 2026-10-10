@@ -5,7 +5,7 @@ description = "Port do MVP RFB/CNPJ a dbt + DuckDB."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "dbt-core>=1.10.5,<2",
+    "dbt-core>=1.12,<2",
     "dbt-duckdb>=1.10,<2",
     "duckdb>=1.5,<2",
     "httpx",
@@ -23,7 +23,9 @@ dev = [
     "ruff",
     "sqlfluff",
     "sqlfluff-templater-dbt",
+    "dbt-metricflow>=0.15,<0.16",  # CLI `mf`: valida e consulta a camada semântica (ADR-0018)
     "pre-commit",
+    "rdflib>=7,<8",  # parseia a ontologia `docs/ontologia/rfb_cnpj.ttl` nos testes
 ]
 
 [build-system]

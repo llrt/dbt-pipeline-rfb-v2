@@ -1,0 +1,65 @@
+version: 2
+
+# Consultas salvas da camada semântica (ADR-0018): perguntas recorrentes já escritas sobre as métricas do
+# MetricFlow. Rode com `mf query --saved-query <nome>` (dentro de `transform/`). Todas são adição ao MVP.
+saved_queries:
+  - name: serie_mensal_ativos_por_uf
+    label: Série mensal de ativos por UF
+    description: >
+      Ativos, % de ativos e idade média por mês de referência e UF: a série histórica que o painel
+      do Power BI mostra, sem DAX.
+    config:
+      meta: { escopo: adicao }
+      tags: [escopo_adicao]
+    query_params:
+      metrics: [qtd_ativos, pct_ativos, idade_media_anos]
+      group_by:
+        - "TimeDimension('metric_time', 'month')"
+        - "Dimension('municipio__sigla_uf')"
+
+  - name: estudo_caso_fundao_tintas
+    label: Estudo de caso — lojas de tintas em Fundão/ES
+    description: >
+      Pergunta-guia do MVP: lojas de tintas (CNAE 4741500) em Fundão/ES por mês e porte — estabelecimentos,
+      ativos e idade média dos ativos.
+    config:
+      meta: { escopo: adicao }
+      tags: [escopo_adicao]
+    query_params:
+      metrics: [qtd_estabelecimentos, qtd_ativos, idade_media_anos]
+      group_by:
+        - "TimeDimension('metric_time', 'month')"
+        - "Dimension('porte__rotulo_porte')"
+      where:
+        - "{{ Dimension('municipio__nome_municipio') }} = 'Fundão'"
+        - "{{ Dimension('municipio__sigla_uf') }} = 'ES'"
+        - "{{ Dimension('cnae__codigo_subclasse') }} = '4741500'"
+
+  - name: dinamica_anual_por_secao_cnae
+    label: Aberturas e encerramentos por ano e seção CNAE
+    description: >
+      Aberturas (data de início) e encerramentos (não ativos, pela data da situação) por ano e seção CNAE no
+      extrato corrente, com o saldo; mesma regra e mesmos números de `mart_dinamica_mercado` somado por ano e seção.
+      O último ano é parcial (vai até a data do extrato), e os encerramentos incluem inaptidões declaradas em
+      lote: para fechamentos definitivos, use a métrica `baixas`.
+    config:
+      meta: { escopo: adicao }
+      tags: [escopo_adicao]
+    query_params:
+      metrics: [aberturas, encerramentos, saldo_aberturas_encerramentos]
+      group_by:
+        - "TimeDimension('metric_time', 'year')"
+        - "Dimension('cnae__descricao_secao')"
+
+  - name: sobrevivencia_por_coorte_e_porte
+    label: Sobrevivência a 1, 3 e 5 anos por coorte e porte
+    description: >
+      Taxas de sobrevivência por ano de coorte e porte, somando os estratos antes de dividir.
+    config:
+      meta: { escopo: adicao }
+      tags: [escopo_adicao]
+    query_params:
+      metrics: [taxa_sobrevivencia_1a, taxa_sobrevivencia_3a, taxa_sobrevivencia_5a]
+      group_by:
+        - "TimeDimension('metric_time', 'year')"
+        - "Dimension('porte__rotulo_porte')"

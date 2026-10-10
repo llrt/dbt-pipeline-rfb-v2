@@ -7,7 +7,11 @@ MES ?=
 export RAIZ_DADOS
 export DBT_PROFILES_DIR = $(CURDIR)/transform
 
-.PHONY: setup fixtures ingerir ci pipeline atualizar docs lint sincronizar relatorio publicar clean
+.PHONY: setup fixtures ingerir ci pipeline atualizar semantica docs lint sincronizar relatorio publicar clean
+
+# Parse completo antes dos comandos que chamam o dbt várias vezes: no dbt-core 1.12.5 o partial parse
+# duplica as métricas de um YAML editado ("dbt found two metrics with the name ..."), ADR-0018.
+PARSE_COMPLETO = cd transform && uv run dbt parse --no-partial-parse --quiet
 
 ## setup: sincroniza dependências Python e pacotes dbt (`--locked`: falha se o uv.lock divergir, R4-09)
 setup:
@@ -33,6 +37,7 @@ ci:
 	rm -rf .tmp/ci
 	uv run python scripts/gerar_fixtures.py --saida .tmp/ci/fixtures
 	cd transform && uv run dbt deps
+	$(PARSE_COMPLETO) --target ci
 	uv run rfb pipeline $(CI_ORIGEM) --mes 2026-08 --saida-relatorio .tmp/ci/relatorio-2026-08.md
 	uv run rfb atualizar $(CI_ORIGEM) --saida-relatorio .tmp/ci/relatorio.md
 	set -o pipefail; uv run rfb atualizar $(CI_ORIGEM) --saida-relatorio .tmp/ci/relatorio.md | tee .tmp/ci/atualizar-noop.log
@@ -45,12 +50,21 @@ ci:
 ## (-> publicar se MotherDuck configurado). MES=AAAA-MM opcional (padrão: mais recente completo).
 pipeline:
 	cd transform && uv run dbt deps
+	$(PARSE_COMPLETO)
 	uv run rfb pipeline $(if $(MES),--mes $(MES)) $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL)) $(if $(PERMITIR_INCOMPLETO),--permitir-incompleto)
 
 ## atualizar: atualização mensal (T36): processa o mês completo mais recente se for novo; senão no-op
 atualizar:
 	cd transform && uv run dbt deps
+	$(PARSE_COMPLETO)
 	uv run rfb atualizar $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL))
+
+## semantica: valida a camada semântica (MetricFlow) contra o warehouse de RAIZ_DADOS e lista as métricas
+## Consultas: `cd transform && uv run mf query --saved-query estudo_caso_fundao_tintas` (ver docs/CAMADA_SEMANTICA.md)
+semantica:
+	$(PARSE_COMPLETO)
+	cd transform && uv run mf validate-configs
+	cd transform && uv run mf list metrics
 
 ## docs: gera a documentação de dbt
 docs:

@@ -87,6 +87,88 @@ models:
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
+    primary_entity: coorte_sobrevivencia
+    agg_time_dimension: coorte
+    derived_semantics:
+      dimensions:
+        - name: coorte
+          type: time
+          granularity: year
+          description: Ano de início de atividade da coorte (1º de janeiro).
+          expr: make_date(cast(ano_coorte as integer), 1, 1)
+    metrics:
+      - name: elegiveis_1a
+        description: Estabelecimentos da coorte elegíveis ao horizonte de 1 ano(s).
+        type: simple
+        agg: sum
+        expr: elegiveis_1a
+        config: { meta: { escopo: adicao } }
+      - name: sobreviventes_1a
+        description: >
+          Elegíveis que seguiam ativos 1 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do
+          aniversário de 1 ano(s) da abertura. Não é "ainda ativo".
+        type: simple
+        agg: sum
+        expr: sobreviventes_1a
+        config: { meta: { escopo: adicao } }
+      - name: taxa_sobrevivencia_1a
+        label: Taxa de Sobrevivência 1a
+        description: >
+          Sobreviventes / elegíveis a 1 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+          Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 1 ano(s), não só "ainda ativo".
+        type: ratio
+        numerator: sobreviventes_1a
+        denominator: elegiveis_1a
+        config: { meta: { escopo: adicao } }
+      - name: elegiveis_3a
+        description: Estabelecimentos da coorte elegíveis ao horizonte de 3 ano(s).
+        type: simple
+        agg: sum
+        expr: elegiveis_3a
+        config: { meta: { escopo: adicao } }
+      - name: sobreviventes_3a
+        description: >
+          Elegíveis que seguiam ativos 3 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do
+          aniversário de 3 ano(s) da abertura. Não é "ainda ativo".
+        type: simple
+        agg: sum
+        expr: sobreviventes_3a
+        config: { meta: { escopo: adicao } }
+      - name: taxa_sobrevivencia_3a
+        label: Taxa de Sobrevivência 3a
+        description: >
+          Sobreviventes / elegíveis a 3 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+          Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 3 ano(s), não só "ainda ativo".
+        type: ratio
+        numerator: sobreviventes_3a
+        denominator: elegiveis_3a
+        config: { meta: { escopo: adicao } }
+      - name: elegiveis_5a
+        description: Estabelecimentos da coorte elegíveis ao horizonte de 5 ano(s).
+        type: simple
+        agg: sum
+        expr: elegiveis_5a
+        config: { meta: { escopo: adicao } }
+      - name: sobreviventes_5a
+        description: >
+          Elegíveis que seguiam ativos 5 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do
+          aniversário de 5 ano(s) da abertura. Não é "ainda ativo".
+        type: simple
+        agg: sum
+        expr: sobreviventes_5a
+        config: { meta: { escopo: adicao } }
+      - name: taxa_sobrevivencia_5a
+        label: Taxa de Sobrevivência 5a
+        description: >
+          Sobreviventes / elegíveis a 5 ano(s), somando os estratos antes de dividir (não é a média das taxas).
+          Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 5 ano(s), não só "ainda ativo".
+        type: ratio
+        numerator: sobreviventes_5a
+        denominator: elegiveis_5a
+        config: { meta: { escopo: adicao } }
     columns:
       - name: ano_coorte
         description: Ano de `dat_inicio_atividade` do estabelecimento.
@@ -95,6 +177,7 @@ models:
       - name: sk_cnae
         description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
         data_type: integer
+        entity: { type: foreign, name: cnae }
         data_tests:
           - not_null
           - relationships:
@@ -108,6 +191,7 @@ models:
       - name: sk_porte
         description: Chave de `dim_porte` (R3-20).
         data_type: integer
+        entity: { type: foreign, name: porte }
         data_tests:
           - not_null
           - relationships:
@@ -120,6 +204,7 @@ models:
       - name: uf
         description: Sigla da UF do município; `NI` para município sem par no BD.
         data_type: varchar
+        dimension: categorical
       - name: estabelecimentos
         description: Estabelecimentos do estrato (independente de elegibilidade).
         data_type: bigint

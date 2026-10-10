@@ -1,0 +1,472 @@
+# Ontologia do cadastro CNPJ (dados abertos da RFB) e do seu mapeamento para o projeto.
+#
+# Conceitos de negócio (classes e propriedades) com rótulo e comentário em português. As propriedades de
+# anotação `rfbo:entidadeSemantica`, `rfbo:dimensaoSemantica`, `rfbo:metricaDbt`, `rfbo:modeloDbt` e
+# `rfbo:colunaDbt` ligam cada conceito aos nomes do projeto. `tests/integration/test_ontologia.py` confere
+# que todo nome mapeado existe no `semantic_manifest.json`/`manifest.json` e que toda entidade semântica e
+# toda métrica do manifesto está mapeada; e que toda métrica está num conceito que anota o modelo semântico
+# dela (afinidade: `rfbo:entidadeSemantica`, `rfbo:modeloDbt`, o modelo de `rfbo:colunaDbt` ou a entidade de
+# `rfbo:dimensaoSemantica`). Explicação para leitores: docs/CAMADA_SEMANTICA.md, Parte A.
+# Fontes acessadas em 2026-10-10 (links completos na Parte A, seção A7).
+
+@prefix rfbo: <https://github.com/llrt/dbt-pipeline-rfb-v2/ontologia/rfb_cnpj#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+<https://github.com/llrt/dbt-pipeline-rfb-v2/ontologia/rfb_cnpj> a owl:Ontology ;
+    rdfs:label "Ontologia do CNPJ (RFB) na camada semântica"@pt ;
+    rdfs:comment "Conceitos do cadastro CNPJ e das bases auxiliares, e onde cada um está no projeto dbt."@pt ;
+    dcterms:source <https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf> ,
+        <http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=127567> ,
+        <https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm> ,
+        <http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=92278> ,
+        <https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html> ;
+    owl:versionInfo "2026-10-10" .
+
+# ---------------------------------------------------------------------------------------------------------
+# Propriedades de anotação (mapeamento para o projeto)
+# ---------------------------------------------------------------------------------------------------------
+
+dcterms:source a owl:AnnotationProperty .
+
+rfbo:entidadeSemantica a owl:AnnotationProperty ;
+    rdfs:label "entidade semântica"@pt ;
+    rdfs:comment "Nome de uma entidade do MetricFlow (chave `entity` ou `primary_entity`) que representa o conceito."@pt .
+
+rfbo:dimensaoSemantica a owl:AnnotationProperty ;
+    rdfs:label "dimensão semântica"@pt ;
+    rdfs:comment "Dimensão do MetricFlow no formato de consulta `entidade__dimensao`."@pt .
+
+rfbo:metricaDbt a owl:AnnotationProperty ;
+    rdfs:label "métrica dbt"@pt ;
+    rdfs:comment "Nome de uma métrica da camada semântica que mede o conceito."@pt .
+
+rfbo:modeloDbt a owl:AnnotationProperty ;
+    rdfs:label "modelo dbt"@pt ;
+    rdfs:comment "Nome de um modelo ou seed do projeto dbt onde o conceito está materializado."@pt .
+
+rfbo:colunaDbt a owl:AnnotationProperty ;
+    rdfs:label "coluna dbt"@pt ;
+    rdfs:comment "Coluna documentada no formato `modelo.coluna` (staging, intermediário ou estrela)."@pt .
+
+rfbo:codigoRfb a owl:AnnotationProperty ;
+    rdfs:label "código RFB"@pt ;
+    rdfs:comment "Código do valor no leiaute dos dados abertos do CNPJ."@pt .
+
+# ---------------------------------------------------------------------------------------------------------
+# Empresa e estabelecimento
+# ---------------------------------------------------------------------------------------------------------
+
+rfbo:Empresa a owl:Class ;
+    rdfs:label "Empresa"@pt ;
+    rdfs:comment "Entidade inscrita no CNPJ, identificada pelo CNPJ básico (8 primeiros caracteres). Um registro no arquivo Empresas. Não é uma entidade semântica: os atributos da empresa (natureza, porte, capital, Simples/MEI) estão denormalizados no estabelecimento, e a contagem de empresas usa as matrizes."@pt ;
+    rfbo:modeloDbt "stg_rfb__empresas" ;
+    rfbo:colunaDbt "stg_rfb__empresas.cnpj_raiz" , "int_estabelecimentos__enriquecidos.cnpj_raiz" ,
+        "fct_resumo_mensal.qtd_matrizes" ;
+    rfbo:metricaDbt "qtd_matrizes" .
+
+rfbo:Estabelecimento a owl:Class ;
+    rdfs:label "Estabelecimento"@pt ;
+    rdfs:comment "Local onde a entidade exerce suas atividades (IN RFB 2.119/2022, art. 5º), identificado pelo CNPJ completo de 14 posições. Um registro no arquivo Estabelecimentos; é o grão de `fct_estabelecimentos`."@pt ;
+    rfbo:entidadeSemantica "estabelecimento" ;
+    rfbo:modeloDbt "stg_rfb__estabelecimentos" , "int_estabelecimentos__enriquecidos" , "fct_estabelecimentos" ;
+    rfbo:colunaDbt "fct_estabelecimentos.cnpj_completo" , "fct_resumo_mensal.qtd_estabelecimentos" ;
+    rfbo:metricaDbt "qtd_estabelecimentos" .
+
+rfbo:Matriz a owl:Class ;
+    rdfs:subClassOf rfbo:Estabelecimento ;
+    owl:disjointWith rfbo:Filial ;
+    rdfs:label "Matriz"@pt ;
+    rdfs:comment "Estabelecimento com identificador matriz/filial = 1. Leitura do projeto: a inscrição da entidade corresponde à matriz (IN RFB 2.119/2022, art. 4º, § 1º, e art. 9º; não é texto expresso). A baixa da matriz implica a baixa das filiais (art. 24, § 2º)."@pt ;
+    rfbo:codigoRfb "1" ;
+    rfbo:modeloDbt "dominio_matriz_filial" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.matriz_filial_codigo" , "fct_estabelecimentos.eh_matriz" ,
+        "fct_resumo_mensal.qtd_matrizes" ;
+    rfbo:dimensaoSemantica "estabelecimento__eh_matriz" ;
+    rfbo:metricaDbt "qtd_matrizes" .
+
+rfbo:Filial a owl:Class ;
+    rdfs:subClassOf rfbo:Estabelecimento ;
+    rdfs:label "Filial"@pt ;
+    rdfs:comment "Estabelecimento com identificador matriz/filial = 2; compartilha o CNPJ básico da matriz."@pt ;
+    rfbo:codigoRfb "2" ;
+    rfbo:modeloDbt "dominio_matriz_filial" ;
+    rfbo:dimensaoSemantica "estabelecimento__eh_matriz" .
+
+rfbo:possuiEstabelecimento a owl:ObjectProperty ;
+    rdfs:label "possui estabelecimento"@pt ;
+    rdfs:comment "Uma empresa possui 1..n estabelecimentos (uma matriz e zero ou mais filiais), ligados pelo CNPJ básico."@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range rfbo:Estabelecimento ;
+    owl:inverseOf rfbo:pertenceAEmpresa ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.cnpj_raiz" .
+
+rfbo:pertenceAEmpresa a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "pertence à empresa"@pt ;
+    rdfs:comment "Todo estabelecimento pertence a exatamente uma empresa (os 8 primeiros caracteres do seu CNPJ)."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range rfbo:Empresa .
+
+rfbo:cnpjBasico a owl:DatatypeProperty ;
+    rdfs:label "CNPJ básico"@pt ;
+    rdfs:comment "Número base de inscrição no CNPJ: os 8 primeiros caracteres. No formato alfanumérico (a partir de julho de 2026) pode ter letras."@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range xsd:string ;
+    rfbo:colunaDbt "stg_rfb__empresas.cnpj_raiz" , "stg_rfb__estabelecimentos.cnpj_raiz" .
+
+rfbo:cnpjOrdem a owl:DatatypeProperty ;
+    rdfs:label "CNPJ ordem"@pt ;
+    rdfs:comment "Número do estabelecimento: do 9º ao 12º caractere do CNPJ."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:string ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.cnpj_ordem" .
+
+rfbo:cnpjDv a owl:DatatypeProperty ;
+    rdfs:label "CNPJ DV"@pt ;
+    rdfs:comment "Dígitos verificadores: os 2 últimos dígitos do CNPJ (módulo 11; numéricos também no formato alfanumérico)."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:string ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.cnpj_dv" .
+
+rfbo:cnpjCompleto a owl:DatatypeProperty , owl:FunctionalProperty ;
+    rdfs:label "CNPJ completo"@pt ;
+    rdfs:comment "Básico + ordem + DV (14 posições); identifica o estabelecimento."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:string ;
+    rfbo:entidadeSemantica "estabelecimento" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.cnpj_completo" , "fct_estabelecimentos.cnpj_completo" .
+
+rfbo:razaoSocial a owl:DatatypeProperty ;
+    rdfs:label "razão social"@pt ;
+    rdfs:comment "Nome empresarial da pessoa jurídica (arquivo Empresas). Nos empresários individuais e MEI termina com o CPF do titular, que o projeto mascara no gold (ADR-0008)."@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range xsd:string ;
+    rfbo:colunaDbt "stg_rfb__empresas.razao_social" .
+
+rfbo:nomeFantasia a owl:DatatypeProperty ;
+    rdfs:label "nome fantasia"@pt ;
+    rdfs:comment "Nome fantasia do estabelecimento (arquivo Estabelecimentos); pode ser vazio."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:string ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.nome_fantasia" .
+
+rfbo:capitalSocial a owl:DatatypeProperty ;
+    rdfs:label "capital social"@pt ;
+    rdfs:comment "Capital social da empresa (arquivo Empresas). Repetido em cada estabelecimento de `fct_estabelecimentos`: some só nas matrizes."@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range xsd:decimal ;
+    rfbo:colunaDbt "stg_rfb__empresas.capital_social" , "fct_estabelecimentos.capital_social" ,
+        "fct_resumo_mensal.soma_capital_social_matrizes" ;
+    rfbo:metricaDbt "capital_social_total" , "capital_social_medio" .
+
+rfbo:enteFederativoResponsavel a owl:DatatypeProperty ;
+    rdfs:label "ente federativo responsável"@pt ;
+    rdfs:comment "Preenchido só para órgãos e entidades do grupo de natureza jurídica 1XXX (administração pública)."@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range xsd:string ;
+    rfbo:colunaDbt "stg_rfb__empresas.ente_federativo_responsavel" .
+
+# ---------------------------------------------------------------------------------------------------------
+# Natureza jurídica, porte, Simples Nacional e MEI (atributos da empresa)
+# ---------------------------------------------------------------------------------------------------------
+
+rfbo:NaturezaJuridica a owl:Class ;
+    rdfs:label "Natureza jurídica"@pt ;
+    rdfs:comment "Forma jurídica da entidade (tabela CONCLA/IBGE: 1 administração pública, 2 entidades empresariais, 3 sem fins lucrativos, 4 pessoas físicas, 5 organizações internacionais)."@pt ;
+    rfbo:entidadeSemantica "natureza_juridica" ;
+    rfbo:modeloDbt "dim_natureza_juridica" , "stg_rfb__naturezas" ;
+    rfbo:colunaDbt "stg_rfb__empresas.natureza_juridica_codigo" ;
+    rfbo:dimensaoSemantica "natureza_juridica__codigo_natureza_juridica" ,
+        "natureza_juridica__descricao_natureza_juridica" .
+
+rfbo:temNaturezaJuridica a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "tem natureza jurídica"@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range rfbo:NaturezaJuridica .
+
+rfbo:Porte a owl:Class ;
+    rdfs:label "Porte"@pt ;
+    rdfs:comment "Porte da empresa no cadastro: 00 não informado, 01 microempresa, 03 empresa de pequeno porte, 05 demais. Vem da declaração de enquadramento arquivada no registro; os dados não trazem receita para conferi-lo."@pt ;
+    rfbo:entidadeSemantica "porte" ;
+    rfbo:modeloDbt "dim_porte" , "dominio_porte" ;
+    rfbo:colunaDbt "stg_rfb__empresas.porte_codigo" ;
+    rfbo:dimensaoSemantica "porte__codigo_porte" , "porte__rotulo_porte" .
+
+rfbo:temPorte a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "tem porte"@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range rfbo:Porte .
+
+rfbo:PorteNaoInformado a rfbo:Porte ;
+    rdfs:label "Não informado"@pt ;
+    rfbo:codigoRfb "00" .
+
+rfbo:Microempresa a rfbo:Porte ;
+    rdfs:label "Microempresa (ME)"@pt ;
+    rdfs:comment "LC 123/2006, art. 3º, I: receita bruta anual igual ou inferior a R$ 360.000,00."@pt ;
+    rfbo:codigoRfb "01" .
+
+rfbo:EmpresaDePequenoPorte a rfbo:Porte ;
+    rdfs:label "Empresa de pequeno porte (EPP)"@pt ;
+    rdfs:comment "LC 123/2006, art. 3º, II: receita bruta anual superior a R$ 360.000,00 e igual ou inferior a R$ 4.800.000,00."@pt ;
+    rfbo:codigoRfb "03" .
+
+rfbo:PorteDemais a rfbo:Porte ;
+    rdfs:label "Demais"@pt ;
+    rdfs:comment "Nem ME nem EPP no cadastro."@pt ;
+    rfbo:codigoRfb "05" .
+
+rfbo:OpcaoSimplesNacional a owl:Class ;
+    rdfs:label "Opção pelo Simples Nacional"@pt ;
+    rdfs:comment "Registro da empresa no arquivo Simples (no máximo um por CNPJ básico), com a opção (S, N ou em branco), a data de opção e a data de exclusão. Uma instância é o registro, não prova a opção pelo regime (LC 123/2006, art. 16): o registro com opção N, ou com data de exclusão, é de quem não está no Simples. O projeto marca como optante (`opcao_simples`) só a opção S; sem registro, não optante."@pt ;
+    rfbo:modeloDbt "stg_rfb__simples" ;
+    rfbo:colunaDbt "stg_rfb__simples.opcao_simples" , "stg_rfb__simples.dat_opcao_simples" ,
+        "stg_rfb__simples.dat_exclusao_simples" , "fct_estabelecimentos.opcao_simples" ;
+    rfbo:dimensaoSemantica "estabelecimento__opcao_simples" .
+
+rfbo:OpcaoMEI a owl:Class ;
+    rdfs:subClassOf rfbo:OpcaoSimplesNacional ;
+    rdfs:label "Opção pelo MEI (SIMEI)"@pt ;
+    rdfs:comment "Microempreendedor individual: optante pelo Simples Nacional no SIMEI, empresário individual (art. 966 do Código Civil) ou empreendedor de atividades extrativistas, autorizadas pelo CGSN ou rurais (LC 123/2006, art. 18-A, § 1º, I a III, redação da LC 188/2021), com receita bruta anual de até R$ 81.000,00, um único estabelecimento, sem participar de outra empresa e com no máximo um empregado (arts. 18-A e 18-C, redação vigente em 2026-10-10; o PLP 186/2026, em tramitação, propõe R$ 110 mil em 2027, R$ 140 mil em 2028 e dois empregados). Todo MEI é optante pelo Simples; o contrário não vale. No dado real de 2026-09 há MEI com filial (3.749 filiais) e com natureza de sociedade (1.238 estabelecimentos): `qtd_ativos_mei` conta estabelecimentos."@pt ;
+    rfbo:modeloDbt "stg_rfb__simples" ;
+    rfbo:colunaDbt "stg_rfb__simples.opcao_mei" , "stg_rfb__simples.dat_opcao_mei" ,
+        "stg_rfb__simples.dat_exclusao_mei" , "fct_estabelecimentos.opcao_mei" , "fct_resumo_mensal.opcao_mei" ;
+    rfbo:dimensaoSemantica "estabelecimento__opcao_mei" , "resumo_mensal__opcao_mei" ;
+    rfbo:metricaDbt "qtd_ativos_mei" , "pct_mei_entre_ativos" .
+
+rfbo:temOpcaoSimples a owl:ObjectProperty ;
+    rdfs:label "tem opção pelo Simples"@pt ;
+    rdfs:comment "Uma empresa tem 0..1 registro no arquivo Simples; sem registro, o projeto trata como não optante."@pt ;
+    rdfs:domain rfbo:Empresa ;
+    rdfs:range rfbo:OpcaoSimplesNacional .
+
+# ---------------------------------------------------------------------------------------------------------
+# Situação cadastral (atributo do estabelecimento)
+# ---------------------------------------------------------------------------------------------------------
+
+rfbo:SituacaoCadastral a owl:Class ;
+    rdfs:label "Situação cadastral"@pt ;
+    rdfs:comment "Situação da inscrição no CNPJ (IN RFB 2.119/2022, art. 9º): ativa, suspensa, inapta, baixada ou nula. Não se confunde com atividade ou inatividade para fins tributários (art. 9º, parágrafo único)."@pt ;
+    rfbo:entidadeSemantica "situacao_cadastral" ;
+    rfbo:modeloDbt "dim_situacao_cadastral" , "dominio_situacao_cadastral" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.situacao_codigo" ;
+    rfbo:dimensaoSemantica "situacao_cadastral__codigo_situacao_cadastral" ,
+        "situacao_cadastral__rotulo_situacao_cadastral" .
+
+rfbo:temSituacaoCadastral a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "tem situação cadastral"@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range rfbo:SituacaoCadastral .
+
+rfbo:Ativa a rfbo:SituacaoCadastral ;
+    rdfs:label "Ativa"@pt ;
+    rdfs:comment "Inscrição ativa. Não significa que o estabelecimento esteja em operação."@pt ;
+    rfbo:codigoRfb "2" ;
+    rfbo:colunaDbt "fct_estabelecimentos.eh_ativa" , "fct_resumo_mensal.qtd_ativos" ;
+    rfbo:dimensaoSemantica "estabelecimento__eh_ativa" ;
+    rfbo:metricaDbt "qtd_ativos" , "pct_ativos" .
+
+rfbo:Suspensa a rfbo:SituacaoCadastral ;
+    rdfs:label "Suspensa"@pt ;
+    rdfs:comment "IN RFB 2.119/2022, art. 37: interrupção temporária comunicada, inconsistência cadastral, não localização, indício de interposição fraudulenta, procedimento de inaptidão em curso, ordem judicial, entre outras."@pt ;
+    rfbo:codigoRfb "3" .
+
+rfbo:Inapta a rfbo:SituacaoCadastral ;
+    rdfs:label "Inapta"@pt ;
+    rdfs:comment "IN RFB 2.119/2022, art. 38: pode ser declarada com omissão de declarações por 90 dias ou mais, inexistência de fato, irregularidade no comércio exterior, suspensão por um ano ou mais, entre outras. A declaração é por ato declaratório executivo com a relação das inscrições (art. 39), em lote."@pt ;
+    rfbo:codigoRfb "4" .
+
+rfbo:Baixada a rfbo:SituacaoCadastral ;
+    rdfs:label "Baixada"@pt ;
+    rdfs:comment "IN RFB 2.119/2022, arts. 24 e 31: baixa a pedido (extinção, incorporação, fusão, cisão total, falência) ou de ofício (pode ocorrer com a inapta não regularizada em 180 dias, registro extinto, ordem judicial, óbito do MEI). Pode ser restabelecida (art. 26)."@pt ;
+    rfbo:codigoRfb "08" .
+
+rfbo:Nula a rfbo:SituacaoCadastral ;
+    rdfs:label "Nula"@pt ;
+    rdfs:comment "IN RFB 2.119/2022, art. 34: ato cadastral declarado nulo (CNPJ em duplicidade para o mesmo estabelecimento, vício no ato, inscrição de entidade não obrigada); efeitos desde o início."@pt ;
+    rfbo:codigoRfb "01" .
+
+rfbo:dataSituacaoCadastral a owl:DatatypeProperty ;
+    rdfs:label "data da situação cadastral"@pt ;
+    rdfs:comment "Data do evento da situação cadastral atual (leiaute RFB)."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:date ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.dat_situacao" , "fct_estabelecimentos.sk_data_situacao" ;
+    rfbo:dimensaoSemantica "estabelecimento__data_situacao" .
+
+rfbo:MotivoSituacaoCadastral a owl:Class ;
+    rdfs:label "Motivo da situação cadastral"@pt ;
+    rdfs:comment "Código do motivo da situação cadastral (domínio Motivos da RFB). Fica no staging; não chega à estrela."@pt ;
+    rfbo:modeloDbt "stg_rfb__motivos" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.motivo_situacao_codigo" .
+
+rfbo:temMotivoSituacao a owl:ObjectProperty ;
+    rdfs:label "tem motivo da situação"@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range rfbo:MotivoSituacaoCadastral .
+
+rfbo:situacaoEspecial a owl:DatatypeProperty ;
+    rdfs:label "situação especial"@pt ;
+    rdfs:comment "Situação especial da empresa e a data em que entrou nela (leiaute RFB). Fica no staging."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:string ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.situacao_especial" , "stg_rfb__estabelecimentos.dat_situacao_especial" .
+
+rfbo:dataInicioAtividade a owl:DatatypeProperty ;
+    rdfs:label "data de início de atividade"@pt ;
+    rdfs:comment "Data de início da atividade do estabelecimento (leiaute RFB). Base da idade e das aberturas."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:date ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.dat_inicio_atividade" , "fct_estabelecimentos.sk_data_inicio_atividade" ;
+    rfbo:dimensaoSemantica "estabelecimento__data_inicio_atividade" .
+
+rfbo:idadeAnos a owl:DatatypeProperty ;
+    rdfs:label "idade (anos)"@pt ;
+    rdfs:comment "Anos entre a data de início de atividade e a data do extrato; só para ativos."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range xsd:decimal ;
+    rfbo:colunaDbt "fct_estabelecimentos.idade_anos" , "fct_resumo_mensal.soma_idade_anos" ;
+    rfbo:metricaDbt "soma_idade_anos_ativos" , "idade_media_anos" .
+
+# ---------------------------------------------------------------------------------------------------------
+# Atividade econômica (CNAE) e localização
+# ---------------------------------------------------------------------------------------------------------
+
+rfbo:AtividadeEconomica a owl:Class ;
+    rdfs:label "Atividade econômica (CNAE)"@pt ;
+    rdfs:comment "Classificação Nacional de Atividades Econômicas (CONCLA/IBGE), hierarquia seção → divisão → grupo → classe → subclasse."@pt ;
+    rfbo:entidadeSemantica "cnae" ;
+    rfbo:modeloDbt "dim_cnae" , "stg_rfb__cnaes" , "stg_bd__cnaes" .
+
+rfbo:SecaoCnae a owl:Class ;
+    rdfs:subClassOf rfbo:AtividadeEconomica ;
+    rdfs:label "Seção CNAE"@pt ;
+    rdfs:comment "Nível mais alto (uma letra, ex.: G = comércio)."@pt ;
+    rfbo:dimensaoSemantica "cnae__codigo_secao" , "cnae__descricao_secao" .
+
+rfbo:DivisaoCnae a owl:Class ;
+    rdfs:subClassOf rfbo:AtividadeEconomica ;
+    rdfs:label "Divisão CNAE"@pt ;
+    rdfs:comment "2 dígitos (ex.: 47 = comércio varejista)."@pt ;
+    rfbo:dimensaoSemantica "cnae__codigo_divisao" , "cnae__descricao_divisao" .
+
+rfbo:GrupoCnae a owl:Class ;
+    rdfs:subClassOf rfbo:AtividadeEconomica ;
+    rdfs:label "Grupo CNAE"@pt ;
+    rdfs:comment "3 dígitos (ex.: 47.4)."@pt ;
+    rfbo:dimensaoSemantica "cnae__codigo_grupo" , "cnae__descricao_grupo" .
+
+rfbo:ClasseCnae a owl:Class ;
+    rdfs:subClassOf rfbo:AtividadeEconomica ;
+    rdfs:label "Classe CNAE"@pt ;
+    rdfs:comment "5 dígitos (ex.: 47.41-5)."@pt ;
+    rfbo:dimensaoSemantica "cnae__codigo_classe" , "cnae__descricao_classe" .
+
+rfbo:SubclasseCnae a owl:Class ;
+    rdfs:subClassOf rfbo:AtividadeEconomica ;
+    rdfs:label "Subclasse CNAE"@pt ;
+    rdfs:comment "7 dígitos (ex.: 4741-5/00, comércio varejista de tintas); é o nível do CNAE fiscal no cadastro."@pt ;
+    rfbo:dimensaoSemantica "cnae__codigo_subclasse" , "cnae__descricao_subclasse" .
+
+rfbo:subordinadaA a owl:ObjectProperty , owl:TransitiveProperty ;
+    rdfs:label "subordinada a"@pt ;
+    rdfs:comment "Liga um nível da CNAE ao nível acima (subclasse → classe → grupo → divisão → seção)."@pt ;
+    rdfs:domain rfbo:AtividadeEconomica ;
+    rdfs:range rfbo:AtividadeEconomica .
+
+rfbo:temCnaePrincipal a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "tem CNAE principal"@pt ;
+    rdfs:comment "Exatamente uma subclasse principal por estabelecimento."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range rfbo:SubclasseCnae ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.cnae_principal" , "fct_estabelecimentos.sk_cnae" ;
+    rfbo:entidadeSemantica "cnae" .
+
+rfbo:temCnaeSecundario a owl:ObjectProperty ;
+    rdfs:label "tem CNAE secundário"@pt ;
+    rdfs:comment "Zero ou mais subclasses secundárias. Ponte muitos-para-muitos, fora da camada semântica."@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range rfbo:SubclasseCnae ;
+    rfbo:modeloDbt "bridge_estabelecimento_cnae_secundario" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.cnaes_secundarios_lista" .
+
+rfbo:Municipio a owl:Class ;
+    rdfs:label "Município"@pt ;
+    rdfs:comment "Município de jurisdição do estabelecimento. A RFB usa código próprio (4 dígitos, não é o IBGE); o projeto o converte para o código IBGE pela Base dos Dados."@pt ;
+    rfbo:entidadeSemantica "municipio" ;
+    rfbo:modeloDbt "dim_municipio" , "stg_rfb__municipios" , "stg_bd__municipios" , "excecoes_conhecidas_municipio" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.municipio_rfb_codigo" , "dim_municipio.codigo_rfb" ;
+    rfbo:dimensaoSemantica "municipio__nome_municipio" , "municipio__id_municipio_ibge" .
+
+rfbo:localizaSeEm a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "localiza-se em"@pt ;
+    rdfs:domain rfbo:Estabelecimento ;
+    rdfs:range rfbo:Municipio ;
+    rfbo:colunaDbt "fct_estabelecimentos.sk_municipio" .
+
+rfbo:UnidadeFederativa a owl:Class ;
+    rdfs:label "Unidade da Federação"@pt ;
+    rdfs:comment "Estado ou Distrito Federal do estabelecimento (`EX` no exterior, no arquivo da RFB)."@pt ;
+    rfbo:dimensaoSemantica "municipio__sigla_uf" , "municipio__nome_uf" ;
+    rfbo:colunaDbt "stg_rfb__estabelecimentos.uf" .
+
+rfbo:RegiaoGeografica a owl:Class ;
+    rdfs:label "Região geográfica"@pt ;
+    rdfs:comment "Agrupamentos de municípios do IBGE (grande região, meso e microrregião, regiões intermediária e imediata) e região metropolitana (GeoBR)."@pt ;
+    rfbo:dimensaoSemantica "municipio__nome_regiao" , "municipio__nome_mesorregiao" , "municipio__nome_microrregiao" ,
+        "municipio__nome_regiao_intermediaria" , "municipio__nome_regiao_imediata" ,
+        "municipio__nome_regiao_metropolitana" .
+
+rfbo:pertenceAUF a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "pertence à UF"@pt ;
+    rdfs:domain rfbo:Municipio ;
+    rdfs:range rfbo:UnidadeFederativa .
+
+rfbo:pertenceARegiao a owl:ObjectProperty ;
+    rdfs:label "pertence à região"@pt ;
+    rdfs:domain rfbo:Municipio ;
+    rdfs:range rfbo:RegiaoGeografica .
+
+# ---------------------------------------------------------------------------------------------------------
+# Conceitos analíticos do projeto (definidos pelas regras do projeto, não pela RFB)
+# ---------------------------------------------------------------------------------------------------------
+
+rfbo:FotografiaMensal a owl:Class ;
+    rdfs:label "Fotografia mensal"@pt ;
+    rdfs:comment "Retrato do cadastro no extrato de um mês: estabelecimentos contados por mês × município × CNAE × porte × situação × MEI. Não é aditiva no tempo (não some meses)."@pt ;
+    rfbo:entidadeSemantica "resumo_mensal" ;
+    rfbo:modeloDbt "fct_resumo_mensal" ;
+    rfbo:metricaDbt "qtd_ativos_mes_anterior" , "variacao_mensal_ativos" , "variacao_mensal_ativos_pct" .
+
+rfbo:Abertura a owl:Class ;
+    rdfs:label "Abertura"@pt ;
+    rdfs:comment "Evento derivado pelo projeto: um estabelecimento do extrato corrente na sua data de início de atividade válida."@pt ;
+    rfbo:modeloDbt "mart_dinamica_mercado" ;
+    rfbo:dimensaoSemantica "estabelecimento__data_inicio_atividade" ;
+    rfbo:metricaDbt "aberturas" , "saldo_aberturas_encerramentos" .
+
+rfbo:Encerramento a owl:Class ;
+    rdfs:label "Encerramento"@pt ;
+    rdfs:comment "Evento derivado pelo projeto: um estabelecimento não ativo (nula, suspensa, inapta ou baixada) na data da situação válida. Não é só a baixa."@pt ;
+    rfbo:modeloDbt "mart_dinamica_mercado" ;
+    rfbo:dimensaoSemantica "estabelecimento__data_situacao" , "estabelecimento__eh_ativa" ;
+    rfbo:metricaDbt "encerramentos" , "saldo_aberturas_encerramentos" .
+
+rfbo:Baixa a owl:Class ;
+    rdfs:subClassOf rfbo:Encerramento ;
+    rdfs:label "Baixa"@pt ;
+    rdfs:comment "Encerramento definitivo: um estabelecimento BAIXADO na data da situação válida. Diferente do encerramento, não inclui as inaptidões (declaradas em lote e reversíveis), as suspensões nem as nulidades."@pt ;
+    rfbo:dimensaoSemantica "estabelecimento__data_situacao" , "situacao_cadastral__rotulo_situacao_cadastral" ;
+    rfbo:metricaDbt "baixas" .
+
+rfbo:CoorteDeAbertura a owl:Class ;
+    rdfs:label "Coorte de abertura"@pt ;
+    rdfs:comment "Estabelecimentos agrupados pelo ano de início de atividade, com elegíveis e sobreviventes a 1, 3 e 5 anos. Sobrevivente a N anos é o elegível que seguia ativo N anos depois da abertura: ativo no extrato ou encerrado a partir do aniversário de N anos. Não é \"ainda ativo\"."@pt ;
+    rfbo:entidadeSemantica "coorte_sobrevivencia" ;
+    rfbo:modeloDbt "mart_sobrevivencia_coorte" ;
+    rfbo:metricaDbt "elegiveis_1a" , "sobreviventes_1a" , "taxa_sobrevivencia_1a" ,
+        "elegiveis_3a" , "sobreviventes_3a" , "taxa_sobrevivencia_3a" ,
+        "elegiveis_5a" , "sobreviventes_5a" , "taxa_sobrevivencia_5a" .

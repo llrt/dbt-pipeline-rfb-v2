@@ -33,6 +33,7 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 | [docs/OPERACAO.md](docs/OPERACAO.md) | pipeline real, atualização mensal, retenção, agendamento, requisitos de máquina |
 | [docs/EXECUCAO_REAL.md](docs/EXECUCAO_REAL.md) | execução real (2026-09), tempos, volumes, avisos e paridade com o notebook 4 |
 | [docs/POWER_BI.md](docs/POWER_BI.md) | modelo estrela e acesso pelo Power BI |
+| [docs/CAMADA_SEMANTICA.md](docs/CAMADA_SEMANTICA.md) | camada semântica (dbt/MetricFlow): conceitos de negócio do CNPJ (empresa × estabelecimento, porte, MEI, situação cadastral), ontologia, entidades, métricas e consultas salvas |
 | [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt |
 | [.specs/features/rfb-dbt-port/](.specs/features/rfb-dbt-port/spec.md) | spec (EARS) e tarefas |
 
@@ -44,6 +45,7 @@ make ci                    # fluxo completo sobre fixtures sintéticas (sem rede
 make pipeline MES=2026-09  # dados reais: ingestão → freshness → dbt build → relatório (→ publicar)
 make atualizar             # processa o mês mais recente publicado pela RFB, se houver novidade
 make publicar              # opcional: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO)
+make semantica             # valida a camada semântica (MetricFlow) e lista as métricas; consultas com `mf query`
 make docs                  # dbt docs
 ```
 

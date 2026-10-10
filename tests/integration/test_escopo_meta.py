@@ -9,6 +9,8 @@ pytest de integração). Sem o manifesto, o teste é pulado. Regras:
   o dbt propaga as tags da fonte/modelo pai ao teste, então tags de escopo extras são toleradas
   (ex.: teste `adicao` sobre uma fonte `original`);
 - macros (incl. testes genéricos): `meta.escopo` válido (macros não têm tags no dbt);
+- camada semântica (ADR-0018): modelos semânticos e métricas com `meta.escopo` válido (o dbt não
+  aceita tags neles); saved queries com meta + tag, como os modelos;
 - incremento (ADR-0015): `meta.incremento` e a tag `incremento_<valor>` andam juntos — falha se um
   nó tiver o meta sem a tag ou a tag sem o meta (macros: só checa o valor do meta, sem tags);
 - hooks `on-run-*` (nós `operation`): ignorados — não aceitam config no dbt; a macro que chamam
@@ -24,14 +26,18 @@ import pytest
 
 MANIFESTO = Path(__file__).resolve().parents[2] / "transform" / "target" / "manifest.json"
 ESCOPOS = {"original", "adicao", "adaptado"}
-SECOES = ("nodes", "sources", "macros", "unit_tests", "exposures")
+SECOES = (
+    "nodes", "sources", "macros", "unit_tests", "exposures",
+    "semantic_models", "metrics", "saved_queries",
+)  # fmt: skip
+SEM_TAGS = ("macros", "semantic_models", "metrics")  # o dbt não aceita tags nesses recursos
 
 
 def _problemas_incremento(id_no: str, secao: str, no: dict) -> list[str]:
     """`meta.incremento` sem a tag `incremento_<valor>` (ou a tag sem o meta) -> problema."""
     config = no.get("config") or {}
     incremento = (no.get("meta") or config.get("meta") or {}).get("incremento")
-    if secao == "macros":
+    if secao in SEM_TAGS:
         return []
     todas = no.get("tags") or config.get("tags") or []
     tags = sorted(t for t in todas if t.startswith("incremento_"))
@@ -58,7 +64,7 @@ def nos_com_problema(manifesto: dict) -> list[str]:
             if escopo not in ESCOPOS:
                 problemas.append(f"{id_no}: meta.escopo ausente ou inválido ({escopo!r})")
                 continue
-            if secao == "macros":
+            if secao in SEM_TAGS:
                 continue
             todas = no.get("tags") or config.get("tags") or []
             tags = [t for t in todas if t.startswith("escopo_")]
@@ -90,6 +96,12 @@ def test_validador_reprova_no_sem_tag_ou_com_tag_incoerente() -> None:
     assert len(nos_com_problema(sem_meta)) == 1
     de_terceiros = {"nodes": {"m": {"package_name": "dbt_utils"}}}
     assert nos_com_problema(de_terceiros) == []
+    metrica = {"package_name": "rfb", "config": {"meta": {"escopo": "adicao"}}, "tags": []}
+    assert nos_com_problema({"metrics": {"metric.rfb.m": metrica}}) == []  # métrica: sem tags
+    sem_escopo = {"metrics": {"metric.rfb.m": {**metrica, "config": {"meta": {}}}}}
+    assert len(nos_com_problema(sem_escopo)) == 1
+    consulta = {"package_name": "rfb", "config": {"meta": {"escopo": "adicao"}}, "tags": []}
+    assert len(nos_com_problema({"saved_queries": {"saved_query.rfb.q": consulta}})) == 1
 
 
 # incremento: enriquecimento_bd
@@ -123,4 +135,5 @@ def test_todos_os_nos_do_projeto_tem_meta_escopo_e_tag_coerente() -> None:
         if no.get("package_name") == "rfb"
     )
     assert total > 0
+    assert manifesto.get("metrics") and manifesto.get("saved_queries")  # ADR-0018
     assert nos_com_problema(manifesto) == []
