@@ -25,6 +25,7 @@ dev = [
     "sqlfluff-templater-dbt",
     "dbt-metricflow",  # CLI `mf`: valida e consulta a camada semântica (ADR-0018)
     "pre-commit",
+    "rdflib",  # parseia a ontologia `docs/ontologia/rfb_cnpj.ttl` nos testes
 ]
 
 [build-system]
