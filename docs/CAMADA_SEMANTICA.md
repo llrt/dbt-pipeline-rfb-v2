@@ -107,12 +107,15 @@ estabelecimento dela. Consequências:
 #### Matriz × filial
 
 O identificador matriz/filial vale 1 (matriz) ou 2 (filial) [RFB-Leiaute]; o projeto o guarda em
-`matriz_filial_codigo` e na flag `eh_matriz`. A inscrição da entidade corresponde à matriz; as filiais têm
-inscrição própria [IN 2.119, art. 9º]. A entidade pode transformar uma filial em matriz [IN 2.119, art. 4º, § 3º],
-e a baixa da matriz implica a baixa de todas as filiais [IN 2.119, art. 24, § 2º].
+`matriz_filial_codigo` e na flag `eh_matriz`. O projeto lê a inscrição da entidade como a da matriz, com as
+filiais em inscrição própria. É uma leitura, não texto expresso: o art. 9º fala da inscrição "da entidade ou do
+estabelecimento filial" [IN 2.119, art. 9º], e o art. 4º, § 1º, inscreve os estados, o DF e os municípios "na
+condição de estabelecimento matriz" [IN 2.119, art. 4º, § 1º]. A entidade pode transformar uma filial em matriz
+[IN 2.119, art. 4º, § 3º], e a baixa da matriz implica a baixa de todas as filiais [IN 2.119, art. 24, § 2º].
 
-Contar empresas pelas matrizes supõe uma matriz por CNPJ básico. As fixtures cumprem isso; o projeto não
-verificou o dado real.
+Contar empresas pelas matrizes supõe uma matriz por CNPJ básico. As fixtures cumprem isso. No dado real de
+2026-09 há 70.085.592 matrizes para 70.085.591 CNPJs básicos: todo básico tem matriz, e só um (`08314885`) tem
+duas (conferência da RSEM no dado real de 2026-09).
 
 #### Razão social × nome fantasia
 
@@ -140,8 +143,14 @@ O ente federativo responsável só é preenchido para as naturezas do grupo 1XXX
 (`ente_federativo_responsavel`). Nas fixtures do CI, o código `2062` traz a descrição "Sociedade Empresária
 Limitada", a mesma do 206-2 da CONCLA.
 
-**MEI não é natureza jurídica.** O MEI é um empresário individual [LC 123, art. 18-A, § 1º], cuja natureza
-na tabela é 213-5 Empresário (Individual) [CONCLA-NJ]. Para achar MEI, use `opcao_mei`, não a natureza.
+**MEI não é natureza jurídica.** Pela lei, o MEI é o empresário individual do art. 966 do Código Civil ou o
+empreendedor que exerça atividades extrativistas, atividades autorizadas pelo CGSN ou atividades de
+industrialização, comercialização e serviços no âmbito rural [LC 123, art. 18-A, § 1º, I a III, redação da LC
+188/2021]. A CONCLA não associa o MEI a uma natureza. No dado real, quase todo MEI tem a natureza 213-5
+Empresário (Individual): dos 17.527.414 estabelecimentos com `opcao_mei` em 2026-09, 17.526.176 (99,99 %) têm
+o código 2135, 1.237 têm 2062 (Sociedade Empresária Limitada) e 1 tem 2070 (Sociedade Empresária em Nome
+Coletivo). É observação do projeto, não regra (conferência da RSEM no dado real de 2026-09). Para achar MEI, use
+`opcao_mei`, não a natureza.
 
 No projeto: `dim_natureza_juridica`, entidade `natureza_juridica`, dimensões
 `natureza_juridica__descricao_natureza_juridica` e `natureza_juridica__codigo_natureza_juridica`. Só a fato
@@ -182,12 +191,20 @@ No projeto: `dim_porte`, entidade `porte`, dimensões `porte__rotulo_porte` e `p
 
 **Simples Nacional** é o "Regime Especial Unificado de Arrecadação de Tributos e Contribuições devidos pelas
 Microempresas e Empresas de Pequeno Porte" [LC 123, art. 12]. A opção é
-anual, irretratável no ano-calendário [LC 123, art. 16] e formalizada até o último dia útil de janeiro, com
-efeito desde 1º de janeiro [CGSN 140, art. 6º, § 1º]. O arquivo Simples traz, por CNPJ básico, a opção (S, N ou
-em branco), a data de opção e a data de exclusão [RFB-Leiaute].
+anual, irretratável no ano-calendário [LC 123, art. 16] e, pela redação vigente em 2026-10-10, formalizada até o
+último dia útil de janeiro, com efeito desde 1º de janeiro [CGSN 140, art. 6º, § 1º]. O arquivo Simples traz,
+por CNPJ básico, a opção (S, N ou em branco), a data de opção e a data de exclusão [RFB-Leiaute].
 
-**MEI (microempreendedor individual)** é o empresário individual optante pelo Simples Nacional que recolhe em
-valores fixos mensais (o SIMEI) [LC 123, art. 18-A]. Para ser MEI:
+**Mudança já publicada: Resolução CGSN nº 190/2026.** Com efeitos a partir de 1º de janeiro de 2027, ela muda o
+art. 6º, § 1º: a opção passa a ser formalizada de 1º a 30 de setembro e vale a partir do ano-calendário
+seguinte; um novo § 1º-B permite cancelá-la até 30 de novembro [CGSN 190, arts. 1º e 9º]. Para o ano-calendário
+de 2027, a janela é de 1º de setembro a 15 de outubro de 2026 [CGSN 194, art. 1º, que dá nova redação ao art. 1º
+da Resolução CGSN nº 186/2026]. Ou seja, quem opta pelo Simples para 2027 o faz ainda em 2026, e a data de opção
+do arquivo Simples pode ser anterior ao início dos efeitos.
+
+**MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais
+(o SIMEI) [LC 123, art. 18-A]: o empresário individual ou o empreendedor das atividades listadas no § 1º (veja
+[Natureza jurídica](#natureza-jurídica)). Para ser MEI:
 
 - receita bruta anual de **até R$ 81.000,00** no ano anterior [LC 123, art. 18-A, § 1º; CGSN 140, art. 100;
   Portal do Empreendedor]. No ano de abertura, o limite é de R$ 6.750,00 por mês de atividade [LC 123, art. 18-A,
@@ -195,7 +212,9 @@ valores fixos mensais (o SIMEI) [LC 123, art. 18-A]. Para ser MEI:
   do Empreendedor];
 - só as ocupações permitidas [CGSN 140, art. 100; Portal do Empreendedor];
 - **um único estabelecimento** e nenhuma participação em outra empresa como titular, sócio ou administrador
-  [LC 123, art. 18-A, § 4º, II e III];
+  [LC 123, art. 18-A, § 4º, II e III]. O dado real tem exceções: 3.749 **filiais** de empresas com `opcao_mei`
+  (conferência da RSEM no dado real de 2026-09). Como `qtd_ativos_mei` conta estabelecimentos, ela pode passar
+  um pouco do número de empresas MEI;
 - no máximo **um empregado**, com salário mínimo ou piso da categoria [LC 123, art. 18-C; CGSN 140, art. 105].
 
 Todo MEI é optante pelo Simples; o contrário não vale. Sair do SIMEI (desenquadramento) não exclui a empresa do
@@ -232,13 +251,18 @@ No projeto:
 A inscrição no CNPJ da entidade ou de cada filial está numa de cinco situações [IN 2.119, art. 9º]. Os códigos são
 os do leiaute [RFB-Leiaute], iguais aos do seed `dominio_situacao_cadastral`:
 
-| Código | Situação | Quando ocorre (resumo) | Fonte |
+| Código | Situação | Pode ocorrer quando (resumo) | Fonte |
 |---|---|---|---|
 | 2 | **ATIVA** | inscrição regular | [IN 2.119, art. 9º] |
 | 3 | **SUSPENSA** | interrupção temporária das atividades comunicada pela entidade; inconsistência cadastral; não localização no endereço; indício de interposição fraudulenta de sócio; procedimento de inaptidão em curso; ordem judicial; entre outras | [IN 2.119, art. 37] |
 | 4 | **INAPTA** | omissão de declarações por **90 dias ou mais** após o prazo; inexistência de fato (sem patrimônio ou capacidade operacional, não localizada, atividades paralisadas sem comunicação); irregularidade no comércio exterior; fraude; **suspensa há um ano ou mais**; entre outras | [IN 2.119, art. 38] |
 | 8 | **BAIXADA** | a pedido: extinção (liquidação, incorporação, fusão, cisão total) ou fim da falência. De ofício: inapta não regularizada em **180 dias**, registro extinto no órgão de registro, ordem judicial, falência ou liquidação extrajudicial, óbito do MEI, decisão administrativa | [IN 2.119, arts. 24 e 31] |
 | 1 | **NULA** | o ato cadastral foi declarado nulo: mais de um CNPJ para o mesmo estabelecimento, vício no ato ou inscrição de quem não devia ser inscrito. O efeito retroage ao início do ato | [IN 2.119, art. 34] |
+
+Os arts. 31 e 38 dizem que a inscrição "**pode** ser baixada de ofício" e "**pode** ser declarada inapta": os
+prazos da tabela (90 dias, 1 ano, 180 dias) são condições, não gatilhos automáticos. A inaptidão por omissão é
+declarada por ato declaratório executivo (ADE) "com a relação das inscrições" [IN 2.119, art. 39]: chega em
+lotes, numa data só (veja o cuidado na [A3](#a3-ciclo-de-vida)).
 
 Pontos que mudam a leitura das métricas:
 
@@ -314,12 +338,12 @@ stateDiagram-v2
     [*] --> ATIVA : inscrição (art. 4º)
     ATIVA --> SUSPENSA : art. 37 (interrupção comunicada, inconsistência, não localizada…)
     SUSPENSA --> ATIVA : regularização / restabelecimento (art. 37, § 3º)
-    ATIVA --> INAPTA : art. 38 (omissão ≥ 90 dias, inexistência de fato…)
-    SUSPENSA --> INAPTA : suspensa ≥ 1 ano (arts. 38, X, e 46)
+    ATIVA --> INAPTA : pode, art. 38 (omissão ≥ 90 dias, inexistência de fato…)
+    SUSPENSA --> INAPTA : pode, se suspensa ≥ 1 ano (arts. 38, X, e 46)
     INAPTA --> ATIVA : regularização (arts. 39, 46, § 2º, e 47)
     INAPTA --> SUSPENSA : motivo da suspensão anterior persiste (art. 47, par. único)
     ATIVA --> BAIXADA : a pedido (art. 24) ou de ofício (art. 31)
-    INAPTA --> BAIXADA : de ofício, 180 dias sem regularizar (art. 31, I)
+    INAPTA --> BAIXADA : pode, de ofício, após 180 dias sem regularizar (art. 31, I)
     BAIXADA --> ATIVA : restabelecimento (art. 26)
     ATIVA --> NULA : nulidade do ato cadastral (art. 34)
 ```
@@ -331,8 +355,8 @@ Notas:
 - A baixa da matriz leva junto todas as filiais [IN 2.119, art. 24, § 2º]. A baixa não apaga dívidas: tributos
   ainda podem ser lançados e cobrados depois dela [IN 2.119, art. 24, § 4º].
 - **Empresa × estabelecimento no ciclo de vida.** Nos dados abertos, a situação cadastral está no arquivo
-  Estabelecimentos. Como a inscrição da entidade é a da matriz [IN 2.119, art. 9º], o projeto lê a "situação da
-  empresa" como a da matriz: filtre `eh_matriz`. Uma empresa ATIVA pode
+  Estabelecimentos. Como o projeto lê a inscrição da entidade como a da matriz (veja
+  [Matriz × filial](#matriz--filial)), lê também a "situação da empresa" como a da matriz: filtre `eh_matriz`. Uma empresa ATIVA pode
   ter filiais baixadas.
 
 **O que o extrato mensal mostra, e o que não mostra.**
@@ -353,12 +377,26 @@ Notas:
 | Quantos estão ativos hoje? | `qtd_ativos` | situação ATIVA no extrato do mês. **Ativa ≠ em operação** |
 | Quantos abriram no período? | `aberturas` | estabelecimentos do extrato corrente pela **data de início de atividade** válida |
 | Quantos encerraram no período? | `encerramentos` | estabelecimentos **não ativos** (nula, suspensa, inapta **ou** baixada, não só baixada) pela **data da situação** válida |
+| Quantos fecharam de vez? | `baixas` | só os **BAIXADOS**, pela **data da situação** válida |
 | Saldo | `saldo_aberturas_encerramentos` | aberturas − encerramentos |
-| Quantos sobrevivem? | `taxa_sobrevivencia_3a` etc. | ainda ativos entre os elegíveis da coorte de abertura |
+| Quantos sobrevivem? | `taxa_sobrevivencia_3a` etc. | elegíveis da coorte de abertura que seguiam ativos N anos depois da abertura: **ativos hoje ou encerrados a partir do aniversário de N anos**. Não é "ainda ativo": um estabelecimento aberto em 2015 e baixado em 2024 sobrevive aos 3 e aos 5 anos |
 
 Aberturas e encerramentos são **eventos derivados** pelo projeto (regra de `mart_dinamica_mercado`), não eventos
 publicados pela RFB. Como só existe a situação atual, um inativo reativado deixa de contar como encerramento, e um
 suspenso conta como encerramento enquanto estiver suspenso.
+
+**Cuidado: lotes de inaptidão e período parcial.** Dois efeitos distorcem `encerramentos` e o saldo de um ano:
+
+- **Inaptidões em lote.** A inaptidão por omissão é declarada por ADE com uma lista de inscrições [IN 2.119, art.
+  39] e pode ser revertida com a regularização [IN 2.119, arts. 39, parágrafo único, e 47]. Um lote põe a mesma
+  data da situação em milhões de estabelecimentos. No dado real de 2026-09, 1.883.442 dos 4.243.776 encerramentos
+  com data em 2026 (44 %) são INAPTA, contra 629 em 2025. O saldo de 2026 cai para 63.019, contra 2.270.025 em
+  2025, e o ano parece de mercado estagnado (conferência da RSEM no dado real de 2026-09).
+- **Ano e mês parciais.** O extrato vai até a data de referência. O de 2026-09 é de 12/09: setembro tem só 12
+  dias de aberturas (179.463, contra 522.738 em agosto), e 2026 vai só até 12/09 (mesma fonte).
+
+Para "fechamentos definitivos", use `baixas` ou quebre `encerramentos` por
+`situacao_cadastral__rotulo_situacao_cadastral`. Compare anos completos, ou o mesmo período nos dois anos.
 
 ### A4. Ontologia
 
@@ -421,8 +459,10 @@ classDiagram
     Municipio --> RegiaoGeografica : pertence a
 ```
 
-Os conceitos analíticos do projeto (fotografia mensal, abertura, encerramento e coorte) estão na ontologia, mas
-fora do diagrama: são regras do projeto, não conceitos da RFB.
+Os conceitos analíticos do projeto (fotografia mensal, abertura, encerramento, baixa e coorte) estão na ontologia,
+mas fora do diagrama: são regras do projeto, não conceitos da RFB. O teste também confere a **afinidade**: cada
+métrica fica num conceito que anota o modelo semântico dela (pela entidade, pelo modelo, pela coluna ou pela
+dimensão).
 
 **Onde cada conceito está no projeto.** Colunas no formato modelo.coluna.
 
@@ -439,7 +479,7 @@ fora do diagrama: são regras do projeto, não conceitos da RFB.
 | Simples Nacional | `stg_rfb__simples.opcao_simples` | `fct_estabelecimentos.opcao_simples` | `estabelecimento__opcao_simples` | — |
 | MEI | `stg_rfb__simples.opcao_mei` | `fct_estabelecimentos.opcao_mei`, `fct_resumo_mensal.opcao_mei` | `resumo_mensal__opcao_mei`, `estabelecimento__opcao_mei` | `qtd_ativos_mei`, `pct_mei_entre_ativos` |
 | Situação cadastral | `stg_rfb__estabelecimentos.situacao_codigo` | `dim_situacao_cadastral`, `fct_estabelecimentos.eh_ativa` | `situacao_cadastral` / `situacao_cadastral__rotulo_situacao_cadastral`, `estabelecimento__eh_ativa` | `qtd_ativos`, `pct_ativos` |
-| Data da situação | `stg_rfb__estabelecimentos.dat_situacao` | `fct_estabelecimentos.sk_data_situacao` | `estabelecimento__data_situacao` | `encerramentos` |
+| Data da situação | `stg_rfb__estabelecimentos.dat_situacao` | `fct_estabelecimentos.sk_data_situacao` | `estabelecimento__data_situacao` | `encerramentos`, `baixas` |
 | Motivo da situação | `stg_rfb__estabelecimentos.motivo_situacao_codigo` | — | — | — |
 | Situação especial | `stg_rfb__estabelecimentos.situacao_especial` | — | — | — |
 | Início de atividade | `stg_rfb__estabelecimentos.dat_inicio_atividade` | `fct_estabelecimentos.sk_data_inicio_atividade`, `fct_estabelecimentos.idade_anos` | `estabelecimento__data_inicio_atividade` | `aberturas`, `idade_media_anos`, `soma_idade_anos_ativos` |
@@ -447,7 +487,7 @@ fora do diagrama: são regras do projeto, não conceitos da RFB.
 | CNAEs secundárias | `stg_rfb__estabelecimentos.cnaes_secundarios_lista` | `bridge_estabelecimento_cnae_secundario` | — (fora da camada) | — |
 | Município | `stg_rfb__estabelecimentos.municipio_rfb_codigo` | `dim_municipio` | `municipio` / `municipio__nome_municipio`, `municipio__sigla_uf`, `municipio__nome_regiao` … | todas, como recorte |
 | Fotografia mensal | — | `fct_resumo_mensal` | `resumo_mensal` | `qtd_ativos_mes_anterior`, `variacao_mensal_ativos`, `variacao_mensal_ativos_pct` |
-| Abertura / encerramento | — | `mart_dinamica_mercado` | `estabelecimento` | `aberturas`, `encerramentos`, `saldo_aberturas_encerramentos` |
+| Abertura / encerramento / baixa | — | `mart_dinamica_mercado` | `estabelecimento` | `aberturas`, `encerramentos`, `baixas`, `saldo_aberturas_encerramentos` |
 | Coorte de abertura | — | `mart_sobrevivencia_coorte` | `coorte_sobrevivencia` | `elegiveis_3a`, `sobreviventes_3a`, `taxa_sobrevivencia_3a` (e 1a, 5a) |
 
 ### A5. Glossário rápido
@@ -461,12 +501,14 @@ fora do diagrama: são regras do projeto, não conceitos da RFB.
 | Matriz / filial | identificador 1 / 2 do leiaute (`eh_matriz`) |
 | ME / EPP | microempresa / empresa de pequeno porte, pela receita bruta anual (LC 123, art. 3º); no cadastro, declaradas |
 | Simples Nacional | regime de tributação unificado da LC 123 para ME e EPP (`opcao_simples`) |
-| MEI | empresário individual no SIMEI, receita até R$ 81 mil/ano em 2026 (PLP 186/2026 propõe mudar) (`opcao_mei`); não é porte nem natureza jurídica |
+| MEI | empresário individual (ou empreendedor das atividades do art. 18-A, § 1º, da LC 123) no SIMEI, receita até R$ 81 mil/ano em 2026 (PLP 186/2026 propõe mudar) (`opcao_mei`); não é porte nem natureza jurídica |
 | Situação cadastral | ATIVA, SUSPENSA, INAPTA, BAIXADA ou NULA, por estabelecimento |
 | Ativo | situação ATIVA no extrato; não prova operação |
 | Abertura | estabelecimento contado na data de início de atividade (regra do projeto) |
 | Encerramento | estabelecimento não ativo contado na data da situação (regra do projeto) |
-| Fotografia mensal | o extrato de um mês; não se somam meses |
+| Baixa | estabelecimento BAIXADO contado na data da situação (regra do projeto) |
+| Sobrevivente a N anos | elegível da coorte ativo hoje ou encerrado a partir do aniversário de N anos (regra do projeto) |
+| Fotografia mensal | o extrato de um mês; não se somam meses. Num período maior, vale o último mês em que o recorte filtrado tem linhas |
 | CNAE | classificação de atividades da CONCLA/IBGE; seção → divisão → grupo → classe → subclasse |
 | Município RFB | código de 4 dígitos da RFB, diferente do código IBGE |
 | Membro `-1` | "NÃO INFORMADO": valor sem par na dimensão |
@@ -474,7 +516,9 @@ fora do diagrama: são regras do projeto, não conceitos da RFB.
 ### A6. Perguntas frequentes
 
 Os exemplos rodam em `transform/`, com `RAIZ_DADOS` apontando para os dados (no CI, `.tmp/ci/dados`). As saídas
-mostradas vêm das **fixtures do `make ci`** (meses 2026-08 e 2026-09), não do cadastro real.
+e os números citados vêm das **fixtures do `make ci`** (meses 2026-08 e 2026-09), não do cadastro real. Os poucos
+números que ficam na prosa são conferidos por `test_numeros_citados_na_doc_batem_com_as_fixtures`; para os
+demais, veja a saída do comando.
 
 **Quantos MEI ativos há em cada UF?**
 
@@ -483,7 +527,8 @@ uv run mf query --metrics qtd_ativos_mei,qtd_ativos,pct_mei_entre_ativos --group
 uv run mf query --metrics qtd_ativos_mei --group-by metric_time__month --where "{{ Dimension('municipio__sigla_uf') }} = 'ES'"
 ```
 
-Nas fixtures, o ES tem 2 MEI ativos em 2026-09 (1 em 2026-08). Recorte sem MEI sai vazio, não zero.
+Recorte sem MEI sai vazio, não zero. Lembre que `qtd_ativos_mei` conta estabelecimentos (há MEI com filial no dado
+real, veja [Simples Nacional e MEI](#simples-nacional-e-mei)).
 
 **Quantas empresas há, e não estabelecimentos?**
 
@@ -492,21 +537,15 @@ uv run mf query --metrics qtd_matrizes,qtd_estabelecimentos --group-by metric_ti
 uv run mf query --metrics qtd_matrizes,qtd_estabelecimentos --group-by metric_time__month --where "{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'ATIVA'"
 ```
 
-```text
-metric_time__month      qtd_matrizes    qtd_estabelecimentos
---------------------  --------------  ----------------------
-2026-09-01T00:00:00               16                      18
-2026-08-01T00:00:00               16                      17
-```
-
-Com o filtro de ATIVA, 2026-09 tem 10 matrizes ativas e 11 estabelecimentos ativos. A situação filtrada é a da
-matriz, não a da empresa como um todo.
+Onde há filial, a saída tem mais estabelecimentos que matrizes. Com o filtro de ATIVA, a situação filtrada é a de
+cada estabelecimento: conta a matriz ativa, não a empresa como um todo.
 
 **Por que não posso somar os meses?**
 
 Cada mês é uma fotografia do cadastro inteiro. O mesmo estabelecimento ativo aparece em todos os meses em que segue
 ativo; somar 2026-08 (10) e 2026-09 (11) daria 21 ativos que não existem. As métricas de contagem do resumo
-declaram `non_additive_dimension`: num período maior que o mês, vale o **último** mês.
+declaram `non_additive_dimension`: num período maior que o mês, vale o **último mês em que o recorte filtrado tem
+linhas** (veja a próxima pergunta).
 
 ```bash
 uv run mf query --metrics qtd_ativos --group-by metric_time__month
@@ -515,13 +554,44 @@ uv run mf query --metrics qtd_ativos --group-by metric_time__year
 
 A segunda consulta devolve 11 para 2026 (o valor de 2026-09), não 21.
 
+**Quantos há agora num recorte filtrado?**
+
+Cuidado com o filtro. O MetricFlow escolhe o "último mês" **depois** de aplicar o `--where`: se o filtro não deixa
+nenhuma linha no último mês, ele usa o mês mais recente que sobrou, e devolve uma fotografia velha em vez de zero
+ou vazio. Vale para a consulta por ano e para a consulta sem tempo. Nas fixtures, uma filial de Água Branca/PB
+estava SUSPENSA em 2026-08 e foi baixada antes do extrato de 2026-09:
+
+```bash
+uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__year --where "{{ Dimension('municipio__sigla_uf') }} = 'PB' and {{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'SUSPENSA'"
+```
+
+A consulta devolve 1 para 2026 (a fotografia de 2026-08), embora em 2026-09 não haja nenhuma suspensa na PB.
+Para o estoque atual:
+
+- agrupe por `metric_time__month`, ou filtre `metric_time` no mês desejado (vazio quer dizer nenhum):
+
+  ```bash
+  uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__month --where "{{ Dimension('municipio__sigla_uf') }} = 'PB' and {{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'SUSPENSA' and {{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+  ```
+
+- não filtre a situação: agrupe por ela, ou use `qtd_ativos` em vez de `qtd_estabelecimentos` com filtro `ATIVA`.
+  O resumo guarda as linhas das outras situações, então o recorte continua com linhas no último mês e a
+  fotografia sai certa:
+
+  ```bash
+  uv run mf query --metrics qtd_estabelecimentos,qtd_ativos --group-by metric_time__year,situacao_cadastral__rotulo_situacao_cadastral --where "{{ Dimension('municipio__sigla_uf') }} = 'PB'"
+  ```
+
+O teste `test_fotografia_com_filtro_vale_o_ultimo_mes_em_que_o_recorte_tem_linhas` documenta esse comportamento.
+No dado real ele aparece a partir do segundo mês da série.
+
 **Como os estabelecimentos se distribuem por situação cadastral?**
 
 ```bash
 uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__month,situacao_cadastral__rotulo_situacao_cadastral
 ```
 
-Nas fixtures, em 2026-09: 11 ATIVA, 1 INAPTA, 6 BAIXADA.
+Em 2026-09, a saída mostra as situações ATIVA, INAPTA e BAIXADA; em 2026-08, também SUSPENSA.
 
 **Qual a idade média dos ativos por porte num mês?**
 
@@ -533,13 +603,16 @@ Lembre que o porte é declarado e que `N/A` (código 00) e `NÃO INFORMADO` (mem
 
 **Os encerramentos são só baixas?**
 
-Não. Pela regra do projeto, encerramento é todo estabelecimento não ativo com data da situação válida:
+Não. Pela regra do projeto, encerramento é todo estabelecimento não ativo com data da situação válida. Para só
+as baixas, use `baixas`:
 
 ```bash
 uv run mf query --metrics encerramentos --group-by metric_time__year,situacao_cadastral__rotulo_situacao_cadastral
+uv run mf query --metrics encerramentos,baixas --group-by metric_time__year
 ```
 
-Nas fixtures, há encerramentos BAIXADA e INAPTA. Um dos 6 baixados não aparece porque não tem data da situação.
+Nas fixtures, há encerramentos BAIXADA e INAPTA; o baixado sem data da situação não aparece. No dado real, a
+diferença é grande no ano de um lote de inaptidão (veja a [A3](#a3-ciclo-de-vida)).
 
 **Quantas aberturas houve por natureza jurídica, e por matriz ou filial?**
 
@@ -643,7 +716,9 @@ entidade "empresa": ver [A2](#empresa--estabelecimento).
 ### B3. Métricas
 
 As métricas do resumo mensal são as **mesmas medidas DAX** do [guia Power BI](POWER_BI.md#3-medidas-dax-sugeridas),
-agora definidas uma vez e fora da ferramenta de BI.
+agora definidas uma vez e fora da ferramenta de BI. A equivalência vale **no grão mensal**: num visual por ano (ou
+sem mês), o DAX `SUM` soma os meses, e a métrica usa o último mês (fotografia, abaixo). Para comparar um número do
+painel com o `mf`, filtre um mês nos dois.
 
 | Métrica | Tipo | Definição | Medida DAX equivalente |
 |---|---|---|---|
@@ -662,6 +737,7 @@ agora definidas uma vez e fora da ferramenta de BI.
 | `variacao_mensal_ativos_pct` | derived | `(qtd_ativos − anterior) / anterior` | Variação Mensal de Ativos (%) |
 | `aberturas` | simple (count) | estabelecimentos pela **data de início**, só com data válida | — (regra de `mart_dinamica_mercado`) |
 | `encerramentos` | simple (count) | **não ativos** (`not eh_ativa`) pela **data da situação** (`agg_time_dimension` próprio), só com data válida | — (regra de `mart_dinamica_mercado`) |
+| `baixas` | simple (count) | só **BAIXADA** pela **data da situação**, só com data válida | — |
 | `saldo_aberturas_encerramentos` | derived | `aberturas − encerramentos` (lado sem evento conta 0) | — (`saldo` de `mart_dinamica_mercado`) |
 | `elegiveis_{1,3,5}a`, `sobreviventes_{1,3,5}a` | simple (sum) | colunas de `mart_sobrevivencia_coorte` | — |
 | `taxa_sobrevivencia_{1,3,5}a` | ratio | `sobreviventes / elegíveis` (soma os estratos antes de dividir) | Taxa de Sobrevivência 3a |
@@ -669,8 +745,15 @@ agora definidas uma vez e fora da ferramenta de BI.
 **Fotografia mensal (`non_additive_dimension`).** O resumo mensal é uma fotografia: somar `qtd_ativos` de vários
 meses contaria o mesmo estabelecimento várias vezes (é o cuidado "Não some meses" do guia Power BI). As métricas
 de contagem do resumo declaram `non_additive_dimension: { name: mes, window_agg: max }`. Num grão maior que o mês
-(ano, ou sem tempo), o MetricFlow usa **o último mês** do período em vez da soma. Nas fixtures do CI,
-`qtd_ativos` por ano dá 11 (o valor de 2026-09), não 21 (08 + 09). Um teste de integração impede a regressão.
+(ano, ou sem tempo), o MetricFlow usa **o último mês do período em que o recorte filtrado tem linhas**, em vez da
+soma. Nas fixtures do CI, `qtd_ativos` por ano dá 11 (o valor de 2026-09), não 21 (08 + 09). Testes de
+integração impedem a regressão.
+
+**Limitação: o último mês é escolhido depois do filtro.** O MetricFlow calcula o `MAX(mes)` sobre as linhas que
+sobram do `--where`. Se o filtro esvazia o último mês, a consulta devolve o mês anterior com linhas, e não zero. O
+MetricFlow não oferece um `MAX` fora do filtro. Para estoque atual, agrupe por `metric_time__month` ou filtre o
+mês, e prefira `qtd_ativos` a `qtd_estabelecimentos` com filtro `ATIVA` (exemplo na
+[A6](#a6-perguntas-frequentes)).
 
 **Ratios somam antes de dividir.** `idade_media_anos` e `taxa_sobrevivencia_3a` dividem somas, nunca tiram média
 de médias. Por isso a taxa de um estado ou de um ano é ponderada pelo número de estabelecimentos.
@@ -681,7 +764,7 @@ de médias. Por isso a taxa de um estado ou de um ano é ponderada pelo número 
 |---|---|
 | `serie_mensal_ativos_por_uf` | ativos, % de ativos e idade média por mês e UF |
 | `estudo_caso_fundao_tintas` | pergunta-guia do MVP: lojas de tintas (CNAE 4741500) em Fundão/ES por mês e porte |
-| `dinamica_anual_por_secao_cnae` | aberturas, encerramentos e saldo por ano e seção CNAE |
+| `dinamica_anual_por_secao_cnae` | aberturas, encerramentos e saldo por ano e seção CNAE. O último ano é parcial, e os encerramentos incluem inaptidões em lote (veja a [A3](#a3-ciclo-de-vida)) |
 | `sobrevivencia_por_coorte_e_porte` | taxas de sobrevivência a 1, 3 e 5 anos por coorte e porte |
 
 ### B5. Como usar
@@ -714,29 +797,42 @@ Outros consumidores:
   aberto *Open Semantic Interchange*, para ferramentas que o leem.
 - **Power BI.** Continua com as medidas DAX do guia: o Power BI não lê MetricFlow diretamente. A tabela da
   [B3](#b3-métricas) é o dicionário entre as duas. Use `mf query --csv` ou `--explain` para conferir um número do
-  painel.
+  painel **num mês**: num total por ano, o `SUM` do DAX soma os meses e a métrica não.
 - **dbt Semantic Layer (dbt platform).** O mesmo YAML serve, se um dia o projeto for para a plataforma.
 
 ### B6. Garantias (testes)
 
 - `tests/integration/test_camada_semantica.py`:
   - `mf validate-configs` sem erros, inclusive contra o warehouse;
-  - métricas mensais iguais ao SQL direto no gold;
-  - fotografia sem soma de meses;
-  - variação mensal com o mês anterior;
-  - estudo de caso de Fundão;
+  - as 10 métricas simples e ratio do resumo iguais ao SQL direto no gold, no mês, no ano e sem tempo (no ano e
+    sem tempo, a fotografia do último mês, também nos numeradores dos ratios);
+  - fotografia sem soma de meses, e a fixture discriminando o último mês da soma em todas as contagens;
+  - fotografia com filtro: o último mês em que o recorte tem linhas (a limitação da [B3](#b3-métricas));
+  - `qtd_ativos_mes_anterior`, `variacao_mensal_ativos` e `variacao_mensal_ativos_pct` com o mês anterior;
+  - estudo de caso de Fundão e as *saved queries* `serie_mensal_ativos_por_uf` e
+    `sobrevivencia_por_coorte_e_porte`, iguais ao SQL;
   - aberturas, encerramentos e saldo iguais a `mart_dinamica_mercado` por ano e por ano × seção CNAE;
-  - sobrevivência somando os estratos.
+  - `baixas` igual às baixadas com data válida, menor que os encerramentos;
+  - elegíveis, sobreviventes e taxas a 1, 3 e 5 anos iguais ao mart, somando os estratos;
+  - os números citados nesta doc iguais aos das fixtures.
 - `tests/integration/test_escopo_meta.py`: modelos semânticos, métricas e *saved queries* com `meta.escopo`
   (e tag, nas *saved queries*).
-- `tests/integration/test_ontologia.py`: a ontologia parseia, tem rótulos em português, e cobre a camada nos dois
-  sentidos (todo nome anotado existe nos manifestos; toda entidade e toda métrica tem conceito).
+- `tests/integration/test_ontologia.py`: a ontologia parseia, tem rótulos em português, cobre a camada nos dois
+  sentidos (todo nome anotado existe nos manifestos; toda entidade e toda métrica tem conceito) e põe cada métrica
+  num conceito que anota o modelo semântico dela (afinidade).
+- `tests/integration/test_doc_semantica.py`: a parte estática de `scripts/verificar_doc_semantica.py`
+  (identificadores, links e âncoras desta doc). Os exemplos `mf` rodam só quando o script é chamado com a opção
+  de executar os exemplos, fora do CI.
 - Mutações verificadas (todas reprovadas pelos testes):
-  - tirar o `non_additive_dimension`;
-  - deslocar 2 meses no lugar de 1;
+  - tirar o `non_additive_dimension` de uma contagem, ou do numerador de um ratio (`soma_idade_anos_ativos`,
+    `capital_social_total`);
+  - deslocar 2 meses no lugar de 1, ou dividir a variação % pelo mês corrente;
+  - tirar o filtro de MEI de `qtd_ativos_mei`; trocar o denominador de `pct_ativos`; trocar o numerador da taxa de
+    1 ano pelo de 3 anos;
+  - trocar o filtro de `baixas` por não ativos; `window_agg: min` na fotografia;
   - remover o `meta.escopo` de uma métrica;
-  - tirar o mapeamento de uma métrica da ontologia;
-  - mapear um conceito para um nome inexistente.
+  - tirar o mapeamento de uma métrica da ontologia, mapeá-la num conceito de outro modelo ou mapear um conceito
+    para um nome inexistente.
 
 ### B7. Limites e cuidados
 
@@ -753,6 +849,15 @@ Outros consumidores:
   sumiram do cadastro não entram, e um inativo reativado deixa de contar como encerramento.
   Num período com eventos só de um lado, a métrica do outro lado sai vazia (nula) e o saldo a trata como 0
   (`coalesce` na expressão: o dbt-core 1.12.5 descarta `fill_nulls_with` nas métricas do YAML novo).
+- **Inaptidões em lote e ano parcial** distorcem `encerramentos` e o saldo de um ano: no dado real de 2026-09, 44 %
+  dos encerramentos de 2026 são INAPTA, e 2026 vai só até 12/09. Use `baixas` ou a quebra por situação, e compare
+  períodos completos ([A3](#a3-ciclo-de-vida)).
+- **Fotografia com filtro:** o último mês é escolhido depois do `--where` ([B3](#b3-métricas)).
+- **Datas sentinela no *time spine*.** O `dim_data` tem 1899-12-30 e 1899-12-31 (membros `-2` e `-1`), e elas
+  aparecem em consultas de dimensão pura (`mf query --group-by metric_time__day`). Nenhuma métrica é afetada: as do
+  resumo começam em 2026, e `aberturas`, `encerramentos` e `baixas` filtram as datas nulas. Uma métrica futura com
+  `join_to_timespine` ou `cumulative` veria esses dois dias; se incomodar, crie um *time spine* próprio, sem os
+  membros `-1` e `-2`.
 - **Bug do partial parse (dbt-core 1.12.5).** Depois de editar um YAML com métricas, o próximo comando dbt pode falhar
   com `dbt found two metrics with the name ...`. Rode `dbt parse --no-partial-parse` uma vez. Os alvos `make ci`,
   `make pipeline`, `make atualizar` e `make semantica` já fazem isso.

@@ -11,16 +11,22 @@ O cuidado "não some meses" do resumo mensal, por exemplo, dependia de quem escr
 - **Escopo**:
   - modelos semânticos das 5 dimensões, das duas fatos (`fct_resumo_mensal` e `fct_estabelecimentos`) e de
     `mart_sobrevivencia_coorte`;
-  - 25 métricas: as medidas DAX do guia, mais aberturas e encerramentos e as taxas de sobrevivência;
+  - 26 métricas: as medidas DAX do guia, mais aberturas, encerramentos, baixas e as taxas de sobrevivência;
   - 4 *saved queries*, entre elas a pergunta-guia de Fundão.
 - **Time spine = `dim_data`** (`time_spine.standard_granularity_column: data`). As datas sentinela dos membros
-  `-1`/`-2` (1899-12-30/31) são contíguas a 1900-01-01, então o calendário segue contínuo.
+  `-1`/`-2` (1899-12-30/31) são contíguas a 1900-01-01, então o calendário segue contínuo. Elas aparecem como
+  `metric_time` em consultas de dimensão pura (RSEM-11). Nenhuma métrica é afetada hoje; se uma métrica futura com
+  `join_to_timespine` ou `cumulative` precisar, o caminho é um *time spine* próprio sem os membros `-1`/`-2`.
 - **Fotografia mensal**: as contagens do resumo usam `non_additive_dimension` (`mes`, `max`). Em grão maior
-  que o mês vale o último mês, em vez da soma dos meses.
+  que o mês vale o último mês **em que o recorte filtrado tem linhas**, em vez da soma dos meses. O MetricFlow
+  calcula o `MAX(mes)` depois do `--where` (RSEM-01): se o filtro esvazia o último mês, a consulta devolve uma
+  fotografia velha. Sem como mudar isso no MetricFlow, a doc ensina o estoque atual por `metric_time__month` e
+  `qtd_ativos` em vez de filtrar `ATIVA`, e um teste documenta o comportamento.
 - **Datas como dimensões derivadas**: `mes` do resumo vem de `mes_referencia`. `data_inicio_atividade` e
   `data_situacao` vêm das chaves `sk_data` (`-1`/`-2` viram nulo). Nenhum modelo SQL muda.
-- **Ferramenta local**: CLI `mf` (`dbt-metricflow` 0.15, dependência de desenvolvimento, compatível com o
-  dbt-core 1.12.5 e o MetricFlow 0.213 já trazido pelo dbt-core). `make semantica` valida (inclusive contra o
+- **Ferramenta local**: CLI `mf` (`dbt-metricflow>=0.15,<0.16`, dependência de desenvolvimento, compatível com
+  o dbt-core 1.12.5 e o MetricFlow 0.213 já trazido pelo dbt-core). O limite de versão documenta a dependência:
+  a semântica do `non_additive_dimension` e o descarte de `fill_nulls_with` são deste MetricFlow. `make semantica` valida (inclusive contra o
   warehouse) e lista as métricas. Testes de integração comparam as métricas com SQL direto no gold.
 - **Escopo/marcação (ADR-0006)**:
   - modelos semânticos e métricas levam `meta.escopo: adicao`; o dbt não aceita tags neles;
@@ -61,7 +67,12 @@ significado dos dados para usar as métricas direito.
 - Não há entidade semântica "empresa": a empresa (CNPJ básico) é contada pelas matrizes (`qtd_matrizes`). As
   entidades `estabelecimento`, `porte` e `situacao_cadastral` ganharam `description` de negócio no YAML.
 - `scripts/verificar_doc_semantica.py` confere os identificadores entre crases e as âncoras da doc e executa os
-  exemplos `mf`.
+  exemplos `mf`. A parte estática roda no `make ci`, pelo `tests/integration/test_doc_semantica.py` (RSEM-10).
+
+**Revisão RSEM (2026-10-10, lote FRSEM).** Nova métrica `baixas` (só BAIXADA), porque `encerramentos` inclui
+inaptidões declaradas em lote (44 % dos encerramentos de 2026 no dado real). Os testes passam a comparar com SQL
+todas as métricas do resumo nos grãos mês, ano e sem tempo, e as de sobrevivência a 1, 3 e 5 anos. A ontologia
+ganha o teste de afinidade conceito × modelo semântico.
 
 Fontes: [Semantic models](https://docs.getdbt.com/docs/build/semantic-models),
 [Metrics overview](https://docs.getdbt.com/docs/build/metrics-overview),

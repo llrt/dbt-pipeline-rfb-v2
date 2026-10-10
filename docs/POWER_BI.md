@@ -207,7 +207,9 @@ muda. No Power BI:
 
 As medidas usam as tabelas e colunas reais do modelo. Crie-as numa tabela `Medidas`. Cada uma tem uma métrica
 equivalente na [camada semântica](CAMADA_SEMANTICA.md#b3-métricas) (MetricFlow, ADR-0018). Use
-`mf query --metrics ...` para conferir um número do painel.
+`mf query --metrics ...` para conferir um número do painel **num mês**. A equivalência vale no grão mensal: num
+visual por ano, `SUM` soma os meses e a métrica do MetricFlow usa o último mês (fotografia). Para comparar,
+filtre um mês nos dois.
 
 ```dax
 Qtd Estabelecimentos = SUM ( fct_resumo_mensal[qtd_estabelecimentos] )
