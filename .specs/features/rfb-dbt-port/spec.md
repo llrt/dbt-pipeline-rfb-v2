@@ -175,7 +175,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A), mais uma linha "fanta
 **Acceptance Criteria**:
 
 1. The system SHALL build `bh_empresas` with exactly the columns `cnpj_raiz, cnpj_completo, nome, natureza_juridica, porte, cnae_principal, desc_cnae_principal, grupo_cnae_principal, cnaes_secundarios, municipio, microrregiao_municipio, mesorregiao_municipio, uf, situacao, idade_atual` under an enforced contract.
-2. WHEN built on fixtures THEN `bh_empresas` SHALL contain 13 rows (16 minus K, L, M dropped by the original inner joins).
+2. WHEN built on fixtures THEN `bh_empresas` SHALL contain 14 rows (17 minus K, L, M dropped by the original inner joins). *(Recalibrated by lote FSEM: row Q.)*
 3. The system SHALL map porte `0→'N/A'`, `1→'MICRO'`, `3→'PEQUENA'`, `5→'DEMAIS'`, otherwise NULL (row E → NULL).
 4. The system SHALL map situação `2→'ATIVA'`, otherwise `'INATIVA'`.
 5. WHEN situação is ATIVA THEN `idade_atual` SHALL be `round(days(data_referencia − dat_inicio)/365.25, 1)` (row A → 3.9); otherwise NULL.
@@ -200,7 +200,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A), mais uma linha "fanta
 
 **Acceptance Criteria**:
 
-1. The system SHALL build `fct_estabelecimentos` with one row per `cnpj_completo` (fixtures: 16 rows) and enforced contract. *(Emenda R4-07: a fixture P, do F3b, elevou de 15 para 16.)*
+1. The system SHALL build `fct_estabelecimentos` with one row per `cnpj_completo` (fixtures: 17 rows) and enforced contract. *(Emenda R4-07: a fixture P, do F3b, elevou de 15 para 16; o lote FSEM, com a linha Q, para 17.)*
 2. WHEN a estabelecimento has no matching dimension member THEN the fact SHALL reference the "não informado" member (key `-1`) instead of dropping the row.
 3. The system SHALL build `dim_municipio` with IBGE id, RFB code, name, UF, micro/meso, região imediata/intermediária, latitude, longitude, população do último ano (Fundão → 20000) and PIB.
 4. The system SHALL build `dim_cnae` with subclass, classe, grupo, divisão, seção and descriptions.
@@ -208,7 +208,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A), mais uma linha "fanta
 6. The system SHALL flag `opcao_mei` on the fact (rows A, C and O → true; O is a branch of A and inherits the root's option). *(Emenda R4-07.)*
 7. The system SHALL test `relationships` from every fact foreign key to its dimension with severity error.
 
-**Independent Test**: fixtures → fact 16 rows; K, L, M present with key -1 on the missing dimension.
+**Independent Test**: fixtures → fact 17 rows; K, L, M present with key -1 on the missing dimension.
 
 ---
 
@@ -324,7 +324,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A), mais uma linha "fanta
 7. The system SHALL provide `docs/POWER_BI.md` with the star diagram, 1:* single-direction relationships, connection steps (Power Query Parquet connector and DuckDB ODBC), incremental refresh by month and at least 8 suggested DAX measures.
 8. The system SHALL declare a dbt `exposure` (type `dashboard`) depending on all star-schema models.
 
-**Independent Test**: fixtures → `fct_resumo_mensal` do mês 2026-09 soma 15; todas as FKs resolvem em dimensões; `dim_data` contém `20000229`.
+**Independent Test**: fixtures → `fct_resumo_mensal` do mês 2026-09 soma 17; todas as FKs resolvem em dimensões; `dim_data` contém `20000229`.
 
 ### P2: Enriquecimento com novas bases da Base dos Dados (melhoria — pedido do usuário)
 
