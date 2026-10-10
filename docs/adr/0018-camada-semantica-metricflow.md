@@ -44,6 +44,25 @@ O cuidado "não some meses" do resumo mensal, por exemplo, dependia de quem escr
 - **OSI:** o `dbt parse` passa a gravar `target/osi_document.json` (Open Semantic Interchange).
 - **Power BI:** continua com DAX. A tabela de equivalência métrica × medida fica em `docs/CAMADA_SEMANTICA.md`.
 
+**Contexto de negócio e ontologia (2026-10-10, pedido do usuário).** A doc só descrevia a estrutura; faltava o
+significado dos dados para usar as métricas direito.
+- `docs/CAMADA_SEMANTICA.md` ganhou a **Parte A — Negócio**, antes da parte técnica:
+  - as bases;
+  - os conceitos (empresa × estabelecimento, porte, Simples/MEI, situação cadastral, CNAE, município);
+  - o ciclo de vida e a relação dele com as métricas;
+  - glossário e perguntas frequentes com `mf query`.
+  Toda regra legal cita a fonte primária (leiaute da RFB, IN RFB 2.119/2022, LC 123/2006, Resolução CGSN
+  140/2018, CONCLA), com data de acesso.
+- **Ontologia formal** em `docs/ontologia/rfb_cnpj.ttl` (OWL/Turtle). As anotações próprias
+  (`rfbo:entidadeSemantica`, `rfbo:dimensaoSemantica`, `rfbo:metricaDbt`, `rfbo:modeloDbt`, `rfbo:colunaDbt`)
+  ligam cada conceito ao projeto.
+- `tests/integration/test_ontologia.py` (rdflib, dependência de desenvolvimento) cobre os dois sentidos: todo nome
+  anotado existe nos manifestos, e toda entidade semântica e toda métrica tem um conceito.
+- Não há entidade semântica "empresa": a empresa (CNPJ básico) é contada pelas matrizes (`qtd_matrizes`). As
+  entidades `estabelecimento`, `porte` e `situacao_cadastral` ganharam `description` de negócio no YAML.
+- `scripts/verificar_doc_semantica.py` confere os identificadores entre crases e as âncoras da doc e executa os
+  exemplos `mf`.
+
 Fontes: [Semantic models](https://docs.getdbt.com/docs/build/semantic-models),
 [Metrics overview](https://docs.getdbt.com/docs/build/metrics-overview),
 [MetricFlow time spine](https://docs.getdbt.com/docs/build/metricflow-time-spine),
