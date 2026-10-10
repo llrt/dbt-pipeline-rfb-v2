@@ -182,6 +182,38 @@ Em vez de construir modelos de dados proprietários e cálculos divergentes dent
 - As métricas de concorrência, idade média e elegibilidade de coortes são calculadas nos marts SQL do dbt.
 - As ferramentas de BI apenas conectam nos arquivos Parquet gerados em `gold/` via DirectQuery ou modo Import periódico, garantindo que o número visto no relatório seja 100% idêntico ao auditado no CI.
 
+O passo seguinte é a **camada semântica do dbt (MetricFlow)**. As métricas deixam de ser fórmulas da ferramenta de BI
+e passam a ser declaradas em YAML junto do modelo, no padrão novo do dbt 1.12+ (`semantic_model`, `entity`/`dimension`
+nas colunas, `metrics`). Este projeto declara 25 métricas sobre o modelo estrela ([docs/CAMADA_SEMANTICA.md](../CAMADA_SEMANTICA.md),
+[ADR-0018](../../docs/adr/0018-camada-semantica-metricflow.md)). Um trecho de `fct_resumo_mensal`:
+
+```yaml
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
+    primary_entity: resumo_mensal
+    agg_time_dimension: mes
+    derived_semantics:
+      dimensions:
+        - name: mes
+          type: time
+          granularity: month
+          expr: cast(mes_referencia || '-01' as date)
+    metrics:
+      - name: qtd_ativos
+        type: simple
+        agg: sum
+        expr: qtd_ativos
+        non_additive_dimension: { name: mes, window_agg: max }   # fotografia: não soma meses
+      - name: pct_ativos
+        type: ratio
+        numerator: qtd_ativos
+        denominator: qtd_estabelecimentos
+```
+
+Consulte com o CLI do MetricFlow, de dentro de `transform/`: `uv run mf query --metrics qtd_ativos,pct_ativos
+--group-by metric_time__month,municipio__sigla_uf`. O `make semantica` valida tudo contra o warehouse.
+
 ---
 
 ### 3.2 Mapeamento de Linhagem Downstream com Exposures

@@ -61,16 +61,21 @@ models:
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
     columns:
       - name: sk_municipio
         description: >
           Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga.
         data_type: integer
+        entity: { type: primary, name: municipio }
         data_tests: [unique, not_null]
       - name: id_municipio_ibge
         description: >
           Código IBGE do município (7 dígitos). Linhagem: `stg_bd__municipios.id_municipio`.
         data_type: varchar
+        dimension: categorical
       - name: codigo_rfb
         description: >
           Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`.
@@ -86,18 +91,22 @@ models:
         description: >
           Nome do município (acentuado, Base dos Dados).
         data_type: varchar
+        dimension: categorical
       - name: sigla_uf
         description: >
           Sigla da UF do município.
         data_type: varchar
+        dimension: categorical
       - name: nome_uf
         description: >
           Nome da UF.
         data_type: varchar
+        dimension: categorical
       - name: nome_regiao
         description: >
           Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
         data_type: varchar
+        dimension: categorical
       - name: id_mesorregiao
         description: >
           Código IBGE da mesorregião.
@@ -106,6 +115,7 @@ models:
         description: >
           Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município).
         data_type: varchar
+        dimension: categorical
       - name: id_microrregiao
         description: >
           Código IBGE da microrregião.
@@ -114,6 +124,7 @@ models:
         description: >
           Nome da microrregião.
         data_type: varchar
+        dimension: categorical
       - name: id_regiao_intermediaria
         description: >
           Código IBGE da região geográfica intermediária.
@@ -122,6 +133,7 @@ models:
         description: >
           Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata).
         data_type: varchar
+        dimension: categorical
       - name: id_regiao_imediata
         description: >
           Código IBGE da região geográfica imediata.
@@ -130,6 +142,7 @@ models:
         description: >
           Nome da região geográfica imediata.
         data_type: varchar
+        dimension: categorical
       - name: latitude
         description: >
           Latitude do centroide do município (graus decimais).
@@ -202,6 +215,7 @@ models:
         description: >
           Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1.
         data_type: varchar
+        dimension: categorical
         config: { meta: { incremento: enriquecimento_bd } }
         data_tests:
           - not_null:
@@ -213,97 +227,123 @@ models:
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
     columns:
       - name: sk_cnae
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Subclasse como inteiro.
         data_type: integer
+        entity: { type: primary, name: cnae }
         data_tests: [unique, not_null]
       - name: codigo_secao
         description: >
           Código da seção (letra).
         data_type: varchar
+        dimension: categorical
       - name: descricao_secao
         description: >
           Descrição da seção.
         data_type: varchar
+        dimension: categorical
       - name: codigo_divisao
         description: >
           Código da divisão (2 dígitos).
         data_type: varchar
+        dimension: categorical
       - name: descricao_divisao
         description: >
           Descrição da divisão.
         data_type: varchar
+        dimension: categorical
       - name: codigo_grupo
         description: >
           Código do grupo (3 dígitos).
         data_type: varchar
+        dimension: categorical
       - name: descricao_grupo
         description: >
           Descrição do grupo.
         data_type: varchar
+        dimension: categorical
       - name: codigo_classe
         description: >
           Código da classe (5 dígitos).
         data_type: varchar
+        dimension: categorical
       - name: descricao_classe
         description: >
           Descrição da classe.
         data_type: varchar
+        dimension: categorical
       - name: codigo_subclasse
         description: >
           Código da subclasse (7 dígitos, com zeros à esquerda).
         data_type: varchar
+        dimension: categorical
         data_tests: [unique, not_null]
       - name: descricao_subclasse
         description: >
           Descrição da subclasse.
         data_type: varchar
 
+        dimension: categorical
   - name: dim_natureza_juridica
     description: >
       Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio.
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
     columns:
       - name: sk_natureza_juridica
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código como inteiro.
         data_type: integer
+        entity: { type: primary, name: natureza_juridica }
         data_tests: [unique, not_null]
       - name: codigo_natureza_juridica
         description: >
           Código da natureza jurídica (4 dígitos).
         data_type: varchar
+        dimension: categorical
         data_tests: [unique, not_null]
       - name: descricao_natureza_juridica
         description: >
           Descrição da natureza jurídica.
         data_type: varchar
 
+        dimension: categorical
   - name: dim_porte
     description: >
       Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio.
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
     columns:
       - name: sk_porte
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte.
         data_type: integer
+        entity: { type: primary, name: porte }
         data_tests: [unique, not_null]
       - name: codigo_porte
         description: >
           Código RFB do porte.
         data_type: varchar
+        dimension: categorical
         data_tests: [unique, not_null]
       - name: rotulo_porte
         description: >
           Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS).
         data_type: varchar
+        dimension: categorical
       - name: descricao_porte
         description: >
           Descrição por extenso.
@@ -315,21 +355,27 @@ models:
     config:
       contract:
         enforced: true
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
     columns:
       - name: sk_situacao_cadastral
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação.
         data_type: integer
+        entity: { type: primary, name: situacao_cadastral }
         data_tests: [unique, not_null]
       - name: codigo_situacao_cadastral
         description: >
           Código RFB da situação.
         data_type: varchar
+        dimension: categorical
         data_tests: [unique, not_null]
       - name: rotulo_situacao_cadastral
         description: >
           Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA).
         data_type: varchar
+        dimension: categorical
       - name: descricao_situacao_cadastral
         description: >
           Descrição por extenso.
@@ -345,6 +391,7 @@ models:
     config:
       contract:
         enforced: true
+    time_spine: { standard_granularity_column: data }
     columns:
       - name: sk_data
         description: >
@@ -355,6 +402,7 @@ models:
         description: >
           Data do calendário, nunca nula; os membros `-1` e `-2` usam 1899-12-31 e 1899-12-30.
         data_type: date
+        granularity: day
       - name: ano
         description: >
           Ano (4 dígitos).
@@ -466,15 +514,59 @@ models:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
             min_value: 1
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
+    agg_time_dimension: data_inicio_atividade
+    derived_semantics:
+      dimensions:
+        - name: data_inicio_atividade
+          type: time
+          granularity: day
+          description: Data de início de atividade; nula para as chaves -1 (sem data) e -2 (anterior a 1900).
+          expr: case when sk_data_inicio_atividade > 0 then strptime(cast(sk_data_inicio_atividade as varchar), '%Y%m%d')::date end
+        - name: data_situacao
+          type: time
+          granularity: day
+          description: Data da situação cadastral atual; nula para as chaves -1 e -2.
+          expr: case when sk_data_situacao > 0 then strptime(cast(sk_data_situacao as varchar), '%Y%m%d')::date end
+    metrics:
+      - name: aberturas
+        label: Aberturas
+        description: Estabelecimentos do extrato corrente pela data de início de atividade (`metric_time` = início). Sem filtro de tempo, conta todo o extrato.
+        type: simple
+        agg: count
+        expr: cnpj_completo
+        config: { meta: { escopo: adicao } }
+      - name: encerramentos
+        label: Encerramentos
+        description: Estabelecimentos baixados pela data da situação cadastral (`metric_time` = data da baixa).
+        type: simple
+        agg: count
+        expr: cnpj_completo
+        agg_time_dimension: data_situacao
+        filter: "{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'BAIXADA'"
+        config: { meta: { escopo: adicao } }
+      - name: saldo_aberturas_encerramentos
+        label: Saldo (aberturas − encerramentos)
+        description: Aberturas menos encerramentos no mesmo período de `metric_time`.
+        type: derived
+        expr: aberturas - encerramentos
+        input_metrics:
+          - { name: aberturas }
+          - { name: encerramentos }
+        config: { meta: { escopo: adicao } }
     columns:
       - name: cnpj_completo
         description: CNPJ completo (14 dígitos); dimensão degenerada e chave da linha.
         data_type: varchar
+        entity: { type: primary, name: estabelecimento }
         data_tests: [unique, not_null]
       - name: sk_municipio
         description: >
           Chave de `dim_municipio`; `-1` quando o município RFB não tem par na Base dos Dados (exterior, município novo).
         data_type: integer
+        entity: { type: foreign, name: municipio }
         data_tests:
           - not_null
           - relationships:
@@ -485,6 +577,7 @@ models:
         description: >
           Chave de `dim_cnae` (CNAE principal); `-1` quando o CNAE não tem par na Base dos Dados.
         data_type: integer
+        entity: { type: foreign, name: cnae }
         data_tests:
           - not_null
           - relationships:
@@ -495,6 +588,7 @@ models:
         description: >
           Chave de `dim_natureza_juridica`; `-1` quando a empresa não tem natureza no domínio.
         data_type: integer
+        entity: { type: foreign, name: natureza_juridica }
         data_tests:
           - not_null
           - relationships:
@@ -505,6 +599,7 @@ models:
         description: >
           Chave de `dim_porte`; `-1` quando o porte está vazio ou fora do domínio.
         data_type: integer
+        entity: { type: foreign, name: porte }
         data_tests:
           - not_null
           - relationships:
@@ -515,6 +610,7 @@ models:
         description: >
           Chave de `dim_situacao_cadastral`; `-1` quando o código está fora do domínio.
         data_type: integer
+        entity: { type: foreign, name: situacao_cadastral }
         data_tests:
           - not_null
           - relationships:
@@ -549,9 +645,11 @@ models:
       - name: opcao_simples
         description: Optante pelo Simples Nacional na empresa (false quando não há registro).
         data_type: boolean
+        dimension: categorical
       - name: opcao_mei
         description: Optante pelo MEI na empresa (false quando não há registro).
         data_type: boolean
+        dimension: categorical
       - name: capital_social
         description: >
           Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por
@@ -560,10 +658,12 @@ models:
       - name: eh_matriz
         description: Verdadeiro para matriz (`ind_matriz_filial = 1`).
         data_type: boolean
+        dimension: categorical
       - name: eh_ativa
         description: Verdadeiro para situação cadastral ativa (código 2).
         data_type: boolean
 
+        dimension: categorical
   - name: fct_resumo_mensal
     description: >
       Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE ×
@@ -593,6 +693,121 @@ models:
               - sk_porte
               - sk_situacao_cadastral
               - opcao_mei
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao } }
+    primary_entity: resumo_mensal
+    agg_time_dimension: mes
+    derived_semantics:
+      dimensions:
+        - name: mes
+          type: time
+          granularity: month
+          description: Mês de referência do extrato RFB (primeiro dia do mês).
+          expr: cast(mes_referencia || '-01' as date)
+    metrics:
+      - name: qtd_estabelecimentos
+        label: Qtd Estabelecimentos
+        description: 'Estabelecimentos no mês (fotografia: em períodos maiores que o mês vale o último mês, não a soma).'
+        type: simple
+        agg: sum
+        expr: qtd_estabelecimentos
+        non_additive_dimension: { name: mes, window_agg: max }
+        config: { meta: { escopo: adicao } }
+      - name: qtd_ativos
+        label: Qtd Ativos
+        description: Estabelecimentos com situação cadastral ATIVA no mês (fotografia; não soma meses).
+        type: simple
+        agg: sum
+        expr: qtd_ativos
+        non_additive_dimension: { name: mes, window_agg: max }
+        config: { meta: { escopo: adicao } }
+      - name: qtd_ativos_mei
+        label: Qtd Ativos MEI
+        description: Ativos de empresas optantes pelo MEI no mês.
+        type: simple
+        agg: sum
+        expr: qtd_ativos
+        non_additive_dimension: { name: mes, window_agg: max }
+        filter: "{{ Dimension('resumo_mensal__opcao_mei') }}"
+        config: { meta: { escopo: adicao } }
+      - name: qtd_matrizes
+        label: Qtd Matrizes
+        description: Matrizes no mês (uma por empresa); denominador do capital social médio.
+        type: simple
+        agg: sum
+        expr: qtd_matrizes
+        non_additive_dimension: { name: mes, window_agg: max }
+        config: { meta: { escopo: adicao } }
+      - name: capital_social_total
+        label: Capital Social Total (R$)
+        description: Capital social somado só nas matrizes, para contar cada empresa uma vez.
+        type: simple
+        agg: sum
+        expr: soma_capital_social_matrizes
+        non_additive_dimension: { name: mes, window_agg: max }
+        config: { meta: { escopo: adicao } }
+      - name: soma_idade_anos_ativos
+        description: Soma da idade (anos) dos ativos; numerador de `idade_media_anos`.
+        type: simple
+        agg: sum
+        expr: soma_idade_anos
+        non_additive_dimension: { name: mes, window_agg: max }
+        config: { meta: { escopo: adicao } }
+      - name: pct_ativos
+        label: '% Ativos'
+        description: Ativos / estabelecimentos.
+        type: ratio
+        numerator: qtd_ativos
+        denominator: qtd_estabelecimentos
+        config: { meta: { escopo: adicao } }
+      - name: idade_media_anos
+        label: Idade Média (anos)
+        description: Idade média dos estabelecimentos ativos, em anos.
+        type: ratio
+        numerator: soma_idade_anos_ativos
+        denominator: qtd_ativos
+        config: { meta: { escopo: adicao } }
+      - name: capital_social_medio
+        label: Capital Social Médio (R$)
+        description: Capital social médio por empresa (matriz).
+        type: ratio
+        numerator: capital_social_total
+        denominator: qtd_matrizes
+        config: { meta: { escopo: adicao } }
+      - name: pct_mei_entre_ativos
+        label: '% MEI entre Ativos'
+        description: Participação do MEI entre os ativos.
+        type: ratio
+        numerator: qtd_ativos_mei
+        denominator: qtd_ativos
+        config: { meta: { escopo: adicao } }
+      - name: qtd_ativos_mes_anterior
+        label: Qtd Ativos Mês Anterior
+        description: Ativos no mês anterior ao de `metric_time`.
+        type: derived
+        expr: ativos_mes_anterior
+        input_metrics:
+          - { name: qtd_ativos, offset_window: 1 month, alias: ativos_mes_anterior }
+        config: { meta: { escopo: adicao } }
+      - name: variacao_mensal_ativos
+        label: Variação Mensal de Ativos
+        description: Ativos no mês menos ativos no mês anterior.
+        type: derived
+        expr: qtd_ativos - ativos_mes_anterior
+        input_metrics:
+          - { name: qtd_ativos }
+          - { name: qtd_ativos, offset_window: 1 month, alias: ativos_mes_anterior }
+        config: { meta: { escopo: adicao } }
+      - name: variacao_mensal_ativos_pct
+        label: Variação Mensal de Ativos (%)
+        description: Variação relativa dos ativos frente ao mês anterior; nula sem ativos no mês anterior.
+        type: derived
+        expr: (qtd_ativos - ativos_mes_anterior) / nullif(ativos_mes_anterior, 0)
+        input_metrics:
+          - { name: qtd_ativos }
+          - { name: qtd_ativos, offset_window: 1 month, alias: ativos_mes_anterior }
+        config: { meta: { escopo: adicao } }
     columns:
       - name: mes_referencia
         description: Mês de referência `YYYY-MM` (coluna de partição Hive).
@@ -606,25 +821,30 @@ models:
       - name: sk_municipio
         description: Chave de `dim_municipio` (`-1` = NÃO INFORMADO).
         data_type: integer
+        entity: { type: foreign, name: municipio }
         data_tests: [not_null]
       - name: sk_cnae
         description: Chave de `dim_cnae` (CNAE principal; `-1` = NÃO INFORMADO).
         data_type: integer
+        entity: { type: foreign, name: cnae }
         data_tests:
           - not_null
       - name: sk_porte
         description: Chave de `dim_porte`.
         data_type: integer
+        entity: { type: foreign, name: porte }
         data_tests:
           - not_null
       - name: sk_situacao_cadastral
         description: Chave de `dim_situacao_cadastral`.
         data_type: integer
+        entity: { type: foreign, name: situacao_cadastral }
         data_tests:
           - not_null
       - name: opcao_mei
         description: Optante pelo MEI.
         data_type: boolean
+        dimension: categorical
         data_tests: [not_null]
       - name: qtd_estabelecimentos
         description: Quantidade de estabelecimentos no grão.

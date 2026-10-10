@@ -23,6 +23,7 @@ dev = [
     "ruff",
     "sqlfluff",
     "sqlfluff-templater-dbt",
+    "dbt-metricflow",  # CLI `mf`: valida e consulta a camada semântica (ADR-0018)
     "pre-commit",
 ]
 

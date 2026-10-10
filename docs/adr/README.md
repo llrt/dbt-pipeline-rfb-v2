@@ -22,3 +22,4 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0015](0015-enriquecimento-base-dos-dados.md) | Enriquecimento com novas bases da Base dos Dados (Fase 1) — incremento `enriquecimento_bd` | aceita |
 | [0016](0016-publicacao-motherduck.md) | Publicação opcional do gold no MotherDuck e formas de acesso pelo Power BI | aceita |
 | [0017](0017-avaliacao-dbt-fusion.md) | Avaliação do dbt Fusion (dbt v2): adiar a migração; critérios para reavaliar | aceita |
+| [0018](0018-camada-semantica-metricflow.md) | Camada semântica no padrão dbt/MetricFlow (YAML) | aceita |
