@@ -138,15 +138,64 @@ def test_estudo_de_caso_fundao(tmp_path: Path) -> None:
     assert obtido[("2026-09", "MICRO")] == (2, 1, pytest.approx(3.9))
 
 
-def test_aberturas_e_encerramentos_cobrem_a_fato(tmp_path: Path) -> None:
-    linhas = _consulta(tmp_path, "--metrics", "aberturas,encerramentos")
-    ((total, baixadas),) = _sql(
-        """select count(*), count(*) filter (where s.rotulo_situacao_cadastral = 'BAIXADA')
-           from '{gold}/fct_estabelecimentos.parquet' f
-           join '{gold}/dim_situacao_cadastral.parquet' s using (sk_situacao_cadastral)"""
+DINAMICA = "'{gold}/mart_dinamica_mercado.parquet'"
+DATA_VALIDA = "case when {sk} > 0 then {sk} // 10000 end"
+
+
+def _dinamica(linhas: list[dict[str, str]], *chave: str) -> dict[tuple[str, ...], tuple]:
+    """Linhas do `mf` por chave. Lado sem evento no período vem nulo e vale 0; o saldo, não."""
+    return {
+        tuple(r[c][:4] if c.startswith("metric_time") else r[c] for c in chave): (
+            int(_num(r["aberturas"]) or 0),
+            int(_num(r["encerramentos"]) or 0),
+            _num(r["saldo_aberturas_encerramentos"]),
+        )
+        for r in linhas
+    }
+
+
+def test_dinamica_por_ano_bate_com_o_mart(tmp_path: Path) -> None:
+    """Mesma regra de `mart_dinamica_mercado`: abertura pela data de início, encerramento = não
+    ativo pela data da situação, datas -1/-2 sem evento; saldo = aberturas − encerramentos."""
+    fato = "'{gold}/fct_estabelecimentos.parquet'"
+    inicio = DATA_VALIDA.format(sk="sk_data_inicio_atividade")
+    situacao = DATA_VALIDA.format(sk="sk_data_situacao")
+    # Pré-condições da fixture: sem elas, trocar a data do encerramento ou o filtro passaria batido.
+    ((inativos_em_outro_ano,),) = _sql(
+        f"select count(*) from {fato} where not eh_ativa and {inicio} <> {situacao}"
     )
-    assert [(int(r["aberturas"]), int(r["encerramentos"])) for r in linhas] == [(total, baixadas)]
-    assert baixadas > 0
+    assert inativos_em_outro_ano > 0
+    ((ativos_com_data_situacao,),) = _sql(
+        f"select count(*) from {fato} where eh_ativa and {situacao} is not null"
+    )
+    assert ativos_com_data_situacao > 0
+    esperado = {
+        (str(ano),): (abe, enc, sal)
+        for ano, abe, enc, sal in _sql(
+            f"select ano, sum(aberturas), sum(encerramentos), sum(saldo) from {DINAMICA} group by 1"
+        )
+    }
+    assert any(0 in valores[:2] for valores in esperado.values())  # ano com eventos só de um lado
+    linhas = _consulta(
+        tmp_path, "--metrics", "aberturas,encerramentos,saldo_aberturas_encerramentos",
+        "--group-by", "metric_time__year",
+    )  # fmt: skip
+    assert _dinamica(linhas, "metric_time__year") == esperado
+
+
+def test_dinamica_por_ano_e_secao_bate_com_o_mart(tmp_path: Path) -> None:
+    linhas = _consulta(tmp_path, "--saved-query", "dinamica_anual_por_secao_cnae")
+    esperado = {
+        (str(ano), secao): (abe, enc, sal)
+        for ano, secao, abe, enc, sal in _sql(
+            f"""select d.ano, c.descricao_secao,
+                       sum(d.aberturas), sum(d.encerramentos), sum(d.saldo)
+                from {DINAMICA} d join '{{gold}}/dim_cnae.parquet' c using (sk_cnae)
+                group by 1, 2"""
+        )
+    }
+    assert len(esperado) > 1
+    assert _dinamica(linhas, "metric_time__year", "cnae__descricao_secao") == esperado
 
 
 def test_sobrevivencia_soma_os_estratos_antes_de_dividir(tmp_path: Path) -> None:

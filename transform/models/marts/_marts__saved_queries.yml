@@ -38,8 +38,8 @@ saved_queries:
   - name: dinamica_anual_por_secao_cnae
     label: Aberturas e encerramentos por ano e seção CNAE
     description: >
-      Aberturas (data de início) e encerramentos (data da baixa) por ano e seção CNAE no extrato corrente,
-      com o saldo; equivalente semântico de `mart_dinamica_mercado`, só que no grão de ano.
+      Aberturas (data de início) e encerramentos (não ativos, pela data da situação) por ano e seção CNAE no
+      extrato corrente, com o saldo; mesma regra e mesmos números de `mart_dinamica_mercado` somado por ano e seção.
     config:
       meta: { escopo: adicao }
       tags: [escopo_adicao]

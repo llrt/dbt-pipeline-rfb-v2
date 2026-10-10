@@ -533,25 +533,35 @@ models:
     metrics:
       - name: aberturas
         label: Aberturas
-        description: Estabelecimentos do extrato corrente pela data de início de atividade (`metric_time` = início). Sem filtro de tempo, conta todo o extrato.
+        description: >
+          Estabelecimentos do extrato corrente pela data de início de atividade (`metric_time` = início), só com
+          data válida (as chaves -1 e -2 não geram evento), como `mart_dinamica_mercado`.
         type: simple
         agg: count
         expr: cnpj_completo
+        filter: "{{ TimeDimension('estabelecimento__data_inicio_atividade', 'day') }} is not null"
         config: { meta: { escopo: adicao } }
       - name: encerramentos
         label: Encerramentos
-        description: Estabelecimentos baixados pela data da situação cadastral (`metric_time` = data da baixa).
+        description: >
+          Estabelecimentos não ativos (`not eh_ativa`: baixados, suspensos, inaptos, nulos) pela data da situação
+          cadastral (`metric_time` = data da situação), só com data válida; regra de `mart_dinamica_mercado`.
         type: simple
         agg: count
         expr: cnpj_completo
         agg_time_dimension: data_situacao
-        filter: "{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'BAIXADA'"
+        filter:
+          - "not {{ Dimension('estabelecimento__eh_ativa') }}"
+          - "{{ TimeDimension('estabelecimento__data_situacao', 'day') }} is not null"
         config: { meta: { escopo: adicao } }
       - name: saldo_aberturas_encerramentos
         label: Saldo (aberturas − encerramentos)
-        description: Aberturas menos encerramentos no mesmo período de `metric_time`.
+        description: >
+          Aberturas menos encerramentos no mesmo período de `metric_time` (o `saldo` de `mart_dinamica_mercado`);
+          período com eventos só de um lado conta o outro como 0.
         type: derived
-        expr: aberturas - encerramentos
+        # coalesce: o dbt-core 1.12.5 descarta `fill_nulls_with` nas métricas do YAML novo.
+        expr: coalesce(aberturas, 0) - coalesce(encerramentos, 0)
         input_metrics:
           - { name: aberturas }
           - { name: encerramentos }

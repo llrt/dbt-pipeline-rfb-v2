@@ -80,9 +80,9 @@ agora definidas uma vez e fora da ferramenta de BI.
 | `qtd_ativos_mes_anterior` | derived | `qtd_ativos` com `offset_window: 1 month` | Qtd Ativos Mês Anterior |
 | `variacao_mensal_ativos` | derived | `qtd_ativos − mês anterior` | Variação Mensal de Ativos |
 | `variacao_mensal_ativos_pct` | derived | `(qtd_ativos − anterior) / anterior` | Variação Mensal de Ativos (%) |
-| `aberturas` | simple (count) | estabelecimentos pela **data de início** | — (equivale a `mart_dinamica_mercado`) |
-| `encerramentos` | simple (count) | baixados pela **data da situação** (`agg_time_dimension` próprio) | — |
-| `saldo_aberturas_encerramentos` | derived | `aberturas − encerramentos` | — |
+| `aberturas` | simple (count) | estabelecimentos pela **data de início**, só com data válida | — (regra de `mart_dinamica_mercado`) |
+| `encerramentos` | simple (count) | **não ativos** (`not eh_ativa`) pela **data da situação** (`agg_time_dimension` próprio), só com data válida | — (regra de `mart_dinamica_mercado`) |
+| `saldo_aberturas_encerramentos` | derived | `aberturas − encerramentos` (lado sem evento conta 0) | — (`saldo` de `mart_dinamica_mercado`) |
 | `elegiveis_{1,3,5}a`, `sobreviventes_{1,3,5}a` | simple (sum) | colunas de `mart_sobrevivencia_coorte` | — |
 | `taxa_sobrevivencia_{1,3,5}a` | ratio | `sobreviventes / elegíveis` (soma os estratos antes de dividir) | Taxa de Sobrevivência 3a |
 
@@ -144,7 +144,7 @@ Outros consumidores:
   - fotografia sem soma de meses;
   - variação mensal com o mês anterior;
   - estudo de caso de Fundão;
-  - aberturas e encerramentos cobrindo a fato;
+  - aberturas, encerramentos e saldo iguais a `mart_dinamica_mercado` por ano e por ano × seção CNAE;
   - sobrevivência somando os estratos.
 - `tests/integration/test_escopo_meta.py`: modelos semânticos, métricas e *saved queries* com `meta.escopo`
   (e tag, nas *saved queries*).
@@ -159,9 +159,13 @@ Outros consumidores:
   guia Power BI.
 - **CNAEs secundários** (bridge muitos-para-muitos) e **vizinhança** ficam fora da camada semântica: o MetricFlow
   não modela pontes muitos-para-muitos.
-- `aberturas` e `encerramentos` olham **só o extrato corrente**: estabelecimentos que sumiram do cadastro não
-  entram. Sem filtro de tempo, `aberturas` conta o extrato inteiro. Estabelecimentos com data ausente ou inválida
-  (`-1`/`-2`) ficam com `metric_time` nulo.
+- `aberturas`, `encerramentos` e o saldo seguem a regra de `mart_dinamica_mercado`: abertura pela data de início;
+  encerramento = estabelecimento **não ativo** (baixado, suspenso, inapto ou nulo, não só baixado) pela data da
+  situação; data ausente ou inválida (`-1`/`-2`) não gera evento. Por ano, e por ano × qualquer dimensão do
+  estabelecimento, os números são os do mart. Como o mart, olham **só o extrato corrente**: estabelecimentos que
+  sumiram do cadastro não entram, e um inativo reativado deixa de contar como encerramento.
+  Num período com eventos só de um lado, a métrica do outro lado sai vazia (nula) e o saldo a trata como 0
+  (`coalesce` na expressão: o dbt-core 1.12.5 descarta `fill_nulls_with` nas métricas do YAML novo).
 - **Bug do partial parse (dbt-core 1.12.5).** Depois de editar um YAML com métricas, o próximo comando dbt pode falhar
   com `dbt found two metrics with the name ...`. Rode `dbt parse --no-partial-parse` uma vez. Os alvos `make ci`,
   `make pipeline`, `make atualizar` e `make semantica` já fazem isso.
