@@ -189,8 +189,8 @@ def test_fotografia_com_filtro_vale_o_ultimo_mes_em_que_o_recorte_tem_linhas(
     assert [
         (
             r["situacao_cadastral__rotulo_situacao_cadastral"],
-            int(r["qtd_estabelecimentos"]),
-            int(r["qtd_ativos"]),
+            _num(r["qtd_estabelecimentos"]),
+            _num(r["qtd_ativos"]),
         )
         for r in por_situacao
     ] == [("BAIXADA", 2, 0)]
