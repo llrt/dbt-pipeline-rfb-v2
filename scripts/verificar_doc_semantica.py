@@ -14,7 +14,8 @@ Uso, depois de `dbt parse` (os exemplos precisam do gold do `make ci` em `RAIZ_D
   para âncoras dela.
 - Com `--executar-exemplos`, roda cada `uv run mf ...` dos blocos de código e exige saída 0.
 
-Sai com código 1 se houver pendência.
+Sai com código 1 se houver pendência. A parte estática (`verificar_estatico`) também roda no
+`make ci`, por `tests/integration/test_doc_semantica.py`.
 """
 
 from __future__ import annotations
@@ -182,17 +183,22 @@ def executar(comando: str) -> tuple[bool, str]:
     return resultado.returncode == 0, (resultado.stdout + resultado.stderr)[-500:]
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--executar-exemplos", action="store_true")
-    opcoes = parser.parse_args()
-    texto = DOC.read_text(encoding="utf-8")
+def verificar_estatico(texto: str) -> tuple[list[str], list[tuple[str, str]], list[str]]:
+    """Identificadores e links: (trechos entre crases, itens e categoria, pendências)."""
     nomes = _nomes()
     sem_blocos = re.sub(r"```.*?```", "", texto, flags=re.S)
     trechos = list(dict.fromkeys(re.findall(r"`([^`\n]+)`", sem_blocos)))
     conferidos = [item for trecho in trechos for item in classificar(trecho, nomes)]
     pendencias = [f"identificador inexistente: `{t}`" for t, c in conferidos if c == "PENDENTE"]
-    pendencias += verificar_links(texto)
+    return trechos, conferidos, pendencias + verificar_links(texto)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--executar-exemplos", action="store_true")
+    opcoes = parser.parse_args()
+    texto = DOC.read_text(encoding="utf-8")
+    trechos, conferidos, pendencias = verificar_estatico(texto)
     print(f"Trechos entre crases: {len(trechos)}; itens conferidos: {len(conferidos)}")
     for categoria, total in Counter(c for _, c in conferidos).most_common():
         print(f"  {categoria}: {total}")
