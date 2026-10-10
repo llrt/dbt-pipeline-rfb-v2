@@ -25,7 +25,8 @@ MES_REFERENCIA = "2026-09"
 DATA_REFERENCIA_TAG = "D60912"  # último dígito do ano (2026 -> 6) + 0912
 ZIP_DATE_TIME = (2026, 9, 12, 0, 0, 0)
 
-# Segundo mês (spec §"Segundo mês"): idêntico a 2026-09, sem a linha O e com nomes internos D60810.
+# Segundo mês (spec §"Segundo mês"): idêntico a 2026-09, sem a linha O, com a linha R SUSPENSA
+# (e não BAIXADA) e com nomes internos D60810.
 MES_ANTERIOR = "2026-08"
 DATA_REFERENCIA_TAG_ANTERIOR = "D60810"
 ZIP_DATE_TIME_ANTERIOR = (2026, 8, 10, 0, 0, 0)
@@ -478,10 +479,34 @@ _ESTABELECIMENTOS_RAW = [
         pais="",
         cidade_exterior="",
     ),
+    # R (FRSEM, RSEM-01): filial de J em Água Branca/PB, SUSPENSA no extrato de 2026-08 e
+    # BAIXADA no de 2026-09 (campos `*_anterior`). Longe do estudo de caso: o recorte
+    # PB × SUSPENSA só existe no penúltimo mês e documenta a fotografia do
+    # `non_additive_dimension` com filtro.
+    dict(
+        id="R",
+        raiz="12121212",
+        ordem="0002",
+        matriz_filial="2",
+        nome_fantasia="",
+        situacao="08",
+        dat_situacao="20260820",
+        mot_situacao="01",
+        situacao_anterior="03",
+        dat_situacao_anterior="20260302",
+        mot_situacao_anterior="00",
+        municipio="1901",
+        cnae_principal="0111301",
+        cnaes_secundarios="",
+        dat_inicio="20190603",
+        uf="PB",
+        pais="",
+        cidade_exterior="",
+    ),
 ]
 
 # cnpj_raiz -> (razao_social, natureza_jur, porte, capital_soc) — nível empresa.
-# 16 raízes (A-N, P, Q); O reaproveita a raiz de A (11111111).
+# 16 raízes (A-N, P, Q); O reaproveita a raiz de A (11111111) e R, a de J (12121212).
 _EMPRESA_POR_RAIZ = {
     "11111111": ("TINTAS FUNDAO LTDA", "2135", "01", "1000,00"),  # A
     "22222222": ("COLORIR TINTAS", "2062", "03", "1000,00"),  # B
@@ -1068,7 +1093,9 @@ def construir_linhas_estabelecimentos(mes: str = MES_REFERENCIA) -> list[list[st
             continue
         dv_correto = calcular_dv_cnpj(est["raiz"] + est["ordem"])
         dv = dv_invalido(dv_correto) if est["id"] == "L" else dv_correto
-        dat_situacao = est["dat_situacao"]
+        sufixo = "_anterior" if mes == MES_ANTERIOR and "situacao_anterior" in est else ""
+        situacao, mot_situacao = est["situacao" + sufixo], est["mot_situacao" + sufixo]
+        dat_situacao = est["dat_situacao" + sufixo]
         if dat_situacao is None:
             dat_situacao = est["dat_inicio"]
         linhas.append(
@@ -1078,9 +1105,9 @@ def construir_linhas_estabelecimentos(mes: str = MES_REFERENCIA) -> list[list[st
                 dv,
                 est["matriz_filial"],
                 est["nome_fantasia"],
-                est["situacao"],
+                situacao,
                 dat_situacao,
-                est["mot_situacao"],
+                mot_situacao,
                 est["cidade_exterior"],
                 est["pais"],
                 est["dat_inicio"],

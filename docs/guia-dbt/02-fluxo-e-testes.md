@@ -37,7 +37,7 @@ Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por 
 
 | Camada | Modelo/Tabela | Materialização | Linhas (CI) | Papel no Pipeline |
 |---|---|---|---|---|
-| **Raw (Fontes)** | `source('rfb', 'estabelecimentos')` | Parquet externo | 17 | Extrato bruto all-VARCHAR |
+| **Raw (Fontes)** | `source('rfb', 'estabelecimentos')` | Parquet externo | 18 | Extrato bruto all-VARCHAR |
 | **Raw (Fontes)** | `source('rfb', 'empresas')` | Parquet externo | 17 | Razão social, porte e capital social (16 raízes + 1 linha "fantasma" repetida) |
 | **Raw (Fontes)** | `source('rfb', 'simples')` | Parquet externo | 16 | Opções Simples Nacional e MEI |
 | **Raw (Fontes)** | `source('rfb', 'cnaes')` | Parquet externo | 8 | Tabela de domínio CNAE da RFB |
@@ -46,24 +46,24 @@ Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por 
 | **Raw (Fontes)** | `source('basedosdados', 'municipio')` | Parquet externo | 8 | Diretórios IBGE, UF e coordenadas |
 | **Raw (Fontes)** | `source('basedosdados', 'cnae_2')` | Parquet externo | 7 | Hierarquia CNAE da Base dos Dados |
 | **Seeds** | `dominio_porte`, `dominio_situacao_cadastral`, etc. | Tabela física | 2 a 5 | Domínios estáticos versionados em CSV |
-| **Staging** | `stg_rfb__estabelecimentos` | View | 17 | Limpeza, tipagem e lpad (sem joins) |
+| **Staging** | `stg_rfb__estabelecimentos` | View | 18 | Limpeza, tipagem e lpad (sem joins) |
 | **Staging** | `stg_rfb__empresas` | View | 16 | Filtro do mês e conversão de capital |
 | **Intermediate** | `int_municipios__conformados` | Table | 8 | Join RFB + IBGE com coordenadas geodésicas |
-| **Intermediate** | `int_estabelecimentos__enriquecidos` | Table | 17 | Left join amplo com flags `tem_*` (zero descartes) |
+| **Intermediate** | `int_estabelecimentos__enriquecidos` | Table | 18 | Left join amplo com flags `tem_*` (zero descartes) |
 | **Intermediate** | `int_cnaes_secundarios__explodidos` | Table | 2 | Unnest de CNAEs secundários por CNPJ |
-| **Marts Original** | `bh_empresas` | External (Parquet) | 14 | **Notebook 3**: 3 descartados pelos inner joins |
+| **Marts Original** | `bh_empresas` | External (Parquet) | 15 | **Notebook 3**: 3 descartados pelos inner joins |
 | **Marts Original** | `agg_empresas` | External (Parquet) | 14 | Agregações do caso de uso de tintas |
 | **Marts Core** | `dim_cnae` | External (Parquet) | 8 | 7 subclasses BD + membro `-1` ("NÃO INFORMADO") |
 | **Marts Core** | `dim_municipio` | External (Parquet) | 9 | 8 municípios conformados + membro `-1` |
 | **Marts Core** | `dim_data` | External (Parquet) | 46.278 | Calendário contínuo desde 1900 com atributos em português |
 | **Marts Core** | `dim_porte`, `dim_situacao_cadastral` | External (Parquet) | 5 e 6 | Domínios do negócio + membro `-1` |
-| **Marts Core** | `fct_estabelecimentos` | External (Parquet) | 17 | Fato granular: **100% conservada** (zero descartes) |
-| **Marts Core** | `fct_resumo_mensal` | External (Parquet) | 33 | Fato agregada mensal para Power BI |
+| **Marts Core** | `fct_estabelecimentos` | External (Parquet) | 18 | Fato granular: **100% conservada** (zero descartes) |
+| **Marts Core** | `fct_resumo_mensal` | External (Parquet) | 34 | Fato agregada mensal para Power BI |
 | **Marts Core** | `bridge_estabelecimento_cnae_secundario`| External (Parquet) | 2 | Tabela ponte para relacionamentos N:N |
 | **Marts Analytics**| `mart_concorrencia_municipio` | External (Parquet) | 12 | Densidade de mercado por 10k habitantes |
 | **Marts Analytics**| `mart_fornecedores_proximos` | External (Parquet) | 3 | Distância geodésica (Haversine) |
-| **Marts Analytics**| `mart_sobrevivencia_coorte` | External (Parquet) | 16 | Sobrevivência de coortes em 1, 3 e 5 anos |
-| **Marts Analytics**| `mart_dinamica_mercado` | External (Parquet) | 21 | Aberturas, encerramentos e saldos |
+| **Marts Analytics**| `mart_sobrevivencia_coorte` | External (Parquet) | 17 | Sobrevivência de coortes em 1, 3 e 5 anos |
+| **Marts Analytics**| `mart_dinamica_mercado` | External (Parquet) | 23 | Aberturas, encerramentos e saldos |
 | **Auditoria** | `audit__bh_empresas_sql_original` | Ephemeral (CTE) | — | Tradução literal PySpark para teste de paridade |
 | **Observabilidade**| `dq_historico_testes` | Table (Hook) | cumulativo | Histórico de execuções acumulado no warehouse (ex.: 251 registros) |
 
@@ -79,7 +79,7 @@ Abaixo, a comparação de volume real nas **fixtures sintéticas** (geradas por 
   - **All-VARCHAR**: Para evitar descartes silenciosos ou conversões corrompidas durante o carregamento de CSVs legados, todas as colunas de dados são gravadas como texto puro (`VARCHAR`). A tipagem forte e higienização são delegadas integralmente à camada de transformação dbt.
   - **Minimização de Dados Pessoais (LGPD)**: Arquivos de Sócios (`Socios*.zip`) não são ingeridos pelo pipeline. Já os arquivos de estabelecimentos contêm colunas de contato (`email`, `ddd1`, `tel1`, `ddd2`, `tel2`, `ddd_fax`, `fax`) que são preservadas na camada raw conforme publicado pela RFB; a minimização de dados pessoais acontece na **camada staging**, onde essas colunas são intencionalmente descartadas e não entram no warehouse nem na camada Gold (ADR-0008). O teste singular `transform/tests/sem_colunas_de_contato.sql` valida continuamente que o staging e modelos downstream não expõem campos de contato.
   - **Metadados Técnicos**: A ingestão anexa quatro colunas de rastreabilidade a cada linha: `_arquivo_origem`, `_mes_referencia`, `_data_referencia` e `_ingerido_em`.
-- **Contagem nas fixtures**: 17 estabelecimentos e 16 empresas no extrato de `2026-09` (verificado via consulta direta com DuckDB Python no `warehouse.duckdb`).
+- **Contagem nas fixtures**: 18 estabelecimentos e 16 empresas no extrato de `2026-09` (verificado via consulta direta com DuckDB Python no `warehouse.duckdb`).
 
 ---
 
@@ -171,7 +171,7 @@ select
 from fonte
 ```
 
-- **Contagem nas fixtures**: 17 registros preservados integralmente. Nenhuma linha é filtrada na camada Staging.
+- **Contagem nas fixtures**: 18 registros preservados integralmente. Nenhuma linha é filtrada na camada Staging.
 
 ---
 
@@ -199,7 +199,7 @@ Diferente da lógica dos notebooks legados, `int_estabelecimentos__enriquecidos`
 - `tem_municipio_bd`: se o município RFB mapeou para um município IBGE válido.
 
 - **Contagens nas fixtures**:
-  - `int_estabelecimentos__enriquecidos`: 17 linhas (100% dos estabelecimentos mantidos).
+  - `int_estabelecimentos__enriquecidos`: 18 linhas (100% dos estabelecimentos mantidos).
   - `int_municipios__conformados`: 8 municípios conformados.
   - `int_cnaes_secundarios__explodidos`: 2 linhas explodidas.
 
@@ -269,7 +269,7 @@ inner join cnaes_bd as cnae on est.cnae_principal = cnae.subclasse
 inner join municipios_bd as mun on est.municipio_rfb_codigo = mun.id_municipio_rf
 ```
 
-- **Contagem nas fixtures**: De 17 estabelecimentos originais, **apenas 14 linhas chegam em `bh_empresas`**. Três estabelecimentos foram descartados pelos inner joins devido à falta de correspondência exata nos domínios. Esse comportamento é monitorado e alertado pelo teste singular `transform/tests/bh_empresas_descartes_inner_join.sql`.
+- **Contagem nas fixtures**: De 18 estabelecimentos originais, **apenas 15 linhas chegam em `bh_empresas`**. Três estabelecimentos foram descartados pelos inner joins devido à falta de correspondência exata nos domínios. Esse comportamento é monitorado e alertado pelo teste singular `transform/tests/bh_empresas_descartes_inner_join.sql`.
 
 ---
 
@@ -296,7 +296,7 @@ coalesce(nat.sk_natureza_juridica, -1) as sk_natureza_juridica,
 coalesce(por.sk_porte, -1) as sk_porte,
 coalesce(sit.sk_situacao_cadastral, -1) as sk_situacao_cadastral
 ```
-Graças a essa técnica, **a tabela fato preserva 100% dos 17 estabelecimentos das fixtures** (zero perda de dados), garantindo reconciliação perfeita contra o extrato bruto.
+Graças a essa técnica, **a tabela fato preserva 100% dos 18 estabelecimentos das fixtures** (zero perda de dados), garantindo reconciliação perfeita contra o extrato bruto.
 
 ---
 
@@ -325,8 +325,8 @@ round(
 - **Contagens nas fixtures**:
   - `mart_concorrencia_municipio`: 12 linhas.
   - `mart_fornecedores_proximos`: 3 fornecedores mapeados no raio definido.
-  - `mart_sobrevivencia_coorte`: 16 linhas de coortes.
-  - `mart_dinamica_mercado`: 21 linhas de evolução anual.
+  - `mart_sobrevivencia_coorte`: 17 linhas de coortes.
+  - `mart_dinamica_mercado`: 23 linhas de evolução anual.
 
 ---
 

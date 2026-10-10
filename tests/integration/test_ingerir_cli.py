@@ -62,7 +62,7 @@ class TestFluxoCompleto:
         dados = json.loads(manifesto_path.read_text(encoding="utf-8"))
         # 16 raízes + a linha "fantasma" que repete a raiz de B (R4-05)
         assert dados["entidades"]["empresas"]["linhas"] == 17
-        assert dados["entidades"]["estabelecimentos"] == {"linhas": 17, "rejeitadas": 0}
+        assert dados["entidades"]["estabelecimentos"] == {"linhas": 18, "rejeitadas": 0}
         for campo in ("mes_referencia", "data_referencia", "iniciado_em", "concluido_em"):
             assert dados.get(campo)
 

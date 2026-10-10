@@ -85,7 +85,7 @@ def test_contagem_estabelecimentos_e_empresas(tmp_path: Path) -> None:
     _, linhas_estab = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
     _, linhas_emp = _ler_zip_rfb(tmp_path, "Empresas0.zip")
 
-    assert len(linhas_estab) == 17
+    assert len(linhas_estab) == 18
     # 16 raízes + a linha "fantasma" que repete a raiz de B (R4-05)
     assert len(linhas_emp) == 17
     assert len({linha[0] for linha in linhas_emp}) == 16
@@ -197,17 +197,22 @@ def test_dominio_rfb_municipios_sem_acento_maiusculo(tmp_path: Path) -> None:
     assert mapa["1182"] == "BOA ESPERANCA DO NORTE"
 
 
-def test_mes_anterior_tem_16_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> None:
+def test_mes_anterior_tem_17_estabelecimentos_sem_a_linha_o(tmp_path: Path) -> None:
     gerar_fixtures.gerar_fixtures(tmp_path)
     _, atual = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip")
     _, anterior = _ler_zip_rfb(tmp_path, "Estabelecimentos0.zip", gerar_fixtures.MES_ANTERIOR)
 
-    assert len(atual) == 17
-    assert len(anterior) == 16
+    assert len(atual) == 18
+    assert len(anterior) == 17
     # O é a filial de A (raiz 11111111, ordem 0002): só existe em 2026-09.
     assert ("11111111", "0002") in {(linha[0], linha[1]) for linha in atual}
     assert ("11111111", "0002") not in {(linha[0], linha[1]) for linha in anterior}
     assert {(linha[0], linha[1]) for linha in anterior} < {(linha[0], linha[1]) for linha in atual}
+    # R é a filial de J (raiz 12121212, ordem 0002): SUSPENSA em 2026-08, BAIXADA em 2026-09.
+    situacao = {(lin[0], lin[1]): (lin[5], lin[6]) for lin in atual}
+    situacao_anterior = {(lin[0], lin[1]): (lin[5], lin[6]) for lin in anterior}
+    assert situacao[("12121212", "0002")] == ("08", "20260820")
+    assert situacao_anterior[("12121212", "0002")] == ("03", "20260302")
 
 
 def test_mes_anterior_tem_16_raizes_e_nomes_internos_d60810(tmp_path: Path) -> None:

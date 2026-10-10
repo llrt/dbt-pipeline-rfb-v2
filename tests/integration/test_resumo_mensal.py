@@ -47,12 +47,12 @@ def test_serra_4741500_ativa_ausente_em_agosto_e_um_em_setembro() -> None:
     assert linhas == [("2026-09", 1)]  # ausente em 2026-08 (a filial só aparece em 2026-09)
 
 
-def test_soma_de_setembro_e_dezessete_e_a_de_agosto_dezesseis() -> None:
+def test_soma_de_setembro_e_dezoito_e_a_de_agosto_dezessete() -> None:
     linhas = _consultar(
         "select mes_referencia, sum(qtd_estabelecimentos), min(sk_mes_referencia) from {resumo} "
         "group by 1 order by 1"
     )
-    assert linhas == [("2026-08", 16, 20260801), ("2026-09", 17, 20260901)]
+    assert linhas == [("2026-08", 17, 20260801), ("2026-09", 18, 20260901)]
 
 
 def test_capital_social_soma_so_as_matrizes() -> None:
@@ -107,7 +107,7 @@ def test_reprocessar_sem_warehouse_preserva_a_particao_antiga(tmp_path: Path) ->
         "select mes_referencia, sum(qtd_estabelecimentos) from {resumo} group by 1 order by 1",
         gold=copia / "gold",
     )
-    assert linhas == [("2026-08", 16), ("2026-09", 17)]
+    assert linhas == [("2026-08", 17), ("2026-09", 18)]
 
 
 def test_particao_antiga_orfa_so_avisa_e_nao_derruba_o_mes_processado(tmp_path: Path) -> None:

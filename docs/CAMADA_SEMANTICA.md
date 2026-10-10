@@ -100,8 +100,8 @@ No projeto, o grão das fatos é o **estabelecimento** (`fct_estabelecimentos`, 
 estabelecimento dela. Consequências:
 
 - `qtd_estabelecimentos` e `qtd_ativos` contam **estabelecimentos**, não empresas;
-- para contar **empresas**, conte as **matrizes** (`qtd_matrizes`). Nas fixtures, em 2026-09, são 17
-  estabelecimentos e 16 matrizes: uma empresa tem uma filial;
+- para contar **empresas**, conte as **matrizes** (`qtd_matrizes`). Nas fixtures, em 2026-09, são 18
+  estabelecimentos e 16 matrizes: duas empresas têm uma filial cada;
 - atributos da empresa repetidos (capital social) não podem ser somados por estabelecimento.
 
 #### Matriz × filial
@@ -495,8 +495,8 @@ uv run mf query --metrics qtd_matrizes,qtd_estabelecimentos --group-by metric_ti
 ```text
 metric_time__month      qtd_matrizes    qtd_estabelecimentos
 --------------------  --------------  ----------------------
-2026-09-01T00:00:00               16                      17
-2026-08-01T00:00:00               16                      16
+2026-09-01T00:00:00               16                      18
+2026-08-01T00:00:00               16                      17
 ```
 
 Com o filtro de ATIVA, 2026-09 tem 10 matrizes ativas e 11 estabelecimentos ativos. A situação filtrada é a da
@@ -521,7 +521,7 @@ A segunda consulta devolve 11 para 2026 (o valor de 2026-09), não 21.
 uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__month,situacao_cadastral__rotulo_situacao_cadastral
 ```
 
-Nas fixtures, em 2026-09: 11 ATIVA, 1 INAPTA, 5 BAIXADA.
+Nas fixtures, em 2026-09: 11 ATIVA, 1 INAPTA, 6 BAIXADA.
 
 **Qual a idade média dos ativos por porte num mês?**
 
@@ -539,7 +539,7 @@ Não. Pela regra do projeto, encerramento é todo estabelecimento não ativo com
 uv run mf query --metrics encerramentos --group-by metric_time__year,situacao_cadastral__rotulo_situacao_cadastral
 ```
 
-Nas fixtures, há encerramentos BAIXADA e INAPTA. Um dos 5 baixados não aparece porque não tem data da situação.
+Nas fixtures, há encerramentos BAIXADA e INAPTA. Um dos 6 baixados não aparece porque não tem data da situação.
 
 **Quantas aberturas houve por natureza jurídica, e por matriz ou filial?**
 

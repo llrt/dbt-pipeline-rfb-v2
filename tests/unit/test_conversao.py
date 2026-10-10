@@ -101,9 +101,9 @@ def test_empresas_e_estabelecimentos_contagens_da_spec(
 
     # 16 raízes + a linha "fantasma" de B (R4-05)
     assert [(r.linhas, r.linhas_rejeitadas) for r in empresas] == [(17, 0)]
-    assert [(r.linhas, r.linhas_rejeitadas) for r in estab] == [(17, 0)]
+    assert [(r.linhas, r.linhas_rejeitadas) for r in estab] == [(18, 0)]
     assert len(_ler(empresas[0].parquet[0])) == 17
-    assert len(_ler(estab[0].parquet[0])) == 17
+    assert len(_ler(estab[0].parquet[0])) == 18
     assert not (configuracao.rejeitos_dir / "empresas").exists()
 
 
