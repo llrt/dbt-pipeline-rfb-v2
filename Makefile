@@ -70,8 +70,8 @@ semantica:
 ## (rode `make ci` antes; usa o mesmo .tmp/ci/dados). O `make ci` confere se o arquivo versionado está em dia.
 dicionario: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 dicionario:
-	$(PARSE_COMPLETO) --target ci
-	cd transform && uv run dbt docs generate --target ci --no-partial-parse
+	cd transform && env -u CAMINHO_DUCKDB uv run dbt parse --no-partial-parse --quiet --target ci
+	cd transform && env -u CAMINHO_DUCKDB uv run dbt docs generate --target ci --no-partial-parse
 	uv run python scripts/gerar_dicionario_dados.py
 
 ## docs: gera a documentação de dbt
