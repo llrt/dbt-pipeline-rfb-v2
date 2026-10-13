@@ -12,6 +12,7 @@ usuário** (ADR-0012, ADR-0016); o original carregava um único mês à mão.
 | `make atualizar` (`rfb atualizar`) | Consulta o WebDAV (só listagem), escolhe o **mês completo mais recente** e compara com `RAIZ_DADOS/_estado/ultima_execucao.json`. Mês novo → `rfb pipeline` daquele mês + retenção. Senão imprime `nenhum mês novo` e sai com 0 **sem baixar nada**. |
 | `rfb pipeline --mes 2025-02 --mes 2026-09` | Vários meses: sempre do **mais antigo ao mais novo** (ver "Ordem dos meses"). |
 | `rfb pipeline --sem-ingestao --mes AAAA-MM` | Usa o raw que já está em `RAIZ_DADOS` (útil para refazer só o dbt). |
+| `make regras` (`rfb regras`) | Executa os checks das regras de negócio ([REGRAS_NEGOCIO.md](REGRAS_NEGOCIO.md), ADR-0020) no warehouse de `RAIZ_DADOS`, **só lendo**, e regrava `docs/RELATORIO_REGRAS_NEGOCIO.md` (`SAIDA=ARQ` muda o destino). Sai com 0 mesmo com violações. Não faz parte do `pipeline`: rode depois de um mês novo concluído e revise a seção "Interpretação de AAAA-MM": no mesmo mês ela é preservada; num mês novo, o texto antigo vai para "Interpretação anterior (AAAA-MM)" e o comando avisa (`aviso:` na saída de erro) até que ela seja reescrita e a seção anterior apagada. Recusa rodar com o gold misto, como `rfb relatorio`. No dado real de 2026-09 levou 88 s com as 29 regras (`DUCKDB_MEMORY_LIMIT=16GB`, `DUCKDB_THREADS=4`). |
 
 Opções comuns a `pipeline` e `atualizar`: `--origem-local DIR` (fixtures, sem rede),
 `--permitir-incompleto`, `--forcar` (reconverte), `--target` (padrão: o do profile; `s3` com
@@ -45,7 +46,7 @@ Cada etapa imprime `== etapa <nome>: <segundos>s` e o fim do mês imprime o resu
   do gold fica com o mês novo e parte com o anterior (por exemplo, `bh_empresas` novo e `agg_empresas`
   antigo), e a partição nova do resumo pode já estar gravada. Para isso não passar calado, o pipeline
   grava `_estado/em_andamento.json` (mês e hora) **antes** do `dbt build` e o apaga **só** quando ele
-  termina bem. Enquanto o marcador existir, `rfb relatorio` e `rfb publicar` (e a publicação no fim de um
+  termina bem. Enquanto o marcador existir, `rfb relatorio`, `rfb regras` e `rfb publicar` (e a publicação no fim de um
   backfill) recusam rodar com uma mensagem que diz o mês. **Como sair:** corrija a causa e rode
   `rfb pipeline --mes <mês do marcador>` de novo até concluir; o build completo regrava todo o gold e
   apaga o marcador. Um BI que leia o gold nessa janela pode misturar dois meses: agende a atualização

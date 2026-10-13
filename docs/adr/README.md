@@ -24,3 +24,4 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0017](0017-avaliacao-dbt-fusion.md) | Avaliação do dbt Fusion (dbt v2): adiar a migração; critérios para reavaliar | aceita |
 | [0018](0018-camada-semantica-metricflow.md) | Camada semântica no padrão dbt/MetricFlow (YAML) | aceita |
 | [0019](0019-dicionario-de-dados.md) | Dicionário de dados gerado, conferido no CI, com o campo do leiaute em `meta` | aceita |
+| [0020](0020-regras-de-negocio.md) | Regras de negócio verificadas fora do build (analyses + `rfb regras`), com relatório próprio | aceita |

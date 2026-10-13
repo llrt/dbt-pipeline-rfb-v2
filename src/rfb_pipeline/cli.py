@@ -1,7 +1,8 @@
 """CLI de linha de comando do pipeline RFB/CNPJ.
 
 `rfb ingerir` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sincronizar` publica
-raw/gold no S3/Tigris (T11). `rfb relatorio` gera o relatório do estudo de caso (T27).
+raw/gold no S3/Tigris (T11). `rfb relatorio` gera o relatório do estudo de caso (T27). `rfb regras`
+gera o relatório das regras de negócio (ADR-0020).
 `rfb pipeline` (T28) e `rfb atualizar` (T36) orquestram tudo (ver `orquestracao.py`).
 """
 
@@ -46,6 +47,8 @@ from rfb_pipeline.orquestracao import (
     verificar_gold_consistente,
 )
 from rfb_pipeline.publicacao import publicar_motherduck
+from rfb_pipeline.regras import SAIDA_PADRAO as SAIDA_REGRAS
+from rfb_pipeline.regras import gerar_relatorio_regras
 from rfb_pipeline.relatorio import SAIDA_PADRAO, gerar_relatorio
 
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")
@@ -400,6 +403,19 @@ def _cmd_relatorio(argumentos: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_regras(argumentos: argparse.Namespace) -> int:
+    """Sai com 0 mesmo com regras violadas: inconsistência é conteúdo do relatório (ADR-0020)."""
+    configuracao = carregar_configuracao()
+    verificar_gold_consistente(configuracao, "regras")  # R4-03
+    saida, regras, violadas, aviso = gerar_relatorio_regras(
+        configuracao, saida=argumentos.saida, target=argumentos.target
+    )
+    print(f"relatório das regras de negócio em {saida}: {regras} regras, {violadas} violadas")
+    if aviso:
+        _aviso(aviso)  # RRN-07: texto manual de outro mês sob números novos
+    return 0
+
+
 def _argumentos_orquestracao(analisador: argparse.ArgumentParser) -> None:
     analisador.add_argument(
         "--origem-local",
@@ -533,6 +549,23 @@ def _construir_analisador() -> argparse.ArgumentParser:
         "--target", default=None, help="Target dbt das analyses (padrão: o do profile)."
     )
     p_relatorio.set_defaults(func=_cmd_relatorio)
+
+    p_regras = sub.add_parser(
+        "regras",
+        help="Verifica as regras de negócio e gera docs/RELATORIO_REGRAS_NEGOCIO.md (ADR-0020).",
+        description=(
+            "Compila as analyses de transform/analyses/regras_negocio, executa-as no warehouse de "
+            "RAIZ_DADOS (somente leitura) e escreve o relatório só com contagens. Sai com 0 mesmo "
+            "havendo violações; só falha se a execução falhar."
+        ),
+    )
+    p_regras.add_argument(
+        "--saida", type=Path, default=SAIDA_REGRAS, help="Arquivo Markdown de saída."
+    )
+    p_regras.add_argument(
+        "--target", default=None, help="Target dbt das analyses (padrão: o do profile)."
+    )
+    p_regras.set_defaults(func=_cmd_regras)
 
     return analisador
 

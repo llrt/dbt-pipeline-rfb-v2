@@ -188,3 +188,33 @@ def test_ler_qualidade_inclui_avisos_e_falhas_e_exclui_aprovados(tmp_path: Path)
         )
     _, pendentes = ler_qualidade(banco)
     assert [p[0] for p in pendentes] == ["t_aviso", "t_erro"]
+
+
+@pytest.mark.parametrize(
+    ("subpasta", "selecao", "exclusao"),
+    [
+        ("", "path:analyses", ["--exclude", "path:analyses/regras_negocio"]),  # RRN-09
+        ("regras_negocio", "path:analyses/regras_negocio", []),
+    ],
+)
+def test_compilar_analises_separa_estudo_de_caso_e_regras(
+    subpasta: str, selecao: str, exclusao: list[str], tmp_path: Path, monkeypatch
+) -> None:
+    from rfb_pipeline import relatorio
+
+    chamadas = []
+
+    def _run(comando, **_):
+        chamadas.append(comando)
+        raise RuntimeError("parar antes de compilar")
+
+    monkeypatch.setattr(relatorio, "_executavel_dbt", lambda: ["dbt"])
+    monkeypatch.setattr(relatorio.subprocess, "run", _run)
+    with pytest.raises(RuntimeError):
+        relatorio.compilar_analises(tmp_path, tmp_path, "ci", subpasta=subpasta)
+    (comando,) = chamadas
+    assert comando[comando.index("--select") + 1] == selecao
+    if exclusao:
+        assert comando[comando.index("--exclude") : comando.index("--exclude") + 2] == exclusao
+    else:
+        assert "--exclude" not in comando

@@ -50,9 +50,18 @@ MODULOS_ESPERADOS = {
     "manifesto",
     "orquestracao",
     "publicacao",
+    "regras",
     "relatorio",
 }
-SUBCOMANDOS_ESPERADOS = {"ingerir", "sincronizar", "pipeline", "relatorio", "atualizar", "publicar"}
+SUBCOMANDOS_ESPERADOS = {
+    "ingerir",
+    "sincronizar",
+    "pipeline",
+    "relatorio",
+    "regras",
+    "atualizar",
+    "publicar",
+}
 ALVOS_MAKE_ESPERADOS = {
     "setup",
     "fixtures",
@@ -68,6 +77,7 @@ ALVOS_MAKE_ESPERADOS = {
     "publicar",
     "semantica",
     "dicionario",
+    "regras",
 }
 
 
