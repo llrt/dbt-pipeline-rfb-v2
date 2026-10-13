@@ -116,7 +116,7 @@ models:
       - name: dat_exclusao_simples
         description: >
           Data de exclusão do Simples; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
-          futuro (fim do mês ou do ano) é legítima (R3-11).
+          futuro (fim do mês ou do ano) é legítima.
         data_tests:
           - taxa_conversao_tipada:
               arguments:
@@ -140,7 +140,7 @@ models:
       - name: dat_exclusao_mei
         description: >
           Data de exclusão do MEI; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito
-          futuro é legítima (R3-11).
+          futuro é legítima.
         data_tests:
           - taxa_conversao_tipada:
               arguments:
@@ -286,9 +286,9 @@ models:
       - name: dat_inicio_atividade
         description: >
           Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a
-          menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste warn
-          abaixo as registra (spec Original AC 12, emenda R2-02). O limite é 1900-01-01, o início de
-          `dim_data`: antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA, emenda R3-03).
+          menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste de faixa
+          em `warn` as registra, sem barrar o build. O limite é 1900-01-01, o início de `dim_data`:
+          antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA).
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -352,7 +352,7 @@ models:
       - name: _data_referencia
         description: >
           Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto,
-          de `idade_atual`: NULL falha (R2-03).
+          de `idade_atual`; não pode ser nula (teste `not_null`, `error`).
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }

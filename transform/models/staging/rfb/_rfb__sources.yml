@@ -87,8 +87,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -260,8 +261,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -319,8 +321,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -367,8 +370,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -415,8 +419,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -461,8 +466,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -505,8 +511,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -544,8 +551,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
@@ -583,8 +591,9 @@ sources:
           - name: _data_referencia
             data_type: date
             description: >
-              Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
-              `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
+              Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade
+              (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio
+              (teste `not_null`, `error`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }

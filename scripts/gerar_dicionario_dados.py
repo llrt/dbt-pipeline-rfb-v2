@@ -479,15 +479,14 @@ def _observacoes(t: Tabela, coluna: str, decl: dict, fks: dict[str, tuple[str, s
             if sentinelas:
                 partes.append("sentinelas viram NULL: " + ", ".join(f"`{s}`" for s in sentinelas))
     sentinelas = sorted(set(PADRAO_SENTINELA.findall(descricao)), reverse=True)
-    if sentinelas:
+    if _meta_coluna(decl).get("membro_desconhecido") is False:
+        partes.append("não recebe a chave `-1` (ver a descrição)")
+    elif sentinelas:
         partes.append("chave sentinela: " + ", ".join(f"`{s}`" for s in sentinelas))
     elif coluna in fks and fks[coluna][0] == "dim_data":
         partes.append("data nula → chave `-1`; data anterior a 1900 → chave `-2`")
     elif coluna in fks and fks[coluna][0].startswith("dim_"):
-        if _meta_coluna(decl).get("membro_desconhecido") is False:
-            partes.append("não recebe a chave `-1`: a linha sem par na dimensão é descartada")
-        else:
-            partes.append("sem par na dimensão → chave `-1`")
+        partes.append("sem par na dimensão → chave `-1`")
     entidade = decl.get("entity")
     if entidade:
         partes.append(f"entidade semântica `{entidade['name']}` ({entidade['type']})")

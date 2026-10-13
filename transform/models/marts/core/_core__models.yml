@@ -69,6 +69,7 @@ models:
       config: { meta: { escopo: adicao } }
     columns:
       - name: sk_municipio
+        config: { meta: { linhagem: "`int_municipios__conformados.sk_municipio`" } }
         description: >
           Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga.
         data_type: integer
@@ -91,82 +92,100 @@ models:
           - unique:
               config: { severity: warn, store_failures: true }
       - name: nome_municipio
+        config: { meta: { linhagem: "`int_municipios__conformados.nome_municipio`" } }
         description: >
           Nome do município (acentuado, Base dos Dados).
         data_type: varchar
         dimension: categorical
       - name: sigla_uf
+        config: { meta: { linhagem: "`int_municipios__conformados.sigla_uf`" } }
         description: >
           Sigla da UF do município.
         data_type: varchar
         dimension: categorical
       - name: nome_uf
+        config: { meta: { linhagem: "`int_municipios__conformados.nome_uf`" } }
         description: >
           Nome completo da UF do município (por exemplo, `Espírito Santo`), da Base dos Dados; `NÃO INFORMADO` no membro `-1`.
         data_type: varchar
         dimension: categorical
       - name: nome_regiao
+        config: { meta: { linhagem: "`int_municipios__conformados.nome_regiao`" } }
         description: >
           Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
         data_type: varchar
         dimension: categorical
       - name: id_mesorregiao
+        config: { meta: { linhagem: "`int_municipios__conformados.id_mesorregiao`" } }
         description: >
           Código IBGE da mesorregião.
         data_type: varchar
       - name: nome_mesorregiao
+        config: { meta: { linhagem: "`int_municipios__conformados.nome_mesorregiao`" } }
         description: >
           Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município).
         data_type: varchar
         dimension: categorical
       - name: id_microrregiao
+        config: { meta: { linhagem: "`int_municipios__conformados.id_microrregiao`" } }
         description: >
           Código IBGE da microrregião.
         data_type: varchar
       - name: nome_microrregiao
+        config: { meta: { linhagem: "`int_municipios__conformados.nome_microrregiao`" } }
         description: >
           Nome da microrregião.
         data_type: varchar
         dimension: categorical
       - name: id_regiao_intermediaria
+        config: { meta: { linhagem: "`int_municipios__conformados.id_regiao_intermediaria`" } }
         description: >
           Código IBGE da região geográfica intermediária.
         data_type: varchar
       - name: nome_regiao_intermediaria
+        config: { meta: { linhagem: "`int_municipios__conformados.nome_regiao_intermediaria`" } }
         description: >
           Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata).
         data_type: varchar
         dimension: categorical
       - name: id_regiao_imediata
+        config: { meta: { linhagem: "`int_municipios__conformados.id_regiao_imediata`" } }
         description: >
           Código IBGE da região geográfica imediata.
         data_type: varchar
       - name: nome_regiao_imediata
+        config: { meta: { linhagem: "`int_municipios__conformados.nome_regiao_imediata`" } }
         description: >
           Nome da região geográfica imediata.
         data_type: varchar
         dimension: categorical
       - name: latitude
+        config: { meta: { linhagem: "`int_municipios__conformados.latitude`" } }
         description: >
           Latitude do centroide do município (graus decimais).
         data_type: double
       - name: longitude
+        config: { meta: { linhagem: "`int_municipios__conformados.longitude`" } }
         description: >
           Longitude do centroide do município (graus decimais).
         data_type: double
       - name: ano_populacao
+        config: { meta: { linhagem: "`int_municipios__conformados.ano_populacao`" } }
         description: >
           Ano da população usada: var `ano_populacao` ou o último ano disponível.
         data_type: integer
       - name: populacao
+        config: { meta: { linhagem: "`int_municipios__conformados.populacao`" } }
         description: >
           População estimada do município no `ano_populacao`; NULL sem dado.
         data_type: bigint
       - name: ano_pib
+        config: { meta: { linhagem: "`int_municipios__conformados.ano_pib`" } }
         description: >
           Ano do PIB usado (último ano disponível).
         data_type: integer
       - name: pib
+        config: { meta: { linhagem: "`int_municipios__conformados.pib`" } }
         description: >
           PIB do município (R$) em `ano_pib`; NULL sem dado.
         data_type: double
@@ -174,27 +193,27 @@ models:
         description: >
           População residente do Censo 2022; NULL sem dado do Censo.
         data_type: bigint
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.populacao`"} }
       - name: domicilios_2022
         description: >
           Domicílios do Censo 2022 (denominador de ativos por mil domicílios); NULL sem dado.
         data_type: bigint
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.domicilios`"} }
       - name: area_km2
         description: >
           Área territorial do município em km² (Censo 2022); NULL sem dado.
         data_type: double
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.area_km2`"} }
       - name: densidade_hab_km2
         description: >
           População do Censo 2022 por km² (2 casas); NULL sem Censo ou sem área, nunca zero.
         data_type: double
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.populacao` ÷ `stg_bd__censo_2022_municipio.area_km2`, arredondado a 2 casas"} }
       - name: taxa_alfabetizacao
         description: >
           Taxa de alfabetização do Censo 2022 (fração de 0 a 1).
         data_type: double
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.taxa_alfabetizacao`"} }
         data_tests:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0, max_value: 1 }
@@ -203,23 +222,23 @@ models:
         description: >
           Idade mediana em anos (Censo 2022).
         data_type: double
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.idade_mediana`"} }
       - name: indice_envelhecimento
         description: >
           Índice de envelhecimento (idosos por 100 jovens) do Censo 2022.
         data_type: double
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.indice_envelhecimento`"} }
       - name: razao_sexo
         description: >
           Razão de sexo (homens por 100 mulheres) do Censo 2022.
         data_type: double
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__censo_2022_municipio.razao_sexo`"} }
       - name: nome_regiao_metropolitana
         description: >
           Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1.
         data_type: varchar
         dimension: categorical
-        config: { meta: { incremento: enriquecimento_bd } }
+        config: { meta: { incremento: enriquecimento_bd, linhagem: "`stg_bd__regioes_metropolitanas.nome_regiao_metropolitana`; `NÃO PERTENCE` quando o município não consta"} }
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
@@ -236,58 +255,69 @@ models:
       config: { meta: { escopo: adicao } }
     columns:
       - name: sk_cnae
+        config: { meta: { linhagem: "`stg_bd__cnaes.subclasse` convertida para inteiro; `-1` fixo no membro NÃO INFORMADO" } }
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Subclasse como inteiro.
         data_type: integer
         entity: { type: primary, name: cnae }
         data_tests: [unique, not_null]
       - name: codigo_secao
+        config: { meta: { linhagem: "`stg_bd__cnaes.secao`" } }
         description: >
           Código da seção (letra).
         data_type: varchar
         dimension: categorical
       - name: descricao_secao
+        config: { meta: { linhagem: "`stg_bd__cnaes.descricao_secao`" } }
         description: >
           Descrição da seção CNAE (nível mais alto da hierarquia, uma letra), da Base dos Dados.
         data_type: varchar
         dimension: categorical
       - name: codigo_divisao
+        config: { meta: { linhagem: "`stg_bd__cnaes.divisao`" } }
         description: >
           Código da divisão (2 dígitos).
         data_type: varchar
         dimension: categorical
       - name: descricao_divisao
+        config: { meta: { linhagem: "`stg_bd__cnaes.descricao_divisao`" } }
         description: >
           Descrição da divisão.
         data_type: varchar
         dimension: categorical
       - name: codigo_grupo
+        config: { meta: { linhagem: "`stg_bd__cnaes.grupo`" } }
         description: >
           Código do grupo (3 dígitos).
         data_type: varchar
         dimension: categorical
       - name: descricao_grupo
+        config: { meta: { linhagem: "`stg_bd__cnaes.descricao_grupo`" } }
         description: >
           Descrição do grupo CNAE (3 primeiros dígitos da subclasse), da Base dos Dados.
         data_type: varchar
         dimension: categorical
       - name: codigo_classe
+        config: { meta: { linhagem: "`stg_bd__cnaes.classe`" } }
         description: >
           Código da classe (5 dígitos).
         data_type: varchar
         dimension: categorical
       - name: descricao_classe
+        config: { meta: { linhagem: "`stg_bd__cnaes.descricao_classe`" } }
         description: >
           Descrição da classe CNAE (5 primeiros dígitos da subclasse), da Base dos Dados.
         data_type: varchar
         dimension: categorical
       - name: codigo_subclasse
+        config: { meta: { linhagem: "`stg_bd__cnaes.subclasse`" } }
         description: >
           Código da subclasse (7 dígitos, com zeros à esquerda).
         data_type: varchar
         dimension: categorical
         data_tests: [unique, not_null]
       - name: descricao_subclasse
+        config: { meta: { linhagem: "`stg_bd__cnaes.descricao_subclasse`" } }
         description: >
           Descrição da subclasse.
         data_type: varchar
@@ -305,18 +335,21 @@ models:
       config: { meta: { escopo: adicao } }
     columns:
       - name: sk_natureza_juridica
+        config: { meta: { linhagem: "`stg_rfb__naturezas.codigo` convertido para inteiro; `-1` fixo no membro NÃO INFORMADO" } }
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código como inteiro.
         data_type: integer
         entity: { type: primary, name: natureza_juridica }
         data_tests: [unique, not_null]
       - name: codigo_natureza_juridica
+        config: { meta: { linhagem: "`stg_rfb__naturezas.codigo`" } }
         description: >
           Código da natureza jurídica (4 dígitos).
         data_type: varchar
         dimension: categorical
         data_tests: [unique, not_null]
       - name: descricao_natureza_juridica
+        config: { meta: { linhagem: "`stg_rfb__naturezas.descricao`" } }
         description: >
           Descrição da natureza jurídica.
         data_type: varchar
@@ -334,6 +367,7 @@ models:
       config: { meta: { escopo: adicao } }
     columns:
       - name: sk_porte
+        config: { meta: { linhagem: "seed `dominio_porte.codigo`; `-1` fixo no membro NÃO INFORMADO", dominio_seed: "dominio_porte.codigo", dominio_membro_desconhecido: "-1"} }
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte.
         data_type: integer
@@ -345,17 +379,20 @@ models:
             registro, não apurado pela receita. MEI não é um porte: é a opção `opcao_mei`.
         data_tests: [unique, not_null]
       - name: codigo_porte
+        config: { meta: { linhagem: "seed `dominio_porte.codigo` como texto", dominio_seed: "dominio_porte.codigo", dominio_membro_desconhecido: "-1"} }
         description: >
           Código RFB do porte da empresa em texto (`0` não informado, `1` micro, `3` pequena, `5` demais; `-1` no membro NÃO INFORMADO). Chave natural, igual a `dominio_porte.codigo`.
         data_type: varchar
         dimension: categorical
         data_tests: [unique, not_null]
       - name: rotulo_porte
+        config: { meta: { linhagem: "seed `dominio_porte.rotulo`", dominio_seed: "dominio_porte.rotulo", dominio_membro_desconhecido: "NÃO INFORMADO"} }
         description: >
           Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS).
         data_type: varchar
         dimension: categorical
       - name: descricao_porte
+        config: { meta: { linhagem: "seed `dominio_porte.descricao`", dominio_seed: "dominio_porte.descricao", dominio_membro_desconhecido: "NÃO INFORMADO"} }
         description: >
           Descrição por extenso.
         data_type: varchar
@@ -372,6 +409,7 @@ models:
       config: { meta: { escopo: adicao } }
     columns:
       - name: sk_situacao_cadastral
+        config: { meta: { linhagem: "seed `dominio_situacao_cadastral.codigo`; `-1` fixo no membro NÃO INFORMADO", dominio_seed: "dominio_situacao_cadastral.codigo", dominio_membro_desconhecido: "-1"} }
         description: >
           Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação.
         data_type: integer
@@ -383,24 +421,29 @@ models:
             do cadastro, não prova de operação.
         data_tests: [unique, not_null]
       - name: codigo_situacao_cadastral
+        config: { meta: { linhagem: "seed `dominio_situacao_cadastral.codigo` como texto", dominio_seed: "dominio_situacao_cadastral.codigo", dominio_membro_desconhecido: "-1"} }
         description: >
-          Código RFB da situação.
+          Código RFB da situação, em texto e sem zero à esquerda (`1`, `2`, `3`, `4`, `8`; `-1` no membro
+          NÃO INFORMADO). No raw (`estabelecimentos.situacao`) o mesmo código vem com zero à esquerda
+          (`02` = ativa): converta ao filtrar.
         data_type: varchar
         dimension: categorical
         data_tests: [unique, not_null]
       - name: rotulo_situacao_cadastral
+        config: { meta: { linhagem: "seed `dominio_situacao_cadastral.rotulo`", dominio_seed: "dominio_situacao_cadastral.rotulo", dominio_membro_desconhecido: "NÃO INFORMADO"} }
         description: >
           Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA).
         data_type: varchar
         dimension: categorical
       - name: descricao_situacao_cadastral
+        config: { meta: { linhagem: "seed `dominio_situacao_cadastral.descricao`", dominio_seed: "dominio_situacao_cadastral.descricao", dominio_membro_desconhecido: "NÃO INFORMADO"} }
         description: >
           Descrição por extenso.
         data_type: varchar
 
   - name: dim_data
     description: >
-      Calendário (ADR-0013, emenda R3-03): uma linha por dia de 1900-01-01 até `data_referencia` (ou a
+      Calendário (ADR-0013): uma linha por dia de 1900-01-01 até `data_referencia` (ou a
       maior data observada, se maior), com `sk_data = yyyymmdd`. Dimensão de papel duplo na fato
       (`sk_data_inicio_atividade`, `sk_data_situacao`). Membros `-1` NÃO INFORMADO (data nula) e `-2`
       DATA INVÁLIDA (anterior a 1900), com datas contíguas ao calendário (1899-12-31 e 1899-12-30)
@@ -412,48 +455,59 @@ models:
     time_spine: { standard_granularity_column: data }
     columns:
       - name: sk_data
+        config: { meta: { linhagem: "`data` no formato yyyymmdd (ano × 10000 + mês × 100 + dia); `-1` e `-2` fixos nos membros especiais" } }
         description: >
           Chave substituta inteira no formato yyyymmdd (ex.: 20000229); `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900).
         data_type: integer
         data_tests: [unique, not_null]
       - name: data
+        config: { meta: { linhagem: "calendário gerado de `primeiro_dia_calendario` (1900-01-01) até a maior entre `data_referencia` e as maiores `dat_inicio_atividade` e `dat_situacao` de `stg_rfb__estabelecimentos`" } }
         description: >
           Data do calendário, nunca nula; os membros `-1` e `-2` usam 1899-12-31 e 1899-12-30.
         data_type: date
         granularity: day
       - name: ano
+        config: { meta: { linhagem: "`year(data)`" } }
         description: >
           Ano do dia do calendário (4 dígitos, a partir de 1900).
         data_type: integer
       - name: semestre
+        config: { meta: { linhagem: "1 se `mes` ≤ 6, senão 2" } }
         description: >
           Semestre do ano (1 ou 2).
         data_type: integer
       - name: trimestre
+        config: { meta: { linhagem: "`quarter(data)`" } }
         description: >
           Trimestre do ano (1 a 4).
         data_type: integer
       - name: mes
+        config: { meta: { linhagem: "`month(data)`" } }
         description: >
           Mês do ano do dia do calendário (1 a 12).
         data_type: integer
       - name: nome_mes
+        config: { meta: { linhagem: "nome do mês em português, indexado por `mes`" } }
         description: >
           Nome do mês em português (janeiro … dezembro).
         data_type: varchar
       - name: ano_mes
+        config: { meta: { linhagem: "`strftime(data, '%Y-%m')`" } }
         description: >
           Ano e mês no formato `AAAA-MM`, usado como rótulo/ordenação mensal e igual a `_mes_referencia`.
         data_type: varchar
       - name: dia
+        config: { meta: { linhagem: "`day(data)`" } }
         description: >
           Dia do mês do dia do calendário (1 a 31).
         data_type: integer
       - name: dia_semana_numero
+        config: { meta: { linhagem: "`isodow(data)`" } }
         description: >
           Dia da semana ISO (1 segunda … 7 domingo), para ordenar `dia_semana` no BI.
         data_type: integer
       - name: dia_semana
+        config: { meta: { linhagem: "nome do dia em português, indexado por `dia_semana_numero`" } }
         description: >
           Nome do dia da semana em português (segunda-feira … domingo).
         data_type: varchar
@@ -603,6 +657,7 @@ models:
         config: { meta: { escopo: adicao } }
     columns:
       - name: cnpj_completo
+        config: { meta: { linhagem: "`stg_rfb__estabelecimentos.cnpj_completo` (`cnpj_raiz` || `cnpj_ordem` || `cnpj_dv`), via `int_estabelecimentos__enriquecidos`" } }
         description: CNPJ completo (14 dígitos); dimensão degenerada e chave da linha.
         data_type: varchar
         entity:
@@ -614,6 +669,7 @@ models:
             as matrizes (`qtd_matrizes`). Ver docs/CAMADA_SEMANTICA.md, Parte A.
         data_tests: [unique, not_null]
       - name: sk_municipio
+        config: { meta: { linhagem: "`dim_municipio.sk_municipio`, casando `int_estabelecimentos__enriquecidos.id_municipio_ibge` (de `municipio_rfb_codigo` = `codigo_rfb`); `-1` sem par" } }
         description: >
           Chave de `dim_municipio`; `-1` quando o município RFB não tem par na Base dos Dados (exterior, município novo).
         data_type: integer
@@ -625,6 +681,7 @@ models:
                 to: ref('dim_municipio')
                 field: sk_municipio
       - name: sk_cnae
+        config: { meta: { linhagem: "`dim_cnae.sk_cnae`, casando `cnae_principal` com `dim_cnae.codigo_subclasse`; `-1` sem par" } }
         description: >
           Chave de `dim_cnae` (CNAE principal); `-1` quando o CNAE não tem par na Base dos Dados.
         data_type: integer
@@ -636,6 +693,7 @@ models:
                 to: ref('dim_cnae')
                 field: sk_cnae
       - name: sk_natureza_juridica
+        config: { meta: { linhagem: "`dim_natureza_juridica.sk_natureza_juridica`, casando `natureza_juridica_codigo` (de `stg_rfb__empresas`); `-1` sem par" } }
         description: >
           Chave de `dim_natureza_juridica`; `-1` quando a empresa não tem natureza no domínio.
         data_type: integer
@@ -647,6 +705,7 @@ models:
                 to: ref('dim_natureza_juridica')
                 field: sk_natureza_juridica
       - name: sk_porte
+        config: { meta: { linhagem: "`dim_porte.sk_porte`, casando `porte_codigo` (de `stg_rfb__empresas`); `-1` sem par" } }
         description: >
           Chave de `dim_porte`; `-1` quando o porte está vazio ou fora do domínio.
         data_type: integer
@@ -658,6 +717,7 @@ models:
                 to: ref('dim_porte')
                 field: sk_porte
       - name: sk_situacao_cadastral
+        config: { meta: { linhagem: "`dim_situacao_cadastral.sk_situacao_cadastral`, casando `situacao_codigo` (de `stg_rfb__estabelecimentos`); `-1` sem par" } }
         description: >
           Chave de `dim_situacao_cadastral`; `-1` quando o código está fora do domínio.
         data_type: integer
@@ -669,6 +729,7 @@ models:
                 to: ref('dim_situacao_cadastral')
                 field: sk_situacao_cadastral
       - name: sk_data_inicio_atividade
+        config: { meta: { linhagem: "`dim_data.sk_data`, casando `dat_inicio_atividade` com `dim_data.data`; `-2` se anterior a 1900; `-1` sem par ou nula" } }
         description: >
           Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula; `-2` quando é anterior a 1900 (DATA INVÁLIDA).
         data_type: integer
@@ -679,6 +740,7 @@ models:
                 to: ref('dim_data')
                 field: sk_data
       - name: sk_data_situacao
+        config: { meta: { linhagem: "`dim_data.sk_data`, casando `dat_situacao` com `dim_data.data`; `-2` se anterior a 1900; `-1` sem par ou nula" } }
         description: >
           Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`); `-2` quando é anterior a 1900 (DATA INVÁLIDA).
         data_type: integer
@@ -689,28 +751,34 @@ models:
                 to: ref('dim_data')
                 field: sk_data
       - name: idade_anos
+        config: { meta: { linhagem: "`round(dias entre dat_inicio_atividade e data_referencia / 365.25, 1)`, só quando `situacao_codigo` = 2" } }
         description: >
           Idade do estabelecimento em anos (1 casa), relativa a `data_referencia`, só para ativos
           (NULL nos demais), como `bh_empresas.idade_atual`. Aditiva via soma, para médias no BI.
         data_type: double
       - name: opcao_simples
+        config: { meta: { linhagem: "`stg_rfb__simples.opcao_simples`; `false` sem registro" } }
         description: Optante pelo Simples Nacional na empresa (false quando não há registro).
         data_type: boolean
         dimension: categorical
       - name: opcao_mei
+        config: { meta: { linhagem: "`stg_rfb__simples.opcao_mei`; `false` sem registro" } }
         description: Optante pelo MEI na empresa (false quando não há registro).
         data_type: boolean
         dimension: categorical
       - name: capital_social
+        config: { meta: { linhagem: "`stg_rfb__empresas.capital_social`, repetido em cada estabelecimento da raiz" } }
         description: >
           Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por
           estabelecimento (some só a matriz, `eh_matriz`). NULL quando não há empresa.
         data_type: decimal(18,2)
       - name: eh_matriz
+        config: { meta: { linhagem: "`matriz_filial_codigo` = 1 (de `stg_rfb__estabelecimentos`, campo IDENTIFICADOR MATRIZ/FILIAL)" } }
         description: Verdadeiro para matriz (`ind_matriz_filial = 1`).
         data_type: boolean
         dimension: categorical
       - name: eh_ativa
+        config: { meta: { linhagem: "`situacao_codigo` = 2 (de `stg_rfb__estabelecimentos`)" } }
         description: Verdadeiro para situação cadastral ativa (código 2).
         data_type: boolean
 
@@ -718,7 +786,7 @@ models:
   - name: fct_resumo_mensal
     description: >
       Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE ×
-      porte × situação × MEI (sem ano de início nem natureza: emenda R3-02 do ADR-0013). Medidas
+      porte × situação × MEI (sem ano de início nem natureza, que explodiriam o resumo; ADR-0013). Medidas
       aditivas (idade média = `soma_idade_anos / qtd_ativos`; capital médio =
       `soma_capital_social_matrizes / qtd_matrizes`). Gravada como uma partição Parquet por mês em
       `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: reprocessar um mês substitui só a partição dele
@@ -765,7 +833,7 @@ models:
         agg: sum
         expr: qtd_estabelecimentos
         non_additive_dimension: { name: mes, window_agg: max }
-        config: { meta: { escopo: adicao } }
+        config: { meta: { escopo: adicao, linhagem: "`count(*)` de `fct_estabelecimentos` no grão"} }
       - name: qtd_ativos
         label: Qtd Ativos
         description: Estabelecimentos com situação cadastral ATIVA no mês (fotografia; não soma meses).
@@ -773,7 +841,7 @@ models:
         agg: sum
         expr: qtd_ativos
         non_additive_dimension: { name: mes, window_agg: max }
-        config: { meta: { escopo: adicao } }
+        config: { meta: { escopo: adicao, linhagem: "contagem de `fct_estabelecimentos.eh_ativa`"} }
       - name: qtd_ativos_mei
         label: Qtd Ativos MEI
         description: Ativos de empresas optantes pelo MEI no mês.
@@ -790,7 +858,7 @@ models:
         agg: sum
         expr: qtd_matrizes
         non_additive_dimension: { name: mes, window_agg: max }
-        config: { meta: { escopo: adicao } }
+        config: { meta: { escopo: adicao, linhagem: "contagem de `fct_estabelecimentos.eh_matriz`"} }
       - name: capital_social_total
         label: Capital Social Total (R$)
         description: Capital social somado só nas matrizes, para contar cada empresa uma vez.
@@ -862,38 +930,45 @@ models:
         config: { meta: { escopo: adicao } }
     columns:
       - name: mes_referencia
+        config: { meta: { linhagem: "`max(_mes_referencia)` de `stg_rfb__estabelecimentos`" } }
         description: Mês de referência `YYYY-MM` (coluna de partição Hive).
         data_type: varchar
         data_tests: [not_null]
       - name: sk_mes_referencia
+        config: { meta: { linhagem: "`mes_referencia` como `AAAAMM01`", fk_declarada: "dim_data.sk_data", membro_desconhecido: false} }
         description: >
-          Primeiro dia do mês como `yyyymm01`; mesma chave de `dim_data.sk_data` (relacionamento 1:* no BI).
+          Primeiro dia do mês como `yyyymm01`; mesma chave de `dim_data.sk_data` (relacionamento 1:* no BI). Nunca `-1`: é sempre o mês do extrato.
         data_type: integer
         data_tests: [not_null]
       - name: sk_municipio
+        config: { meta: { linhagem: "`fct_estabelecimentos.sk_municipio` (coluna do grão)" } }
         description: Chave de `dim_municipio` (`-1` = NÃO INFORMADO).
         data_type: integer
         entity: { type: foreign, name: municipio }
         data_tests: [not_null]
       - name: sk_cnae
+        config: { meta: { linhagem: "`fct_estabelecimentos.sk_cnae` (coluna do grão)" } }
         description: Chave de `dim_cnae` (CNAE principal; `-1` = NÃO INFORMADO).
         data_type: integer
         entity: { type: foreign, name: cnae }
         data_tests:
           - not_null
       - name: sk_porte
+        config: { meta: { linhagem: "`fct_estabelecimentos.sk_porte` (coluna do grão)" } }
         description: Chave de `dim_porte`.
         data_type: integer
         entity: { type: foreign, name: porte }
         data_tests:
           - not_null
       - name: sk_situacao_cadastral
+        config: { meta: { linhagem: "`fct_estabelecimentos.sk_situacao_cadastral` (coluna do grão)" } }
         description: Chave de `dim_situacao_cadastral`.
         data_type: integer
         entity: { type: foreign, name: situacao_cadastral }
         data_tests:
           - not_null
       - name: opcao_mei
+        config: { meta: { linhagem: "`fct_estabelecimentos.opcao_mei` (coluna do grão)" } }
         description: Optante pelo MEI.
         data_type: boolean
         dimension: categorical
@@ -907,6 +982,7 @@ models:
         data_type: bigint
         data_tests: [not_null]
       - name: soma_idade_anos
+        config: { meta: { linhagem: "`sum(fct_estabelecimentos.idade_anos)`; 0 sem valor" } }
         description: Soma da idade (anos) dos estabelecimentos ativos; divida por `qtd_ativos` para a média.
         data_type: double
       - name: qtd_matrizes
@@ -914,6 +990,7 @@ models:
         data_type: bigint
         data_tests: [not_null]
       - name: soma_capital_social_matrizes
+        config: { meta: { linhagem: "`sum(fct_estabelecimentos.capital_social)` só onde `eh_matriz`; 0 sem valor" } }
         description: >
           Soma do capital social (R$) só das matrizes (uma por empresa, sem repetição por filial).
         data_type: decimal(18,2)
@@ -947,6 +1024,7 @@ models:
             combination_of_columns: [cnpj_completo, codigo_cnae_secundario]
     columns:
       - name: cnpj_completo
+        config: { meta: { linhagem: "`int_cnaes_secundarios__explodidos.cnpj_completo`" } }
         description: CNPJ completo; FK para `fct_estabelecimentos.cnpj_completo`.
         data_type: varchar
         data_tests:
@@ -956,6 +1034,7 @@ models:
                 to: ref('fct_estabelecimentos')
                 field: cnpj_completo
       - name: sk_cnae
+        config: { meta: { linhagem: "`dim_cnae.sk_cnae`, casando `codigo_cnae_secundario` com `dim_cnae.codigo_subclasse`; `-1` sem par" } }
         description: Chave de `dim_cnae` (CNAE secundário); `-1` quando sem par na Base dos Dados.
         data_type: integer
         data_tests:
@@ -965,6 +1044,7 @@ models:
                 to: ref('dim_cnae')
                 field: sk_cnae
       - name: codigo_cnae_secundario
+        config: { meta: { linhagem: "um item de `stg_rfb__estabelecimentos.cnaes_secundarios` (lista separada por vírgula), sem repetição por estabelecimento" } }
         description: Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda.
         data_type: varchar
 
@@ -985,7 +1065,9 @@ models:
           config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
     columns:
       - name: sk_municipio
-        description: Município; FK para `dim_municipio.sk_municipio`.
+        config: { meta: { linhagem: "`dim_municipio.sk_municipio` do primeiro município do par de `stg_bd__vizinhanca` (ano mais recente, nos dois sentidos)", membro_desconhecido: false } }
+        description: >
+          Município; FK para `dim_municipio.sk_municipio`. Sem chave `-1`: par com município fora de `dim_municipio` é descartado.
         data_type: integer
         data_tests:
           - not_null:
@@ -996,7 +1078,9 @@ models:
                 field: sk_municipio
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: sk_municipio_vizinho
-        description: Município vizinho; FK para `dim_municipio.sk_municipio`.
+        config: { meta: { linhagem: "`dim_municipio.sk_municipio` do segundo município do par de `stg_bd__vizinhanca` (ano mais recente, nos dois sentidos)", membro_desconhecido: false} }
+        description: >
+          Município vizinho; FK para `dim_municipio.sk_municipio`. Sem chave `-1`: par com município fora de `dim_municipio` é descartado.
         data_type: integer
         data_tests:
           - not_null:

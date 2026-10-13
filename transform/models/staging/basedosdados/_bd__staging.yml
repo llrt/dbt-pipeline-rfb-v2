@@ -277,7 +277,7 @@ models:
 
   - name: stg_bd__vizinhanca
     config:
-      meta: { grao: "par de municípios vizinhos por ano, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`)", incremento: enriquecimento_bd }
+      meta: { grao: "par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza", incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     description: >
       Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas e autopares

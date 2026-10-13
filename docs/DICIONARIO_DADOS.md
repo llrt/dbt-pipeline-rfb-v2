@@ -90,7 +90,7 @@ Parquet raw das tabelas públicas da Base dos Dados (`basedosdados`).
 | [`basedosdados.pib`](#basedosdados-pib) | município e ano (`id_municipio`, `ano`) | adicao | 11 |
 | [`basedosdados.populacao`](#basedosdados-populacao) | município e ano (`id_municipio`, `ano`) | adicao | 6 |
 | [`basedosdados.regiao_metropolitana_2017`](#basedosdados-regiao_metropolitana_2017) | par município × região metropolitana (`id_municipio`, `nome_regiao_metropolitana`) | adicao | 10 |
-| [`basedosdados.vizinhanca_municipio`](#basedosdados-vizinhanca_municipio) | par de municípios vizinhos por ano de malha (`ano`, `id_municipio_1`, `id_municipio_2`) | adicao | 5 |
+| [`basedosdados.vizinhanca_municipio`](#basedosdados-vizinhanca_municipio) | par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza | adicao | 5 |
 
 <a id="fontes-obs"></a>
 ### Fontes — observabilidade
@@ -126,7 +126,7 @@ Views com tipagem, limpeza e minimização de dados pessoais.
 | [`stg_bd__pib`](#stg_bd__pib) | município e ano (`id_municipio`, `ano`) | adicao | 9 |
 | [`stg_bd__populacao`](#stg_bd__populacao) | município e ano (`id_municipio`, `ano`) | adicao | 4 |
 | [`stg_bd__regioes_metropolitanas`](#stg_bd__regioes_metropolitanas) | município IBGE (`id_municipio`) | adicao | 7 |
-| [`stg_bd__vizinhanca`](#stg_bd__vizinhanca) | par de municípios vizinhos por ano, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`) | adicao | 3 |
+| [`stg_bd__vizinhanca`](#stg_bd__vizinhanca) | par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza | adicao | 3 |
 | [`stg_rfb__cnaes`](#stg_rfb__cnaes) | subclasse CNAE (`codigo`) | adicao | 2 |
 | [`stg_rfb__empresas`](#stg_rfb__empresas) | empresa (`cnpj_raiz`) do mês selecionado | adicao | 9 |
 | [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) | estabelecimento (`cnpj_completo`) do mês selecionado | adicao | 27 |
@@ -234,6 +234,7 @@ erDiagram
     fct_estabelecimentos }o--|| dim_porte : "sk_porte"
     fct_estabelecimentos }o--|| dim_situacao_cadastral : "sk_situacao_cadastral"
     fct_resumo_mensal }o--|| dim_cnae : "sk_cnae"
+    fct_resumo_mensal }o--|| dim_data : "sk_mes_referencia"
     fct_resumo_mensal }o--|| dim_municipio : "sk_municipio"
     fct_resumo_mensal }o--|| dim_porte : "sk_porte"
     fct_resumo_mensal }o--|| dim_situacao_cadastral : "sk_situacao_cadastral"
@@ -265,7 +266,7 @@ Tabela de domínio: código e descrição de cada subclasse CNAE segundo a RFB (
 |---|---|---|---|---|---|---|
 | `codigo` | `varchar` | Código da subclasse CNAE (7 dígitos). | não (`not_null`) | — | leiaute RFB: **CÓDIGO** | — |
 | `descricao` | `varchar` | Descrição textual da atividade econômica. | não testado | — | leiaute RFB: **DESCRIÇÃO** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -299,7 +300,7 @@ Uma linha por empresa (CNPJ raiz, 8 primeiros dígitos). Notebook original: 1 (c
 | `capital_soc` | `varchar` | Capital social declarado, formato RFB (vírgula decimal), ex. `1000,50`. | não testado | — | leiaute RFB: **CAPITAL SOCIAL DA EMPRESA** | — |
 | `porte` | `varchar` | Código de porte da empresa: `00` não informado, `01` micro, `03` pequena, `05` demais (metadados RFB). Pode vir vazio (raw grava `""` → NULL). | não testado | valores: `00`, `01`, `03`, `05` (onde `porte is not null`) | leiaute RFB: **PORTE DA EMPRESA** | — |
 | `ente_fed_resp` | `varchar` | Ente federativo responsável, preenchido só para órgãos/autarquias públicas. | não testado | — | leiaute RFB: **ENTE FEDERATIVO RESPONSÁVEL** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -356,7 +357,7 @@ Uma linha por estabelecimento (CNPJ completo: raiz + ordem + DV). Notebook origi
 | `email` | `varchar` | E-mail de contato. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **CORREIO ELETRÔNICO** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
 | `sit_especial` | `varchar` | Situação especial (ex. falência, recuperação judicial); raramente preenchida. | não testado | — | leiaute RFB: **SITUAÇÃO ESPECIAL** | — |
 | `dat_sit_especial` | `varchar` | Data da situação especial (`YYYYMMDD`); raramente preenchida. | não testado | — | leiaute RFB: **DATA DA SITUAÇÃO ESPECIAL** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -385,7 +386,7 @@ Tabela de domínio: código e descrição de cada motivo de situação cadastral
 |---|---|---|---|---|---|---|
 | `codigo` | `varchar` | Código do motivo de situação cadastral. | não (`not_null`) | — | não consta do leiaute oficial | — |
 | `descricao` | `varchar` | Descrição do motivo de situação cadastral. | não testado | — | não consta do leiaute oficial | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -414,7 +415,7 @@ Tabela de domínio: código RFB e nome de cada município (notebook 2.1.1). Não
 |---|---|---|---|---|---|---|
 | `codigo` | `varchar` | Código do município na classificação da RFB (4 dígitos; não é o código IBGE). | não (`not_null`) | — | leiaute RFB: **CÓDIGO** | — |
 | `descricao` | `varchar` | Nome do município, sem acentos, conforme grafia da RFB. | não testado | — | leiaute RFB: **DESCRIÇÃO** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -443,7 +444,7 @@ Tabela de domínio: código e descrição de cada natureza jurídica (notebook 2
 |---|---|---|---|---|---|---|
 | `codigo` | `varchar` | Código da natureza jurídica. | não (`not_null`) | — | leiaute RFB: **CÓDIGO** | — |
 | `descricao` | `varchar` | Descrição da natureza jurídica. | não testado | — | leiaute RFB: **DESCRIÇÃO** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -472,7 +473,7 @@ Tabela de domínio: código e descrição de cada país (adição: não usada pe
 |---|---|---|---|---|---|---|
 | `codigo` | `varchar` | Código do país segundo a tabela da RFB. | não testado | — | leiaute RFB: **CÓDIGO** | — |
 | `descricao` | `varchar` | Nome do país. | não testado | — | leiaute RFB: **DESCRIÇÃO** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -501,7 +502,7 @@ Tabela de domínio: código e descrição de cada qualificação de responsável
 |---|---|---|---|---|---|---|
 | `codigo` | `varchar` | Código de qualificação do responsável. | não testado | — | leiaute RFB: **CÓDIGO** | — |
 | `descricao` | `varchar` | Descrição da qualificação do responsável. | não testado | — | leiaute RFB: **DESCRIÇÃO** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -535,7 +536,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | `opcao_mei` | `varchar` | Opção pelo MEI (Microempreendedor Individual): `S`/`N`. | não testado | — | leiaute RFB: **OPÇÃO PELO MEI** | — |
 | `dat_opcao_mei` | `varchar` | Data de opção pelo MEI (`YYYYMMDD`; `00000000` se não aplicável). | não testado | — | leiaute RFB: **DATA DE OPÇÃO PELO MEI** | — |
 | `dat_exclusao_mei` | `varchar` | Data de exclusão do MEI (`YYYYMMDD`; `00000000` se não aplicável). | não testado | — | leiaute RFB: **DATA DE EXCLUSÃO DO MEI** | — |
-| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
+| `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -774,7 +775,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 
 | Atributo | Valor |
 |---|---|
-| Grão (declarado, não testado) | Uma linha por par de municípios vizinhos por ano de malha (`ano`, `id_municipio_1`, `id_municipio_2`). |
+| Grão (declarado, não testado) | Uma linha por par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza. |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
@@ -1173,7 +1174,7 @@ Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas
 
 | Atributo | Valor |
 |---|---|
-| Grão (declarado, não testado) | Uma linha por par de municípios vizinhos por ano, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`). |
+| Grão (declarado, não testado) | Uma linha por par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza. |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
@@ -1282,7 +1283,7 @@ Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referênci
 | `motivo_situacao_codigo` | `varchar` | Código do motivo da situação cadastral (2 dígitos; FK lógica para `stg_rfb__motivos`). | não testado | — | — | — |
 | `cidade_exterior` | `varchar` | Cidade no exterior, só para estabelecimentos fora do Brasil. | não testado | — | — | — |
 | `pais_codigo` | `varchar` | Código do país (3 dígitos), só para estabelecimentos no exterior. | não testado | — | — | — |
-| `dat_inicio_atividade` | `date` | Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste warn abaixo as registra (spec Original AC 12, emenda R2-02). O limite é 1900-01-01, o início de `dim_data`: antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA, emenda R3-03). | não testado | data não futura (`warn`); valor ≥ `date '1900-01-01'` (`warn`) | raw: `estabelecimentos.dat_inicio_atividade` | sentinelas viram NULL: `00000000`, `0` |
+| `dat_inicio_atividade` | `date` | Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste de faixa em `warn` as registra, sem barrar o build. O limite é 1900-01-01, o início de `dim_data`: antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA). | não testado | data não futura (`warn`); valor ≥ `date '1900-01-01'` (`warn`) | raw: `estabelecimentos.dat_inicio_atividade` | sentinelas viram NULL: `00000000`, `0` |
 | `cnae_principal` | `varchar` | Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`). | não testado | tamanho exato: 7 | — | — |
 | `cnaes_secundarios` | `varchar` | CNAEs secundários, texto original separado por vírgula; NULL se vazio. | não testado | — | — | — |
 | `cnaes_secundarios_lista` | `varchar[]` | CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver. | não testado | — | — | — |
@@ -1297,7 +1298,7 @@ Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referênci
 | `situacao_especial` | `varchar` | Situação especial (ex. recuperação judicial), quando houver. | não testado | — | — | — |
 | `dat_situacao_especial` | `date` | Data da situação especial. | não testado | data não futura (`warn`) | raw: `estabelecimentos.dat_sit_especial` | sentinelas viram NULL: `00000000`, `0` |
 | `_mes_referencia` | `varchar` | Mês de referência (`YYYY-MM`) do extrato RFB. | não testado | — | — | — |
-| `_data_referencia` | `date` | Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto, de `idade_atual`: NULL falha (R2-03). | não (`not_null`) | — | — | — |
+| `_data_referencia` | `date` | Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto, de `idade_atual`; não pode ser nula (teste `not_null`, `error`). | não (`not_null`) | — | — | — |
 
 <a id="stg_rfb__motivos"></a>
 #### `stg_rfb__motivos`
@@ -1399,10 +1400,10 @@ Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opca
 | `cnpj_raiz` | `varchar` | 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`). | não (`not_null`) | tamanho exato: 8 | — | — |
 | `opcao_simples` | `boolean` | `true` se optante pelo Simples Nacional, `false` caso contrário. | não testado | — | — | — |
 | `dat_opcao_simples` | `date` | Data de opção pelo Simples; NULL se `00000000` no raw. | não testado | data não futura (`warn`) | raw: `simples.dat_opcao_simples` | sentinelas viram NULL: `00000000`, `0` |
-| `dat_exclusao_simples` | `date` | Data de exclusão do Simples; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito futuro (fim do mês ou do ano) é legítima (R3-11). | não testado | — | raw: `simples.dat_exclusao_simples` | sentinelas viram NULL: `00000000`, `0` |
+| `dat_exclusao_simples` | `date` | Data de exclusão do Simples; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito futuro (fim do mês ou do ano) é legítima. | não testado | — | raw: `simples.dat_exclusao_simples` | sentinelas viram NULL: `00000000`, `0` |
 | `opcao_mei` | `boolean` | `true` se optante pelo MEI, `false` caso contrário. | não testado | — | — | — |
 | `dat_opcao_mei` | `date` | Data de opção pelo MEI; NULL se `00000000` no raw. | não testado | data não futura (`warn`) | raw: `simples.dat_opcao_mei` | sentinelas viram NULL: `00000000`, `0` |
-| `dat_exclusao_mei` | `date` | Data de exclusão do MEI; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito futuro é legítima (R3-11). | não testado | — | raw: `simples.dat_exclusao_mei` | sentinelas viram NULL: `00000000`, `0` |
+| `dat_exclusao_mei` | `date` | Data de exclusão do MEI; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito futuro é legítima. | não testado | — | raw: `simples.dat_exclusao_mei` | sentinelas viram NULL: `00000000`, `0` |
 
 ## Intermediate
 
@@ -1544,22 +1545,22 @@ Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo →
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_cnae` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Subclasse como inteiro. | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `cnae` (primary) |
-| `codigo_secao` | `varchar` | Código da seção (letra). | não testado | — | — | dimensão semântica (categorical) |
-| `descricao_secao` | `varchar` | Descrição da seção CNAE (nível mais alto da hierarquia, uma letra), da Base dos Dados. | não testado | — | — | dimensão semântica (categorical) |
-| `codigo_divisao` | `varchar` | Código da divisão (2 dígitos). | não testado | — | — | dimensão semântica (categorical) |
-| `descricao_divisao` | `varchar` | Descrição da divisão. | não testado | — | — | dimensão semântica (categorical) |
-| `codigo_grupo` | `varchar` | Código do grupo (3 dígitos). | não testado | — | — | dimensão semântica (categorical) |
-| `descricao_grupo` | `varchar` | Descrição do grupo CNAE (3 primeiros dígitos da subclasse), da Base dos Dados. | não testado | — | — | dimensão semântica (categorical) |
-| `codigo_classe` | `varchar` | Código da classe (5 dígitos). | não testado | — | — | dimensão semântica (categorical) |
-| `descricao_classe` | `varchar` | Descrição da classe CNAE (5 primeiros dígitos da subclasse), da Base dos Dados. | não testado | — | — | dimensão semântica (categorical) |
-| `codigo_subclasse` | `varchar` | Código da subclasse (7 dígitos, com zeros à esquerda). | não (`not_null`) | — | — | dimensão semântica (categorical) |
-| `descricao_subclasse` | `varchar` | Descrição da subclasse. | não testado | — | — | dimensão semântica (categorical) |
+| `sk_cnae` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Subclasse como inteiro. | não (`not_null`) | — | linhagem: `stg_bd__cnaes.subclasse` convertida para inteiro; `-1` fixo no membro NÃO INFORMADO | chave sentinela: `-1`; entidade semântica `cnae` (primary) |
+| `codigo_secao` | `varchar` | Código da seção (letra). | não testado | — | linhagem: `stg_bd__cnaes.secao` | dimensão semântica (categorical) |
+| `descricao_secao` | `varchar` | Descrição da seção CNAE (nível mais alto da hierarquia, uma letra), da Base dos Dados. | não testado | — | linhagem: `stg_bd__cnaes.descricao_secao` | dimensão semântica (categorical) |
+| `codigo_divisao` | `varchar` | Código da divisão (2 dígitos). | não testado | — | linhagem: `stg_bd__cnaes.divisao` | dimensão semântica (categorical) |
+| `descricao_divisao` | `varchar` | Descrição da divisão. | não testado | — | linhagem: `stg_bd__cnaes.descricao_divisao` | dimensão semântica (categorical) |
+| `codigo_grupo` | `varchar` | Código do grupo (3 dígitos). | não testado | — | linhagem: `stg_bd__cnaes.grupo` | dimensão semântica (categorical) |
+| `descricao_grupo` | `varchar` | Descrição do grupo CNAE (3 primeiros dígitos da subclasse), da Base dos Dados. | não testado | — | linhagem: `stg_bd__cnaes.descricao_grupo` | dimensão semântica (categorical) |
+| `codigo_classe` | `varchar` | Código da classe (5 dígitos). | não testado | — | linhagem: `stg_bd__cnaes.classe` | dimensão semântica (categorical) |
+| `descricao_classe` | `varchar` | Descrição da classe CNAE (5 primeiros dígitos da subclasse), da Base dos Dados. | não testado | — | linhagem: `stg_bd__cnaes.descricao_classe` | dimensão semântica (categorical) |
+| `codigo_subclasse` | `varchar` | Código da subclasse (7 dígitos, com zeros à esquerda). | não (`not_null`) | — | linhagem: `stg_bd__cnaes.subclasse` | dimensão semântica (categorical) |
+| `descricao_subclasse` | `varchar` | Descrição da subclasse. | não testado | — | linhagem: `stg_bd__cnaes.descricao_subclasse` | dimensão semântica (categorical) |
 
 <a id="dim_data"></a>
 #### `dim_data`
 
-Calendário (ADR-0013, emenda R3-03): uma linha por dia de 1900-01-01 até `data_referencia` (ou a maior data observada, se maior), com `sk_data = yyyymmdd`. Dimensão de papel duplo na fato (`sk_data_inicio_atividade`, `sk_data_situacao`). Membros `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900), com datas contíguas ao calendário (1899-12-31 e 1899-12-30) para que a tabela seja marcável como tabela de datas no Power BI; `ano`/`mes` ficam NULL neles.
+Calendário (ADR-0013): uma linha por dia de 1900-01-01 até `data_referencia` (ou a maior data observada, se maior), com `sk_data = yyyymmdd`. Dimensão de papel duplo na fato (`sk_data_inicio_atividade`, `sk_data_situacao`). Membros `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900), com datas contíguas ao calendário (1899-12-31 e 1899-12-30) para que a tabela seja marcável como tabela de datas no Power BI; `ano`/`mes` ficam NULL neles.
 
 | Atributo | Valor |
 |---|---|
@@ -1578,17 +1579,17 @@ Calendário (ADR-0013, emenda R3-03): uma linha por dia de 1900-01-01 até `data
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_data` | `integer` | Chave substituta inteira no formato yyyymmdd (ex.: 20000229); `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900). | não (`not_null`) | — | — | chave sentinela: `-2`, `-1` |
-| `data` | `date` | Data do calendário, nunca nula; os membros `-1` e `-2` usam 1899-12-31 e 1899-12-30. | não testado | — | — | chave sentinela: `-2`, `-1` |
-| `ano` | `integer` | Ano do dia do calendário (4 dígitos, a partir de 1900). | não testado | — | — | — |
-| `semestre` | `integer` | Semestre do ano (1 ou 2). | não testado | — | — | — |
-| `trimestre` | `integer` | Trimestre do ano (1 a 4). | não testado | — | — | — |
-| `mes` | `integer` | Mês do ano do dia do calendário (1 a 12). | não testado | — | — | — |
-| `nome_mes` | `varchar` | Nome do mês em português (janeiro … dezembro). | não testado | — | — | — |
-| `ano_mes` | `varchar` | Ano e mês no formato `AAAA-MM`, usado como rótulo/ordenação mensal e igual a `_mes_referencia`. | não testado | — | — | — |
-| `dia` | `integer` | Dia do mês do dia do calendário (1 a 31). | não testado | — | — | — |
-| `dia_semana_numero` | `integer` | Dia da semana ISO (1 segunda … 7 domingo), para ordenar `dia_semana` no BI. | não testado | — | — | — |
-| `dia_semana` | `varchar` | Nome do dia da semana em português (segunda-feira … domingo). | não testado | — | — | — |
+| `sk_data` | `integer` | Chave substituta inteira no formato yyyymmdd (ex.: 20000229); `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900). | não (`not_null`) | — | linhagem: `data` no formato yyyymmdd (ano × 10000 + mês × 100 + dia); `-1` e `-2` fixos nos membros especiais | chave sentinela: `-2`, `-1` |
+| `data` | `date` | Data do calendário, nunca nula; os membros `-1` e `-2` usam 1899-12-31 e 1899-12-30. | não testado | — | linhagem: calendário gerado de `primeiro_dia_calendario` (1900-01-01) até a maior entre `data_referencia` e as maiores `dat_inicio_atividade` e `dat_situacao` de `stg_rfb__estabelecimentos` | chave sentinela: `-2`, `-1` |
+| `ano` | `integer` | Ano do dia do calendário (4 dígitos, a partir de 1900). | não testado | — | linhagem: `year(data)` | — |
+| `semestre` | `integer` | Semestre do ano (1 ou 2). | não testado | — | linhagem: 1 se `mes` ≤ 6, senão 2 | — |
+| `trimestre` | `integer` | Trimestre do ano (1 a 4). | não testado | — | linhagem: `quarter(data)` | — |
+| `mes` | `integer` | Mês do ano do dia do calendário (1 a 12). | não testado | — | linhagem: `month(data)` | — |
+| `nome_mes` | `varchar` | Nome do mês em português (janeiro … dezembro). | não testado | — | linhagem: nome do mês em português, indexado por `mes` | — |
+| `ano_mes` | `varchar` | Ano e mês no formato `AAAA-MM`, usado como rótulo/ordenação mensal e igual a `_mes_referencia`. | não testado | — | linhagem: `strftime(data, '%Y-%m')` | — |
+| `dia` | `integer` | Dia do mês do dia do calendário (1 a 31). | não testado | — | linhagem: `day(data)` | — |
+| `dia_semana_numero` | `integer` | Dia da semana ISO (1 segunda … 7 domingo), para ordenar `dia_semana` no BI. | não testado | — | linhagem: `isodow(data)` | — |
+| `dia_semana` | `varchar` | Nome do dia da semana em português (segunda-feira … domingo). | não testado | — | linhagem: nome do dia em português, indexado por `dia_semana_numero` | — |
 
 <a id="dim_municipio"></a>
 #### `dim_municipio`
@@ -1613,36 +1614,36 @@ Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_municipio` | `integer` | Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga. | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `municipio` (primary) |
+| `sk_municipio` | `integer` | Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga. | não (`not_null`) | — | linhagem: `int_municipios__conformados.sk_municipio` | chave sentinela: `-1`; entidade semântica `municipio` (primary) |
 | `id_municipio_ibge` | `varchar` | Código IBGE do município (7 dígitos). Linhagem: `stg_bd__municipios.id_municipio`. | não testado | — | linhagem: `stg_bd__municipios.id_municipio` | dimensão semântica (categorical) |
 | `codigo_rfb` | `varchar` | Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`. | em geral não (`not_null` `warn`: pode haver exceções) | — | linhagem: `stg_bd__municipios.id_municipio_rf` | — |
-| `nome_municipio` | `varchar` | Nome do município (acentuado, Base dos Dados). | não testado | — | — | dimensão semântica (categorical) |
-| `sigla_uf` | `varchar` | Sigla da UF do município. | não testado | — | — | dimensão semântica (categorical) |
-| `nome_uf` | `varchar` | Nome completo da UF do município (por exemplo, `Espírito Santo`), da Base dos Dados; `NÃO INFORMADO` no membro `-1`. | não testado | — | — | chave sentinela: `-1`; dimensão semântica (categorical) |
-| `nome_regiao` | `varchar` | Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste). | não testado | — | — | dimensão semântica (categorical) |
-| `id_mesorregiao` | `varchar` | Código IBGE da mesorregião. | não testado | — | — | — |
-| `nome_mesorregiao` | `varchar` | Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município). | não testado | — | — | dimensão semântica (categorical) |
-| `id_microrregiao` | `varchar` | Código IBGE da microrregião. | não testado | — | — | — |
-| `nome_microrregiao` | `varchar` | Nome da microrregião. | não testado | — | — | dimensão semântica (categorical) |
-| `id_regiao_intermediaria` | `varchar` | Código IBGE da região geográfica intermediária. | não testado | — | — | — |
-| `nome_regiao_intermediaria` | `varchar` | Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata). | não testado | — | — | dimensão semântica (categorical) |
-| `id_regiao_imediata` | `varchar` | Código IBGE da região geográfica imediata. | não testado | — | — | — |
-| `nome_regiao_imediata` | `varchar` | Nome da região geográfica imediata. | não testado | — | — | dimensão semântica (categorical) |
-| `latitude` | `double` | Latitude do centroide do município (graus decimais). | não testado | — | — | — |
-| `longitude` | `double` | Longitude do centroide do município (graus decimais). | não testado | — | — | — |
-| `ano_populacao` | `integer` | Ano da população usada: var `ano_populacao` ou o último ano disponível. | não testado | — | — | — |
-| `populacao` | `bigint` | População estimada do município no `ano_populacao`; NULL sem dado. | não testado | — | — | — |
-| `ano_pib` | `integer` | Ano do PIB usado (último ano disponível). | não testado | — | — | — |
-| `pib` | `double` | PIB do município (R$) em `ano_pib`; NULL sem dado. | não testado | — | — | — |
-| `populacao_censo_2022` | `bigint` | População residente do Censo 2022; NULL sem dado do Censo. | não testado | — | — | — |
-| `domicilios_2022` | `bigint` | Domicílios do Censo 2022 (denominador de ativos por mil domicílios); NULL sem dado. | não testado | — | — | — |
-| `area_km2` | `double` | Área territorial do município em km² (Censo 2022); NULL sem dado. | não testado | — | — | — |
-| `densidade_hab_km2` | `double` | População do Censo 2022 por km² (2 casas); NULL sem Censo ou sem área, nunca zero. | não testado | — | — | — |
-| `taxa_alfabetizacao` | `double` | Taxa de alfabetização do Censo 2022 (fração de 0 a 1). | não testado | `0` ≤ valor ≤ `1` | — | — |
-| `idade_mediana` | `double` | Idade mediana em anos (Censo 2022). | não testado | — | — | — |
-| `indice_envelhecimento` | `double` | Índice de envelhecimento (idosos por 100 jovens) do Censo 2022. | não testado | — | — | — |
-| `razao_sexo` | `double` | Razão de sexo (homens por 100 mulheres) do Censo 2022. | não testado | — | — | — |
-| `nome_regiao_metropolitana` | `varchar` | Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1. | não (`not_null`) | — | — | dimensão semântica (categorical) |
+| `nome_municipio` | `varchar` | Nome do município (acentuado, Base dos Dados). | não testado | — | linhagem: `int_municipios__conformados.nome_municipio` | dimensão semântica (categorical) |
+| `sigla_uf` | `varchar` | Sigla da UF do município. | não testado | — | linhagem: `int_municipios__conformados.sigla_uf` | dimensão semântica (categorical) |
+| `nome_uf` | `varchar` | Nome completo da UF do município (por exemplo, `Espírito Santo`), da Base dos Dados; `NÃO INFORMADO` no membro `-1`. | não testado | — | linhagem: `int_municipios__conformados.nome_uf` | chave sentinela: `-1`; dimensão semântica (categorical) |
+| `nome_regiao` | `varchar` | Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste). | não testado | — | linhagem: `int_municipios__conformados.nome_regiao` | dimensão semântica (categorical) |
+| `id_mesorregiao` | `varchar` | Código IBGE da mesorregião. | não testado | — | linhagem: `int_municipios__conformados.id_mesorregiao` | — |
+| `nome_mesorregiao` | `varchar` | Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município). | não testado | — | linhagem: `int_municipios__conformados.nome_mesorregiao` | dimensão semântica (categorical) |
+| `id_microrregiao` | `varchar` | Código IBGE da microrregião. | não testado | — | linhagem: `int_municipios__conformados.id_microrregiao` | — |
+| `nome_microrregiao` | `varchar` | Nome da microrregião. | não testado | — | linhagem: `int_municipios__conformados.nome_microrregiao` | dimensão semântica (categorical) |
+| `id_regiao_intermediaria` | `varchar` | Código IBGE da região geográfica intermediária. | não testado | — | linhagem: `int_municipios__conformados.id_regiao_intermediaria` | — |
+| `nome_regiao_intermediaria` | `varchar` | Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata). | não testado | — | linhagem: `int_municipios__conformados.nome_regiao_intermediaria` | dimensão semântica (categorical) |
+| `id_regiao_imediata` | `varchar` | Código IBGE da região geográfica imediata. | não testado | — | linhagem: `int_municipios__conformados.id_regiao_imediata` | — |
+| `nome_regiao_imediata` | `varchar` | Nome da região geográfica imediata. | não testado | — | linhagem: `int_municipios__conformados.nome_regiao_imediata` | dimensão semântica (categorical) |
+| `latitude` | `double` | Latitude do centroide do município (graus decimais). | não testado | — | linhagem: `int_municipios__conformados.latitude` | — |
+| `longitude` | `double` | Longitude do centroide do município (graus decimais). | não testado | — | linhagem: `int_municipios__conformados.longitude` | — |
+| `ano_populacao` | `integer` | Ano da população usada: var `ano_populacao` ou o último ano disponível. | não testado | — | linhagem: `int_municipios__conformados.ano_populacao` | — |
+| `populacao` | `bigint` | População estimada do município no `ano_populacao`; NULL sem dado. | não testado | — | linhagem: `int_municipios__conformados.populacao` | — |
+| `ano_pib` | `integer` | Ano do PIB usado (último ano disponível). | não testado | — | linhagem: `int_municipios__conformados.ano_pib` | — |
+| `pib` | `double` | PIB do município (R$) em `ano_pib`; NULL sem dado. | não testado | — | linhagem: `int_municipios__conformados.pib` | — |
+| `populacao_censo_2022` | `bigint` | População residente do Censo 2022; NULL sem dado do Censo. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.populacao` | — |
+| `domicilios_2022` | `bigint` | Domicílios do Censo 2022 (denominador de ativos por mil domicílios); NULL sem dado. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.domicilios` | — |
+| `area_km2` | `double` | Área territorial do município em km² (Censo 2022); NULL sem dado. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.area_km2` | — |
+| `densidade_hab_km2` | `double` | População do Censo 2022 por km² (2 casas); NULL sem Censo ou sem área, nunca zero. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.populacao` ÷ `stg_bd__censo_2022_municipio.area_km2`, arredondado a 2 casas | — |
+| `taxa_alfabetizacao` | `double` | Taxa de alfabetização do Censo 2022 (fração de 0 a 1). | não testado | `0` ≤ valor ≤ `1` | linhagem: `stg_bd__censo_2022_municipio.taxa_alfabetizacao` | — |
+| `idade_mediana` | `double` | Idade mediana em anos (Censo 2022). | não testado | — | linhagem: `stg_bd__censo_2022_municipio.idade_mediana` | — |
+| `indice_envelhecimento` | `double` | Índice de envelhecimento (idosos por 100 jovens) do Censo 2022. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.indice_envelhecimento` | — |
+| `razao_sexo` | `double` | Razão de sexo (homens por 100 mulheres) do Censo 2022. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.razao_sexo` | — |
+| `nome_regiao_metropolitana` | `varchar` | Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1. | não (`not_null`) | — | linhagem: `stg_bd__regioes_metropolitanas.nome_regiao_metropolitana`; `NÃO PERTENCE` quando o município não consta | dimensão semântica (categorical) |
 
 <a id="dim_natureza_juridica"></a>
 #### `dim_natureza_juridica`
@@ -1667,9 +1668,9 @@ Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem nat
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_natureza_juridica` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código como inteiro. | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `natureza_juridica` (primary) |
-| `codigo_natureza_juridica` | `varchar` | Código da natureza jurídica (4 dígitos). | não (`not_null`) | — | — | dimensão semântica (categorical) |
-| `descricao_natureza_juridica` | `varchar` | Descrição da natureza jurídica. | não testado | — | — | dimensão semântica (categorical) |
+| `sk_natureza_juridica` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código como inteiro. | não (`not_null`) | — | linhagem: `stg_rfb__naturezas.codigo` convertido para inteiro; `-1` fixo no membro NÃO INFORMADO | chave sentinela: `-1`; entidade semântica `natureza_juridica` (primary) |
+| `codigo_natureza_juridica` | `varchar` | Código da natureza jurídica (4 dígitos). | não (`not_null`) | — | linhagem: `stg_rfb__naturezas.codigo` | dimensão semântica (categorical) |
+| `descricao_natureza_juridica` | `varchar` | Descrição da natureza jurídica. | não testado | — | linhagem: `stg_rfb__naturezas.descricao` | dimensão semântica (categorical) |
 
 <a id="dim_porte"></a>
 #### `dim_porte`
@@ -1694,10 +1695,10 @@ Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vaz
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_porte` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte. | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `porte` (primary) |
-| `codigo_porte` | `varchar` | Código RFB do porte da empresa em texto (`0` não informado, `1` micro, `3` pequena, `5` demais; `-1` no membro NÃO INFORMADO). Chave natural, igual a `dominio_porte.codigo`. | não (`not_null`) | — | — | chave sentinela: `-1`; dimensão semântica (categorical) |
-| `rotulo_porte` | `varchar` | Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS). | não testado | — | — | dimensão semântica (categorical) |
-| `descricao_porte` | `varchar` | Descrição por extenso. | não testado | — | — | — |
+| `sk_porte` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte. | não (`not_null`) | valores da seed [`dominio_porte`](#dominio_porte).`codigo`: `0`, `1`, `3`, `5`, `-1` | linhagem: seed `dominio_porte.codigo`; `-1` fixo no membro NÃO INFORMADO | chave sentinela: `-1`; entidade semântica `porte` (primary) |
+| `codigo_porte` | `varchar` | Código RFB do porte da empresa em texto (`0` não informado, `1` micro, `3` pequena, `5` demais; `-1` no membro NÃO INFORMADO). Chave natural, igual a `dominio_porte.codigo`. | não (`not_null`) | valores da seed [`dominio_porte`](#dominio_porte).`codigo`: `0`, `1`, `3`, `5`, `-1` | linhagem: seed `dominio_porte.codigo` como texto | chave sentinela: `-1`; dimensão semântica (categorical) |
+| `rotulo_porte` | `varchar` | Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS). | não testado | valores da seed [`dominio_porte`](#dominio_porte).`rotulo`: `N/A`, `MICRO`, `PEQUENA`, `DEMAIS`, `NÃO INFORMADO` | linhagem: seed `dominio_porte.rotulo` | dimensão semântica (categorical) |
+| `descricao_porte` | `varchar` | Descrição por extenso. | não testado | valores da seed [`dominio_porte`](#dominio_porte).`descricao`: `Não informado`, `Microempresa`, `Empresa de pequeno porte`, `Demais (médio e grande porte)`, `NÃO INFORMADO` | linhagem: seed `dominio_porte.descricao` | — |
 
 <a id="dim_situacao_cadastral"></a>
 #### `dim_situacao_cadastral`
@@ -1722,10 +1723,10 @@ Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_situacao_cadastral` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação. | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `situacao_cadastral` (primary) |
-| `codigo_situacao_cadastral` | `varchar` | Código RFB da situação. | não (`not_null`) | — | — | dimensão semântica (categorical) |
-| `rotulo_situacao_cadastral` | `varchar` | Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA). | não testado | — | — | dimensão semântica (categorical) |
-| `descricao_situacao_cadastral` | `varchar` | Descrição por extenso. | não testado | — | — | — |
+| `sk_situacao_cadastral` | `integer` | Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação. | não (`not_null`) | valores da seed [`dominio_situacao_cadastral`](#dominio_situacao_cadastral).`codigo`: `1`, `2`, `3`, `4`, `8`, `-1` | linhagem: seed `dominio_situacao_cadastral.codigo`; `-1` fixo no membro NÃO INFORMADO | chave sentinela: `-1`; entidade semântica `situacao_cadastral` (primary) |
+| `codigo_situacao_cadastral` | `varchar` | Código RFB da situação, em texto e sem zero à esquerda (`1`, `2`, `3`, `4`, `8`; `-1` no membro NÃO INFORMADO). No raw (`estabelecimentos.situacao`) o mesmo código vem com zero à esquerda (`02` = ativa): converta ao filtrar. | não (`not_null`) | valores da seed [`dominio_situacao_cadastral`](#dominio_situacao_cadastral).`codigo`: `1`, `2`, `3`, `4`, `8`, `-1` | linhagem: seed `dominio_situacao_cadastral.codigo` como texto | chave sentinela: `-1`; dimensão semântica (categorical) |
+| `rotulo_situacao_cadastral` | `varchar` | Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA). | não testado | valores da seed [`dominio_situacao_cadastral`](#dominio_situacao_cadastral).`rotulo`: `NULA`, `ATIVA`, `SUSPENSA`, `INAPTA`, `BAIXADA`, `NÃO INFORMADO` | linhagem: seed `dominio_situacao_cadastral.rotulo` | dimensão semântica (categorical) |
+| `descricao_situacao_cadastral` | `varchar` | Descrição por extenso. | não testado | valores da seed [`dominio_situacao_cadastral`](#dominio_situacao_cadastral).`descricao`: `Situação cadastral nula`, `Estabelecimento ativo`, `Estabelecimento suspenso`, `Estabelecimento inapto`, `Estabelecimento baixado`, `NÃO INFORMADO` | linhagem: seed `dominio_situacao_cadastral.descricao` | — |
 
 ## Gold — fatos
 
@@ -1752,32 +1753,32 @@ Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimen
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `cnpj_completo` | `varchar` | CNPJ completo (14 dígitos); dimensão degenerada e chave da linha. | não (`not_null`) | — | — | entidade semântica `estabelecimento` (primary) |
-| `sk_municipio` | `integer` | Chave de `dim_municipio`; `-1` quando o município RFB não tem par na Base dos Dados (exterior, município novo). | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | chave sentinela: `-1`; entidade semântica `municipio` (foreign) |
-| `sk_cnae` | `integer` | Chave de `dim_cnae` (CNAE principal); `-1` quando o CNAE não tem par na Base dos Dados. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1`; entidade semântica `cnae` (foreign) |
-| `sk_natureza_juridica` | `integer` | Chave de `dim_natureza_juridica`; `-1` quando a empresa não tem natureza no domínio. | não (`not_null`) | FK → [`dim_natureza_juridica`](#dim_natureza_juridica).`sk_natureza_juridica` | — | chave sentinela: `-1`; entidade semântica `natureza_juridica` (foreign) |
-| `sk_porte` | `integer` | Chave de `dim_porte`; `-1` quando o porte está vazio ou fora do domínio. | não (`not_null`) | FK → [`dim_porte`](#dim_porte).`sk_porte` | — | chave sentinela: `-1`; entidade semântica `porte` (foreign) |
-| `sk_situacao_cadastral` | `integer` | Chave de `dim_situacao_cadastral`; `-1` quando o código está fora do domínio. | não (`not_null`) | FK → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` | — | chave sentinela: `-1`; entidade semântica `situacao_cadastral` (foreign) |
-| `sk_data_inicio_atividade` | `integer` | Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula; `-2` quando é anterior a 1900 (DATA INVÁLIDA). | não (`not_null`) | FK → [`dim_data`](#dim_data).`sk_data` | — | chave sentinela: `-2`, `-1` |
-| `sk_data_situacao` | `integer` | Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`); `-2` quando é anterior a 1900 (DATA INVÁLIDA). | não (`not_null`) | FK → [`dim_data`](#dim_data).`sk_data` | — | chave sentinela: `-2`, `-1` |
-| `idade_anos` | `double` | Idade do estabelecimento em anos (1 casa), relativa a `data_referencia`, só para ativos (NULL nos demais), como `bh_empresas.idade_atual`. Aditiva via soma, para médias no BI. | não testado | — | — | — |
-| `opcao_simples` | `boolean` | Optante pelo Simples Nacional na empresa (false quando não há registro). | não testado | — | — | dimensão semântica (categorical) |
-| `opcao_mei` | `boolean` | Optante pelo MEI na empresa (false quando não há registro). | não testado | — | — | dimensão semântica (categorical) |
-| `capital_social` | `decimal(18,2)` | Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por estabelecimento (some só a matriz, `eh_matriz`). NULL quando não há empresa. | não testado | — | — | — |
-| `eh_matriz` | `boolean` | Verdadeiro para matriz (`ind_matriz_filial = 1`). | não testado | — | — | dimensão semântica (categorical) |
-| `eh_ativa` | `boolean` | Verdadeiro para situação cadastral ativa (código 2). | não testado | — | — | dimensão semântica (categorical) |
+| `cnpj_completo` | `varchar` | CNPJ completo (14 dígitos); dimensão degenerada e chave da linha. | não (`not_null`) | — | linhagem: `stg_rfb__estabelecimentos.cnpj_completo` (`cnpj_raiz` \|\| `cnpj_ordem` \|\| `cnpj_dv`), via `int_estabelecimentos__enriquecidos` | entidade semântica `estabelecimento` (primary) |
+| `sk_municipio` | `integer` | Chave de `dim_municipio`; `-1` quando o município RFB não tem par na Base dos Dados (exterior, município novo). | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | linhagem: `dim_municipio.sk_municipio`, casando `int_estabelecimentos__enriquecidos.id_municipio_ibge` (de `municipio_rfb_codigo` = `codigo_rfb`); `-1` sem par | chave sentinela: `-1`; entidade semântica `municipio` (foreign) |
+| `sk_cnae` | `integer` | Chave de `dim_cnae` (CNAE principal); `-1` quando o CNAE não tem par na Base dos Dados. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | linhagem: `dim_cnae.sk_cnae`, casando `cnae_principal` com `dim_cnae.codigo_subclasse`; `-1` sem par | chave sentinela: `-1`; entidade semântica `cnae` (foreign) |
+| `sk_natureza_juridica` | `integer` | Chave de `dim_natureza_juridica`; `-1` quando a empresa não tem natureza no domínio. | não (`not_null`) | FK → [`dim_natureza_juridica`](#dim_natureza_juridica).`sk_natureza_juridica` | linhagem: `dim_natureza_juridica.sk_natureza_juridica`, casando `natureza_juridica_codigo` (de `stg_rfb__empresas`); `-1` sem par | chave sentinela: `-1`; entidade semântica `natureza_juridica` (foreign) |
+| `sk_porte` | `integer` | Chave de `dim_porte`; `-1` quando o porte está vazio ou fora do domínio. | não (`not_null`) | FK → [`dim_porte`](#dim_porte).`sk_porte` | linhagem: `dim_porte.sk_porte`, casando `porte_codigo` (de `stg_rfb__empresas`); `-1` sem par | chave sentinela: `-1`; entidade semântica `porte` (foreign) |
+| `sk_situacao_cadastral` | `integer` | Chave de `dim_situacao_cadastral`; `-1` quando o código está fora do domínio. | não (`not_null`) | FK → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` | linhagem: `dim_situacao_cadastral.sk_situacao_cadastral`, casando `situacao_codigo` (de `stg_rfb__estabelecimentos`); `-1` sem par | chave sentinela: `-1`; entidade semântica `situacao_cadastral` (foreign) |
+| `sk_data_inicio_atividade` | `integer` | Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula; `-2` quando é anterior a 1900 (DATA INVÁLIDA). | não (`not_null`) | FK → [`dim_data`](#dim_data).`sk_data` | linhagem: `dim_data.sk_data`, casando `dat_inicio_atividade` com `dim_data.data`; `-2` se anterior a 1900; `-1` sem par ou nula | chave sentinela: `-2`, `-1` |
+| `sk_data_situacao` | `integer` | Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`); `-2` quando é anterior a 1900 (DATA INVÁLIDA). | não (`not_null`) | FK → [`dim_data`](#dim_data).`sk_data` | linhagem: `dim_data.sk_data`, casando `dat_situacao` com `dim_data.data`; `-2` se anterior a 1900; `-1` sem par ou nula | chave sentinela: `-2`, `-1` |
+| `idade_anos` | `double` | Idade do estabelecimento em anos (1 casa), relativa a `data_referencia`, só para ativos (NULL nos demais), como `bh_empresas.idade_atual`. Aditiva via soma, para médias no BI. | não testado | — | linhagem: `round(dias entre dat_inicio_atividade e data_referencia / 365.25, 1)`, só quando `situacao_codigo` = 2 | — |
+| `opcao_simples` | `boolean` | Optante pelo Simples Nacional na empresa (false quando não há registro). | não testado | — | linhagem: `stg_rfb__simples.opcao_simples`; `false` sem registro | dimensão semântica (categorical) |
+| `opcao_mei` | `boolean` | Optante pelo MEI na empresa (false quando não há registro). | não testado | — | linhagem: `stg_rfb__simples.opcao_mei`; `false` sem registro | dimensão semântica (categorical) |
+| `capital_social` | `decimal(18,2)` | Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por estabelecimento (some só a matriz, `eh_matriz`). NULL quando não há empresa. | não testado | — | linhagem: `stg_rfb__empresas.capital_social`, repetido em cada estabelecimento da raiz | — |
+| `eh_matriz` | `boolean` | Verdadeiro para matriz (`ind_matriz_filial = 1`). | não testado | — | linhagem: `matriz_filial_codigo` = 1 (de `stg_rfb__estabelecimentos`, campo IDENTIFICADOR MATRIZ/FILIAL) | dimensão semântica (categorical) |
+| `eh_ativa` | `boolean` | Verdadeiro para situação cadastral ativa (código 2). | não testado | — | linhagem: `situacao_codigo` = 2 (de `stg_rfb__estabelecimentos`) | dimensão semântica (categorical) |
 
 <a id="fct_resumo_mensal"></a>
 #### `fct_resumo_mensal`
 
-Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE × porte × situação × MEI (sem ano de início nem natureza: emenda R3-02 do ADR-0013). Medidas aditivas (idade média = `soma_idade_anos / qtd_ativos`; capital médio = `soma_capital_social_matrizes / qtd_matrizes`). Gravada como uma partição Parquet por mês em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: reprocessar um mês substitui só a partição dele e o histórico sobrevive à remoção do `warehouse.duckdb`. Esta relação lê TODAS as partições existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)` do staging.
+Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE × porte × situação × MEI (sem ano de início nem natureza, que explodiriam o resumo; ADR-0013). Medidas aditivas (idade média = `soma_idade_anos / qtd_ativos`; capital médio = `soma_capital_social_matrizes / qtd_matrizes`). Gravada como uma partição Parquet por mês em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: reprocessar um mês substitui só a partição dele e o histórico sobrevive à remoção do `warehouse.duckdb`. Esta relação lê TODAS as partições existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)` do staging.
 
 | Atributo | Valor |
 |---|---|
 | Grão | Uma linha por mês × município × CNAE × porte × situação cadastral × opção MEI (`mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`). |
 | Chave primária (testada) | `mes_referencia` + `sk_municipio` + `sk_cnae` + `sk_porte` + `sk_situacao_cadastral` + `opcao_mei` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (semântica)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (semântica)<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte` (semântica)<br>`sk_situacao_cadastral` → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` (semântica) |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (semântica)<br>`sk_mes_referencia` → [`dim_data`](#dim_data).`sk_data` (declarada)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (semântica)<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte` (semântica)<br>`sk_situacao_cadastral` → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` (semântica) |
 | Lê de | [`fct_estabelecimentos`](#fct_estabelecimentos), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) |
 | Usada por | — |
 | Materialização | Parquet particionado (`external`) |
@@ -1790,18 +1791,18 @@ Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × munic
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_mes_referencia` | `integer` | Primeiro dia do mês como `yyyymm01`; mesma chave de `dim_data.sk_data` (relacionamento 1:* no BI). | não (`not_null`) | — | — | — |
-| `sk_municipio` | `integer` | Chave de `dim_municipio` (`-1` = NÃO INFORMADO). | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `municipio` (foreign) |
-| `sk_cnae` | `integer` | Chave de `dim_cnae` (CNAE principal; `-1` = NÃO INFORMADO). | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `cnae` (foreign) |
-| `sk_porte` | `integer` | Chave de `dim_porte`. | não (`not_null`) | — | — | sem par na dimensão → chave `-1`; entidade semântica `porte` (foreign) |
-| `sk_situacao_cadastral` | `integer` | Chave de `dim_situacao_cadastral`. | não (`not_null`) | — | — | sem par na dimensão → chave `-1`; entidade semântica `situacao_cadastral` (foreign) |
-| `opcao_mei` | `boolean` | Optante pelo MEI. | não (`not_null`) | — | — | dimensão semântica (categorical) |
+| `sk_mes_referencia` | `integer` | Primeiro dia do mês como `yyyymm01`; mesma chave de `dim_data.sk_data` (relacionamento 1:* no BI). Nunca `-1`: é sempre o mês do extrato. | não (`not_null`) | — | linhagem: `mes_referencia` como `AAAAMM01` | não recebe a chave `-1` (ver a descrição) |
+| `sk_municipio` | `integer` | Chave de `dim_municipio` (`-1` = NÃO INFORMADO). | não (`not_null`) | — | linhagem: `fct_estabelecimentos.sk_municipio` (coluna do grão) | chave sentinela: `-1`; entidade semântica `municipio` (foreign) |
+| `sk_cnae` | `integer` | Chave de `dim_cnae` (CNAE principal; `-1` = NÃO INFORMADO). | não (`not_null`) | — | linhagem: `fct_estabelecimentos.sk_cnae` (coluna do grão) | chave sentinela: `-1`; entidade semântica `cnae` (foreign) |
+| `sk_porte` | `integer` | Chave de `dim_porte`. | não (`not_null`) | — | linhagem: `fct_estabelecimentos.sk_porte` (coluna do grão) | sem par na dimensão → chave `-1`; entidade semântica `porte` (foreign) |
+| `sk_situacao_cadastral` | `integer` | Chave de `dim_situacao_cadastral`. | não (`not_null`) | — | linhagem: `fct_estabelecimentos.sk_situacao_cadastral` (coluna do grão) | sem par na dimensão → chave `-1`; entidade semântica `situacao_cadastral` (foreign) |
+| `opcao_mei` | `boolean` | Optante pelo MEI. | não (`not_null`) | — | linhagem: `fct_estabelecimentos.opcao_mei` (coluna do grão) | dimensão semântica (categorical) |
 | `qtd_estabelecimentos` | `bigint` | Quantidade de estabelecimentos no grão. | não (`not_null`) | — | — | — |
 | `qtd_ativos` | `bigint` | Quantidade de estabelecimentos ativos (situação 2) no grão. | não (`not_null`) | — | — | — |
-| `soma_idade_anos` | `double` | Soma da idade (anos) dos estabelecimentos ativos; divida por `qtd_ativos` para a média. | não testado | — | — | — |
+| `soma_idade_anos` | `double` | Soma da idade (anos) dos estabelecimentos ativos; divida por `qtd_ativos` para a média. | não testado | — | linhagem: `sum(fct_estabelecimentos.idade_anos)`; 0 sem valor | — |
 | `qtd_matrizes` | `bigint` | Quantidade de matrizes no grão (uma por empresa); denominador do capital médio. | não (`not_null`) | — | — | — |
-| `soma_capital_social_matrizes` | `decimal(18,2)` | Soma do capital social (R$) só das matrizes (uma por empresa, sem repetição por filial). | não testado | — | — | — |
-| `mes_referencia` | `varchar` | Mês de referência `YYYY-MM` (coluna de partição Hive). | não (`not_null`) | — | — | — |
+| `soma_capital_social_matrizes` | `decimal(18,2)` | Soma do capital social (R$) só das matrizes (uma por empresa, sem repetição por filial). | não testado | — | linhagem: `sum(fct_estabelecimentos.capital_social)` só onde `eh_matriz`; 0 sem valor | — |
+| `mes_referencia` | `varchar` | Mês de referência `YYYY-MM` (coluna de partição Hive). | não (`not_null`) | — | linhagem: `max(_mes_referencia)` de `stg_rfb__estabelecimentos` | — |
 
 ## Gold — pontes
 
@@ -1827,9 +1828,9 @@ Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos en
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `cnpj_completo` | `varchar` | CNPJ completo; FK para `fct_estabelecimentos.cnpj_completo`. | não (`not_null`) | FK → [`fct_estabelecimentos`](#fct_estabelecimentos).`cnpj_completo` | — | — |
-| `sk_cnae` | `integer` | Chave de `dim_cnae` (CNAE secundário); `-1` quando sem par na Base dos Dados. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
-| `codigo_cnae_secundario` | `varchar` | Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda. | não testado | — | — | — |
+| `cnpj_completo` | `varchar` | CNPJ completo; FK para `fct_estabelecimentos.cnpj_completo`. | não (`not_null`) | FK → [`fct_estabelecimentos`](#fct_estabelecimentos).`cnpj_completo` | linhagem: `int_cnaes_secundarios__explodidos.cnpj_completo` | — |
+| `sk_cnae` | `integer` | Chave de `dim_cnae` (CNAE secundário); `-1` quando sem par na Base dos Dados. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | linhagem: `dim_cnae.sk_cnae`, casando `codigo_cnae_secundario` com `dim_cnae.codigo_subclasse`; `-1` sem par | chave sentinela: `-1` |
+| `codigo_cnae_secundario` | `varchar` | Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda. | não testado | — | linhagem: um item de `stg_rfb__estabelecimentos.cnaes_secundarios` (lista separada por vírgula), sem repetição por estabelecimento | — |
 
 <a id="bridge_municipio_vizinho"></a>
 #### `bridge_municipio_vizinho`
@@ -1853,8 +1854,8 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_municipio` | `integer` | Município; FK para `dim_municipio.sk_municipio`. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | sem par na dimensão → chave `-1` |
-| `sk_municipio_vizinho` | `integer` | Município vizinho; FK para `dim_municipio.sk_municipio`. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | sem par na dimensão → chave `-1` |
+| `sk_municipio` | `integer` | Município; FK para `dim_municipio.sk_municipio`. Sem chave `-1`: par com município fora de `dim_municipio` é descartado. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | linhagem: `dim_municipio.sk_municipio` do primeiro município do par de `stg_bd__vizinhanca` (ano mais recente, nos dois sentidos) | não recebe a chave `-1` (ver a descrição) |
+| `sk_municipio_vizinho` | `integer` | Município vizinho; FK para `dim_municipio.sk_municipio`. Sem chave `-1`: par com município fora de `dim_municipio` é descartado. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | linhagem: `dim_municipio.sk_municipio` do segundo município do par de `stg_bd__vizinhanca` (ano mais recente, nos dois sentidos) | não recebe a chave `-1` (ver a descrição) |
 
 ## Gold — marts originais
 
@@ -1915,28 +1916,28 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `cnpj_raiz` | `varchar` | 8 primeiros dígitos de CNPJ da empresa. Linhagem: `empresas.cnpj_raiz`, prefixado (lpad) com '0'. Domínio: caracteres numéricos, prefixado com 0s se necessário. | não testado | — | linhagem: `empresas.cnpj_raiz`, prefixado (lpad) com '0' | — |
-| `cnpj_completo` | `varchar` | CNPJ completo da empresa, com 14 dígitos. Linhagem: `estabelecimentos.cnpj_raiz`, `cnpj_ordem`, `cnpj_dv`, cada um prefixado (lpad) com '0'. | não (`not_null`) | — | linhagem: `estabelecimentos.cnpj_raiz`, `cnpj_ordem`, `cnpj_dv`, cada um prefixado (lpad) com '0' | — |
-| `nome` | `varchar` | Nome da empresa. Linhagem: `estabelecimentos.nome_fantasia`; `empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005, emenda R2-01): sem espaços nas bordas (`trim` do staging), que o original mantinha (fev/2025: ~752 razões sociais com espaço à esquerda); o teste `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas. **Adaptado** (ADR-0008, emenda R4-01, decisão do usuário): o CPF que encerra a razão social do empresário individual/MEI (todo trecho de exatamente 11 dígitos, no fim ou no meio do nome, sem exigir DV: 908 CPFs reais vêm no meio) sai como `***.***.***-**` (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste `sem_cpf_no_nome` (error) barra CPF com DV válido. | não testado | — | linhagem: `estabelecimentos.nome_fantasia`; `empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
-| `natureza_juridica` | `varchar` | Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais). Linhagem: `natureza_juridica.descricao` com `codigo = empresas.natureza_jur`; upper case. | não testado | — | linhagem: `natureza_juridica.descricao` com `codigo = empresas.natureza_jur`; upper case | — |
-| `porte` | `varchar` | Porte da empresa, i.e. uma espécie de "tamanho" (em termos de faturamento). Linhagem: `empresas.porte`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro valor ou vazio → NULL. | não testado | valores: `N/A`, `MICRO`, `PEQUENA`, `DEMAIS` | linhagem: `empresas.porte`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro valor ou vazio → NULL | — |
-| `cnae_principal` | `varchar` | Subclasse do CNAE (código nacional de atividade econômica) principal da empresa. Linhagem: `estabelecimentos.CNAE_principal`, sem transformação. Domínio: 7 caracteres numéricos (classificação IBGE). | não testado | tamanho exato: 7 | linhagem: `estabelecimentos.CNAE_principal`, sem transformação | — |
-| `desc_cnae_principal` | `varchar` | Descrição textual da subclasse do CNAE principal. Linhagem: `cnae_bd.descricao_subclasse` com `subclasse = estabelecimentos.CNAE_principal`; upper case. | não testado | — | linhagem: `cnae_bd.descricao_subclasse` com `subclasse = estabelecimentos.CNAE_principal`; upper case | — |
-| `grupo_cnae_principal` | `varchar` | Descrição textual do grupo (3 primeiros dígitos do CNAE) do CNAE principal. Linhagem: `cnae_bd.descricao_grupo` com `subclasse = estabelecimentos.CNAE_principal`; upper case. | não testado | — | linhagem: `cnae_bd.descricao_grupo` com `subclasse = estabelecimentos.CNAE_principal`; upper case | — |
-| `cnaes_secundarios` | `varchar` | Subclasses dos CNAEs secundários, separadas por vírgula. Linhagem: `estabelecimentos.CNAEs_secundarios`, sem transformação. | não testado | — | linhagem: `estabelecimentos.CNAEs_secundarios`, sem transformação | — |
-| `municipio` | `varchar` | Nome do município do estabelecimento. Linhagem: `municipio_bd.nome` com `id_municipio_rf = estabelecimentos.municipio`; upper case. | não testado | — | linhagem: `municipio_bd.nome` com `id_municipio_rf = estabelecimentos.municipio`; upper case | — |
-| `microrregiao_municipio` | `varchar` | Nome da microrregião (agregado de municípios vizinhos) do município. Linhagem: `municipio_bd.nome_microrregiao`; upper case. | não testado | — | linhagem: `municipio_bd.nome_microrregiao`; upper case | — |
-| `mesorregiao_municipio` | `varchar` | Nome da mesorregião (agregado de microrregiões vizinhas) do município. Linhagem: `municipio_bd.nome_mesorregiao`; upper case. | não testado | — | linhagem: `municipio_bd.nome_mesorregiao`; upper case | — |
-| `uf` | `varchar` | Sigla da UF do município (`UF` no original). Linhagem: `municipio_bd.sigla_UF`; upper case. | não testado | — | linhagem: `municipio_bd.sigla_UF`; upper case | — |
-| `situacao` | `varchar` | Situação da empresa, se ativa ou inativa. Linhagem: `estabelecimentos.situacao`, mapeado 2 → "ATIVA", qualquer outro código → "INATIVA". | não testado | valores: `ATIVA`, `INATIVA` | linhagem: `estabelecimentos.situacao`, mapeado 2 → "ATIVA", qualquer outro código → "INATIVA" | — |
-| `idade_atual` | `double` | Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem: `estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`. **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do extrato (`data_referencia`), para ser determinística. Fora de [0, 200] anos é dado absurdo da RFB (fev/2025: 2 ativos, inícios em 1199 e 1601): avisa (warn) e só falha acima de 100 linhas (spec Original AC 12, emenda R2-02). A data não é anulada no staging, para manter a paridade. | não testado | `0` ≤ valor ≤ `200` | linhagem: `estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)` | — |
+| `cnpj_raiz` | `varchar` | 8 primeiros dígitos de CNPJ da empresa. Linhagem: `stg_rfb__empresas.cnpj_raiz`, prefixado com '0' no staging. Domínio: caracteres numéricos, prefixado com 0s se necessário. | não testado | — | linhagem: `stg_rfb__empresas.cnpj_raiz`, prefixado com '0' no staging | — |
+| `cnpj_completo` | `varchar` | CNPJ completo da empresa, com 14 dígitos. Linhagem: `stg_rfb__estabelecimentos.cnpj_completo` (`cnpj_raiz`, `cnpj_ordem` e `cnpj_dv`, cada um prefixado com '0' no staging). | não (`not_null`) | — | linhagem: `stg_rfb__estabelecimentos.cnpj_completo` (`cnpj_raiz`, `cnpj_ordem` e `cnpj_dv`, cada um prefixado com '0' no staging) | — |
+| `nome` | `varchar` | Nome da empresa. Linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005): sem espaços nas bordas (`trim` do staging), que o original mantinha (fev/2025: ~752 razões sociais com espaço à esquerda); o teste `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas. **Adaptado** (ADR-0008): o CPF que encerra a razão social do empresário individual/MEI (todo trecho de exatamente 11 dígitos, no fim ou no meio do nome, sem exigir DV: 908 CPFs reais vêm no meio) sai como `***.***.***-**` (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste `sem_cpf_no_nome` (error) barra CPF com DV válido. | não testado | — | linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
+| `natureza_juridica` | `varchar` | Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais). Linhagem: `stg_rfb__naturezas.descricao` com `codigo = stg_rfb__empresas.natureza_juridica_codigo`; upper case. | não testado | — | linhagem: `stg_rfb__naturezas.descricao` com `codigo = stg_rfb__empresas.natureza_juridica_codigo`; upper case | — |
+| `porte` | `varchar` | Porte da empresa, i.e. uma espécie de "tamanho" (em termos de faturamento). Linhagem: `stg_rfb__empresas.porte_codigo`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro valor ou vazio → NULL. | não testado | valores: `N/A`, `MICRO`, `PEQUENA`, `DEMAIS` | linhagem: `stg_rfb__empresas.porte_codigo`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro valor ou vazio → NULL | — |
+| `cnae_principal` | `varchar` | Subclasse do CNAE (código nacional de atividade econômica) principal da empresa. Linhagem: `stg_rfb__estabelecimentos.cnae_principal`, sem transformação. Domínio: 7 caracteres numéricos (classificação IBGE). | não testado | tamanho exato: 7 | linhagem: `stg_rfb__estabelecimentos.cnae_principal`, sem transformação | — |
+| `desc_cnae_principal` | `varchar` | Descrição textual da subclasse do CNAE principal. Linhagem: `stg_bd__cnaes.descricao_subclasse` com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case. | não testado | — | linhagem: `stg_bd__cnaes.descricao_subclasse` com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case | — |
+| `grupo_cnae_principal` | `varchar` | Descrição textual do grupo (3 primeiros dígitos do CNAE) do CNAE principal. Linhagem: `stg_bd__cnaes.descricao_grupo` com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case. | não testado | — | linhagem: `stg_bd__cnaes.descricao_grupo` com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case | — |
+| `cnaes_secundarios` | `varchar` | Subclasses dos CNAEs secundários, separadas por vírgula. Linhagem: `stg_rfb__estabelecimentos.cnaes_secundarios`, sem transformação. | não testado | — | linhagem: `stg_rfb__estabelecimentos.cnaes_secundarios`, sem transformação | — |
+| `municipio` | `varchar` | Nome do município do estabelecimento. Linhagem: `stg_bd__municipios.nome` com `id_municipio_rf = stg_rfb__estabelecimentos.municipio_rfb_codigo`; upper case. | não testado | — | linhagem: `stg_bd__municipios.nome` com `id_municipio_rf = stg_rfb__estabelecimentos.municipio_rfb_codigo`; upper case | — |
+| `microrregiao_municipio` | `varchar` | Nome da microrregião (agregado de municípios vizinhos) do município. Linhagem: `stg_bd__municipios.nome_microrregiao`; upper case. | não testado | — | linhagem: `stg_bd__municipios.nome_microrregiao`; upper case | — |
+| `mesorregiao_municipio` | `varchar` | Nome da mesorregião (agregado de microrregiões vizinhas) do município. Linhagem: `stg_bd__municipios.nome_mesorregiao`; upper case. | não testado | — | linhagem: `stg_bd__municipios.nome_mesorregiao`; upper case | — |
+| `uf` | `varchar` | Sigla da UF do município (`UF` no original). Linhagem: `stg_bd__municipios.sigla_uf`; upper case. | não testado | — | linhagem: `stg_bd__municipios.sigla_uf`; upper case | — |
+| `situacao` | `varchar` | Situação da empresa, se ativa ou inativa. Linhagem: `stg_rfb__estabelecimentos.situacao_codigo`, mapeado 2 → "ATIVA", qualquer outro código → "INATIVA". | não testado | valores: `ATIVA`, `INATIVA` | linhagem: `stg_rfb__estabelecimentos.situacao_codigo`, mapeado 2 → "ATIVA", qualquer outro código → "INATIVA" | — |
+| `idade_atual` | `double` | Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem: `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`. **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do extrato (`data_referencia`), para ser determinística. Fora de [0, 200] anos é dado absurdo da RFB (fev/2025: 2 ativos, inícios em 1199 e 1601): avisa (warn) e só falha acima de 100 linhas. A data não é anulada no staging, para manter a paridade. | não testado | `0` ≤ valor ≤ `200` | linhagem: `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)` | — |
 
 ## Gold — marts analíticos
 
 <a id="mart_concorrencia_area_mercado"></a>
 #### `mart_concorrencia_area_mercado`
 
-ENR-03 (incremento `enriquecimento_bd`, ADR-0015): concorrência na área de mercado por CNAE principal × município: os pares com estabelecimento no município (como `mart_concorrencia_municipio`) e os vazios de mercado (P23), isto é, municípios sem o CNAE cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` = false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em `gold/mart_concorrencia_area_mercado.parquet`.
+Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por CNAE principal × município: os pares com estabelecimento no município (como `mart_concorrencia_municipio`) e os vazios de mercado, isto é, municípios sem o CNAE cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` = false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em `gold/mart_concorrencia_area_mercado.parquet`.
 
 | Atributo | Valor |
 |---|---|
@@ -1980,7 +1981,7 @@ ENR-03 (incremento `enriquecimento_bd`, ADR-0015): concorrência na área de mer
 <a id="mart_concorrencia_municipio"></a>
 #### `mart_concorrencia_municipio`
 
-ANA-01 (adição): densidade de concorrência por CNAE principal × município. `ativos` e `inativos` pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 / população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.
+Densidade de concorrência por CNAE principal × município. `ativos` e `inativos` pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 / população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.
 
 | Atributo | Valor |
 |---|---|
@@ -1999,7 +2000,7 @@ ANA-01 (adição): densidade de concorrência por CNAE principal × município. 
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `sk_cnae` | `integer` | Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
+| `sk_cnae` | `integer` | Chave de `dim_cnae`; `-1` para CNAE sem par no BD. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
 | `cnae_principal` | `varchar` | Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD. | não (`not_null`) | — | — | chave sentinela: `-1` |
 | `desc_cnae_principal` | `varchar` | Descrição da subclasse (Base dos Dados). | não testado | — | — | — |
 | `sk_municipio` | `integer` | Chave de `dim_municipio`; `-1` para município sem par no BD. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | chave sentinela: `-1` |
@@ -2014,7 +2015,7 @@ ANA-01 (adição): densidade de concorrência por CNAE principal × município. 
 <a id="mart_dinamica_mercado"></a>
 #### `mart_dinamica_mercado`
 
-ANA-03 (adição): aberturas, encerramentos e saldo por ano × CNAE principal × município. Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`). Datas nulas não geram evento.
+Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal × município. Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`). Datas nulas não geram evento.
 
 | Atributo | Valor |
 |---|---|
@@ -2034,8 +2035,8 @@ ANA-03 (adição): aberturas, encerramentos e saldo por ano × CNAE principal ×
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
 | `ano` | `integer` | Ano calendário do evento (abertura ou encerramento). | não (`not_null`) | — | — | — |
-| `sk_cnae` | `integer` | Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
-| `sk_municipio` | `integer` | Chave de `dim_municipio` (R3-20); `-1` para município sem par no BD. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | chave sentinela: `-1` |
+| `sk_cnae` | `integer` | Chave de `dim_cnae`; `-1` para CNAE sem par no BD. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
+| `sk_municipio` | `integer` | Chave de `dim_municipio`; `-1` para município sem par no BD. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | chave sentinela: `-1` |
 | `cnae_principal` | `varchar` | Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD. | não (`not_null`) | — | — | chave sentinela: `-1` |
 | `desc_cnae_principal` | `varchar` | Descrição da subclasse (Base dos Dados). | não testado | — | — | — |
 | `municipio` | `varchar` | Nome do município (acentuado, Base dos Dados). | não testado | — | — | — |
@@ -2047,7 +2048,7 @@ ANA-03 (adição): aberturas, encerramentos e saldo por ano × CNAE principal ×
 <a id="mart_fornecedores_proximos"></a>
 #### `mart_fornecedores_proximos`
 
-ANA-04 (adição): fornecedores ATIVOS do município do caso (vars `caso_municipio`/`caso_uf`) cujo CNAE principal ou secundário está em `caso_cnaes_fornecedores`, a até `raio_fornecedores_km` do centroide do município (haversine entre centroides da Base dos Dados). Uma linha por estabelecimento; `via` indica se casou pelo CNAE principal ou por um secundário.
+Fornecedores próximos: fornecedores ATIVOS do município do caso (vars `caso_municipio`/`caso_uf`) cujo CNAE principal ou secundário está em `caso_cnaes_fornecedores`, a até `raio_fornecedores_km` do centroide do município (haversine entre centroides da Base dos Dados). Uma linha por estabelecimento; `via` indica se casou pelo CNAE principal ou por um secundário.
 
 | Atributo | Valor |
 |---|---|
@@ -2067,11 +2068,11 @@ ANA-04 (adição): fornecedores ATIVOS do município do caso (vars `caso_municip
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
 | `cnpj_completo` | `varchar` | CNPJ de 14 dígitos do fornecedor. | não (`not_null`) | — | — | — |
-| `nome` | `varchar` | Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11 dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008, emenda R4-01). | não testado | — | — | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
-| `sk_cnae` | `integer` | Chave de `dim_cnae` do CNAE fornecido (R3-20); `-1` se o CNAE não existe na dimensão. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
+| `nome` | `varchar` | Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11 dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008). | não testado | — | — | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
+| `sk_cnae` | `integer` | Chave de `dim_cnae` do CNAE fornecido; `-1` se o CNAE não existe na dimensão. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
 | `cnae_fornecido` | `varchar` | CNAE (7 dígitos) que qualificou o fornecedor (principal; senão o menor secundário que casa). | não (`not_null`) | — | — | — |
 | `via` | `varchar` | `principal` ou `secundario`. | não testado | valores: `principal`, `secundario` | — | — |
-| `sk_municipio` | `integer` | Chave de `dim_municipio` do município do fornecedor (R3-20). | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | sem par na dimensão → chave `-1` |
+| `sk_municipio` | `integer` | Chave de `dim_municipio` do município do fornecedor. Sem chave `-1`: fornecedor sem município na dimensão ou sem centroide fica de fora do mart. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | — | não recebe a chave `-1` (ver a descrição) |
 | `municipio` | `varchar` | Município do fornecedor. | não testado | — | — | — |
 | `uf` | `varchar` | Sigla da UF do município do fornecedor (`dim_municipio.sigla_uf`). | não testado | — | — | — |
 | `distancia_km` | `double` | Distância haversine (km, 2 casas) do centroide do município do caso. | não (`not_null`) | valor ≥ `0` | — | — |
@@ -2079,7 +2080,7 @@ ANA-04 (adição): fornecedores ATIVOS do município do caso (vars `caso_municip
 <a id="mart_sobrevivencia_coorte"></a>
 #### `mart_sobrevivencia_coorte`
 
-ANA-02 (adição): sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF, a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`); sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis. Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`.
+Sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF, a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`); sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis. Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`.
 
 | Atributo | Valor |
 |---|---|
@@ -2100,9 +2101,9 @@ ANA-02 (adição): sobrevivência por coorte (ano de início da atividade) × CN
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
 | `ano_coorte` | `bigint` | Ano de `dat_inicio_atividade` do estabelecimento. | não (`not_null`) | — | — | — |
-| `sk_cnae` | `integer` | Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1`; entidade semântica `cnae` (foreign) |
+| `sk_cnae` | `integer` | Chave de `dim_cnae`; `-1` para CNAE sem par no BD. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1`; entidade semântica `cnae` (foreign) |
 | `cnae_principal` | `varchar` | Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD. | não (`not_null`) | — | — | chave sentinela: `-1` |
-| `sk_porte` | `integer` | Chave de `dim_porte` (R3-20). | não (`not_null`) | FK → [`dim_porte`](#dim_porte).`sk_porte` | — | sem par na dimensão → chave `-1`; entidade semântica `porte` (foreign) |
+| `sk_porte` | `integer` | Chave de `dim_porte`. | não (`not_null`) | FK → [`dim_porte`](#dim_porte).`sk_porte` | — | sem par na dimensão → chave `-1`; entidade semântica `porte` (foreign) |
 | `porte` | `varchar` | Rótulo do porte (`dim_porte`); NÃO INFORMADO para porte vazio. | não testado | — | — | — |
 | `uf` | `varchar` | Sigla da UF do município; `NI` para município sem par no BD. | não testado | — | — | dimensão semântica (categorical) |
 | `estabelecimentos` | `bigint` | Estabelecimentos do estrato (independente de elegibilidade). | não testado | — | — | — |
@@ -2121,7 +2122,7 @@ ANA-02 (adição): sobrevivência por coorte (ano de início da atividade) × CN
 <a id="audit__bh_empresas_sql_original"></a>
 #### `audit__bh_empresas_sql_original`
 
-SQL do notebook 3 (`bh_empresas`) traduzido literalmente para DuckDB sobre as fontes raw, emulando o `inferSchema` do Spark (códigos só de dígitos como inteiro). Efêmero: só existe como CTE do teste `paridade_bh_empresas` (ADR-0005). Alinha `cnae_principal` (7 dígitos) e `nome` (trim, emenda R2-01; CPF mascarado, ADR-0008 emenda R4-01) no select final.
+SQL do notebook 3 (`bh_empresas`) traduzido literalmente para DuckDB sobre as fontes raw, emulando o `inferSchema` do Spark (códigos só de dígitos como inteiro). Efêmero: só existe como CTE do teste `paridade_bh_empresas` (ADR-0005). Alinha `cnae_principal` (7 dígitos) e `nome` (com `trim`; CPF mascarado, ADR-0008) no select final.
 
 | Atributo | Valor |
 |---|---|
