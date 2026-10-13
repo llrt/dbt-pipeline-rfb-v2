@@ -48,7 +48,8 @@ O pedido citou três regras. Duas viram checks diretos, a terceira precisa de tr
   domínio, os secundários estão no domínio, não repetem o principal e não se repetem.
 - **"MEI não pode ter mais de um estabelecimento":** é a LC 123, art. 18-A, § 4º, II. Vira [RN-05](#rn-05), por
   empresa (CNPJ básico) com opção pelo MEI no arquivo Simples. O estabelecimento baixado continua no extrato, mas
-  não é mais um estabelecimento da empresa: a violação é ter **mais de um não baixado**. Junto vêm as regras
+  não é mais um estabelecimento da empresa: a violação é ter **mais de um não baixado** de situação conhecida, e a
+  situação nula não deixa a empresa parecer limpa (quebra "indeterminado"). Junto vêm as regras
   vizinhas do MEI: optante do Simples ([RN-06](#rn-06)), microempresa ([RN-07](#rn-07)), natureza jurídica
   ([RN-08](#rn-08), observação), não ser sociedade ([RN-29](#rn-29)) e datas ([RN-09](#rn-09), [RN-25](#rn-25),
   [RN-26](#rn-26), [RN-28](#rn-28)).
@@ -141,18 +142,24 @@ colchetes estão em [Fontes](#fontes).
 <a id="rn-05"></a>
 ### RN-05 — MEI tem um único estabelecimento não baixado
 
-- **Enunciado:** a empresa com opção pelo MEI tem no máximo um estabelecimento não baixado no extrato.
+- **Enunciado:** a empresa com opção pelo MEI tem no máximo um estabelecimento não baixado no extrato. A situação
+  nula (vazia ou ilegível no extrato) não conta como baixada nem como não baixada.
 - **Tipo:** legal.
 - **Fonte:** [LC 123], art. 18-A, § 4º, II: não pode optar pelo SIMEI o MEI "que possua mais de um estabelecimento".
 - **Dados:** [`stg_rfb__simples`](DICIONARIO_DADOS.md#stg_rfb__simples)`.opcao_mei` × estabelecimentos do mesmo
   CNPJ básico em `int_estabelecimentos__enriquecidos`. Universo: empresas (CNPJ básico) com opção pelo MEI, pela
-  quantidade de estabelecimentos. Viola a faixa "mais de um não baixado"; a faixa "mais de um, no máximo um não
-  baixado" é informativa e não viola.
+  quantidade de estabelecimentos. Viola a faixa "mais de um não baixado" (de situação conhecida). Não violam: "mais
+  de um, no máximo um não baixado" e "indeterminado (situação desconhecida)", a empresa com algum estabelecimento de
+  situação nula que teria mais de um não baixado se esses contassem como não baixados (ex.: um ATIVO e um de
+  situação nula). O indeterminado não entra nas violações porque a situação não é conhecida, e não entra no "no
+  máximo um" para a falta de informação não parecer cadastro limpo.
 - **Conceito:** [Simples Nacional e MEI](CAMADA_SEMANTICA.md#simples-nacional-e-mei); ontologia `rfbo:OpcaoMEI`.
 - **Leitura de uma violação:** mais de um estabelecimento não baixado é erro de dado ou desenquadramento ainda não
   registrado (defasagem). Os estabelecimentos baixados além do único não baixado são comportamento conhecido do
   cadastro (o baixado continua no extrato) e não contrariam a lei: aparecem na quebra, sem violação. A RSEM já
-  tinha visto 3.749 filiais de MEI no dado real de 2026-09, quase todas baixadas.
+  tinha visto 3.749 filiais de MEI no dado real de 2026-09, quase todas baixadas. O "indeterminado" é lacuna de
+  dado, não violação. O build não a barra: a situação vazia fica fora do teste `taxa_conversao_tipada`, e a ilegível
+  só avisa até 5 % de perda. É aqui que a lacuna aparece.
 - **Analysis:** `transform/analyses/regras_negocio/rn_05_mei_estabelecimento_unico.sql`.
 
 <a id="rn-06"></a>
