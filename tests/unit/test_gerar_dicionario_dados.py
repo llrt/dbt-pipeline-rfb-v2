@@ -146,6 +146,17 @@ def test_dominio_marca_warn_em_accepted_values() -> None:
     assert _linha(fato, "situacao")[4] == "valores: `1`, `2` (`warn`)"
 
 
+def test_limiares_fora_do_padrao_marcam_aviso_mesmo_com_severity_error() -> None:
+    """`error_if: ">100"` abre uma faixa de aviso (1..100 linhas): o dicionário não pode vender como firme."""
+    teste = _teste("test.rfb.t11", "dim_a", "codigo", "not_null")
+    assert gerador._marca(teste) == ""
+    teste["config"].update({"warn_if": "!=0", "error_if": ">100"})
+    assert gerador._marca(teste) == " (`warn` até 100 linhas; `error` acima)"
+    teste["config"]["error_if"] = "<5"
+    assert gerador._marca(teste) == " (`warn`)"
+    assert gerador._severidade(teste) == "warn"
+
+
 def test_chave_primaria_e_outras_chaves_marcam_warn() -> None:
     texto = gerador.gerar(_manifesto())
     dim = _secao(texto, "dim_a")

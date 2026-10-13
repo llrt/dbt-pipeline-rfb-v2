@@ -279,7 +279,7 @@ Uma linha por empresa (CNPJ raiz, 8 primeiros dígitos). Notebook original: 1 (c
 | Atributo | Valor |
 |---|---|
 | Grão | Uma linha por empresa (`cnpj_raiz`) por mês de referência. |
-| Chave primária (testada) | `cnpj_raiz` + `_mes_referencia` |
+| Chave primária (testada) | `cnpj_raiz` + `_mes_referencia` (teste `warn`) |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
 | Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
@@ -1132,7 +1132,7 @@ População estimada por município e ano (adição), tipada: `ano` inteiro, `po
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `id_municipio` | `varchar` | Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`). | não (`not_null`) | — | — | — |
+| `id_municipio` | `varchar` | Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`). | em geral não (`not_null` `warn`: pode haver exceções) | — | — | — |
 | `sigla_uf` | `varchar` | Sigla da UF do município. | não testado | — | — | — |
 | `ano` | `integer` | Ano de referência da estimativa populacional. | não (`not_null`) | — | — | — |
 | `populacao` | `bigint` | População estimada no município e ano. | não testado | valor ≥ `1` (`warn`) | — | — |
@@ -1930,7 +1930,7 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 | `mesorregiao_municipio` | `varchar` | Nome da mesorregião (agregado de microrregiões vizinhas) do município. Linhagem: `stg_bd__municipios.nome_mesorregiao`; upper case. | não testado | — | linhagem: `stg_bd__municipios.nome_mesorregiao`; upper case | — |
 | `uf` | `varchar` | Sigla da UF do município (`UF` no original). Linhagem: `stg_bd__municipios.sigla_uf`; upper case. | não testado | — | linhagem: `stg_bd__municipios.sigla_uf`; upper case | — |
 | `situacao` | `varchar` | Situação da empresa, se ativa ou inativa. Linhagem: `stg_rfb__estabelecimentos.situacao_codigo`, mapeado 2 → "ATIVA", qualquer outro código → "INATIVA". | não testado | valores: `ATIVA`, `INATIVA` | linhagem: `stg_rfb__estabelecimentos.situacao_codigo`, mapeado 2 → "ATIVA", qualquer outro código → "INATIVA" | — |
-| `idade_atual` | `double` | Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem: `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`. **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do extrato (`data_referencia`), para ser determinística. Fora de [0, 200] anos é dado absurdo da RFB (fev/2025: 2 ativos, inícios em 1199 e 1601): avisa (warn) e só falha acima de 100 linhas. A data não é anulada no staging, para manter a paridade. | não testado | `0` ≤ valor ≤ `200` | linhagem: `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)` | — |
+| `idade_atual` | `double` | Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem: `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`. **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do extrato (`data_referencia`), para ser determinística. Fora de [0, 200] anos é dado absurdo da RFB (fev/2025: 2 ativos, inícios em 1199 e 1601): avisa (warn) e só falha acima de 100 linhas. A data não é anulada no staging, para manter a paridade. | não testado | `0` ≤ valor ≤ `200` (`warn` até 100 linhas; `error` acima) | linhagem: `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)` | — |
 
 ## Gold — marts analíticos
 

@@ -201,13 +201,35 @@ def _tabelas(manifesto: dict, catalogo: dict | None) -> list[Tabela]:
     return sorted(tabelas, key=lambda t: t.nome)
 
 
+_LIMIAR_PADRAO = "!=0"
+
+
+def _limiar(config: dict, chave: str) -> str:
+    return str(config.get(chave, _LIMIAR_PADRAO)).replace(" ", "")
+
+
 def _severidade(teste: dict) -> str:
-    return str((teste.get("config") or {}).get("severity", "error")).lower()
+    """`warn` quando o teste pode avisar: severidade `warn` ou `warn_if`/`error_if` fora do padrão
+    (mesma regra de `pode_avisar` em tests/integration/test_store_failures.py)."""
+    config = teste.get("config") or {}
+    fora_do_padrao = any(_limiar(config, c) != _LIMIAR_PADRAO for c in ("warn_if", "error_if"))
+    if str(config.get("severity", "error")).lower() == "warn" or fora_do_padrao:
+        return "warn"
+    return "error"
 
 
 def _marca(teste: dict) -> str:
-    """` (`warn`)` quando o teste não barra o build: o valor pode ser violado no dado."""
-    return "" if _severidade(teste) == "error" else f" (`{_severidade(teste)}`)"
+    """` (`warn`)` quando o teste não barra o build: o valor pode ser violado no dado.
+    Com `error_if` de limiar, detalha: `warn` até o limiar, `error` acima."""
+    if _severidade(teste) == "error":
+        return ""
+    config = teste.get("config") or {}
+    erro = _limiar(config, "error_if")
+    if str(config.get("severity", "error")).lower() == "error" and erro != _LIMIAR_PADRAO:
+        m = re.fullmatch(r">(\d+)", erro)
+        if m:
+            return f" (`warn` até {m[1]} linhas; `error` acima)"
+    return " (`warn`)"
 
 
 def _chave_unica(t: Tabela) -> tuple[dict[str, str], list[tuple[list[str], str]]]:

@@ -272,3 +272,11 @@ def test_fks_declaradas_e_semanticas_aparecem_na_tabela_e_no_diagrama(manifesto_
         assert f'    {tabela} }}o--|| {alvo} : "{coluna}"' in diagrama, (
             f"{tabela}.{coluna} → {alvo}"
         )
+
+
+def test_faixa_de_idade_atual_e_marcada_como_aviso() -> None:
+    """`accepted_range` de `bh_empresas.idade_atual` tem `error_if: ">100"`: 1..100 linhas só avisam."""
+    texto = DICIONARIO.read_text(encoding="utf-8")
+    secao = texto.split("#### `bh_empresas`\n", 1)[1].split("\n#### ", 1)[0]
+    linha = next(x for x in secao.splitlines() if x.startswith("| `idade_atual` |"))
+    assert "`0` ≤ valor ≤ `200` (`warn` até 100 linhas; `error` acima)" in linha
