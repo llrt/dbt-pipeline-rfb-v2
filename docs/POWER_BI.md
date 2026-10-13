@@ -10,6 +10,9 @@ analíticas, sem modelo para BI.
 >
 > **Tamanho do resumo (medido em fev/2025, 64,5 M estabelecimentos):** 5,44 M linhas por mês e 55 MB de Parquet por partição (64,5 M estabelecimentos; 5.571 municípios e 1.342 subclasses; build de `+fct_resumo_mensal +dim_data` em 140 s, pico de RSS 13,9 GB com `DUCKDB_THREADS=4`). O grão anterior tinha 22,0 M linhas (202 MB). Mesmo assim, 24 meses somam ~130 M linhas: para o Import use os **últimos 24 meses**, e para séries mais longas filtre município/CNAE na consulta (ODBC com SQL nativo) ou agregue por classe.
 
+O detalhe dos campos de cada tabela do `gold/` (tipo, grão, chaves, domínio de valores e origem de cada coluna)
+está no [dicionário de dados](DICIONARIO_DADOS.md), gerado do manifesto do dbt (ADR-0019).
+
 ## Como o Power BI acessa os dados
 
 Há três caminhos para chegar aos marts. Todos partem do mesmo `gold/` (o contrato do projeto); o que muda é

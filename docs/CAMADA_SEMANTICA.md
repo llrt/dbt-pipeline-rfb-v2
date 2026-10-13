@@ -681,6 +681,10 @@ Elementos do padrão usados aqui:
 | `metrics:` | métricas `simple`, `ratio` e `derived` do próprio modelo |
 | `time_spine:` | calendário diário que o MetricFlow usa para deslocamentos e janelas |
 
+O detalhe dos campos de cada tabela (tipo, grão, chaves, domínio, origem, e as entidades, dimensões e métricas
+desta camada em cada modelo) está no [dicionário de dados](DICIONARIO_DADOS.md), gerado do manifesto do dbt
+(`make dicionario`, [ADR-0019](adr/0019-dicionario-de-dados.md)).
+
 ### B2. Entidades e junções
 
 ```mermaid

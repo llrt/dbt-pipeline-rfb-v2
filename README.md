@@ -34,6 +34,7 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 | [docs/EXECUCAO_REAL.md](docs/EXECUCAO_REAL.md) | execução real (2026-09), tempos, volumes, avisos e paridade com o notebook 4 |
 | [docs/POWER_BI.md](docs/POWER_BI.md) | modelo estrela e acesso pelo Power BI |
 | [docs/CAMADA_SEMANTICA.md](docs/CAMADA_SEMANTICA.md) | camada semântica (dbt/MetricFlow): conceitos de negócio do CNPJ (empresa × estabelecimento, porte, MEI, situação cadastral), ontologia, entidades, métricas e consultas salvas |
+| [docs/DICIONARIO_DADOS.md](docs/DICIONARIO_DADOS.md) | dicionário de dados: o detalhe dos campos de cada tabela (fontes, staging, gold...), com tipo, grão, chaves e origem; gerado e conferido no CI |
 | [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt |
 | [.specs/features/rfb-dbt-port/](.specs/features/rfb-dbt-port/spec.md) | spec (EARS) e tarefas |
 
