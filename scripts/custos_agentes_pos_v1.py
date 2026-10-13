@@ -159,7 +159,10 @@ for linha in (
     / "-Users-llrt-dev-workspaces-code-to-learn-vibe-traycer-dbt-pipeline-rfb-v2"
     / "96cb3a2c-0308-42ab-8801-7378d5689b08.jsonl"
 ).open():
-    o = json.loads(linha)
+    try:
+        o = json.loads(linha)
+    except json.JSONDecodeError:
+        continue
     t = o.get("timestamp")
     if not t:
         continue
