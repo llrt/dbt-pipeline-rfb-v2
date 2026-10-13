@@ -227,3 +227,48 @@ def test_identificadores_de_tabela_citados_existem(manifesto_e_catalogo) -> None
         if base.startswith(PREFIXOS) and base not in existentes and not base.endswith("*"):
             inexistentes.add(base)
     assert not inexistentes, f"identificadores inexistentes no dicionário: {sorted(inexistentes)}"
+
+
+def test_fks_declaradas_e_semanticas_aparecem_na_tabela_e_no_diagrama(manifesto_e_catalogo) -> None:
+    """Toda FK sem teste (`meta.fk_declarada` ou entidade `foreign`) de fato/ponte consta da seção e do `erDiagram`."""
+    manifesto, _ = _carregar(manifesto_e_catalogo)
+    texto = DICIONARIO.read_text(encoding="utf-8")
+    diagrama = texto.split("```mermaid\nerDiagram\n", 1)[1].split("\n```", 1)[0]
+    # A FK de `sk_mes_referencia` não tem `relationships` nem entidade semântica: só `meta.fk_declarada`.
+    assert '    fct_resumo_mensal }o--|| dim_data : "sk_mes_referencia"' in diagrama
+    secao = texto.split("#### `fct_resumo_mensal`\n", 1)[1].split("\n#### ", 1)[0]
+    assert "`sk_mes_referencia` → [`dim_data`](#dim_data).`sk_data` (declarada)" in secao
+
+    modelos = {
+        n["name"]: n
+        for n in manifesto["nodes"].values()
+        if n["package_name"] == "rfb" and n["resource_type"] == "model"
+    }
+    esperadas: list[tuple[str, str, str, str]] = []  # (tabela, coluna, alvo, rótulo)
+    for nome, no in modelos.items():
+        if not nome.startswith(("fct_", "bridge_")):
+            continue
+        for coluna, decl in no["columns"].items():
+            declarada = gerar_dicionario_dados._meta_coluna(decl).get("fk_declarada")
+            if declarada:
+                esperadas.append((nome, coluna, declarada.split(".")[0], "declarada"))
+    primarias = {
+        e["name"]: s["name"]
+        for s in manifesto["semantic_models"].values()
+        if s["package_name"] == "rfb"
+        for e in s["entities"]
+        if e["type"] == "primary"
+    }
+    for sem in manifesto["semantic_models"].values():
+        if sem["package_name"] != "rfb" or not sem["name"].startswith(("fct_", "bridge_")):
+            continue
+        for entidade in sem["entities"]:
+            if entidade["type"] == "foreign" and entidade["name"] in primarias:
+                esperadas.append(
+                    (sem["name"], entidade["expr"], primarias[entidade["name"]], "semântica")
+                )
+    assert len(esperadas) >= 5
+    for tabela, coluna, alvo, _ in esperadas:
+        assert f'    {tabela} }}o--|| {alvo} : "{coluna}"' in diagrama, (
+            f"{tabela}.{coluna} → {alvo}"
+        )

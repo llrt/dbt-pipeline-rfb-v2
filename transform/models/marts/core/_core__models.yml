@@ -935,7 +935,7 @@ models:
         data_type: varchar
         data_tests: [not_null]
       - name: sk_mes_referencia
-        config: { meta: { linhagem: "`mes_referencia` como `AAAAMM01`", fk_declarada: "dim_data.sk_data", membro_desconhecido: false} }
+        config: { meta: { linhagem: "`mes_referencia` como `AAAAMM01`", fk_declarada: "dim_data.sk_data", membro_desconhecido: false } }
         description: >
           Primeiro dia do mês como `yyyymm01`; mesma chave de `dim_data.sk_data` (relacionamento 1:* no BI). Nunca `-1`: é sempre o mês do extrato.
         data_type: integer
@@ -1078,7 +1078,7 @@ models:
                 field: sk_municipio
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
       - name: sk_municipio_vizinho
-        config: { meta: { linhagem: "`dim_municipio.sk_municipio` do segundo município do par de `stg_bd__vizinhanca` (ano mais recente, nos dois sentidos)", membro_desconhecido: false} }
+        config: { meta: { linhagem: "`dim_municipio.sk_municipio` do segundo município do par de `stg_bd__vizinhanca` (ano mais recente, nos dois sentidos)", membro_desconhecido: false } }
         description: >
           Município vizinho; FK para `dim_municipio.sk_municipio`. Sem chave `-1`: par com município fora de `dim_municipio` é descartado.
         data_type: integer
