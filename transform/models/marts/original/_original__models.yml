@@ -11,6 +11,7 @@ models:
       original (`audit__bh_empresas_sql_original`, teste `paridade_bh_empresas`). Parquet em
       `gold/bh_empresas.parquet`.
     config:
+      meta: { grao: "estabelecimento (`cnpj_completo`) com par em todos os domínios (inner joins do original)" }
       contract:
         enforced: true
     columns:
@@ -153,6 +154,7 @@ models:
       idade média do estrato. Reconciliada com `bh_empresas` (teste
       `agg_empresas_reconciliacao`). Parquet em `gold/agg_empresas.parquet`.
     config:
+      meta: { grao: "combinação das 10 dimensões do original (`municipio`, `microrregiao_municipio`, `mesorregiao_municipio`, `uf`, `cnae_principal`, `desc_cnae_principal`, `grupo_cnae_principal`, `natureza_juridica`, `porte`, `situacao`)" }
       contract:
         enforced: true
     columns:

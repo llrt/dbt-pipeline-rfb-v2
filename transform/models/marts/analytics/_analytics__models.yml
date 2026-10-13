@@ -19,6 +19,7 @@ models:
           arguments:
             combination_of_columns: [cnae_principal, sk_municipio]
     config:
+      meta: { grao: "CNAE principal × município (`cnae_principal`, `sk_municipio`)" }
       contract:
         enforced: true
     columns:
@@ -51,7 +52,7 @@ models:
         description: Nome do município (acentuado, Base dos Dados).
         data_type: varchar
       - name: uf
-        description: Sigla da UF.
+        description: Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).
         data_type: varchar
       - name: populacao
         description: População do município no `ano_populacao`; NULL sem dado.
@@ -85,6 +86,7 @@ models:
           arguments:
             min_value: 1
     config:
+      meta: { grao: "coorte × CNAE principal × porte × UF (`ano_coorte`, `sk_cnae`, `sk_porte`, `uf`)" }
       contract:
         enforced: true
     semantic_model:
@@ -246,6 +248,7 @@ models:
           arguments:
             min_value: 1
     config:
+      meta: { grao: "ano × CNAE principal × município (`ano`, `sk_cnae`, `sk_municipio`)" }
       contract:
         enforced: true
     columns:
@@ -282,7 +285,7 @@ models:
         description: Nome do município (acentuado, Base dos Dados).
         data_type: varchar
       - name: uf
-        description: Sigla da UF.
+        description: Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).
         data_type: varchar
       - name: aberturas
         description: Estabelecimentos com início de atividade no ano.
@@ -308,6 +311,7 @@ models:
           arguments:
             min_value: 1
     config:
+      meta: { grao: "estabelecimento fornecedor (`cnpj_completo`)" }
       contract:
         enforced: true
     columns:
@@ -354,7 +358,7 @@ models:
         description: Município do fornecedor.
         data_type: varchar
       - name: uf
-        description: UF do fornecedor.
+        description: Sigla da UF do município do fornecedor (`dim_municipio.sigla_uf`).
         data_type: varchar
       - name: distancia_km
         description: Distância haversine (km, 2 casas) do centroide do município do caso.
@@ -377,9 +381,9 @@ models:
       o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em
       `gold/mart_concorrencia_area_mercado.parquet`.
     config:
+      meta: { grao: "CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado", incremento: enriquecimento_bd }
       contract:
         enforced: true
-      meta: { incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     data_tests:
       - dbt_expectations.expect_table_row_count_to_be_between:
@@ -422,7 +426,7 @@ models:
         description: Nome do município (acentuado, Base dos Dados).
         data_type: varchar
       - name: uf
-        description: Sigla da UF.
+        description: Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).
         data_type: varchar
       - name: nome_regiao_metropolitana
         description: Região metropolitana do município; `NÃO PERTENCE` fora de região metropolitana.

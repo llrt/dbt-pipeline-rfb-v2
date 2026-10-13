@@ -6,6 +6,7 @@ seeds:
       Domínio de porte da empresa (metadados RFB): `rotulo` reproduz os valores de
       `bh_empresas.porte`. Base de `dim_porte`.
     config:
+      meta: { grao: "código de porte (`codigo`)" }
       column_types: { codigo: integer, rotulo: varchar, descricao: varchar }
     columns:
       - name: codigo
@@ -23,6 +24,7 @@ seeds:
   - name: dominio_situacao_cadastral
     description: Domínio de situação cadastral do estabelecimento (metadados RFB). Base de `dim_situacao_cadastral`.
     config:
+      meta: { grao: "código de situação cadastral (`codigo`)" }
       column_types: { codigo: integer, rotulo: varchar, descricao: varchar }
     columns:
       - name: codigo
@@ -42,6 +44,7 @@ seeds:
       Domínio do indicador matriz/filial do estabelecimento. A fato usa só a flag `eh_matriz`;
       o seed documenta o domínio e valida `matriz_filial_codigo`.
     config:
+      meta: { grao: "código do indicador matriz/filial (`codigo`)" }
       column_types: { codigo: integer, rotulo: varchar, descricao: varchar }
     columns:
       - name: codigo
@@ -57,6 +60,8 @@ seeds:
         description: Descrição por extenso.
 
   - name: excecoes_conhecidas_municipio
+    config:
+      meta: { grao: "código de município da RFB sem par na Base dos Dados (`codigo`)" }
     description: >
       Códigos de município da RFB sem par na Base dos Dados por motivo conhecido (exterior, município
       criado após a base). Aceitos por `cobertura_municipio_rfb_bd`; `excecoes_municipio_obsoletas` avisa

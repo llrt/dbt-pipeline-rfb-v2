@@ -2,6 +2,8 @@ version: 2
 
 models:
   - name: int_municipios__conformados
+    config:
+      meta: { grao: "município IBGE (`sk_municipio`)" }
     description: >
       Município conformado (Base dos Dados + população do `ano_populacao` + PIB do último ano), uma
       linha por município IBGE. Base de `dim_municipio`; não inclui o membro `-1`.
@@ -59,6 +61,7 @@ models:
       geográficas em colunas, centroide, população e PIB. Membro `-1` "NÃO INFORMADO" para
       estabelecimentos sem município na Base dos Dados (exterior, município criado após a base).
     config:
+      meta: { grao: "município (`sk_municipio`), mais o membro `-1`" }
       contract:
         enforced: true
     semantic_model:
@@ -99,7 +102,7 @@ models:
         dimension: categorical
       - name: nome_uf
         description: >
-          Nome da UF.
+          Nome completo da UF do município (por exemplo, `Espírito Santo`), da Base dos Dados; `NÃO INFORMADO` no membro `-1`.
         data_type: varchar
         dimension: categorical
       - name: nome_regiao
@@ -225,6 +228,7 @@ models:
     description: >
       Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo → classe → subclasse (Base dos Dados), código e descrição em colunas separadas. Membro `-1` para CNAE sem par no BD.
     config:
+      meta: { grao: "subclasse CNAE (`sk_cnae`), mais o membro `-1`" }
       contract:
         enforced: true
     semantic_model:
@@ -244,7 +248,7 @@ models:
         dimension: categorical
       - name: descricao_secao
         description: >
-          Descrição da seção.
+          Descrição da seção CNAE (nível mais alto da hierarquia, uma letra), da Base dos Dados.
         data_type: varchar
         dimension: categorical
       - name: codigo_divisao
@@ -264,7 +268,7 @@ models:
         dimension: categorical
       - name: descricao_grupo
         description: >
-          Descrição do grupo.
+          Descrição do grupo CNAE (3 primeiros dígitos da subclasse), da Base dos Dados.
         data_type: varchar
         dimension: categorical
       - name: codigo_classe
@@ -274,7 +278,7 @@ models:
         dimension: categorical
       - name: descricao_classe
         description: >
-          Descrição da classe.
+          Descrição da classe CNAE (5 primeiros dígitos da subclasse), da Base dos Dados.
         data_type: varchar
         dimension: categorical
       - name: codigo_subclasse
@@ -293,6 +297,7 @@ models:
     description: >
       Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio.
     config:
+      meta: { grao: "natureza jurídica (`sk_natureza_juridica`), mais o membro `-1`" }
       contract:
         enforced: true
     semantic_model:
@@ -321,6 +326,7 @@ models:
     description: >
       Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio.
     config:
+      meta: { grao: "porte da empresa (`sk_porte`), mais o membro `-1`" }
       contract:
         enforced: true
     semantic_model:
@@ -340,7 +346,7 @@ models:
         data_tests: [unique, not_null]
       - name: codigo_porte
         description: >
-          Código RFB do porte.
+          Código RFB do porte da empresa em texto (`0` não informado, `1` micro, `3` pequena, `5` demais; `-1` no membro NÃO INFORMADO). Chave natural, igual a `dominio_porte.codigo`.
         data_type: varchar
         dimension: categorical
         data_tests: [unique, not_null]
@@ -358,6 +364,7 @@ models:
     description: >
       Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-1` para código fora do domínio.
     config:
+      meta: { grao: "situação cadastral (`sk_situacao_cadastral`), mais o membro `-1`" }
       contract:
         enforced: true
     semantic_model:
@@ -399,6 +406,7 @@ models:
       DATA INVÁLIDA (anterior a 1900), com datas contíguas ao calendário (1899-12-31 e 1899-12-30)
       para que a tabela seja marcável como tabela de datas no Power BI; `ano`/`mes` ficam NULL neles.
     config:
+      meta: { grao: "dia do calendário (`sk_data`), mais os membros `-1` e `-2`" }
       contract:
         enforced: true
     time_spine: { standard_granularity_column: data }
@@ -415,7 +423,7 @@ models:
         granularity: day
       - name: ano
         description: >
-          Ano (4 dígitos).
+          Ano do dia do calendário (4 dígitos, a partir de 1900).
         data_type: integer
       - name: semestre
         description: >
@@ -427,7 +435,7 @@ models:
         data_type: integer
       - name: mes
         description: >
-          Mês do ano (1 a 12).
+          Mês do ano do dia do calendário (1 a 12).
         data_type: integer
       - name: nome_mes
         description: >
@@ -439,7 +447,7 @@ models:
         data_type: varchar
       - name: dia
         description: >
-          Dia do mês (1 a 31).
+          Dia do mês do dia do calendário (1 a 31).
         data_type: integer
       - name: dia_semana_numero
         description: >
@@ -451,6 +459,8 @@ models:
         data_type: varchar
 
   - name: int_estabelecimentos__enriquecidos
+    config:
+      meta: { grao: "estabelecimento (`cnpj_completo`) do mês selecionado" }
     description: >
       Estabelecimentos do mês selecionado com empresa, Simples/MEI e pares nos domínios, por LEFT
       JOIN: nada é descartado (diferente dos inner joins de `bh_empresas`); a ausência de par vira
@@ -513,6 +523,7 @@ models:
       silenciosos: estabelecimento sem par numa dimensão fica com a chave `-1`. Parquet em
       `gold/fct_estabelecimentos.parquet`; para o Power BI use `fct_resumo_mensal` (modo Import).
     config:
+      meta: { grao: "estabelecimento (`cnpj_completo`)" }
       contract:
         enforced: true
     data_tests:
@@ -715,6 +726,7 @@ models:
       existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)`
       do staging.
     config:
+      meta: { grao: "mês × município × CNAE × porte × situação cadastral × opção MEI (`mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`)" }
       contract:
         enforced: true
     # Integridade referencial: testes singulares `fct_resumo_mensal_relacionamentos_mes` (error, só o
@@ -907,6 +919,8 @@ models:
         data_type: decimal(18,2)
 
   - name: int_cnaes_secundarios__explodidos
+    config:
+      meta: { grao: "estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`)" }
     description: >
       Uma linha por (estabelecimento, CNAE secundário), a partir de `cnaes_secundarios_lista`.
     columns:
@@ -924,6 +938,7 @@ models:
       Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos entre
       `fct_estabelecimentos` e `dim_cnae`). Lista vazia não gera linhas. Opcional no BI.
     config:
+      meta: { grao: "estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`)" }
       contract:
         enforced: true
     data_tests:
@@ -959,9 +974,9 @@ models:
       (`sk_municipio`, `sk_municipio_vizinho`) do ano mais recente da Base dos Dados, simétricos,
       sem autopares nem duplicatas. Base de `mart_concorrencia_area_mercado`; opcional no BI.
     config:
+      meta: { grao: "par de municípios vizinhos do ano mais recente, nos dois sentidos (`sk_municipio`, `sk_municipio_vizinho`)", incremento: enriquecimento_bd }
       contract:
         enforced: true
-      meta: { incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     data_tests:
       - dbt_utils.unique_combination_of_columns:
