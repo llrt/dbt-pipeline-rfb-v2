@@ -14,6 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import duckdb
 import pytest
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -24,9 +25,40 @@ sys.path.insert(0, str(RAIZ / "scripts"))
 
 import gerar_dicionario_dados  # noqa: E402
 
+from rfb_pipeline.esquemas import COLUNAS_TECNICAS, ENTIDADES_RFB, TABELAS_BD  # noqa: E402
+
 pytestmark = pytest.mark.skipif(
     "RAIZ_DADOS" not in os.environ, reason="rode via make ci (exporta RAIZ_DADOS)"
 )
+
+# Campos do leiaute oficial (`cnpj-metadados.pdf`), na ordem do PDF e das colunas posicionais do raw
+# (`esquemas.py`). Conferidos contra o PDF em 2026-10-13 (RDIC); `motivos` não consta do leiaute.
+_CODIGO_DESCRICAO = ["CÓDIGO", "DESCRIÇÃO"]
+LEIAUTE = {
+    "empresas": [
+        "CNPJ BÁSICO", "RAZÃO SOCIAL / NOME EMPRESARIAL", "NATUREZA JURÍDICA",
+        "QUALIFICAÇÃO DO RESPONSÁVEL", "CAPITAL SOCIAL DA EMPRESA", "PORTE DA EMPRESA",
+        "ENTE FEDERATIVO RESPONSÁVEL",
+    ],
+    "estabelecimentos": [
+        "CNPJ BÁSICO", "CNPJ ORDEM", "CNPJ DV", "IDENTIFICADOR MATRIZ/FILIAL", "NOME FANTASIA",
+        "SITUAÇÃO CADASTRAL", "DATA SITUAÇÃO CADASTRAL", "MOTIVO SITUAÇÃO CADASTRAL",
+        "NOME DA CIDADE NO EXTERIOR", "PAIS", "DATA DE INÍCIO ATIVIDADE", "CNAE FISCAL PRINCIPAL",
+        "CNAE FISCAL SECUNDÁRIA", "TIPO DE LOGRADOURO", "LOGRADOURO", "NÚMERO", "COMPLEMENTO",
+        "BAIRRO", "CEP", "UF", "MUNICÍPIO", "DDD 1", "TELEFONE 1", "DDD 2", "TELEFONE 2",
+        "DDD DO FAX", "FAX", "CORREIO ELETRÔNICO", "SITUAÇÃO ESPECIAL", "DATA DA SITUAÇÃO ESPECIAL",
+    ],
+    "simples": [
+        "CNPJ BÁSICO", "OPÇÃO PELO SIMPLES", "DATA DE OPÇÃO PELO SIMPLES",
+        "DATA DE EXCLUSÃO DO SIMPLES", "OPÇÃO PELO MEI", "DATA DE OPÇÃO PELO MEI",
+        "DATA DE EXCLUSÃO DO MEI",
+    ],
+    "cnaes": _CODIGO_DESCRICAO,
+    "municipios": _CODIGO_DESCRICAO,
+    "naturezas": _CODIGO_DESCRICAO,
+    "paises": _CODIGO_DESCRICAO,
+    "qualificacoes": _CODIGO_DESCRICAO,
+}  # fmt: skip
 
 # Prefixos de nome de modelo/seed/fonte do projeto: citá-los entre crases exige que existam.
 PREFIXOS = ("stg_", "int_", "dim_", "fct_", "bridge_", "mart_", "audit__", "dominio_", "dq_")
@@ -58,8 +90,24 @@ def test_dicionario_versionado_bate_com_o_manifesto(manifesto_e_catalogo) -> Non
     )
 
 
+def _colunas_reais_da_fonte(fonte: dict, unique_id: str, catalogo: dict) -> list[str]:
+    """Colunas do Parquet raw (fontes externas) ou do catálogo (tabelas do `warehouse.duckdb`)."""
+    localizacao = str(gerar_dicionario_dados._meta(fonte).get("external_location", ""))
+    raw = re.search(r"/(raw/[^'\"]+)['\"]", localizacao)
+    if raw:
+        arquivo = Path(os.environ["RAIZ_DADOS"]) / raw.group(1)
+        with duckdb.connect() as con:
+            return [
+                linha[0]
+                for linha in con.execute(
+                    f"describe select * from read_parquet('{arquivo}', hive_partitioning=false)"
+                ).fetchall()
+            ]
+    return list(catalogo["sources"].get(unique_id, {}).get("columns", {}))
+
+
 def test_toda_tabela_e_coluna_real_esta_no_dicionario(manifesto_e_catalogo) -> None:
-    """Cada modelo, seed e fonte do projeto tem seção; cada coluna real do catálogo tem linha."""
+    """Cada modelo, seed e fonte do projeto tem seção; cada coluna real (do catálogo ou do raw) tem linha."""
     manifesto, catalogo = _carregar(manifesto_e_catalogo)
     texto = DICIONARIO.read_text(encoding="utf-8")
     secoes = set(re.findall(r"^#### `([^`]+)`$", texto, flags=re.M))
@@ -80,6 +128,82 @@ def test_toda_tabela_e_coluna_real_esta_no_dicionario(manifesto_e_catalogo) -> N
         secao = texto.split(f"#### `{declarado['name']}`\n", 1)[1].split("\n#### ", 1)[0]
         for coluna in no["columns"]:
             assert f"| `{coluna.lower()}` |" in secao.lower(), f"{declarado['name']}.{coluna}"
+    conferidas = 0
+    for unique_id, fonte in manifesto["sources"].items():
+        if fonte["package_name"] != "rfb":
+            continue
+        nome = f"{fonte['source_name']}.{fonte['name']}"
+        secao = texto.split(f"#### `{nome}`\n", 1)[1].split("\n#### ", 1)[0]
+        reais = _colunas_reais_da_fonte(fonte, unique_id, catalogo)
+        assert reais, f"fonte {nome} sem colunas reais (rode o make ci antes)"
+        for coluna in reais:
+            conferidas += 1
+            assert f"| `{coluna.lower()}` |" in secao.lower(), f"{nome}.{coluna}"
+    assert conferidas > 100
+
+
+def _fonte(manifesto: dict, fonte: str, tabela: str) -> dict:
+    return next(
+        s for s in manifesto["sources"].values()
+        if s["package_name"] == "rfb" and s["source_name"] == fonte and s["name"] == tabela
+    )  # fmt: skip
+
+
+def test_campo_do_leiaute_segue_a_ordem_posicional_do_raw(manifesto_e_catalogo) -> None:
+    """Toda coluna de dado das fontes RFB (salvo `motivos`) declara o campo do leiaute na ordem do PDF."""
+    manifesto, _ = _carregar(manifesto_e_catalogo)
+    assert set(LEIAUTE) | {"motivos"} == set(ENTIDADES_RFB)
+    for entidade, campos in LEIAUTE.items():
+        colunas = ENTIDADES_RFB[entidade].colunas
+        assert len(colunas) == len(campos), entidade
+        declaradas = _fonte(manifesto, "rfb", entidade)["columns"]
+        for coluna, campo in zip(colunas, campos, strict=True):
+            meta = gerar_dicionario_dados._meta_coluna(declaradas[coluna])
+            assert meta.get("campo_leiaute") == campo, f"rfb.{entidade}.{coluna}"
+        for coluna in COLUNAS_TECNICAS:
+            assert "campo_leiaute" not in gerar_dicionario_dados._meta_coluna(declaradas[coluna])
+    for coluna, decl in _fonte(manifesto, "rfb", "motivos")["columns"].items():
+        assert "campo_leiaute" not in gerar_dicionario_dados._meta_coluna(decl), coluna
+
+
+def test_coluna_bigquery_existe_no_parquet_raw_da_base_dos_dados(manifesto_e_catalogo) -> None:
+    """`tabela_bigquery` é o par `dataset.tabela` de `esquemas.py`; `coluna_bigquery` existe no raw."""
+    manifesto, _ = _carregar(manifesto_e_catalogo)
+    raiz = Path(os.environ["RAIZ_DADOS"])
+    for nome, tabela in TABELAS_BD.items():
+        fonte = _fonte(manifesto, "basedosdados", nome)
+        meta_tabela = gerar_dicionario_dados._meta(fonte)
+        assert meta_tabela.get("tabela_bigquery") == f"{tabela.dataset}.{tabela.tabela}", nome
+        with duckdb.connect() as con:
+            reais = {
+                linha[0]
+                for linha in con.execute(
+                    f"describe select * from read_parquet('{raiz}/raw/bd/{nome}/*.parquet', hive_partitioning=false)"
+                ).fetchall()
+            }
+        for coluna, decl in fonte["columns"].items():
+            citada = gerar_dicionario_dados._meta_coluna(decl).get("coluna_bigquery")
+            if citada:
+                assert citada in reais, f"basedosdados.{nome}.{coluna} → {citada}"
+
+
+def test_colunas_citadas_no_grao_existem_na_tabela(manifesto_e_catalogo) -> None:
+    """`meta.grao` cita colunas entre crases: cada identificador tem de ser coluna da própria tabela."""
+    manifesto, _ = _carregar(manifesto_e_catalogo)
+    texto = DICIONARIO.read_text(encoding="utf-8")
+    nos = [n for n in manifesto["nodes"].values() if n["resource_type"] in ("model", "seed")]
+    nos += list(manifesto["sources"].values())
+    verificadas = 0
+    for no in nos:
+        if no["package_name"] != "rfb":
+            continue
+        nome = no["name"] if "source_name" not in no else f"{no['source_name']}.{no['name']}"
+        grao = str(gerar_dicionario_dados._meta(no).get("grao") or "")
+        secao = texto.split(f"#### `{nome}`\n", 1)[1].split("\n#### ", 1)[0].lower()
+        for citada in re.findall(r"`([a-z_][a-z0-9_]*)`", grao):
+            verificadas += 1
+            assert f"| `{citada}` |" in secao, f"{nome}: grão cita `{citada}`, que não é coluna"
+    assert verificadas > 30
 
 
 def test_links_e_ancoras_do_dicionario_resolvem() -> None:
