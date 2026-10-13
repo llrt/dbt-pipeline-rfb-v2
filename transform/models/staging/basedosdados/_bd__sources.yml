@@ -17,12 +17,18 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "município IBGE (`id_municipio`)"
+            tabela_bigquery: br_bd_diretorios_brasil.municipio
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/municipio/*.parquet')
         columns:
           - name: id_municipio
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio" } }
             description: Código IBGE do município (7 dígitos).
           - name: id_municipio_rf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio_rf" } }
             description: >
               Código do município na classificação da RFB; usado para casar com
               `rfb.municipios.codigo` (comparar com `lpad(4)` de ambos os lados — pode vir sem
@@ -31,19 +37,111 @@ sources:
               - unique:
                   config: { severity: warn, store_failures: true, meta: { escopo: original }, tags: [escopo_original] }
           - name: nome
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome" } }
             description: Nome do município, acentuado.
           - name: sigla_uf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "sigla_uf" } }
             description: Sigla da UF do município.
           - name: nome_regiao_imediata
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_regiao_imediata" } }
             description: Nome da região geográfica imediata (IBGE) do município.
           - name: nome_regiao_intermediaria
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_regiao_intermediaria" } }
             description: Nome da região geográfica intermediária (IBGE) do município.
           - name: nome_microrregiao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_microrregiao" } }
             description: Nome da microrregião (IBGE) do município.
           - name: nome_mesorregiao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_mesorregiao" } }
             description: Nome da mesorregião (IBGE) do município.
           - name: centroide
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "centroide" } }
             description: "Centroide geográfico em WKT: `POINT(longitude latitude)`."
+          - name: id_municipio_6
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio_6" } }
+            description: Código IBGE do município com 6 dígitos (sem o dígito verificador). Não usado pelo projeto.
+          - name: id_municipio_tse
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio_tse" } }
+            description: Código do município na classificação do TSE. Não usado pelo projeto.
+          - name: id_municipio_bcb
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio_bcb" } }
+            description: Código do município na classificação do Banco Central (BCB). Não usado pelo projeto.
+          - name: capital_uf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "capital_uf" } }
+            description: Indica se o município é a capital da UF (`true`/`false`). Não usado pelo projeto.
+          - name: id_comarca
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_comarca" } }
+            description: Código da comarca judiciária do município. Não usado pelo projeto.
+          - name: id_regiao_saude
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_regiao_saude" } }
+            description: Código da região de saúde do município. Não usado pelo projeto.
+          - name: nome_regiao_saude
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_regiao_saude" } }
+            description: Nome da região de saúde do município. Não usado pelo projeto.
+          - name: id_regiao_imediata
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_regiao_imediata" } }
+            description: Código IBGE da região geográfica imediata do município.
+          - name: id_regiao_intermediaria
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_regiao_intermediaria" } }
+            description: Código IBGE da região geográfica intermediária do município.
+          - name: id_microrregiao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_microrregiao" } }
+            description: Código IBGE da microrregião do município.
+          - name: id_mesorregiao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_mesorregiao" } }
+            description: Código IBGE da mesorregião do município.
+          - name: id_regiao_metropolitana
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_regiao_metropolitana" } }
+            description: Código da região metropolitana do município; vazio fora de região metropolitana. Não usado pelo projeto (ver `regiao_metropolitana_2017`).
+          - name: nome_regiao_metropolitana
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_regiao_metropolitana" } }
+            description: Nome da região metropolitana do município; vazio fora de região metropolitana. Não usado pelo projeto (ver `regiao_metropolitana_2017`).
+          - name: ddd
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "ddd" } }
+            description: DDD do município. Não usado pelo projeto.
+          - name: id_uf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_uf" } }
+            description: Código IBGE da UF do município (2 dígitos). Não usado pelo projeto.
+          - name: nome_uf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_uf" } }
+            description: Nome completo da UF do município.
+          - name: nome_regiao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_regiao" } }
+            description: Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
+          - name: amazonia_legal
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "amazonia_legal" } }
+            description: Indica se o município pertence à Amazônia Legal (`true`/`false`). Não usado pelo projeto.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: cnae_2
         description: >
@@ -54,29 +152,73 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "subclasse CNAE (`subclasse`)"
+            tabela_bigquery: br_bd_diretorios_brasil.cnae_2
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/cnae_2/*.parquet')
         columns:
           - name: subclasse
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "subclasse" } }
             description: Subclasse CNAE (7 dígitos; FK lógica para `rfb.cnaes.codigo`).
           - name: descricao_subclasse
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "descricao_subclasse" } }
             description: Descrição da subclasse.
           - name: classe
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "classe" } }
             description: Código da classe (5 primeiros dígitos da subclasse).
           - name: descricao_classe
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "descricao_classe" } }
             description: Descrição da classe.
           - name: grupo
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "grupo" } }
             description: Código do grupo (3 primeiros dígitos da subclasse).
           - name: descricao_grupo
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "descricao_grupo" } }
             description: Descrição do grupo.
           - name: divisao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "divisao" } }
             description: Código da divisão (2 primeiros dígitos da subclasse).
           - name: descricao_divisao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "descricao_divisao" } }
             description: Descrição da divisão.
           - name: secao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "secao" } }
             description: Letra da seção (agregado mais alto da hierarquia CNAE).
           - name: descricao_secao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "descricao_secao" } }
             description: Descrição da seção.
+          - name: indicador_cnae_2_0
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "indicador_cnae_2_0" } }
+            description: Indicador de presença da subclasse na CNAE 2.0. Não usado pelo projeto.
+          - name: indicador_cnae_2_1
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "indicador_cnae_2_1" } }
+            description: Indicador de presença da subclasse na CNAE 2.1. Não usado pelo projeto.
+          - name: indicador_cnae_2_2
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "indicador_cnae_2_2" } }
+            description: Indicador de presença da subclasse na CNAE 2.2. Não usado pelo projeto.
+          - name: indicador_cnae_2_3
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "indicador_cnae_2_3" } }
+            description: Indicador de presença da subclasse na CNAE 2.3. Não usado pelo projeto.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: populacao
         description: >
@@ -86,6 +228,8 @@ sources:
           tags: [escopo_adicao]
           meta:
             escopo: adicao
+            grao: "município e ano (`id_municipio`, `ano`)"
+            tabela_bigquery: br_ibge_populacao.municipio
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/populacao/*.parquet')
         data_tests:
@@ -95,13 +239,27 @@ sources:
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
         columns:
           - name: ano
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "ano" } }
             description: Ano de referência da estimativa populacional.
           - name: sigla_uf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "sigla_uf" } }
             description: Sigla da UF do município.
           - name: id_municipio
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio" } }
             description: Código IBGE do município (FK lógica para `municipio.id_municipio`).
           - name: populacao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "populacao" } }
             description: População estimada no município e ano.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: pib
         description: >
@@ -111,6 +269,8 @@ sources:
           tags: [escopo_adicao]
           meta:
             escopo: adicao
+            grao: "município e ano (`id_municipio`, `ano`)"
+            tabela_bigquery: br_ibge_pib.municipio
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/pib/*.parquet')
         data_tests:
@@ -120,23 +280,47 @@ sources:
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
         columns:
           - name: id_municipio
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio" } }
             description: Código IBGE do município (FK lógica para `municipio.id_municipio`).
           - name: ano
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "ano" } }
             description: Ano de referência do PIB.
           - name: pib
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "pib" } }
             description: PIB total do município no ano, em R$.
           - name: impostos_liquidos
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "impostos_liquidos" } }
             description: Impostos líquidos de subsídios, em R$.
           - name: va
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "va" } }
             description: Valor adicionado total, em R$.
           - name: va_agropecuaria
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "va_agropecuaria" } }
             description: Valor adicionado da agropecuária, em R$.
           - name: va_industria
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "va_industria" } }
             description: Valor adicionado da indústria, em R$.
           - name: va_servicos
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "va_servicos" } }
             description: Valor adicionado dos serviços, em R$.
           - name: va_adespss
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "va_adespss" } }
             description: Valor adicionado da administração, defesa, educação e saúde públicas, em R$.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       # --- incremento: enriquecimento_bd (ADR-0015) ---
       - name: censo_2022_municipio
@@ -148,11 +332,15 @@ sources:
           tags: [escopo_adicao, incremento_enriquecimento_bd]
           meta:
             escopo: adicao
+            grao: "município IBGE (`id_municipio`)"
+            tabela_bigquery: br_ibge_censo_2022.municipio
             incremento: enriquecimento_bd
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/censo_2022_municipio/*.parquet')
         columns:
           - name: id_municipio
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio" } }
             description: Código IBGE do município (FK lógica para `municipio.id_municipio`).
             data_tests:
               - unique:
@@ -160,29 +348,59 @@ sources:
                     meta: { escopo: adicao, incremento: enriquecimento_bd }
                     tags: [escopo_adicao, incremento_enriquecimento_bd]
           - name: sigla_uf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "sigla_uf" } }
             description: Sigla da UF do município.
           - name: domicilios
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "domicilios" } }
             description: Domicílios (Censo 2022).
           - name: populacao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "populacao" } }
             description: População residente (Censo 2022).
           - name: area
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "area" } }
             description: Área territorial do município, em km².
           - name: taxa_alfabetizacao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "taxa_alfabetizacao" } }
             description: Taxa de alfabetização (fração de 0 a 1).
           - name: idade_mediana
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "idade_mediana" } }
             description: Idade mediana, em anos.
           - name: razao_sexo
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "razao_sexo" } }
             description: Razão de sexo (homens por 100 mulheres).
           - name: indice_envelhecimento
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "indice_envelhecimento" } }
             description: Índice de envelhecimento (idosos por 100 jovens).
           - name: populacao_indigena
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "populacao_indigena" } }
             description: População indígena.
           - name: populacao_indigena_terra_indigena
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "populacao_indigena_terra_indigena" } }
             description: População indígena residente em terras indígenas.
           - name: populacao_quilombola
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "populacao_quilombola" } }
             description: População quilombola.
           - name: populacao_quilombola_territorio_quilombola
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "populacao_quilombola_territorio_quilombola" } }
             description: População quilombola residente em territórios quilombolas.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: regiao_metropolitana_2017
         description: >
@@ -193,26 +411,50 @@ sources:
           tags: [escopo_adicao, incremento_enriquecimento_bd]
           meta:
             escopo: adicao
+            grao: "par município × região metropolitana (`id_municipio`, `nome_regiao_metropolitana`)"
+            tabela_bigquery: br_geobr_mapas.regiao_metropolitana_2017
             incremento: enriquecimento_bd
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/regiao_metropolitana_2017/*.parquet')
         columns:
           - name: nome_regiao_metropolitana
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "nome_regiao_metropolitana" } }
             description: "Nome da região metropolitana (ex.: `RM Grande Vitória`)."
           - name: tipo
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "tipo" } }
             description: "Tipo da unidade (`RM`, `RIDE`, `AGLO`, `CM`)."
           - name: subcategoria_metropolitana
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "subcategoria_metropolitana" } }
             description: Subcategoria (núcleo, colar, área de expansão...); frequentemente vazia.
           - name: id_municipio
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio" } }
             description: "Código IBGE do município (FK lógica para `municipio.id_municipio`). Um município pode aparecer em mais de uma região."
           - name: sigla_uf
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "sigla_uf" } }
             description: Sigla da UF do município.
           - name: legislacao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "legislacao" } }
             description: Lei que instituiu a região.
           - name: data_legislacao
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "data_legislacao" } }
             description: Data da lei (pode ser vazia).
           - name: geometria
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "geometria" } }
             description: Geometria em WKT (grande; não usada pelo modelo).
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: vizinhanca_municipio
         description: >
@@ -222,13 +464,27 @@ sources:
           tags: [escopo_adicao, incremento_enriquecimento_bd]
           meta:
             escopo: adicao
+            grao: "par de municípios vizinhos por ano de malha (`ano`, `id_municipio_1`, `id_municipio_2`)"
+            tabela_bigquery: br_bd_vizinhanca.municipio
             incremento: enriquecimento_bd
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/bd/vizinhanca_municipio/*.parquet')
         columns:
           - name: ano
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "ano" } }
             description: Ano da malha municipal do par.
           - name: id_municipio_1
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio_1" } }
             description: Código IBGE de um município do par.
           - name: id_municipio_2
+            data_type: varchar
+            config: { meta: { coluna_bigquery: "id_municipio_2" } }
             description: Código IBGE do município vizinho.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.

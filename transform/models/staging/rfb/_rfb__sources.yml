@@ -21,6 +21,7 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "empresa (`cnpj_raiz`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/empresas/mes_referencia=*/*.parquet',
               hive_partitioning=false)
@@ -43,19 +44,31 @@ sources:
         columns:
           # FK natureza_jur -> naturezas: teste singular `relacionamentos_fontes_por_mes` (por mês, R1-22).
           - name: cnpj_raiz
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CNPJ BÁSICO" } }
             description: 8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: razao_social
+            data_type: varchar
+            config: { meta: { campo_leiaute: "RAZÃO SOCIAL / NOME EMPRESARIAL" } }
             description: Razão social (nome oficial/jurídico) da empresa.
           - name: natureza_jur
+            data_type: varchar
+            config: { meta: { campo_leiaute: "NATUREZA JURÍDICA" } }
             description: Código da natureza jurídica (FK para `naturezas.codigo`).
           - name: qualificacao_resp
+            data_type: varchar
+            config: { meta: { campo_leiaute: "QUALIFICAÇÃO DO RESPONSÁVEL" } }
             description: Código de qualificação do responsável pela empresa perante a RFB.
           - name: capital_soc
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CAPITAL SOCIAL DA EMPRESA" } }
             description: Capital social declarado, formato RFB (vírgula decimal), ex. `1000,50`.
           - name: porte
+            data_type: varchar
+            config: { meta: { campo_leiaute: "PORTE DA EMPRESA" } }
             description: >
               Código de porte da empresa: `00` não informado, `01` micro, `03` pequena, `05`
               demais (metadados RFB). Pode vir vazio (raw grava `""` → NULL).
@@ -68,14 +81,26 @@ sources:
                     meta: { escopo: original }
                     tags: [escopo_original]
           - name: ente_fed_resp
+            data_type: varchar
+            config: { meta: { campo_leiaute: "ENTE FEDERATIVO RESPONSÁVEL" } }
             description: Ente federativo responsável, preenchido só para órgãos/autarquias públicas.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: estabelecimentos
         description: >
@@ -85,6 +110,7 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "estabelecimento (`cnpj_raiz`, `cnpj_ordem`, `cnpj_dv`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/estabelecimentos/mes_referencia=*/*.parquet',
               hive_partitioning=false)
@@ -96,25 +122,37 @@ sources:
               config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: cnpj_raiz
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CNPJ BÁSICO" } }
             description: 8 primeiros dígitos do CNPJ (FK lógica para `empresas.cnpj_raiz`).
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: cnpj_ordem
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CNPJ ORDEM" } }
             description: Dígitos 9-12 do CNPJ (nº de ordem do estabelecimento dentro da empresa).
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: cnpj_dv
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CNPJ DV" } }
             description: Dígitos verificadores (13-14) do CNPJ.
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: ind_matriz_filial
+            data_type: varchar
+            config: { meta: { campo_leiaute: "IDENTIFICADOR MATRIZ/FILIAL" } }
             description: "Indicador: `1` matriz, `2` filial."
           - name: nome_fantasia
+            data_type: varchar
+            config: { meta: { campo_leiaute: "NOME FANTASIA" } }
             description: Nome fantasia do estabelecimento; frequentemente vazio.
           - name: situacao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "SITUAÇÃO CADASTRAL" } }
             description: >
               Código da situação cadastral: `01` nula, `02` ativa, `03` suspensa, `04` inapta,
               `08` baixada (metadados RFB).
@@ -124,60 +162,118 @@ sources:
                     values: ["01", "02", "03", "04", "08"]
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: dat_situacao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DATA SITUAÇÃO CADASTRAL" } }
             description: Data do evento que gerou a situação atual (`YYYYMMDD`; pode ser `00000000`).
           - name: mot_situacao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "MOTIVO SITUAÇÃO CADASTRAL" } }
             description: Código do motivo da situação (FK para `motivos.codigo`).
           - name: cidade_exterior
+            data_type: varchar
+            config: { meta: { campo_leiaute: "NOME DA CIDADE NO EXTERIOR" } }
             description: Cidade no exterior, preenchida só quando `pais` está preenchido.
           - name: pais
+            data_type: varchar
+            config: { meta: { campo_leiaute: "PAIS" } }
             description: Código do país, preenchido só para estabelecimentos no exterior.
           - name: dat_inicio_atividade
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DATA DE INÍCIO ATIVIDADE" } }
             description: Data de início de atividade do estabelecimento (`YYYYMMDD`).
           - name: cnae_principal
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CNAE FISCAL PRINCIPAL" } }
             description: Subclasse CNAE (7 dígitos) da atividade econômica principal.
           - name: cnaes_secundarios
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CNAE FISCAL SECUNDÁRIA" } }
             description: Subclasses CNAE secundárias, separadas por vírgula; pode ser vazio.
           - name: tip_logradouro
+            data_type: varchar
+            config: { meta: { campo_leiaute: "TIPO DE LOGRADOURO" } }
             description: Tipo de logradouro (Rua, Avenida, ...).
           - name: logradouro
+            data_type: varchar
+            config: { meta: { campo_leiaute: "LOGRADOURO" } }
             description: Nome do logradouro.
           - name: num_logradouro
+            data_type: varchar
+            config: { meta: { campo_leiaute: "NÚMERO" } }
             description: Número do logradouro.
           - name: compl_logradouro
+            data_type: varchar
+            config: { meta: { campo_leiaute: "COMPLEMENTO" } }
             description: Complemento do endereço; opcional.
           - name: bairro
+            data_type: varchar
+            config: { meta: { campo_leiaute: "BAIRRO" } }
             description: Bairro do endereço.
           - name: cep
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CEP" } }
             description: CEP do endereço.
           - name: uf
+            data_type: varchar
+            config: { meta: { campo_leiaute: "UF" } }
             description: UF do endereço (sigla), conforme cadastro RFB (não usar como UF canônica; ver `stg_bd__municipios`).
           - name: municipio
+            data_type: varchar
+            config: { meta: { campo_leiaute: "MUNICÍPIO" } }
             description: Código do município RFB (4 dígitos; FK para `municipios.codigo`).
           - name: ddd1
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DDD 1" } }
             description: DDD do telefone 1. Descartado no staging (ADR-0008, minimização de dados pessoais).
           - name: tel1
+            data_type: varchar
+            config: { meta: { campo_leiaute: "TELEFONE 1" } }
             description: Telefone 1. Descartado no staging (ADR-0008).
           - name: ddd2
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DDD 2" } }
             description: DDD do telefone 2. Descartado no staging (ADR-0008).
           - name: tel2
+            data_type: varchar
+            config: { meta: { campo_leiaute: "TELEFONE 2" } }
             description: Telefone 2. Descartado no staging (ADR-0008).
           - name: ddd_fax
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DDD DO FAX" } }
             description: DDD do fax. Descartado no staging (ADR-0008).
           - name: fax
+            data_type: varchar
+            config: { meta: { campo_leiaute: "FAX" } }
             description: Número do fax. Descartado no staging (ADR-0008).
           - name: email
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CORREIO ELETRÔNICO" } }
             description: E-mail de contato. Descartado no staging (ADR-0008).
           - name: sit_especial
+            data_type: varchar
+            config: { meta: { campo_leiaute: "SITUAÇÃO ESPECIAL" } }
             description: Situação especial (ex. falência, recuperação judicial); raramente preenchida.
           - name: dat_sit_especial
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DATA DA SITUAÇÃO ESPECIAL" } }
             description: Data da situação especial (`YYYYMMDD`); raramente preenchida.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: simples
         description: >
@@ -187,31 +283,56 @@ sources:
           tags: [escopo_adicao]
           meta:
             escopo: adicao
+            grao: "empresa (`cnpj_raiz`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/simples/mes_referencia=*/*.parquet',
               hive_partitioning=false)
         columns:
           - name: cnpj_raiz
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CNPJ BÁSICO" } }
             description: 8 primeiros dígitos do CNPJ (FK lógica para `empresas.cnpj_raiz`).
           - name: opcao_simples
+            data_type: varchar
+            config: { meta: { campo_leiaute: "OPÇÃO PELO SIMPLES" } }
             description: "Opção pelo Simples Nacional: `S`/`N`."
           - name: dat_opcao_simples
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DATA DE OPÇÃO PELO SIMPLES" } }
             description: Data de opção pelo Simples (`YYYYMMDD`; `00000000` se não aplicável).
           - name: dat_exclusao_simples
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DATA DE EXCLUSÃO DO SIMPLES" } }
             description: Data de exclusão do Simples (`YYYYMMDD`; `00000000` se não aplicável).
           - name: opcao_mei
+            data_type: varchar
+            config: { meta: { campo_leiaute: "OPÇÃO PELO MEI" } }
             description: "Opção pelo MEI (Microempreendedor Individual): `S`/`N`."
           - name: dat_opcao_mei
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DATA DE OPÇÃO PELO MEI" } }
             description: Data de opção pelo MEI (`YYYYMMDD`; `00000000` se não aplicável).
           - name: dat_exclusao_mei
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DATA DE EXCLUSÃO DO MEI" } }
             description: Data de exclusão do MEI (`YYYYMMDD`; `00000000` se não aplicável).
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: cnaes
         description: >
@@ -221,6 +342,7 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "subclasse CNAE (`codigo`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/cnaes/mes_referencia=*/*.parquet',
               hive_partitioning=false)
@@ -232,19 +354,33 @@ sources:
               config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CÓDIGO" } }
             description: Código da subclasse CNAE (7 dígitos).
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DESCRIÇÃO" } }
             description: Descrição textual da atividade econômica.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: municipios
         description: >
@@ -254,6 +390,7 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "município da RFB (`codigo`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/municipios/mes_referencia=*/*.parquet',
               hive_partitioning=false)
@@ -265,19 +402,33 @@ sources:
               config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CÓDIGO" } }
             description: Código do município na classificação da RFB (4 dígitos; não é o código IBGE).
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DESCRIÇÃO" } }
             description: Nome do município, sem acentos, conforme grafia da RFB.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: naturezas
         description: "Tabela de domínio: código e descrição de cada natureza jurídica (notebook 2.1.1)."
@@ -285,6 +436,7 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "natureza jurídica (`codigo`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/naturezas/mes_referencia=*/*.parquet',
               hive_partitioning=false)
@@ -296,19 +448,33 @@ sources:
               config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CÓDIGO" } }
             description: Código da natureza jurídica.
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DESCRIÇÃO" } }
             description: Descrição da natureza jurídica.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: motivos
         description: "Tabela de domínio: código e descrição de cada motivo de situação cadastral (notebook 2.1.1)."
@@ -316,6 +482,7 @@ sources:
           tags: [escopo_original]
           meta:
             escopo: original
+            grao: "motivo de situação cadastral (`codigo`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/motivos/mes_referencia=*/*.parquet',
               hive_partitioning=false)
@@ -327,19 +494,31 @@ sources:
               config: { meta: { escopo: original }, tags: [escopo_original] }
         columns:
           - name: codigo
+            data_type: varchar
             description: Código do motivo de situação cadastral.
             data_tests:
               - not_null:
                   config: { meta: { escopo: original }, tags: [escopo_original] }
           - name: descricao
+            data_type: varchar
             description: Descrição do motivo de situação cadastral.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: paises
         description: >
@@ -349,21 +528,36 @@ sources:
           tags: [escopo_adicao]
           meta:
             escopo: adicao
+            grao: "país (`codigo`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/paises/mes_referencia=*/*.parquet',
               hive_partitioning=false)
         columns:
           - name: codigo
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CÓDIGO" } }
             description: Código do país segundo a tabela da RFB.
           - name: descricao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DESCRIÇÃO" } }
             description: Nome do país.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
 
       - name: qualificacoes
         description: >
@@ -373,18 +567,33 @@ sources:
           tags: [escopo_adicao]
           meta:
             escopo: adicao
+            grao: "qualificação de responsável (`codigo`) por mês de referência"
             external_location: >-
               read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/rfb/qualificacoes/mes_referencia=*/*.parquet',
               hive_partitioning=false)
         columns:
           - name: codigo
+            data_type: varchar
+            config: { meta: { campo_leiaute: "CÓDIGO" } }
             description: Código de qualificação do responsável.
           - name: descricao
+            data_type: varchar
+            config: { meta: { campo_leiaute: "DESCRIÇÃO" } }
             description: Descrição da qualificação do responsável.
           - name: _data_referencia
+            data_type: date
             description: >
               Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria
               `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error.
             data_tests:
               - not_null:
                   config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
+          - name: _arquivo_origem
+            data_type: varchar
+            description: Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão.
+          - name: _mes_referencia
+            data_type: varchar
+            description: Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão.
