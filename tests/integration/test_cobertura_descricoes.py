@@ -1,50 +1,87 @@
-"""RBP-09: ≥ 98 % das colunas reais (catálogo do warehouse) de modelos e seeds têm `description`.
+# ruff: noqa: E501
+"""RBP-09 / DIC: cobertura de `description` nas colunas reais do warehouse e das fontes raw.
 
-Gera `catalog.json` com `dbt docs generate` sobre o `warehouse.duckdb` de `RAIZ_DADOS` (criado
-pelo `make ci`), num diretório temporário, e o compara com as descrições do manifesto.
+- Fontes (raw RFB, Base dos Dados e observabilidade) e gold (`marts/`): **100 %** das colunas reais.
+- Demais modelos (staging, intermediate, observabilidade) e seeds: ≥ 98 % (RBP-09).
+
+As colunas reais vêm do `catalog.json` (`dbt docs generate` sobre o `warehouse.duckdb` de `RAIZ_DADOS`,
+fixture `manifesto_e_catalogo`) e, nas fontes raw, do próprio Parquet em `RAIZ_DADOS/raw`.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import subprocess
+import re
 from pathlib import Path
 
+import duckdb
 import pytest
 
-TRANSFORM = Path(__file__).resolve().parents[2] / "transform"
-MINIMO = 0.98
+MINIMO_GERAL = 0.98
 
 pytestmark = pytest.mark.skipif(
     "RAIZ_DADOS" not in os.environ, reason="rode via make ci (exporta RAIZ_DADOS)"
 )
 
 
-def test_colunas_reais_de_modelos_e_seeds_tem_descricao(tmp_path: Path) -> None:
-    env = os.environ | {"DBT_PROFILES_DIR": str(TRANSFORM)}
-    env.pop("CAMINHO_DUCKDB", None)
-    resultado = subprocess.run(
-        ["uv", "run", "dbt", "docs", "generate", "--target", "ci",
-         "--target-path", str(tmp_path), "--log-path", str(tmp_path / "logs")],
-        cwd=TRANSFORM, env=env, capture_output=True, text=True, check=False,
-    )  # fmt: skip
-    assert resultado.returncode == 0, resultado.stdout + resultado.stderr
-    catalogo = json.loads((tmp_path / "catalog.json").read_text(encoding="utf-8"))
-    manifesto = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+def _sem_descricao(declaradas: dict, reais: list[str], rotulo: str) -> list[str]:
+    colunas = {nome.lower(): c for nome, c in declaradas.items()}
+    return [
+        f"{rotulo}.{c}"
+        for c in reais
+        if not colunas.get(c.lower(), {}).get("description", "").strip()
+    ]
 
-    total, sem_descricao = 0, []
+
+def test_colunas_reais_de_modelos_e_seeds_tem_descricao(manifesto_e_catalogo) -> None:
+    manifesto = json.loads(manifesto_e_catalogo[0].read_text(encoding="utf-8"))
+    catalogo = json.loads(manifesto_e_catalogo[1].read_text(encoding="utf-8"))
+
+    total, sem_descricao, sem_descricao_gold = 0, [], []
     for unique_id, no in catalogo["nodes"].items():
         declarado = manifesto["nodes"].get(unique_id)
         if declarado is None or declarado["resource_type"] not in ("model", "seed"):
             continue  # tabelas de `store_failures` e afins não são documentáveis
-        colunas = {nome.lower(): c for nome, c in declarado["columns"].items()}
-        for nome in no["columns"]:
-            total += 1
-            if not colunas.get(nome.lower(), {}).get("description", "").strip():
-                sem_descricao.append(f"{declarado['name']}.{nome}")
+        faltam = _sem_descricao(declarado["columns"], list(no["columns"]), declarado["name"])
+        total += len(no["columns"])
+        sem_descricao += faltam
+        if "/marts/" in declarado["original_file_path"]:
+            sem_descricao_gold += faltam
     assert total > 0
+    assert not sem_descricao_gold, f"gold exige 100 % de descrições; faltam: {sem_descricao_gold}"
     cobertura = 1 - len(sem_descricao) / total
-    assert cobertura >= MINIMO, (
-        f"cobertura de descrições {cobertura:.1%} < {MINIMO:.0%}; faltam: {sem_descricao}"
+    assert cobertura >= MINIMO_GERAL, (
+        f"cobertura de descrições {cobertura:.1%} < {MINIMO_GERAL:.0%}; faltam: {sem_descricao}"
     )
+
+
+def test_colunas_reais_das_fontes_tem_descricao(manifesto_e_catalogo) -> None:
+    """Fontes: 100 % das colunas do Parquet raw (incluindo as técnicas da ingestão) são descritas."""
+    manifesto = json.loads(manifesto_e_catalogo[0].read_text(encoding="utf-8"))
+    catalogo = json.loads(manifesto_e_catalogo[1].read_text(encoding="utf-8"))
+    raiz = Path(os.environ["RAIZ_DADOS"])
+
+    faltam: list[str] = []
+    conferidas = 0
+    for unique_id, fonte in manifesto["sources"].items():
+        if fonte["package_name"] != "rfb":
+            continue
+        rotulo = f"{fonte['source_name']}.{fonte['name']}"
+        localizacao = str((fonte.get("config") or {}).get("meta", {}).get("external_location", ""))
+        raw = re.search(r"/(raw/[^'\"]+)['\"]", localizacao)
+        if raw:
+            with duckdb.connect() as con:
+                reais = [
+                    linha[0]
+                    for linha in con.execute(
+                        f"describe select * from read_parquet('{raiz / raw.group(1)}', hive_partitioning=false)"
+                    ).fetchall()
+                ]
+        else:
+            reais = list(catalogo["sources"].get(unique_id, {}).get("columns", {}))
+        assert reais, f"fonte {rotulo} sem colunas reais (rode o make ci antes)"
+        conferidas += len(reais)
+        faltam += _sem_descricao(fonte["columns"], reais, rotulo)
+    assert conferidas > 100
+    assert not faltam, f"fontes exigem 100 % de descrições; faltam: {faltam}"
