@@ -114,7 +114,8 @@ filiais em inscrição própria. É uma leitura, não texto expresso: o art. 9º
 estabelecimento filial" [IN 2.119, art. 9º], e o art. 4º, § 1º, inscreve os estados, o DF e os municípios "na
 condição de estabelecimento matriz" [IN 2.119, art. 4º, § 1º]. A entidade pode transformar uma filial em matriz
 [IN 2.119, art. 4º, § 3º], e a baixa da matriz implica a baixa de todas as filiais [IN 2.119, art. 24, § 2º]
-(regra [RN-14](REGRAS_NEGOCIO.md#rn-14)).
+(regra [RN-14](REGRAS_NEGOCIO.md#rn-14)). A matriz baixada, inapta ou nula também impede a inscrição de filial
+[IN 2.119, art. 21, IV] ([RN-27](REGRAS_NEGOCIO.md#rn-27)).
 
 Contar empresas pelas matrizes supõe uma matriz por CNPJ básico. As fixtures cumprem isso. No dado real de
 2026-09 há 70.085.592 matrizes para 70.085.591 CNPJs básicos: todo básico tem matriz, e só um (`08314885`) tem
@@ -153,7 +154,8 @@ industrialização, comercialização e serviços no âmbito rural [LC 123, art.
 Empresário (Individual): dos 17.527.414 estabelecimentos com `opcao_mei` em 2026-09, 17.526.176 (99,99 %) têm
 o código 2135, 1.237 têm 2062 (Sociedade Empresária Limitada) e 1 tem 2070 (Sociedade Empresária em Nome
 Coletivo). É observação do projeto, não regra (conferência da RSEM no dado real de 2026-09; contada por empresa
-na [RN-08](REGRAS_NEGOCIO.md#rn-08)). Para achar MEI, use
+na [RN-08](REGRAS_NEGOCIO.md#rn-08)). Já a natureza de sociedade contraria o § 1º, que só admite o empresário
+individual ou o empreendedor ([RN-29](REGRAS_NEGOCIO.md#rn-29)). Para achar MEI, use
 `opcao_mei`, não a natureza.
 
 No projeto: `dim_natureza_juridica`, entidade `natureza_juridica`, dimensões
@@ -204,7 +206,10 @@ art. 6º, § 1º: a opção passa a ser formalizada de 1º a 30 de setembro e va
 seguinte; um novo § 1º-B permite cancelá-la até 30 de novembro [CGSN 190, arts. 1º e 9º]. Para o ano-calendário
 de 2027, a janela é de 1º de setembro a 15 de outubro de 2026 [CGSN 194, art. 1º, que dá nova redação ao art. 1º
 da Resolução CGSN nº 186/2026]. Ou seja, quem opta pelo Simples para 2027 o faz ainda em 2026, e a data de opção
-do arquivo Simples pode ser anterior ao início dos efeitos.
+do arquivo Simples pode ser anterior ao início dos efeitos. No extrato de 2026-09, 10 opções têm data de
+1º/1/2027: o campo guarda a data de efeito, e a [RN-13](REGRAS_NEGOCIO.md#rn-13) aceita a opção até 1º de janeiro
+seguinte. O regime vale desde 1º de julho de 2007 [LC 123, art. 88] e o SIMEI, desde 1º de julho de 2009 [LC 128,
+art. 14, III] ([RN-25](REGRAS_NEGOCIO.md#rn-25), [RN-26](REGRAS_NEGOCIO.md#rn-26)).
 
 **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais
 (o SIMEI) [LC 123, art. 18-A]: o empresário individual ou o empreendedor das atividades listadas no § 1º (veja
@@ -280,7 +285,7 @@ Pontos que mudam a leitura das métricas:
 - **Data da situação** é a "data do evento da situação cadastral" [RFB-Leiaute] (`dat_situacao`). Num ativo,
   costuma coincidir com a data de início de atividade (observação do projeto, sem fonte da RFB). Regras
   [RN-11](REGRAS_NEGOCIO.md#rn-11) a [RN-13](REGRAS_NEGOCIO.md#rn-13): o não ativo tem a data, ela não antecede o
-  início de atividade e não passa da data do extrato.
+  início de atividade e não passa do limite do extrato (o dia seguinte à data de referência).
 
 No projeto: `dim_situacao_cadastral`, entidade `situacao_cadastral`, dimensão
 `situacao_cadastral__rotulo_situacao_cadastral` e a flag `eh_ativa` (código 2).
@@ -653,7 +658,8 @@ Acessadas em **2026-10-10**.
 | IN 2.119 | [Instrução Normativa RFB nº 2.119, de 6 de dezembro de 2022](http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=127567), texto multivigente (alterações até a IN RFB nº 2.345/2026) | formato alfanumérico (art. 2º); inscrição (art. 4º); estabelecimento (art. 5º); situações e "não se confundem com atividade" (art. 9º); baixa (arts. 24, 26, 31); nulidade (art. 34); suspensão (art. 37); inaptidão (arts. 38, 39, 46, 47) |
 | RFB-Alfanumérico | Receita Federal, [Perguntas e respostas: CNPJ alfanumérico](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf) | 14 posições, letras A–Z, DV por módulo 11; CNPJs atuais não mudam; os dois formatos coexistem |
 | RFB-Notícia | Receita Federal, [Receita Federal gera o primeiro CNPJ em formato alfanumérico](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/julho/receita-federal-gera-o-primeiro-cnpj-em-formato-alfanumerico) (31/07/2026) | data do primeiro CNPJ alfanumérico |
-| LC 123 | [Lei Complementar nº 123, de 14 de dezembro de 2006](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm), texto compilado do Planalto | limites de ME e EPP (art. 3º); Simples Nacional (art. 12); opção pelo Simples (art. 16); MEI: limite, estabelecimento único, sem outra empresa (art. 18-A); um empregado (art. 18-C) |
+| LC 123 | [Lei Complementar nº 123, de 14 de dezembro de 2006](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm), texto compilado do Planalto | limites de ME e EPP (art. 3º); Simples Nacional (art. 12); opção pelo Simples (art. 16); MEI: limite, estabelecimento único, sem outra empresa (art. 18-A); um empregado (art. 18-C); vigência do regime em 1º/7/2007 (art. 88) |
+| LC 128 | [Lei Complementar nº 128, de 19 de dezembro de 2008](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp128.htm), Planalto (conferida em 2026-10-13) | os arts. 18-A a 18-C da LC 123 (SIMEI) produzem efeitos a partir de 1º/7/2009 (art. 14, III) |
 | CGSN 140 | [Resolução CGSN nº 140, de 22 de maio de 2018](http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=92278), texto multivigente | prazo da opção (art. 6º); MEI, ocupações e limite do transportador (art. 100); empregado do MEI (art. 105); desenquadramento do SIMEI não exclui do Simples (art. 115) |
 | Lei 8.934 | [Lei nº 8.934, de 18 de novembro de 1994](https://www.planalto.gov.br/ccivil_03/leis/l8934.htm) | arquivamento das declarações de microempresa no registro (art. 32, II, d) |
 | Portal do Empreendedor | gov.br, [O que você precisa saber antes de se tornar um MEI](https://www.gov.br/empresas-e-negocios/pt-br/empreendedor/quero-ser-mei/o-que-voce-precisa-saber-antes-de-se-tornar-um-mei) | requisitos do MEI; R$ 81.000,00 e R$ 251.600,00 |

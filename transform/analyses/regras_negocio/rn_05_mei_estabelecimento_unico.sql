@@ -1,8 +1,10 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
 -- RN-05 (docs/REGRAS_NEGOCIO.md): a empresa optante pelo MEI tem um único estabelecimento (LC 123,
--- art. 18-A, § 4º, II). Grão: empresa (CNPJ básico) com opção pelo MEI no arquivo Simples. A
--- quebra separa as violações em que os estabelecimentos além de um estão todos baixados.
+-- art. 18-A, § 4º, II). Grão: empresa (CNPJ básico) com opção pelo MEI no arquivo Simples. Viola
+-- quem tem mais de um estabelecimento não baixado (RRN-03): o baixado continua no extrato, mas não
+-- é mais estabelecimento da empresa. A quebra mostra à parte, sem violação, quem tem estabelecimentos
+-- baixados além do único não baixado.
 with mei as (
   select cnpj_raiz
   from {{ ref('stg_rfb__simples') }}
@@ -26,7 +28,7 @@ base as (
       when emp.qtd_nao_baixados <= 1 then 'mais de um, no máximo um não baixado'
       else 'mais de um não baixado'
     end as estabelecimentos,
-    coalesce(emp.qtd > 1, false) as viola
+    coalesce(emp.qtd_nao_baixados > 1, false) as viola
   from mei
   left join por_empresa as emp
     on mei.cnpj_raiz = emp.cnpj_raiz

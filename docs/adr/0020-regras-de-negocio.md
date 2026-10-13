@@ -17,16 +17,18 @@ Também ficaram 12 grãos declarados sem teste (RDIC-09).
   `dbt build`: os checks não derrubam nem atrasam o pipeline.
 - Saída padronizada: `regra`, `avaliados`, `violacoes` e, opcionalmente, quebras agregadas de uma lista fechada.
   Só contagens ([ADR-0008](0008-minimizacao-dados-pessoais.md)): o `rfb regras` recusa outra coluna e qualquer valor
-  com 11 ou 14 dígitos seguidos.
+  que pareça identificador depois de tirar a máscara (8 ou mais dígitos: CNPJ básico, CPF, CNPJ; ou CNPJ
+  alfanumérico de 14 posições). A guarda é a barreira entre um erro de SQL e um relatório versionado (RRN-01).
 - `rfb regras` / `make regras` compila as analyses, executa-as no warehouse de `RAIZ_DADOS` **somente leitura** e
   escreve `docs/RELATORIO_REGRAS_NEGOCIO.md` (ou `--saida`). **Sai com 0 mesmo com violações**; falha só em erro de
-  execução, inclusive desencontro entre o catálogo e as analyses. A seção "Interpretação" do relatório é escrita à
-  mão e preservada quando ele é regenerado.
+  execução, inclusive desencontro entre o catálogo e as analyses. A seção "Interpretação de AAAA-MM" do relatório é
+  escrita à mão e preservada quando ele é regenerado no mesmo mês; em mês novo, vira "Interpretação anterior" e o
+  comando avisa que ela precisa ser revista (RRN-07).
 - Dois relatórios: o do `make ci`, sobre as fixtures, vai para `.tmp/ci/` e não é versionado; o versionado é o do
   dado real, gerado sobre uma cópia do warehouse.
 - Os grãos sem teste da RDIC-09 entram como regras estruturais (RN-22 a RN-24), não como testes do build.
 
 **Consequências.** Uma regra nova é um arquivo SQL e uma seção no catálogo; o teste de correspondência falha se um
-existir sem o outro. Os testes de integração conferem as violações esperadas nas fixtures e, numa cópia do warehouse
-com uma violação injetada por regra, que todas as analyses a detectam. O relatório real precisa ser regenerado a
+existir sem o outro. Os testes de integração conferem o universo e as violações de cada regra nas fixtures e, numa
+cópia nova do warehouse por caso, o delta exato por quebra de cada violação ou caso de borda injetado (RRN-04). O relatório real precisa ser regenerado a
 cada mês, à mão (`make regras`), e a interpretação revista: os números mudam, a leitura pode mudar.

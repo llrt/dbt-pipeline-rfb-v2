@@ -15,8 +15,9 @@
   entram no `dbt build`: não derrubam nem atrasam a atualização mensal.
 - **Só contagens.** Cada analysis devolve `regra`, `avaliados` (o universo da regra), `violacoes` e, se for o
   caso, uma quebra agregada (situação cadastral, porte, natureza jurídica, campo, tabela…). Nunca CNPJ, nome ou
-  CPF ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)); o `rfb regras` recusa colunas fora da lista de
-  quebras e valores com 11 ou 14 dígitos seguidos.
+  CPF ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)). O `rfb regras` guarda isso em duas camadas: recusa
+  coluna fora da lista fechada de quebras e valor que pareça identificador, com ou sem máscara (8 ou mais
+  dígitos, o que pega CNPJ básico, CPF e CNPJ, ou CNPJ alfanumérico de 14 posições).
 - No `make ci`, o mesmo comando roda sobre as fixtures e grava em `.tmp/ci/relatorio-regras.md` (não versionado).
 
 ## Tipos de regra e leitura de uma violação
@@ -46,9 +47,11 @@ O pedido citou três regras. Duas viram checks diretos, a terceira precisa de tr
   ou mais secundários por estabelecimento. Viram [RN-01](#rn-01) a [RN-04](#rn-04): o principal existe e está no
   domínio, os secundários estão no domínio, não repetem o principal e não se repetem.
 - **"MEI não pode ter mais de um estabelecimento":** é a LC 123, art. 18-A, § 4º, II. Vira [RN-05](#rn-05), por
-  empresa (CNPJ básico) com opção pelo MEI no arquivo Simples. Junto vêm as regras vizinhas do MEI: optante do
-  Simples ([RN-06](#rn-06)), microempresa ([RN-07](#rn-07)), natureza jurídica ([RN-08](#rn-08), observação) e datas
-  ([RN-09](#rn-09)).
+  empresa (CNPJ básico) com opção pelo MEI no arquivo Simples. O estabelecimento baixado continua no extrato, mas
+  não é mais um estabelecimento da empresa: a violação é ter **mais de um não baixado**. Junto vêm as regras
+  vizinhas do MEI: optante do Simples ([RN-06](#rn-06)), microempresa ([RN-07](#rn-07)), natureza jurídica
+  ([RN-08](#rn-08), observação), não ser sociedade ([RN-29](#rn-29)) e datas ([RN-09](#rn-09), [RN-25](#rn-25),
+  [RN-26](#rn-26), [RN-28](#rn-28)).
 - **"Empresa em situação ativa não pode ter data de encerramento":** o cadastro **não tem** uma data de
   encerramento. Tem, por estabelecimento, a situação cadastral, a "data do evento da situação cadastral" e o motivo
   da situação [RFB-Leiaute]. Um estabelecimento baixado tem situação 08 e a data da baixa em `dat_situacao`; um
@@ -61,7 +64,8 @@ O pedido citou três regras. Duas viram checks diretos, a terceira precisa de tr
     IN 2.119, e o 05, a do inciso II;
   - [RN-11](#rn-11): o não ativo (nula, suspensa, inapta, baixada) tem a data da situação;
   - [RN-12](#rn-12): a data da situação não é anterior ao início de atividade;
-  - [RN-13](#rn-13): nenhuma data de evento é posterior à data do extrato.
+  - [RN-13](#rn-13): nenhuma data de evento passa do limite do extrato (o dia seguinte à data de referência; para
+    as opções, 1º de janeiro do ano seguinte).
 
   "Empresa" foi lida como estabelecimento, porque a situação cadastral é do estabelecimento
   ([CAMADA_SEMANTICA, A3](CAMADA_SEMANTICA.md#a3-ciclo-de-vida)). A situação da empresa é a da matriz, e a regra
@@ -135,19 +139,20 @@ colchetes estão em [Fontes](#fontes).
 ### Simples Nacional e MEI
 
 <a id="rn-05"></a>
-### RN-05 — MEI tem um único estabelecimento
+### RN-05 — MEI tem um único estabelecimento não baixado
 
-- **Enunciado:** a empresa com opção pelo MEI tem um único estabelecimento no extrato.
+- **Enunciado:** a empresa com opção pelo MEI tem no máximo um estabelecimento não baixado no extrato.
 - **Tipo:** legal.
 - **Fonte:** [LC 123], art. 18-A, § 4º, II: não pode optar pelo SIMEI o MEI "que possua mais de um estabelecimento".
 - **Dados:** [`stg_rfb__simples`](DICIONARIO_DADOS.md#stg_rfb__simples)`.opcao_mei` × estabelecimentos do mesmo
   CNPJ básico em `int_estabelecimentos__enriquecidos`. Universo: empresas (CNPJ básico) com opção pelo MEI, pela
-  quantidade de estabelecimentos; a quebra separa as violações em que só um estabelecimento não está baixado.
+  quantidade de estabelecimentos. Viola a faixa "mais de um não baixado"; a faixa "mais de um, no máximo um não
+  baixado" é informativa e não viola.
 - **Conceito:** [Simples Nacional e MEI](CAMADA_SEMANTICA.md#simples-nacional-e-mei); ontologia `rfbo:OpcaoMEI`.
-- **Leitura de uma violação:** se os estabelecimentos além de um estão baixados, é comportamento conhecido do
-  cadastro (o estabelecimento baixado continua no extrato) e não contraria a lei. Se há mais de um não baixado, é
-  erro de dado ou desenquadramento ainda não registrado (defasagem). A RSEM já tinha visto 3.749 filiais de MEI no
-  dado real de 2026-09.
+- **Leitura de uma violação:** mais de um estabelecimento não baixado é erro de dado ou desenquadramento ainda não
+  registrado (defasagem). Os estabelecimentos baixados além do único não baixado são comportamento conhecido do
+  cadastro (o baixado continua no extrato) e não contrariam a lei: aparecem na quebra, sem violação. A RSEM já
+  tinha visto 3.749 filiais de MEI no dado real de 2026-09, quase todas baixadas.
 - **Analysis:** `transform/analyses/regras_negocio/rn_05_mei_estabelecimento_unico.sql`.
 
 <a id="rn-06"></a>
@@ -182,13 +187,34 @@ colchetes estão em [Fontes](#fontes).
 - **Enunciado:** a empresa com opção pelo MEI tem a natureza jurídica 213-5 Empresário (Individual).
 - **Tipo:** coerência do projeto.
 - **Fonte:** observação do projeto, **não regra**. A LC 123 define o MEI como empresário individual **ou** o
-  empreendedor de certas atividades (art. 18-A, § 1º) e a CONCLA não associa o MEI a uma natureza (RSEM-06).
+  empreendedor de certas atividades (art. 18-A, § 1º) e a CONCLA não associa o MEI a uma natureza (RSEM-06). O que
+  a lei sustenta é mais estreito e é a [RN-29](#rn-29): o MEI não é sociedade.
 - **Dados:** `stg_rfb__simples.opcao_mei` × `stg_rfb__empresas.natureza_juridica_codigo` e
   [`stg_rfb__naturezas`](DICIONARIO_DADOS.md#stg_rfb__naturezas). Universo: empresas MEI no arquivo Empresas.
 - **Conceito:** [Natureza jurídica](CAMADA_SEMANTICA.md#natureza-jurídica) ("MEI não é natureza jurídica").
 - **Leitura de uma violação:** não é erro por si; mostra quantas empresas MEI têm outra natureza (a RSEM viu 1.238
-  estabelecimentos com natureza de sociedade em 2026-09).
+  estabelecimentos com natureza de sociedade em 2026-09). Código sem descrição no domínio aparece como
+  "(fora do domínio)".
 - **Analysis:** `transform/analyses/regras_negocio/rn_08_mei_natureza_empresario_individual.sql`.
+
+<a id="rn-29"></a>
+### RN-29 — MEI não é sociedade
+
+- **Enunciado:** a empresa com opção pelo MEI não tem natureza jurídica de sociedade.
+- **Tipo:** legal.
+- **Fonte:** [LC 123], art. 18-A, § 1º (redação da LC 188/2021): considera-se MEI quem "seja empresário individual
+  que se enquadre na definição do art. 966 [do Código Civil] [...] ou o empreendedor que exerça" as atividades dos
+  §§ 4º-A e 4º-B. Sociedade não é nenhum dos dois. As naturezas de sociedade são as da [CONCLA] cujo nome é
+  "Sociedade ...": 203-8, 204-6, 205-4, 206-2, 207-0, 208-9, 209-7, 212-7, 223-2, 224-0, 225-9, 226-7 e 232-1. O
+  consórcio e o grupo de sociedades (215-1, 216-0) e o estabelecimento de sociedade estrangeira (217-8) não são,
+  eles mesmos, sociedades e ficam de fora.
+- **Dados:** `stg_rfb__simples.opcao_mei` × `stg_rfb__empresas.natureza_juridica_codigo` e `stg_rfb__naturezas`.
+  Universo: empresas MEI no arquivo Empresas, por natureza.
+- **Conceito:** [Natureza jurídica](CAMADA_SEMANTICA.md#natureza-jurídica) e
+  [Simples Nacional e MEI](CAMADA_SEMANTICA.md#simples-nacional-e-mei).
+- **Leitura de uma violação:** erro de dado ou desenquadramento do MEI não registrado depois de a empresa virar
+  sociedade (defasagem). Diferente da [RN-08](#rn-08), que é observação, aqui a lei é contrariada.
+- **Analysis:** `transform/analyses/regras_negocio/rn_29_mei_nao_e_sociedade.sql`.
 
 <a id="rn-09"></a>
 ### RN-09 — Exclusão do regime não antecede a opção
@@ -203,6 +229,48 @@ colchetes estão em [Fontes](#fontes).
 - **Leitura de uma violação:** o arquivo guarda uma opção e uma exclusão por regime. Uma nova opção depois de uma
   exclusão pode deixar a exclusão antiga com a opção nova (comportamento do cadastro); sem reopção, é erro de dado.
 - **Analysis:** `transform/analyses/regras_negocio/rn_09_simples_exclusao_apos_opcao.sql`.
+
+<a id="rn-25"></a>
+### RN-25 — Opção pelo Simples a partir de 1º/7/2007
+
+- **Enunciado:** a data de opção pelo Simples Nacional não é anterior a 1º de julho de 2007.
+- **Tipo:** legal.
+- **Fonte:** [LC 123], art. 88: a lei entra em vigor na publicação, "ressalvado o regime de tributação das
+  microempresas e empresas de pequeno porte, que entra em vigor em 1º de julho de 2007".
+- **Dados:** `stg_rfb__simples.dat_opcao_simples`. Universo: registros com data de opção pelo Simples.
+- **Conceito:** [Simples Nacional e MEI](CAMADA_SEMANTICA.md#simples-nacional-e-mei).
+- **Leitura de uma violação:** erro de dado ou data de opção do regime anterior (o Simples federal, Lei 9.317/1996)
+  levada para o campo.
+- **Analysis:** `transform/analyses/regras_negocio/rn_25_opcao_simples_apos_inicio_regime.sql`.
+
+<a id="rn-26"></a>
+### RN-26 — Opção pelo MEI a partir de 1º/7/2009
+
+- **Enunciado:** a data de opção pelo MEI (SIMEI) não é anterior a 1º de julho de 2009.
+- **Tipo:** legal.
+- **Fonte:** [LC 128], art. 14, III: os arts. 18-A a 18-C da LC 123, que criam o SIMEI, "produzirão efeitos a
+  partir de 1º de julho de 2009".
+- **Dados:** `stg_rfb__simples.dat_opcao_mei`. Universo: registros com data de opção pelo MEI.
+- **Conceito:** [Simples Nacional e MEI](CAMADA_SEMANTICA.md#simples-nacional-e-mei).
+- **Leitura de uma violação:** erro de dado (por exemplo, a data de opção pelo Simples copiada para o MEI).
+- **Analysis:** `transform/analyses/regras_negocio/rn_26_opcao_mei_apos_inicio_simei.sql`.
+
+<a id="rn-28"></a>
+### RN-28 — Opção não antecede o início de atividade (observação)
+
+- **Enunciado:** a data de opção pelo Simples Nacional ou pelo MEI não é anterior ao início de atividade da matriz.
+- **Tipo:** coerência do projeto.
+- **Fonte:** observação do projeto, **não regra**. Nenhuma fonte diz que a opção não pode anteceder o início de
+  atividade, e o leiaute não diz se o arquivo guarda a data do pedido ou a de efeito (a [RN-13](#rn-13) já viu
+  opções com data de efeito). Por isso a regra não vira alerta.
+- **Dados:** `stg_rfb__simples.dat_opcao_simples`, `.dat_opcao_mei` ×
+  `int_estabelecimentos__enriquecidos.dat_inicio_atividade` da matriz. Universo: registros com a data de opção do
+  regime, de CNPJ básico com uma única matriz com início de atividade, por regime.
+- **Conceito:** [Data de início de atividade](CAMADA_SEMANTICA.md#data-de-início-de-atividade) e
+  [Simples Nacional e MEI](CAMADA_SEMANTICA.md#simples-nacional-e-mei).
+- **Leitura de uma violação:** data de início de atividade corrigida depois da opção, opção na abertura com início
+  de atividade declarado depois, ou erro de dado. Não é afirmada nenhuma delas.
+- **Analysis:** `transform/analyses/regras_negocio/rn_28_opcao_apos_inicio_atividade.sql`.
 
 ### Situação cadastral e datas
 
@@ -252,38 +320,68 @@ colchetes estão em [Fontes](#fontes).
 - **Analysis:** `transform/analyses/regras_negocio/rn_12_situacao_apos_inicio_atividade.sql`.
 
 <a id="rn-13"></a>
-### RN-13 — Datas de evento não são futuras
+### RN-13 — Datas de evento não passam do extrato
 
-- **Enunciado:** nenhuma data de evento já ocorrido é posterior à data do extrato: início de atividade, situação
-  cadastral, situação especial, opção pelo Simples e opção pelo MEI.
+- **Enunciado:** nenhuma data de evento já ocorrido passa do limite do extrato. Para início de atividade, situação
+  cadastral e situação especial, o limite é o dia seguinte à data de referência. Para a opção pelo Simples e pelo
+  MEI, é 1º de janeiro do ano seguinte.
 - **Tipo:** coerência do projeto.
-- **Fonte:** regra do projeto ([ADR-0004](adr/0004-data-referencia-deterministica.md)). As datas de **exclusão** ficam
-  de fora: podem ter efeito futuro legítimo (R3-11). A opção pelo Simples pode anteceder os efeitos [CGSN 190], mas
-  não o extrato.
+- **Fonte:** regra do projeto ([ADR-0004](adr/0004-data-referencia-deterministica.md)), com dois limites medidos ou
+  documentados:
+  - **dia seguinte (D+1):** no dado real de 2026-09, todas as datas de evento acima da data de referência
+    (12/09/2026) são de 13/09/2026, salvo as opções para 2027 (RRN-02). O corte do extrato inclui o dia seguinte ao
+    token do nome do arquivo. O D+1 aparece numa faixa à parte, sem violação;
+  - **1º de janeiro seguinte:** a opção pelo Simples para 2027 é feita de 1º de setembro a 15 de outubro de 2026 e
+    "produzirá efeitos a partir de 1º de janeiro de 2027" [CGSN 190; CGSN 194]. O campo guarda a data de efeito,
+    então a opção feita no mês do extrato tem data futura legítima.
+
+  As datas de **exclusão** ficam de fora: podem ter efeito futuro legítimo (R3-11).
 - **Dados:** `int_estabelecimentos__enriquecidos.dat_inicio_atividade`, `.dat_situacao`;
   `stg_rfb__estabelecimentos.dat_situacao_especial`; `stg_rfb__simples.dat_opcao_simples`, `.dat_opcao_mei`;
-  `_data_referencia`. Universo: valores preenchidos de cada campo.
+  `_data_referencia`. Universo: valores preenchidos de cada campo, pela faixa ("até a data do extrato", "dia
+  seguinte ao extrato", "opção até 1º de janeiro seguinte" e "além do limite"); só a última viola.
 - **Conceito:** [Data de início de atividade](CAMADA_SEMANTICA.md#data-de-início-de-atividade). O build já avisa
   (`data_nao_futura`, warn) nas colunas de staging; aqui a regra é contada por campo.
-- **Leitura de uma violação:** erro de digitação de data ou evento agendado (defasagem: o extrato registra um ato
-  com data posterior).
+- **Leitura de uma violação:** erro de digitação de data ou ato registrado com data posterior. A faixa D+1 é o
+  corte do extrato (defasagem), não erro.
 - **Analysis:** `transform/analyses/regras_negocio/rn_13_datas_nao_futuras.sql`.
 
 <a id="rn-14"></a>
-### RN-14 — Matriz baixada, filiais baixadas
+### RN-14 — Matriz baixada, filiais baixadas ou nulas
 
-- **Enunciado:** se a matriz de uma empresa está BAIXADA, todas as filiais dela estão BAIXADAS.
+- **Enunciado:** se a matriz de uma empresa está BAIXADA, nenhuma filial dela está ativa, suspensa ou inapta: todas
+  estão BAIXADAS, ou NULAS.
 - **Tipo:** legal.
 - **Fonte:** [IN 2.119], art. 24, § 2º: "A baixa da inscrição do estabelecimento matriz no CNPJ implica baixa de
   todas as inscrições dos estabelecimentos filiais da entidade."
 - **Dados:** `int_estabelecimentos__enriquecidos.cnpj_raiz`, `.matriz_filial_codigo`, `.situacao_codigo`. Universo:
-  filiais de empresas com matriz baixada, pela situação da filial.
+  filiais de empresas com matriz baixada, pela situação da filial. Viola a filial que não está BAIXADA nem NULA; a
+  NULA aparece na quebra, sem violação.
 - **Conceito:** [Matriz × filial](CAMADA_SEMANTICA.md#matriz--filial); ontologia `rfbo:Matriz`, `rfbo:Filial`.
 - **Leitura de uma violação:** defasagem (a baixa da filial ainda não refletida no extrato), filial transformada em
-  matriz [IN 2.119, art. 4º, § 3º] ou erro de dado. A filial **NULA** é um limite da tradução: a nulidade do ato
-  cadastral vale desde o início da inscrição [IN 2.119, art. 34, parágrafo único], então não há inscrição a baixar;
-  a quebra por situação a separa das demais.
+  matriz [IN 2.119, art. 4º, § 3º] ou erro de dado. A filial **NULA** não viola: a nulidade produz efeitos "a partir
+  do termo inicial de vigência do ato cadastral declarado nulo" [IN 2.119, art. 34, parágrafo único], então não há
+  inscrição regular a baixar.
 - **Analysis:** `transform/analyses/regras_negocio/rn_14_matriz_baixada_filiais_baixadas.sql`.
+
+<a id="rn-27"></a>
+### RN-27 — Filial não começa depois do fim da matriz
+
+- **Enunciado:** a filial não tem início de atividade posterior à data em que a matriz foi baixada, declarada inapta
+  ou declarada nula.
+- **Tipo:** coerência do projeto.
+- **Fonte:** regra do projeto apoiada no [IN 2.119], art. 21, IV: impede a inscrição no CNPJ, "no caso de
+  estabelecimento filial, o fato de o estabelecimento matriz da entidade não possuir inscrição no CNPJ ou de sua
+  inscrição ser inexistente, baixada, inapta ou nula". A IN fala da **inscrição**; o extrato não traz a data de
+  inscrição, e o início de atividade pode ser declarado diferente dela. Por isso não é regra legal.
+- **Dados:** `int_estabelecimentos__enriquecidos.cnpj_raiz`, `.matriz_filial_codigo`, `.situacao_codigo`,
+  `.dat_situacao` (matriz) e `.dat_inicio_atividade` (filial). Universo: filiais com início de atividade, de CNPJ
+  básico com uma única matriz NULA, INAPTA ou BAIXADA com data da situação; pela situação da matriz.
+- **Conceito:** [Matriz × filial](CAMADA_SEMANTICA.md#matriz--filial) e
+  [Situação cadastral](CAMADA_SEMANTICA.md#situação-cadastral).
+- **Leitura de uma violação:** filial inscrita antes do evento da matriz com início de atividade declarado depois,
+  inscrição feita antes de a regra valer, nulidade com data do ato posterior à inscrição, ou erro de dado.
+- **Analysis:** `transform/analyses/regras_negocio/rn_27_filial_nao_inicia_apos_fim_da_matriz.sql`.
 
 <a id="rn-15"></a>
 ### RN-15 — Situação especial e data andam juntas
@@ -366,11 +464,12 @@ colchetes estão em [Fontes](#fontes).
 - **Tipo:** leiaute/cadastro.
 - **Fonte:** [RFB-Leiaute]: "O ENTE FEDERATIVO RESPONSÁVEL É PREENCHIDO PARA OS CASOS DE ÓRGÃOS E ENTIDADES DO GRUPO DE
   NATUREZA JURÍDICA 1XXX. PARA AS DEMAIS NATUREZAS, ESTE ATRIBUTO FICA EM BRANCO" (e nota 3).
-- **Dados:** `stg_rfb__empresas.natureza_juridica_codigo` e `.ente_federativo_responsavel`. Universo: empresas, pelo
-  grupo da natureza; natureza vazia conta como "demais".
+- **Dados:** `stg_rfb__empresas.natureza_juridica_codigo` e `.ente_federativo_responsavel`; `stg_rfb__naturezas`.
+  Universo: empresas, pelo grupo e pela natureza; natureza vazia conta como "demais".
 - **Conceito:** [Natureza jurídica](CAMADA_SEMANTICA.md#natureza-jurídica).
-- **Leitura de uma violação:** no grupo 1, ente vazio é erro de dado (ou órgão sem ente no cadastro); fora dele,
-  ente preenchido é erro de dado ou natureza alterada sem limpar o campo.
+- **Leitura de uma violação:** no grupo 1, ente vazio é erro de dado ou entidade sem um único ente responsável, como
+  o consórcio público (1210, 1228), que é interfederativo; fora dele, ente preenchido é erro de dado ou natureza
+  alterada sem limpar o campo.
 - **Analysis:** `transform/analyses/regras_negocio/rn_20_ente_federativo_natureza_publica.sql`.
 
 <a id="rn-21"></a>
@@ -441,19 +540,25 @@ testes ao build.
 
 ## Fontes
 
-Conferidas em **2026-10-13** (texto lido na fonte, não só citado). As chaves são as da
+Conferidas em **2026-10-13** (texto lido na fonte, não só citado). As linhas LC 128, CONCLA e CGSN 190/194 e os
+trechos novos da LC 123 (art. 88) e da IN 2.119 (art. 21, IV) entraram com o lote FRN (RRN-02, RRN-08). As chaves são as da
 [A7 da camada semântica](CAMADA_SEMANTICA.md#a7-fontes), onde estão as demais.
 
 | Chave | Fonte | O que sustenta aqui |
 |---|---|---|
 | RFB-Leiaute | Receita Federal, [Novo Layout dos Dados Abertos do CNPJ](https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf) (PDF, 6 p.) | CNAE fiscal principal e secundárias, separadas por vírgula (RN-01 a RN-04); campos de data e motivo da situação, situação especial (RN-10 a RN-15); opção e datas do Simples e do MEI (RN-06, RN-09); porte (RN-07); identificador matriz/filial (RN-16); município de jurisdição e domínio de municípios (RN-19); ente federativo só no grupo 1XXX (RN-20); capital social (RN-21) |
-| LC 123 | [Lei Complementar nº 123/2006](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm), texto compilado do Planalto | MEI "optante pelo Simples Nacional" (art. 18-A, § 1º, RN-06); MEI "que possua mais de um estabelecimento" não pode optar pelo SIMEI (art. 18-A, § 4º, II, RN-05); "O MEI é modalidade de microempresa" (art. 18-E, § 3º, incluído pela LC 147/2014, RN-07) |
-| IN 2.119 | [Instrução Normativa RFB nº 2.119/2022](http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=127567), texto multivigente | formato alfanumérico (art. 2º, parágrafo único, RN-17); hipóteses de baixa e efeitos desde o evento (art. 24, caput e § 1º, RN-10, RN-11); baixa da matriz implica a das filiais (art. 24, § 2º, RN-14); nulidade com efeito desde o início do ato (art. 34, RN-14) |
+| LC 123 | [Lei Complementar nº 123/2006](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm), texto compilado do Planalto | MEI "optante pelo Simples Nacional" (art. 18-A, § 1º, RN-06); MEI "seja empresário individual [...] ou o empreendedor" (art. 18-A, § 1º, redação da LC 188/2021, RN-29); MEI "que possua mais de um estabelecimento" não pode optar pelo SIMEI (art. 18-A, § 4º, II, RN-05); "O MEI é modalidade de microempresa" (art. 18-E, § 3º, incluído pela LC 147/2014, RN-07); o regime "entra em vigor em 1º de julho de 2007" (art. 88, RN-25) |
+| LC 128 | [Lei Complementar nº 128/2008](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp128.htm), Planalto | os arts. 18-A a 18-C da LC 123 (SIMEI) "produzirão efeitos a partir de 1º de julho de 2009" (art. 14, III, RN-26) |
+| IN 2.119 | [Instrução Normativa RFB nº 2.119/2022](http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=127567), texto multivigente | formato alfanumérico (art. 2º, parágrafo único, RN-17); hipóteses de baixa e efeitos desde o evento (art. 24, caput e § 1º, RN-10, RN-11); baixa da matriz implica a das filiais (art. 24, § 2º, RN-14); nulidade com efeito "a partir do termo inicial de vigência do ato cadastral declarado nulo" (art. 34, parágrafo único, RN-14); a matriz baixada, inapta ou nula impede a inscrição de filial (art. 21, IV, RN-27) |
 | RFB-Alfanumérico | Receita Federal, [Perguntas e respostas: CNPJ alfanumérico](https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/perguntas-e-respostas/cnpj/cnpj-alfanumerico.pdf) | DV pelo módulo 11; números atuais e seus DV continuam válidos (RN-17) |
 | RFB-Motivos | Tabela de motivos da situação cadastral publicada com os dados abertos (`Motivos.zip`, extrato de 2026-09; fonte `rfb.motivos`) | descrição dos motivos 00 a 93 (RN-10). Não é norma: é o domínio do próprio cadastro |
-| CGSN 190 | Resolução CGSN nº 190/2026 (ver [A7](CAMADA_SEMANTICA.md#a7-fontes)) | opção pelo Simples antes do início dos efeitos (RN-13); não reconferida neste lote |
+| CGSN 190 | Resolução CGSN nº 190/2026, publicada em 10/08/2026 (listada no [Sijut, resoluções do CGSN](https://normas.receita.fazenda.gov.br/sijut2consulta/consulta.action?lblTiposAtosSelecionados=Res.&orgaosSelecionados=CGSN&tipoData=2&tiposAtosSelecionados=67)), lida na notícia oficial da Receita Federal [CGSN atualiza regras do Simples Nacional](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/agosto/cgsn-atualiza-regras-do-simples-nacional-para-adequacao-a-reforma-tributaria-do-consumo) | a opção feita em setembro de 2026 é "para produzir efeitos a partir de 1º de janeiro do ano seguinte" (RN-13). O texto da resolução não foi aberto: o Sijut só a lista |
+| CGSN 194 | Resolução CGSN nº 194/2026, publicada no DOU de 28/09/2026 (listada no Sijut, como a 190), lida na notícia oficial da Receita Federal [Simples Nacional 2027: entenda os novos prazos](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/setembro/simples-nacional-2027-entenda-os-novos-prazos-e-faca-sua-escolha-com-consciencia-e-tranquilidade) | opção para 2027 de 1º/9 a 15/10/2026; "A opção, quando confirmada, produzirá efeitos a partir de 1º de janeiro de 2027" (RN-13) |
+| CONCLA | IBGE/CONCLA, [Tabela de Natureza Jurídica 2021](https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html) | os códigos e nomes das naturezas de sociedade (RN-29) |
 
 **Não confirmado.** Nenhuma fonte diz que o ATIVO tem motivo 00, que o não ativo tem data da situação, que a
-situação não antecede o início de atividade, que os CNAEs secundários não repetem o principal ou que há uma única
-matriz por CNPJ básico: por isso RN-03, RN-04, RN-09 a RN-13, RN-15, RN-16 e RN-21 são "coerência do projeto" ou
-"estrutural". A natureza 213-5 do MEI (RN-08) é observação, não regra.
+situação não antecede o início de atividade, que os CNAEs secundários não repetem o principal, que há uma única
+matriz por CNPJ básico ou que a filial não começa atividade depois do fim da matriz (a IN fala da inscrição): por
+isso RN-03, RN-04, RN-09 a RN-13, RN-15, RN-16, RN-21 e RN-27 são "coerência do projeto" ou "estrutural". O corte
+D+1 da RN-13 é medido no dado, não documentado pela RFB. A natureza 213-5 do MEI (RN-08) e a opção antes do início
+de atividade (RN-28) são observações, não regras.

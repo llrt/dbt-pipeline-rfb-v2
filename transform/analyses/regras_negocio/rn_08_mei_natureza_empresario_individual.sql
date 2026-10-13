@@ -5,7 +5,8 @@
 -- por natureza jurídica.
 select
   'RN-08' as regra,
-  coalesce(emp.natureza_juridica_codigo || ' ' || nat.descricao, 'NÃO INFORMADA') as natureza_juridica,
+  coalesce(emp.natureza_juridica_codigo, '—') || ' '
+  || coalesce(nat.descricao, '(fora do domínio)') as natureza_juridica,
   count(*) as avaliados,
   count(*) filter (where emp.natureza_juridica_codigo is distinct from '2135') as violacoes
 from {{ ref('stg_rfb__simples') }} as sim
