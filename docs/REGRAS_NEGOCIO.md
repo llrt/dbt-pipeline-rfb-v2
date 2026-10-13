@@ -220,7 +220,7 @@ colchetes estão em [Fontes](#fontes).
 ### RN-09 — Exclusão do regime não antecede a opção
 
 - **Enunciado:** quando o registro do Simples tem data de opção e data de exclusão do mesmo regime, a exclusão não
-  é anterior à opção. Vale para o Simples Nacional e para o MEI.
+  é anterior à opção. Vale para o Simples Nacional e para o MEI. Exclusão no mesmo dia da opção não viola.
 - **Tipo:** coerência do projeto.
 - **Fonte:** regra do projeto sobre os campos "data de opção" e "data de exclusão" de cada regime [RFB-Leiaute].
 - **Dados:** `stg_rfb__simples.dat_opcao_simples`, `.dat_exclusao_simples`, `.dat_opcao_mei`, `.dat_exclusao_mei`.
@@ -259,6 +259,7 @@ colchetes estão em [Fontes](#fontes).
 ### RN-28 — Opção não antecede o início de atividade (observação)
 
 - **Enunciado:** a data de opção pelo Simples Nacional ou pelo MEI não é anterior ao início de atividade da matriz.
+  A opção no mesmo dia do início não viola.
 - **Tipo:** coerência do projeto.
 - **Fonte:** observação do projeto, **não regra**. Nenhuma fonte diz que a opção não pode anteceder o início de
   atividade, e o leiaute não diz se o arquivo guarda a data do pedido ou a de efeito (a [RN-13](#rn-13) já viu
@@ -309,7 +310,8 @@ colchetes estão em [Fontes](#fontes).
 <a id="rn-12"></a>
 ### RN-12 — Situação não antecede o início de atividade
 
-- **Enunciado:** a data da situação cadastral não é anterior à data de início de atividade do estabelecimento.
+- **Enunciado:** a data da situação cadastral não é anterior à data de início de atividade do estabelecimento. As
+  duas datas no mesmo dia não violam.
 - **Tipo:** coerência do projeto.
 - **Fonte:** regra do projeto sobre os campos de data do [RFB-Leiaute].
 - **Dados:** `int_estabelecimentos__enriquecidos.dat_situacao` e `.dat_inicio_atividade`. Universo: estabelecimentos
@@ -368,12 +370,15 @@ colchetes estão em [Fontes](#fontes).
 ### RN-27 — Filial não começa depois do fim da matriz
 
 - **Enunciado:** a filial não tem início de atividade posterior à data em que a matriz foi baixada, declarada inapta
-  ou declarada nula.
+  ou declarada nula. Começar **no mesmo dia** do evento da matriz não viola: o cadastro só traz datas, sem hora, e
+  não dá para dizer se a filial começou antes ou depois do evento naquele dia. A regra acusa só o que é
+  inequivocamente "depois".
 - **Tipo:** coerência do projeto.
 - **Fonte:** regra do projeto apoiada no [IN 2.119], art. 21, IV: impede a inscrição no CNPJ, "no caso de
   estabelecimento filial, o fato de o estabelecimento matriz da entidade não possuir inscrição no CNPJ ou de sua
   inscrição ser inexistente, baixada, inapta ou nula". A IN fala da **inscrição**; o extrato não traz a data de
-  inscrição, e o início de atividade pode ser declarado diferente dela. Por isso não é regra legal.
+  inscrição, e o início de atividade pode ser declarado diferente dela. Por isso não é regra legal. A IN também não
+  diz nada sobre um ato no mesmo dia do evento da matriz, por isso a fronteira fica com o enunciado ("depois de").
 - **Dados:** `int_estabelecimentos__enriquecidos.cnpj_raiz`, `.matriz_filial_codigo`, `.situacao_codigo`,
   `.dat_situacao` (matriz) e `.dat_inicio_atividade` (filial). Universo: filiais com início de atividade, de CNPJ
   básico com uma única matriz NULA, INAPTA ou BAIXADA com data da situação; pela situação da matriz.
