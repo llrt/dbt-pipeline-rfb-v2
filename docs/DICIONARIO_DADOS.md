@@ -15,13 +15,24 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
   no DuckDB (catálogo do dbt). As fontes raw guardam todo dado como `varchar`; a tipagem acontece no
   staging.
 - **Pode ser nulo?**: lido do teste `not_null`. Sem o teste, o dicionário escreve *não testado* — não
-  afirma que a coluna aceita nulos.
+  afirma que a coluna aceita nulos. Com o teste em `severity: warn`, escreve *em geral não*: o teste
+  avisa, não barra o build, e o dado real pode ter exceções.
 - **Domínio / valores aceitos**: dos testes `accepted_values`, `accepted_range`, `relationships`,
-  `tamanho_exato`, `data_nao_futura` e `cnpj_dv_valido`.
+  `tamanho_exato`, `data_nao_futura` e `cnpj_dv_valido`, e das linhas das seeds de domínio. A marca
+  `(warn)` indica regra que o dado pode violar (o teste só avisa).
+- **Chaves únicas e grão**: a chave primária é a coluna (ou combinação) com teste de unicidade que
+  está no grão. Sem esse teste, a linha *Chave primária* diz *não testada* e o grão aparece como
+  *declarado, não testado*: é o que a tabela pretende, não o que um teste prova.
+- **Lê de / Usada por**: as tabelas de que cada tabela é lida e as que a leem (dependências do
+  manifesto do dbt; testes não contam). Ligam a cadeia raw → staging → intermediate → gold.
 - **Origem**: nas fontes RFB, o nome do campo no leiaute oficial
   ([`cnpj-metadados.pdf`](https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf), `meta.campo_leiaute`);
   nas fontes da Base dos Dados, a coluna no BigQuery (`meta.coluna_bigquery`); nas demais camadas, a
-  linhagem declarada na descrição ou a coluna raw do teste `taxa_conversao_tipada`.
+  linhagem declarada na descrição (*Linhagem:*) ou em `meta.linhagem`, ou a coluna raw do teste
+  `taxa_conversao_tipada`.
+  Coluna sem origem (—) é cópia direta ou cálculo descrito na própria descrição.
+- **Chaves estrangeiras**: *testada* (teste `relationships`), *semântica* (entidade da camada
+  semântica, sem teste) ou *declarada* (`meta.fk_declarada`, sem teste).
 - **Chaves**: `-1` (NÃO INFORMADO) e `-2` (data inválida, só em `dim_data`) são membros das dimensões;
   um estabelecimento sem par numa dimensão fica com a chave `-1`, nunca é descartado (exceto nos marts
   `original`, que reproduzem os inner joins do MVP).
@@ -202,6 +213,32 @@ Modelos de acompanhamento dos testes e do teste de paridade.
 | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original) | — | adicao | 0 |
 | [`dq_resumo_execucao`](#dq_resumo_execucao) | execução do dbt (`invocation_id`) | adicao | 10 |
 
+<a id="modelo-estrela"></a>
+### Modelo estrela
+
+Chaves estrangeiras entre fatos, pontes e dimensões do gold (cada linha: muitos para um; o rótulo é
+a coluna da tabela de origem). Inclui as FKs testadas, as da camada semântica e as declaradas em
+`meta.fk_declarada`; a coluna *Chaves estrangeiras* de cada tabela diz de qual tipo é cada uma.
+
+```mermaid
+erDiagram
+    bridge_estabelecimento_cnae_secundario }o--|| fct_estabelecimentos : "cnpj_completo"
+    bridge_estabelecimento_cnae_secundario }o--|| dim_cnae : "sk_cnae"
+    bridge_municipio_vizinho }o--|| dim_municipio : "sk_municipio"
+    bridge_municipio_vizinho }o--|| dim_municipio : "sk_municipio_vizinho"
+    fct_estabelecimentos }o--|| dim_cnae : "sk_cnae"
+    fct_estabelecimentos }o--|| dim_data : "sk_data_inicio_atividade"
+    fct_estabelecimentos }o--|| dim_data : "sk_data_situacao"
+    fct_estabelecimentos }o--|| dim_municipio : "sk_municipio"
+    fct_estabelecimentos }o--|| dim_natureza_juridica : "sk_natureza_juridica"
+    fct_estabelecimentos }o--|| dim_porte : "sk_porte"
+    fct_estabelecimentos }o--|| dim_situacao_cadastral : "sk_situacao_cadastral"
+    fct_resumo_mensal }o--|| dim_cnae : "sk_cnae"
+    fct_resumo_mensal }o--|| dim_municipio : "sk_municipio"
+    fct_resumo_mensal }o--|| dim_porte : "sk_porte"
+    fct_resumo_mensal }o--|| dim_situacao_cadastral : "sk_situacao_cadastral"
+```
+
 ## Fontes — RFB (raw)
 
 <a id="rfb-cnaes"></a>
@@ -215,6 +252,8 @@ Tabela de domínio: código e descrição de cada subclasse CNAE segundo a RFB (
 | Chave primária (testada) | `codigo` + `_mes_referencia` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | [`stg_rfb__cnaes`](#stg_rfb__cnaes) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/cnaes/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -242,6 +281,8 @@ Uma linha por empresa (CNPJ raiz, 8 primeiros dígitos). Notebook original: 1 (c
 | Chave primária (testada) | `cnpj_raiz` + `_mes_referencia` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_rfb__empresas`](#stg_rfb__empresas) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/empresas/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -274,6 +315,8 @@ Uma linha por estabelecimento (CNPJ completo: raiz + ordem + DV). Notebook origi
 | Chave primária (testada) | `cnpj_raiz` + `cnpj_ordem` + `cnpj_dv` + `_mes_referencia` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/estabelecimentos/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -329,6 +372,8 @@ Tabela de domínio: código e descrição de cada motivo de situação cadastral
 | Chave primária (testada) | `codigo` + `_mes_referencia` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | [`stg_rfb__motivos`](#stg_rfb__motivos) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/motivos/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -338,8 +383,8 @@ Tabela de domínio: código e descrição de cada motivo de situação cadastral
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
-| `codigo` | `varchar` | Código do motivo de situação cadastral. | não (`not_null`) | — | — | — |
-| `descricao` | `varchar` | Descrição do motivo de situação cadastral. | não testado | — | — | — |
+| `codigo` | `varchar` | Código do motivo de situação cadastral. | não (`not_null`) | — | não consta do leiaute oficial | — |
+| `descricao` | `varchar` | Descrição do motivo de situação cadastral. | não testado | — | não consta do leiaute oficial | — |
 | `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo). NULL zeraria `idade_atual` em silêncio via `data_referencia()` (R2-03): not_null error. | não (`not_null`) | — | coluna técnica da ingestão | — |
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_mes_referencia` | `varchar` | Mês de referência da pasta do extrato (`AAAA-MM`), partição `mes_referencia=` do Parquet raw. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
@@ -356,6 +401,8 @@ Tabela de domínio: código RFB e nome de cada município (notebook 2.1.1). Não
 | Chave primária (testada) | `codigo` + `_mes_referencia` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | [`stg_rfb__municipios`](#stg_rfb__municipios) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/municipios/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -383,6 +430,8 @@ Tabela de domínio: código e descrição de cada natureza jurídica (notebook 2
 | Chave primária (testada) | `codigo` + `_mes_referencia` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_rfb__naturezas`](#stg_rfb__naturezas) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/naturezas/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -406,10 +455,12 @@ Tabela de domínio: código e descrição de cada país (adição: não usada pe
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por país (`codigo`) por mês de referência. |
+| Grão (declarado, não testado) | Uma linha por país (`codigo`) por mês de referência. |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | — |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/paises/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -433,10 +484,12 @@ Tabela de domínio: código e descrição de cada qualificação de responsável
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por qualificação de responsável (`codigo`) por mês de referência. |
+| Grão (declarado, não testado) | Uma linha por qualificação de responsável (`codigo`) por mês de referência. |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | — |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/qualificacoes/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -460,10 +513,12 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por empresa (`cnpj_raiz`) por mês de referência. |
+| Grão (declarado, não testado) | Uma linha por empresa (`cnpj_raiz`) por mês de referência. |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | arquivos dos dados abertos de CNPJ da RFB (ingestão) |
+| Usada por | [`stg_rfb__simples`](#stg_rfb__simples) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/simples/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -498,6 +553,8 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Chave primária (testada) | `id_municipio` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | Base dos Dados (ingestão) |
+| Usada por | [`stg_bd__censo_2022_municipio`](#stg_bd__censo_2022_municipio) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/censo_2022_municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -530,10 +587,12 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por subclasse CNAE (`subclasse`). |
+| Grão (declarado, não testado) | Uma linha por subclasse CNAE (`subclasse`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | Base dos Dados (ingestão) |
+| Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_bd__cnaes`](#stg_bd__cnaes) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/cnae_2/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -567,10 +626,12 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por município IBGE (`id_municipio`). |
-| Chave primária (testada) | `id_municipio_rf` (teste `warn`) |
-| Outras chaves únicas | — |
+| Grão (declarado, não testado) | Uma linha por município IBGE (`id_municipio`). |
+| Chave primária (testada) | não testada |
+| Outras chaves únicas | `id_municipio_rf` (`warn`) |
 | Chaves estrangeiras | — |
+| Lê de | Base dos Dados (ingestão) |
+| Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_bd__municipios`](#stg_bd__municipios) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -621,6 +682,8 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Chave primária (testada) | `id_municipio` + `ano` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | Base dos Dados (ingestão) |
+| Usada por | [`stg_bd__pib`](#stg_bd__pib) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/pib/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -653,6 +716,8 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Chave primária (testada) | `id_municipio` + `ano` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | Base dos Dados (ingestão) |
+| Usada por | [`stg_bd__populacao`](#stg_bd__populacao) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/populacao/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -676,10 +741,12 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por par município × região metropolitana (`id_municipio`, `nome_regiao_metropolitana`). |
+| Grão (declarado, não testado) | Uma linha por par município × região metropolitana (`id_municipio`, `nome_regiao_metropolitana`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | Base dos Dados (ingestão) |
+| Usada por | [`stg_bd__regioes_metropolitanas`](#stg_bd__regioes_metropolitanas) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/regiao_metropolitana_2017/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -707,10 +774,12 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por par de municípios vizinhos por ano de malha (`ano`, `id_municipio_1`, `id_municipio_2`). |
+| Grão (declarado, não testado) | Uma linha por par de municípios vizinhos por ano de malha (`ano`, `id_municipio_1`, `id_municipio_2`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | Base dos Dados (ingestão) |
+| Usada por | [`stg_bd__vizinhanca`](#stg_bd__vizinhanca) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/vizinhanca_municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -735,10 +804,12 @@ Histórico acumulado dos resultados de testes dbt, uma linha por teste por execu
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por teste executado em uma execução do dbt (`invocation_id`, `nome_teste`). |
+| Grão (declarado, não testado) | Uma linha por teste executado em uma execução do dbt (`invocation_id`, `nome_teste`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | hooks `on-run-start`/`on-run-end` do dbt |
+| Usada por | [`dq_resumo_execucao`](#dq_resumo_execucao) |
 | Materialização | tabela no `warehouse.duckdb` |
 | Localização | `warehouse.duckdb` (esquema `main`, em `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -770,6 +841,8 @@ Domínio do indicador matriz/filial do estabelecimento. A fato usa só a flag `e
 | Chave primária (testada) | `codigo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | CSV versionado no repositório |
+| Usada por | — |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/dominio_matriz_filial.csv` |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -783,6 +856,13 @@ Domínio do indicador matriz/filial do estabelecimento. A fato usa só a flag `e
 | `rotulo` | `varchar` | Rótulo curto (MATRIZ, FILIAL). | não testado | — | — | — |
 | `descricao` | `varchar` | Descrição por extenso. | não testado | — | — | — |
 
+Linhas da seed (2):
+
+| `codigo` | `rotulo` | `descricao` |
+|---|---|---|
+| 1 | MATRIZ | Estabelecimento matriz |
+| 2 | FILIAL | Estabelecimento filial |
+
 <a id="dominio_porte"></a>
 #### `dominio_porte`
 
@@ -794,6 +874,8 @@ Domínio de porte da empresa (metadados RFB): `rotulo` reproduz os valores de `b
 | Chave primária (testada) | `codigo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | CSV versionado no repositório |
+| Usada por | [`dim_porte`](#dim_porte) |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/dominio_porte.csv` |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -807,6 +889,15 @@ Domínio de porte da empresa (metadados RFB): `rotulo` reproduz os valores de `b
 | `rotulo` | `varchar` | Rótulo curto do porte (N/A, MICRO, PEQUENA, DEMAIS). | não testado | — | — | — |
 | `descricao` | `varchar` | Descrição por extenso do porte. | não testado | — | — | — |
 
+Linhas da seed (4):
+
+| `codigo` | `rotulo` | `descricao` |
+|---|---|---|
+| 0 | N/A | Não informado |
+| 1 | MICRO | Microempresa |
+| 3 | PEQUENA | Empresa de pequeno porte |
+| 5 | DEMAIS | Demais (médio e grande porte) |
+
 <a id="dominio_situacao_cadastral"></a>
 #### `dominio_situacao_cadastral`
 
@@ -818,6 +909,8 @@ Domínio de situação cadastral do estabelecimento (metadados RFB). Base de `di
 | Chave primária (testada) | `codigo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | CSV versionado no repositório |
+| Usada por | [`dim_situacao_cadastral`](#dim_situacao_cadastral) |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/dominio_situacao_cadastral.csv` |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -831,6 +924,16 @@ Domínio de situação cadastral do estabelecimento (metadados RFB). Base de `di
 | `rotulo` | `varchar` | Rótulo curto da situação (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA). | não testado | — | — | — |
 | `descricao` | `varchar` | Descrição por extenso da situação. | não testado | — | — | — |
 
+Linhas da seed (5):
+
+| `codigo` | `rotulo` | `descricao` |
+|---|---|---|
+| 1 | NULA | Situação cadastral nula |
+| 2 | ATIVA | Estabelecimento ativo |
+| 3 | SUSPENSA | Estabelecimento suspenso |
+| 4 | INAPTA | Estabelecimento inapto |
+| 8 | BAIXADA | Estabelecimento baixado |
+
 <a id="excecoes_conhecidas_municipio"></a>
 #### `excecoes_conhecidas_municipio`
 
@@ -838,10 +941,12 @@ Códigos de município da RFB sem par na Base dos Dados por motivo conhecido (ex
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por código de município da RFB sem par na Base dos Dados (`codigo`). |
+| Grão (declarado, não testado) | Uma linha por código de município da RFB sem par na Base dos Dados (`codigo`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | CSV versionado no repositório |
+| Usada por | — |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/excecoes_conhecidas_municipio.csv` |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -854,6 +959,13 @@ Códigos de município da RFB sem par na Base dos Dados por motivo conhecido (ex
 | `codigo` | `integer` | Código do município na classificação da RFB (4 dígitos). | não testado | — | — | — |
 | `descricao` | `varchar` | Nome do município como aparece na RFB. | não testado | — | — | — |
 | `motivo` | `varchar` | Motivo da exceção (não é município; criado após a base BD). | não testado | — | — | — |
+
+Linhas da seed (2):
+
+| `codigo` | `descricao` | `motivo` |
+|---|---|---|
+| 9707 | EXTERIOR | não é município |
+| 1182 | BOA ESPERANCA DO NORTE | criado após a base BD |
 
 ## Staging
 
@@ -868,6 +980,8 @@ Censo 2022 por município, tipado: contagens `bigint`, taxas `double`; `area` vi
 | Chave primária (testada) | `id_municipio` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.censo_2022_municipio`](#basedosdados-censo_2022_municipio) |
+| Usada por | [`dim_municipio`](#dim_municipio) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -902,6 +1016,8 @@ CNAEs (versão 2.x) da Base dos Dados, tipado e limpo: `subclasse` e demais cód
 | Chave primária (testada) | `subclasse` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.cnae_2`](#basedosdados-cnae_2) |
+| Usada por | [`bh_empresas`](#bh_empresas), [`dim_cnae`](#dim_cnae), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -933,6 +1049,8 @@ Municípios da Base dos Dados, tipado e limpo: ids como texto (`texto_ou_nulo`),
 | Chave primária (testada) | `id_municipio` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.municipio`](#basedosdados-municipio) |
+| Usada por | [`bh_empresas`](#bh_empresas), [`int_municipios__conformados`](#int_municipios__conformados) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -970,6 +1088,8 @@ PIB municipal e seus componentes (adição), tipados como `double`; `ano` inteir
 | Chave primária (testada) | `id_municipio` + `ano` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.pib`](#basedosdados-pib) |
+| Usada por | [`int_municipios__conformados`](#int_municipios__conformados) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1000,6 +1120,8 @@ População estimada por município e ano (adição), tipada: `ano` inteiro, `po
 | Chave primária (testada) | `id_municipio` + `ano` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.populacao`](#basedosdados-populacao) |
+| Usada por | [`int_municipios__conformados`](#int_municipios__conformados) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1012,7 +1134,7 @@ População estimada por município e ano (adição), tipada: `ano` inteiro, `po
 | `id_municipio` | `varchar` | Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`). | não (`not_null`) | — | — | — |
 | `sigla_uf` | `varchar` | Sigla da UF do município. | não testado | — | — | — |
 | `ano` | `integer` | Ano de referência da estimativa populacional. | não (`not_null`) | — | — | — |
-| `populacao` | `bigint` | População estimada no município e ano. | não testado | valor ≥ `1` | — | — |
+| `populacao` | `bigint` | População estimada no município e ano. | não testado | valor ≥ `1` (`warn`) | — | — |
 
 <a id="stg_bd__regioes_metropolitanas"></a>
 #### `stg_bd__regioes_metropolitanas`
@@ -1025,6 +1147,8 @@ Região metropolitana de cada município, uma linha por município (a fonte pode
 | Chave primária (testada) | `id_municipio` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.regiao_metropolitana_2017`](#basedosdados-regiao_metropolitana_2017) |
+| Usada por | [`dim_municipio`](#dim_municipio) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1049,10 +1173,12 @@ Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por par de municípios vizinhos por ano, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`). |
+| Grão (declarado, não testado) | Uma linha por par de municípios vizinhos por ano, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.vizinhanca_municipio`](#basedosdados-vizinhanca_municipio) |
+| Usada por | [`bridge_municipio_vizinho`](#bridge_municipio_vizinho) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1077,6 +1203,8 @@ Domínio de CNAEs (subclasse) da RFB, tipado e limpo: `codigo` com 7 dígitos (`
 | Chave primária (testada) | `codigo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`rfb.cnaes`](#rfb-cnaes) |
+| Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1100,6 +1228,8 @@ Empresas (CNPJ raiz) da RFB, tipadas e limpas, do mês de referência selecionad
 | Chave primária (testada) | `cnpj_raiz` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`rfb.empresas`](#rfb-empresas) |
+| Usada por | [`bh_empresas`](#bh_empresas), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1130,6 +1260,8 @@ Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referênci
 | Chave primária (testada) | `cnpj_completo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`rfb.estabelecimentos`](#rfb-estabelecimentos) |
+| Usada por | [`bh_empresas`](#bh_empresas), [`dim_data`](#dim_data), [`fct_resumo_mensal`](#fct_resumo_mensal), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1142,7 +1274,7 @@ Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referênci
 | `cnpj_raiz` | `varchar` | 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`). | não (`not_null`) | — | — | — |
 | `cnpj_ordem` | `varchar` | Número do estabelecimento (4 dígitos; `0001` = matriz, em geral). | não testado | — | — | — |
 | `cnpj_dv` | `varchar` | Dígitos verificadores do CNPJ (2 dígitos). | não testado | — | — | — |
-| `cnpj_completo` | `varchar` | CNPJ completo com 14 dígitos = `cnpj_raiz \|\| cnpj_ordem \|\| cnpj_dv`. | não (`not_null`) | tamanho exato: 14; CNPJ com DV válido (`warn`) | — | — |
+| `cnpj_completo` | `varchar` | CNPJ completo com 14 dígitos = `cnpj_raiz \|\| cnpj_ordem \|\| cnpj_dv`. | não (`not_null`) | CNPJ com DV válido (`warn`); tamanho exato: 14 | — | — |
 | `matriz_filial_codigo` | `integer` | 1 = matriz, 2 = filial. | não testado | — | raw: `estabelecimentos.ind_matriz_filial` | — |
 | `nome_fantasia` | `varchar` | Nome fantasia do estabelecimento; NULL se vazio. | não testado | — | — | — |
 | `situacao_codigo` | `integer` | Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada. | não testado | valores: `1`, `2`, `3`, `4`, `8` | raw: `estabelecimentos.situacao` | — |
@@ -1150,7 +1282,7 @@ Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referênci
 | `motivo_situacao_codigo` | `varchar` | Código do motivo da situação cadastral (2 dígitos; FK lógica para `stg_rfb__motivos`). | não testado | — | — | — |
 | `cidade_exterior` | `varchar` | Cidade no exterior, só para estabelecimentos fora do Brasil. | não testado | — | — | — |
 | `pais_codigo` | `varchar` | Código do país (3 dígitos), só para estabelecimentos no exterior. | não testado | — | — | — |
-| `dat_inicio_atividade` | `date` | Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste warn abaixo as registra (spec Original AC 12, emenda R2-02). O limite é 1900-01-01, o início de `dim_data`: antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA, emenda R3-03). | não testado | valor ≥ `date '1900-01-01'`; data não futura (`warn`) | raw: `estabelecimentos.dat_inicio_atividade` | sentinelas viram NULL: `00000000`, `0` |
+| `dat_inicio_atividade` | `date` | Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste warn abaixo as registra (spec Original AC 12, emenda R2-02). O limite é 1900-01-01, o início de `dim_data`: antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA, emenda R3-03). | não testado | data não futura (`warn`); valor ≥ `date '1900-01-01'` (`warn`) | raw: `estabelecimentos.dat_inicio_atividade` | sentinelas viram NULL: `00000000`, `0` |
 | `cnae_principal` | `varchar` | Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`). | não testado | tamanho exato: 7 | — | — |
 | `cnaes_secundarios` | `varchar` | CNAEs secundários, texto original separado por vírgula; NULL se vazio. | não testado | — | — | — |
 | `cnaes_secundarios_lista` | `varchar[]` | CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver. | não testado | — | — | — |
@@ -1178,6 +1310,8 @@ Domínio de motivos de situação cadastral da RFB, tipado e limpo: `codigo` com
 | Chave primária (testada) | `codigo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`rfb.motivos`](#rfb-motivos) |
+| Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1201,6 +1335,8 @@ Domínio de municípios da RFB, tipado e limpo: `codigo` com 4 dígitos (`lpad_c
 | Chave primária (testada) | `codigo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`rfb.municipios`](#rfb-municipios) |
+| Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1224,6 +1360,8 @@ Domínio de naturezas jurídicas da RFB, tipado e limpo: `codigo` com 4 dígitos
 | Chave primária (testada) | `codigo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`rfb.naturezas`](#rfb-naturezas) |
+| Usada por | [`bh_empresas`](#bh_empresas), [`dim_natureza_juridica`](#dim_natureza_juridica), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1247,6 +1385,8 @@ Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opca
 | Chave primária (testada) | `cnpj_raiz` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`rfb.simples`](#rfb-simples) |
+| Usada por | [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1277,6 +1417,8 @@ Uma linha por (estabelecimento, CNAE secundário), a partir de `cnaes_secundario
 | Chave primária (testada) | `cnpj_completo` + `codigo_cnae_secundario` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
+| Usada por | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1299,7 +1441,9 @@ Estabelecimentos do mês selecionado com empresa, Simples/MEI e pares nos domín
 | Grão | Uma linha por estabelecimento (`cnpj_completo`) do mês selecionado. |
 | Chave primária (testada) | `cnpj_completo` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `matriz_filial_codigo` → [`dominio_matriz_filial`](#dominio_matriz_filial).`codigo` |
+| Chaves estrangeiras | `matriz_filial_codigo` → [`dominio_matriz_filial`](#dominio_matriz_filial).`codigo` (testada) |
+| Lê de | [`int_municipios__conformados`](#int_municipios__conformados), [`stg_bd__cnaes`](#stg_bd__cnaes), [`stg_rfb__empresas`](#stg_rfb__empresas), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos), [`stg_rfb__naturezas`](#stg_rfb__naturezas), [`stg_rfb__simples`](#stg_rfb__simples) |
+| Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos), [`int_cnaes_secundarios__explodidos`](#int_cnaes_secundarios__explodidos), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1340,8 +1484,10 @@ Município conformado (Base dos Dados + população do `ano_populacao` + PIB do 
 |---|---|
 | Grão | Uma linha por município IBGE (`sk_municipio`). |
 | Chave primária (testada) | `sk_municipio` |
-| Outras chaves únicas | `codigo_rfb` |
+| Outras chaves únicas | `codigo_rfb` (`warn`) |
 | Chaves estrangeiras | — |
+| Lê de | [`stg_bd__municipios`](#stg_bd__municipios), [`stg_bd__pib`](#stg_bd__pib), [`stg_bd__populacao`](#stg_bd__populacao) |
+| Usada por | [`dim_municipio`](#dim_municipio), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1386,6 +1532,8 @@ Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo →
 | Chave primária (testada) | `sk_cnae` |
 | Outras chaves únicas | `codigo_subclasse` |
 | Chaves estrangeiras | — |
+| Lê de | [`stg_bd__cnaes`](#stg_bd__cnaes) |
+| Usada por | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_cnae.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1419,6 +1567,8 @@ Calendário (ADR-0013, emenda R3-03): uma linha por dia de 1900-01-01 até `data
 | Chave primária (testada) | `sk_data` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) |
+| Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_data.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1449,8 +1599,10 @@ Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística
 |---|---|
 | Grão | Uma linha por município (`sk_municipio`), mais o membro `-1`. |
 | Chave primária (testada) | `sk_municipio` |
-| Outras chaves únicas | `codigo_rfb` |
+| Outras chaves únicas | `codigo_rfb` (`warn`) |
 | Chaves estrangeiras | — |
+| Lê de | [`int_municipios__conformados`](#int_municipios__conformados), [`stg_bd__censo_2022_municipio`](#stg_bd__censo_2022_municipio), [`stg_bd__regioes_metropolitanas`](#stg_bd__regioes_metropolitanas) |
+| Usada por | [`bridge_municipio_vizinho`](#bridge_municipio_vizinho), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_municipio.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1463,7 +1615,7 @@ Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística
 |---|---|---|---|---|---|---|
 | `sk_municipio` | `integer` | Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga. | não (`not_null`) | — | — | chave sentinela: `-1`; entidade semântica `municipio` (primary) |
 | `id_municipio_ibge` | `varchar` | Código IBGE do município (7 dígitos). Linhagem: `stg_bd__municipios.id_municipio`. | não testado | — | linhagem: `stg_bd__municipios.id_municipio` | dimensão semântica (categorical) |
-| `codigo_rfb` | `varchar` | Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`. | não (`not_null`) | — | linhagem: `stg_bd__municipios.id_municipio_rf` | — |
+| `codigo_rfb` | `varchar` | Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`. | em geral não (`not_null` `warn`: pode haver exceções) | — | linhagem: `stg_bd__municipios.id_municipio_rf` | — |
 | `nome_municipio` | `varchar` | Nome do município (acentuado, Base dos Dados). | não testado | — | — | dimensão semântica (categorical) |
 | `sigla_uf` | `varchar` | Sigla da UF do município. | não testado | — | — | dimensão semântica (categorical) |
 | `nome_uf` | `varchar` | Nome completo da UF do município (por exemplo, `Espírito Santo`), da Base dos Dados; `NÃO INFORMADO` no membro `-1`. | não testado | — | — | chave sentinela: `-1`; dimensão semântica (categorical) |
@@ -1503,6 +1655,8 @@ Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem nat
 | Chave primária (testada) | `sk_natureza_juridica` |
 | Outras chaves únicas | `codigo_natureza_juridica` |
 | Chaves estrangeiras | — |
+| Lê de | [`stg_rfb__naturezas`](#stg_rfb__naturezas) |
+| Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_natureza_juridica.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1528,6 +1682,8 @@ Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vaz
 | Chave primária (testada) | `sk_porte` |
 | Outras chaves únicas | `codigo_porte` |
 | Chaves estrangeiras | — |
+| Lê de | [`dominio_porte`](#dominio_porte) |
+| Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_porte.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1554,6 +1710,8 @@ Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-
 | Chave primária (testada) | `sk_situacao_cadastral` |
 | Outras chaves únicas | `codigo_situacao_cadastral` |
 | Chaves estrangeiras | — |
+| Lê de | [`dominio_situacao_cadastral`](#dominio_situacao_cadastral) |
+| Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_situacao_cadastral.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1581,7 +1739,9 @@ Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimen
 | Grão | Uma linha por estabelecimento (`cnpj_completo`). |
 | Chave primária (testada) | `cnpj_completo` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae`<br>`sk_data_inicio_atividade` → [`dim_data`](#dim_data).`sk_data`<br>`sk_data_situacao` → [`dim_data`](#dim_data).`sk_data`<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio`<br>`sk_natureza_juridica` → [`dim_natureza_juridica`](#dim_natureza_juridica).`sk_natureza_juridica`<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte`<br>`sk_situacao_cadastral` → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada)<br>`sk_data_inicio_atividade` → [`dim_data`](#dim_data).`sk_data` (testada)<br>`sk_data_situacao` → [`dim_data`](#dim_data).`sk_data` (testada)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada)<br>`sk_natureza_juridica` → [`dim_natureza_juridica`](#dim_natureza_juridica).`sk_natureza_juridica` (testada)<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte` (testada)<br>`sk_situacao_cadastral` → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` (testada) |
+| Lê de | [`dim_cnae`](#dim_cnae), [`dim_data`](#dim_data), [`dim_municipio`](#dim_municipio), [`dim_natureza_juridica`](#dim_natureza_juridica), [`dim_porte`](#dim_porte), [`dim_situacao_cadastral`](#dim_situacao_cadastral), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
+| Usada por | [`fct_resumo_mensal`](#fct_resumo_mensal), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/fct_estabelecimentos.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1617,7 +1777,9 @@ Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × munic
 | Grão | Uma linha por mês × município × CNAE × porte × situação cadastral × opção MEI (`mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`). |
 | Chave primária (testada) | `mes_referencia` + `sk_municipio` + `sk_cnae` + `sk_porte` + `sk_situacao_cadastral` + `opcao_mei` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae`<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio`<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte`<br>`sk_situacao_cadastral` → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (semântica)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (semântica)<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte` (semântica)<br>`sk_situacao_cadastral` → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` (semântica) |
+| Lê de | [`fct_estabelecimentos`](#fct_estabelecimentos), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) |
+| Usada por | — |
 | Materialização | Parquet particionado (`external`) |
 | Localização | `gold/fct_resumo_mensal/mes_referencia=AAAA-MM/` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1653,7 +1815,9 @@ Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos en
 | Grão | Uma linha por estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`). |
 | Chave primária (testada) | `cnpj_completo` + `codigo_cnae_secundario` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `cnpj_completo` → [`fct_estabelecimentos`](#fct_estabelecimentos).`cnpj_completo`<br>`sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` |
+| Chaves estrangeiras | `cnpj_completo` → [`fct_estabelecimentos`](#fct_estabelecimentos).`cnpj_completo` (testada)<br>`sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada) |
+| Lê de | [`dim_cnae`](#dim_cnae), [`int_cnaes_secundarios__explodidos`](#int_cnaes_secundarios__explodidos) |
+| Usada por | [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/bridge_estabelecimento_cnae_secundario.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1677,7 +1841,9 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 | Grão | Uma linha por par de municípios vizinhos do ano mais recente, nos dois sentidos (`sk_municipio`, `sk_municipio_vizinho`). |
 | Chave primária (testada) | `sk_municipio` + `sk_municipio_vizinho` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio`<br>`sk_municipio_vizinho` → [`dim_municipio`](#dim_municipio).`sk_municipio` |
+| Chaves estrangeiras | `sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada)<br>`sk_municipio_vizinho` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada) |
+| Lê de | [`dim_municipio`](#dim_municipio), [`stg_bd__vizinhanca`](#stg_bd__vizinhanca) |
+| Usada por | [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/bridge_municipio_vizinho.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1699,10 +1865,12 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por combinação das 10 dimensões do original (`municipio`, `microrregiao_municipio`, `mesorregiao_municipio`, `uf`, `cnae_principal`, `desc_cnae_principal`, `grupo_cnae_principal`, `natureza_juridica`, `porte`, `situacao`). |
+| Grão (declarado, não testado) | Uma linha por combinação das 10 dimensões do original (`municipio`, `microrregiao_municipio`, `mesorregiao_municipio`, `uf`, `cnae_principal`, `desc_cnae_principal`, `grupo_cnae_principal`, `natureza_juridica`, `porte`, `situacao`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`bh_empresas`](#bh_empresas) |
+| Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/agg_empresas.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1736,6 +1904,8 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 | Chave primária (testada) | `cnpj_completo` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`stg_bd__cnaes`](#stg_bd__cnaes), [`stg_bd__municipios`](#stg_bd__municipios), [`stg_rfb__empresas`](#stg_rfb__empresas), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos), [`stg_rfb__naturezas`](#stg_rfb__naturezas) |
+| Usada por | [`agg_empresas`](#agg_empresas) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/bh_empresas.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1773,7 +1943,9 @@ ENR-03 (incremento `enriquecimento_bd`, ADR-0015): concorrência na área de mer
 | Grão | Uma linha por CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado. |
 | Chave primária (testada) | `sk_cnae` + `sk_municipio` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae`<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada) |
+| Lê de | [`bridge_municipio_vizinho`](#bridge_municipio_vizinho), [`dim_municipio`](#dim_municipio), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio) |
+| Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_concorrencia_area_mercado.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1815,7 +1987,9 @@ ANA-01 (adição): densidade de concorrência por CNAE principal × município. 
 | Grão | Uma linha por CNAE principal × município (`cnae_principal`, `sk_municipio`). |
 | Chave primária (testada) | `cnae_principal` + `sk_municipio` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae`<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada) |
+| Lê de | [`dim_cnae`](#dim_cnae), [`dim_municipio`](#dim_municipio), [`fct_estabelecimentos`](#fct_estabelecimentos) |
+| Usada por | [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_concorrencia_municipio.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1844,10 +2018,12 @@ ANA-03 (adição): aberturas, encerramentos e saldo por ano × CNAE principal ×
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por ano × CNAE principal × município (`ano`, `sk_cnae`, `sk_municipio`). |
+| Grão (declarado, não testado) | Uma linha por ano × CNAE principal × município (`ano`, `sk_cnae`, `sk_municipio`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae`<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada) |
+| Lê de | [`dim_cnae`](#dim_cnae), [`dim_data`](#dim_data), [`dim_municipio`](#dim_municipio), [`fct_estabelecimentos`](#fct_estabelecimentos) |
+| Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_dinamica_mercado.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1878,7 +2054,9 @@ ANA-04 (adição): fornecedores ATIVOS do município do caso (vars `caso_municip
 | Grão | Uma linha por estabelecimento fornecedor (`cnpj_completo`). |
 | Chave primária (testada) | `cnpj_completo` |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae`<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada) |
+| Lê de | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario), [`dim_cnae`](#dim_cnae), [`dim_municipio`](#dim_municipio), [`fct_estabelecimentos`](#fct_estabelecimentos), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`stg_rfb__empresas`](#stg_rfb__empresas), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) |
+| Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_fornecedores_proximos.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1905,10 +2083,12 @@ ANA-02 (adição): sobrevivência por coorte (ano de início da atividade) × CN
 
 | Atributo | Valor |
 |---|---|
-| Grão | Uma linha por coorte × CNAE principal × porte × UF (`ano_coorte`, `sk_cnae`, `sk_porte`, `uf`). |
+| Grão (declarado, não testado) | Uma linha por coorte × CNAE principal × porte × UF (`ano_coorte`, `sk_cnae`, `sk_porte`, `uf`). |
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
-| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae`<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte` |
+| Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada)<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte` (testada) |
+| Lê de | [`dim_cnae`](#dim_cnae), [`dim_data`](#dim_data), [`dim_municipio`](#dim_municipio), [`dim_porte`](#dim_porte), [`fct_estabelecimentos`](#fct_estabelecimentos), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
+| Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_sobrevivencia_coorte.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1949,6 +2129,8 @@ SQL do notebook 3 (`bh_empresas`) traduzido literalmente para DuckDB sobre as fo
 | Chave primária (testada) | não testada |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`basedosdados.cnae_2`](#basedosdados-cnae_2), [`basedosdados.municipio`](#basedosdados-municipio), [`rfb.empresas`](#rfb-empresas), [`rfb.estabelecimentos`](#rfb-estabelecimentos), [`rfb.naturezas`](#rfb-naturezas) |
+| Usada por | — |
 | Materialização | efêmero (CTE) |
 | Localização | sem relação física: só existe dentro do teste que o usa |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1969,6 +2151,8 @@ Resumo por execução dbt do histórico de testes (`dq_historico_testes`): totai
 | Chave primária (testada) | `invocation_id` |
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
+| Lê de | [`observabilidade.dq_historico_testes`](#observabilidade-dq_historico_testes) |
+| Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |

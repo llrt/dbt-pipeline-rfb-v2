@@ -16,6 +16,7 @@ testes, camada semântica) vem do manifesto. As seções de texto fixas ficam ne
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import sys
@@ -70,6 +71,10 @@ def _meta(no: dict) -> dict:
     return {**(no.get("meta") or {}), **(config.get("meta") or {})}
 
 
+def _meta_coluna(decl: dict) -> dict:
+    return {**(decl.get("meta") or {}), **((decl.get("config") or {}).get("meta") or {})}
+
+
 def _alvo_do_teste(no: dict) -> tuple[str, str] | None:
     """(`ref`|`source`, nome) do recurso testado, lido do `model` do teste genérico."""
     modelo = ((no.get("test_metadata") or {}).get("kwargs") or {}).get("model", "")
@@ -83,7 +88,8 @@ def _alvo_do_teste(no: dict) -> tuple[str, str] | None:
 class Tabela:
     """Uma tabela do dicionário (fonte, seed ou modelo) com tudo que o manifesto sabe dela."""
 
-    def __init__(self, camada: str, chave: str, nome: str, no: dict, tipo: str) -> None:
+    def __init__(self, camada: str, chave: str, nome: str, no: dict, tipo: str, uid: str) -> None:
+        self.uid = uid  # `unique_id` do manifesto
         self.camada = camada  # id de CAMADAS
         self.chave = chave  # `ref:<modelo>` ou `source:<fonte>.<tabela>`
         self.nome = nome  # como aparece no título (modelo ou `fonte.tabela`)
@@ -96,6 +102,8 @@ class Tabela:
         self.semantica: dict | None = None
         self.metricas: list[dict] = []
         self.catalogo: dict = {}  # colunas reais do catálogo (nome -> {type, index})
+        self.le_de: list[Tabela] = []  # tabelas de que esta é lida (`depends_on` do manifesto)
+        self.usada_por: list[Tabela] = []  # inverso de `le_de`
 
 
 def _tabelas(manifesto: dict, catalogo: dict | None) -> list[Tabela]:
@@ -110,7 +118,7 @@ def _tabelas(manifesto: dict, catalogo: dict | None) -> list[Tabela]:
             fonte["source_name"], "fontes-obs"
         )
         nome = f"{fonte['source_name']}.{fonte['name']}"
-        t = Tabela(camada, f"source:{nome}", nome, fonte, "source")
+        t = Tabela(camada, f"source:{nome}", nome, fonte, "source", uid)
         t.catalogo = cat_fontes.get(uid, {}).get("columns", {})
         tabelas.append(t)
 
@@ -132,7 +140,7 @@ def _tabelas(manifesto: dict, catalogo: dict | None) -> list[Tabela]:
             camada = {"dim": "gold-dim", "fct": "gold-fct"}.get(no["name"][:3], "gold-bridge")
         else:
             camada = "obs"
-        t = Tabela(camada, f"ref:{no['name']}", no["name"], no, no["resource_type"])
+        t = Tabela(camada, f"ref:{no['name']}", no["name"], no, no["resource_type"], uid)
         t.catalogo = cat_nos.get(uid, {}).get("columns", {})
         tabelas.append(t)
 
@@ -150,6 +158,22 @@ def _tabelas(manifesto: dict, catalogo: dict | None) -> list[Tabela]:
         t = por_chave.get(f"{'ref' if alvo[0] == 'ref' else 'source'}:{alvo[1]}")
         if t is not None:
             t.testes.append(no)
+
+    for t in tabelas:
+        # A ordem de `manifest["nodes"]` muda com o *partial parse*; a saída não pode depender dela.
+        t.testes.sort(key=lambda n: n["unique_id"])
+    por_uid = {t.uid: t for t in tabelas}
+    for t in tabelas:
+        if t.tipo == "source":
+            continue
+        for uid in t.no.get("depends_on", {}).get("nodes", []):
+            origem = por_uid.get(uid)
+            if origem is not None and origem is not t:
+                t.le_de.append(origem)
+                origem.usada_por.append(t)
+    for t in tabelas:
+        t.le_de.sort(key=lambda o: o.nome)
+        t.usada_por.sort(key=lambda o: o.nome)
 
     metricas = list(manifesto.get("metrics", {}).values())
     for uid, sem in manifesto.get("semantic_models", {}).items():
@@ -177,27 +201,45 @@ def _tabelas(manifesto: dict, catalogo: dict | None) -> list[Tabela]:
     return sorted(tabelas, key=lambda t: t.nome)
 
 
-def _chave_unica(t: Tabela) -> tuple[list[str], list[list[str]]]:
-    """(colunas únicas simples, combinações únicas) dos testes `unique`/`unique_combination_of_columns`."""
-    simples: list[str] = []
-    combinadas: list[list[str]] = []
-    for teste in t.testes:
-        meta = teste["test_metadata"]
-        kwargs = meta.get("kwargs") or {}
-        if meta["name"] == "unique":
-            simples.append(teste["column_name"])
-        elif meta["name"] == "unique_combination_of_columns":
-            combinadas.append(list(kwargs["combination_of_columns"]))
-    return simples, combinadas
-
-
 def _severidade(teste: dict) -> str:
     return str((teste.get("config") or {}).get("severity", "error")).lower()
 
 
+def _marca(teste: dict) -> str:
+    """` (`warn`)` quando o teste não barra o build: o valor pode ser violado no dado."""
+    return "" if _severidade(teste) == "error" else f" (`{_severidade(teste)}`)"
+
+
+def _chave_unica(t: Tabela) -> tuple[dict[str, str], list[tuple[list[str], str]]]:
+    """(coluna única → severidade, combinações únicas → severidade) dos testes de unicidade."""
+    simples: dict[str, str] = {}
+    combinadas: list[tuple[list[str], str]] = []
+    for teste in t.testes:
+        meta = teste["test_metadata"]
+        kwargs = meta.get("kwargs") or {}
+        if meta["name"] == "unique":
+            coluna = teste["column_name"]
+            # Dois testes na mesma coluna: vale o mais rígido.
+            if simples.get(coluna) != "error":
+                simples[coluna] = _severidade(teste)
+        elif meta["name"] == "unique_combination_of_columns":
+            combinadas.append((list(kwargs["combination_of_columns"]), _severidade(teste)))
+    return simples, combinadas
+
+
+def _colunas_do_grao(t: Tabela) -> set[str]:
+    """Colunas citadas entre crases em `meta.grao`."""
+    return set(re.findall(r"`([^`]+)`", str(t.meta.get("grao") or "")))
+
+
 def _chave_primaria(t: Tabela) -> tuple[str, str]:
-    """(chave primária, outras chaves únicas) em texto Markdown."""
+    """(chave primária, outras chaves únicas) em texto Markdown.
+
+    A chave primária é uma coluna (ou combinação) com teste de unicidade e que está no grão declarado;
+    sem uma, a tabela fica "não testada" e os `unique` existentes vão para "Outras chaves únicas".
+    """
     simples, combinadas = _chave_unica(t)
+    grao = _colunas_do_grao(t)
     primaria: list[str] | None = None
     entidade = None
     if t.semantica:
@@ -206,29 +248,33 @@ def _chave_primaria(t: Tabela) -> tuple[str, str]:
         )
     if entidade and entidade in simples:
         primaria = [entidade]
-    elif simples:
-        primaria = [next((c for c in simples if c.startswith("sk_")), simples[0])]
-    elif combinadas:
-        primaria = combinadas[0]
-    if primaria is None:
-        return "não testada", "—"
-    outras = [[c] for c in simples if [c] != primaria] + [c for c in combinadas if c != primaria]
-    texto = " + ".join(_codigo(c) for c in primaria)
+    else:
+        candidatas = [c for c in simples if c in grao] if grao else list(simples)
+        if candidatas:
+            primaria = [next((c for c in candidatas if c.startswith("sk_")), candidatas[0])]
+        elif combinadas:
+            primaria = combinadas[0][0]
+    todas = [([c], sev) for c, sev in simples.items()] + combinadas
+
     # `warn` não garante a unicidade: quem lê precisa saber.
-    rebaixados = {
-        c
-        for teste in t.testes
-        if teste["test_metadata"]["name"] == "unique" and _severidade(teste) != "error"
-        for c in [teste["column_name"]]
-    }
-    if len(primaria) == 1 and primaria[0] in rebaixados:
-        texto += " (teste `warn`)"
-    return texto, "; ".join(" + ".join(_codigo(c) for c in o) for o in outras) or "—"
+    def _texto_chave(colunas: list[str], severidade: str, sufixo: str) -> str:
+        texto = " + ".join(_codigo(c) for c in colunas)
+        return texto if severidade == "error" else f"{texto} {sufixo}"
+
+    outras = [_texto_chave(cols, sev, f"(`{sev}`)") for cols, sev in todas if cols != primaria]
+    if primaria is None:
+        return "não testada", "; ".join(outras) or "—"
+    severidade = next(sev for cols, sev in todas if cols == primaria)
+    return _texto_chave(primaria, severidade, f"(teste `{severidade}`)"), "; ".join(outras) or "—"
 
 
-def _alvo_fk(t: Tabela, por_nome: dict[str, Tabela]) -> list[tuple[str, str, str]]:
-    """(coluna, tabela alvo, coluna alvo) dos testes `relationships` e das entidades `foreign`."""
-    saida: dict[tuple[str, str], str] = {}
+def _alvo_fk(t: Tabela, por_nome: dict[str, Tabela]) -> list[tuple[str, str, str, str]]:
+    """(coluna, tabela alvo, coluna alvo, origem) das FKs.
+
+    Origem: `testada` (teste `relationships`), `testada (warn)`, `semântica` (entidade `foreign` da
+    camada semântica) ou `declarada` (`meta.fk_declarada` na coluna, sem teste).
+    """
+    saida: dict[tuple[str, str], tuple[str, str]] = {}
     for teste in t.testes:
         meta = teste["test_metadata"]
         if meta["name"] != "relationships":
@@ -237,7 +283,8 @@ def _alvo_fk(t: Tabela, por_nome: dict[str, Tabela]) -> list[tuple[str, str, str
         achou_ref = PADRAO_REF.search(kwargs["to"])
         achou_src = PADRAO_SOURCE.search(kwargs["to"])
         alvo = achou_ref.group(1) if achou_ref else f"{achou_src.group(1)}.{achou_src.group(2)}"
-        saida[(teste["column_name"], alvo)] = kwargs["field"]
+        origem = "testada" if _severidade(teste) == "error" else f"testada ({_severidade(teste)})"
+        saida[(teste["column_name"], alvo)] = (kwargs["field"], origem)
     if t.semantica:
         primarias = {
             e["name"]: (s.nome, e["expr"])
@@ -249,8 +296,13 @@ def _alvo_fk(t: Tabela, por_nome: dict[str, Tabela]) -> list[tuple[str, str, str
         for e in t.semantica["entities"]:
             if e["type"] == "foreign" and e["name"] in primarias:
                 alvo, campo = primarias[e["name"]]
-                saida.setdefault((e["expr"], alvo), campo)
-    return sorted((c, a, f) for (c, a), f in saida.items())
+                saida.setdefault((e["expr"], alvo), (campo, "semântica"))
+    for nome, decl, _ in t.colunas:
+        declarada = _meta_coluna(decl).get("fk_declarada")
+        if declarada:
+            alvo, campo = declarada.split(".", 1)
+            saida.setdefault((nome, alvo), (campo, "declarada"))
+    return sorted((c, a, f, o) for (c, a), (f, o) in saida.items())
 
 
 def _link(nome: str, por_nome: dict[str, Tabela]) -> str:
@@ -291,8 +343,11 @@ def _localizacao(t: Tabela) -> tuple[str, str]:
     }.get(materializacao, (str(materializacao), "—"))
 
 
-def _dominio(t: Tabela, coluna: str, por_nome: dict[str, Tabela]) -> str:
+def _dominio(t: Tabela, coluna: str, decl: dict, por_nome: dict[str, Tabela]) -> str:
     partes: list[str] = []
+    da_seed = _dominio_seed(t, coluna, decl, por_nome)
+    if da_seed:
+        partes.append(da_seed)
     for teste in t.testes:
         if teste.get("column_name") != coluna:
             continue
@@ -301,24 +356,32 @@ def _dominio(t: Tabela, coluna: str, por_nome: dict[str, Tabela]) -> str:
         onde = (teste.get("config") or {}).get("where")
         filtro = f" (onde `{_texto(onde)}`)" if onde else ""
         if meta["name"] == "accepted_values":
-            partes.append("valores: " + ", ".join(f"`{v}`" for v in kwargs["values"]) + filtro)
+            partes.append(
+                "valores: " + ", ".join(f"`{v}`" for v in kwargs["values"]) + filtro + _marca(teste)
+            )
         elif meta["name"] == "accepted_range":
             minimo, maximo = kwargs.get("min_value"), kwargs.get("max_value")
             inclusivo = kwargs.get("inclusive", True)
             esq, dir_ = ("≤", "≤") if inclusivo else ("<", "<")
             if minimo is not None and maximo is not None:
-                partes.append(f"`{minimo}` {esq} valor {dir_} `{maximo}`" + filtro)
+                partes.append(f"`{minimo}` {esq} valor {dir_} `{maximo}`" + filtro + _marca(teste))
             elif minimo is not None:
-                partes.append(f"valor {'≥' if inclusivo else '>'} `{minimo}`" + filtro)
+                partes.append(
+                    f"valor {'≥' if inclusivo else '>'} `{minimo}`" + filtro + _marca(teste)
+                )
             elif maximo is not None:
-                partes.append(f"valor {'≤' if inclusivo else '<'} `{maximo}`" + filtro)
+                partes.append(
+                    f"valor {'≤' if inclusivo else '<'} `{maximo}`" + filtro + _marca(teste)
+                )
         elif meta["name"] == "relationships":
             achou_ref = PADRAO_REF.search(kwargs["to"])
             achou_src = PADRAO_SOURCE.search(kwargs["to"])
             alvo = achou_ref.group(1) if achou_ref else f"{achou_src.group(1)}.{achou_src.group(2)}"
-            partes.append(f"FK → {_link(alvo, por_nome)}.`{kwargs['field']}`" + filtro)
+            partes.append(
+                f"FK → {_link(alvo, por_nome)}.`{kwargs['field']}`" + filtro + _marca(teste)
+            )
         elif meta["name"] == "tamanho_exato":
-            partes.append(f"tamanho exato: {kwargs['tamanho']}" + filtro)
+            partes.append(f"tamanho exato: {kwargs['tamanho']}" + filtro + _marca(teste))
         elif meta["name"] == "data_nao_futura":
             partes.append(f"data não futura (`{_severidade(teste)}`)" + filtro)
         elif meta["name"] == "cnpj_dv_valido":
@@ -326,16 +389,50 @@ def _dominio(t: Tabela, coluna: str, por_nome: dict[str, Tabela]) -> str:
     return "; ".join(partes) or "—"
 
 
+def _dominio_seed(t: Tabela, coluna: str, decl: dict, por_nome: dict[str, Tabela]) -> str:
+    """Valores lidos da seed declarada em `meta.dominio_seed` (`seed.coluna`), mais o membro desconhecido."""
+    declarado = _meta_coluna(decl).get("dominio_seed")
+    if not declarado:
+        return ""
+    nome_seed, coluna_seed = declarado.split(".", 1)
+    seed = por_nome.get(nome_seed)
+    if seed is None:
+        return ""
+    valores = [linha[coluna_seed] for linha in _linhas_seed(seed)]
+    extra = _meta_coluna(decl).get("dominio_membro_desconhecido")
+    if extra:
+        valores.append(extra)
+    return (
+        f"valores da seed {_link(nome_seed, por_nome)}.`{coluna_seed}`"
+        + ": "
+        + ", ".join(_codigo(v) for v in valores)
+    )
+
+
+def _linhas_seed(seed: Tabela) -> list[dict[str, str]]:
+    """Linhas do CSV da seed (vazio se o arquivo não estiver no checkout)."""
+    arquivo = RAIZ / "transform" / seed.no["original_file_path"]
+    if not arquivo.is_file():
+        return []
+    with arquivo.open(encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
 def _anulavel(t: Tabela, coluna: str) -> str:
     for teste in t.testes:
         if teste.get("column_name") == coluna and teste["test_metadata"]["name"] == "not_null":
             onde = (teste.get("config") or {}).get("where")
-            return f"não (`not_null`, onde `{_texto(onde)}`)" if onde else "não (`not_null`)"
+            condicao = f", onde `{_texto(onde)}`" if onde else ""
+            if _severidade(teste) == "error":
+                return f"não (`not_null`{condicao})"
+            return (
+                f"em geral não (`not_null` `{_severidade(teste)}`{condicao}: pode haver exceções)"
+            )
     return "não testado"
 
 
 def _origem(t: Tabela, coluna: str, decl: dict) -> str:
-    meta = {**(decl.get("meta") or {}), **((decl.get("config") or {}).get("meta") or {})}
+    meta = _meta_coluna(decl)
     partes: list[str] = []
     if meta.get("campo_leiaute"):
         partes.append(f"leiaute RFB: **{meta['campo_leiaute']}**")
@@ -349,9 +446,13 @@ def _origem(t: Tabela, coluna: str, decl: dict) -> str:
         partes.append(f"BigQuery: `{caminho}`")
     if t.tipo == "source" and coluna.startswith("_"):
         partes.append("coluna técnica da ingestão")
+    elif t.camada == "fontes-rfb" and not meta.get("campo_leiaute"):
+        partes.append("não consta do leiaute oficial")
     achou = PADRAO_LINHAGEM.search(decl.get("description", "") or "")
     if achou:
         partes.append("linhagem: " + _texto(achou.group(1)))
+    elif meta.get("linhagem"):
+        partes.append("linhagem: " + _texto(meta["linhagem"]))
     for teste in t.testes:
         if (
             teste.get("column_name") == coluna
@@ -383,7 +484,10 @@ def _observacoes(t: Tabela, coluna: str, decl: dict, fks: dict[str, tuple[str, s
     elif coluna in fks and fks[coluna][0] == "dim_data":
         partes.append("data nula → chave `-1`; data anterior a 1900 → chave `-2`")
     elif coluna in fks and fks[coluna][0].startswith("dim_"):
-        partes.append("sem par na dimensão → chave `-1`")
+        if _meta_coluna(decl).get("membro_desconhecido") is False:
+            partes.append("não recebe a chave `-1`: a linha sem par na dimensão é descartada")
+        else:
+            partes.append("sem par na dimensão → chave `-1`")
     entidade = decl.get("entity")
     if entidade:
         partes.append(f"entidade semântica `{entidade['name']}` ({entidade['type']})")
@@ -392,15 +496,31 @@ def _observacoes(t: Tabela, coluna: str, decl: dict, fks: dict[str, tuple[str, s
     return "; ".join(partes) or "—"
 
 
+def _lista_tabelas(tabelas: list[Tabela], por_nome: dict[str, Tabela]) -> str:
+    return ", ".join(_link(o.nome, por_nome) for o in tabelas)
+
+
+def _fonte_de(t: Tabela) -> str:
+    """De onde vem a tabela quando ela não é lida de outra do projeto."""
+    if t.tipo == "seed":
+        return "CSV versionado no repositório"
+    return {
+        "fontes-rfb": "arquivos dos dados abertos de CNPJ da RFB (ingestão)",
+        "fontes-bd": "Base dos Dados (ingestão)",
+        "fontes-obs": "hooks `on-run-start`/`on-run-end` do dbt",
+    }.get(t.camada, "—")
+
+
 def _linhas_tabela(t: Tabela, por_nome: dict[str, Tabela]) -> list[str]:
     materializacao, localizacao = _localizacao(t)
     pk, outras = _chave_primaria(t)
     fks = _alvo_fk(t, por_nome)
-    fk_por_coluna = {c: (a, f) for c, a, f in fks}
+    fk_por_coluna = {c: (a, f) for c, a, f, _ in fks}
     contrato = bool((t.no.get("config") or {}).get("contract", {}).get("enforced"))
     escopo = t.meta.get("escopo", "?")
     incremento = t.meta.get("incremento", "—")
     grao = t.meta.get("grao")
+    rotulo_grao = "Grão (declarado, não testado)" if grao and pk == "não testada" else "Grão"
     linhas = [
         f'<a id="{t.ancora}"></a>',
         f"#### `{t.nome}`",
@@ -409,12 +529,17 @@ def _linhas_tabela(t: Tabela, por_nome: dict[str, Tabela]) -> list[str]:
         "",
         "| Atributo | Valor |",
         "|---|---|",
-        f"| Grão | {'Uma linha por ' + _texto(grao) + '.' if grao else '—'} |",
+        f"| {rotulo_grao} | {'Uma linha por ' + _texto(grao) + '.' if grao else '—'} |",
         f"| Chave primária (testada) | {pk} |",
         f"| Outras chaves únicas | {outras} |",
         "| Chaves estrangeiras | "
-        + ("<br>".join(f"{_codigo(c)} → {_link(a, por_nome)}.`{f}`" for c, a, f in fks) or "—")
+        + (
+            "<br>".join(f"{_codigo(c)} → {_link(a, por_nome)}.`{f}` ({o})" for c, a, f, o in fks)
+            or "—"
+        )
         + " |",
+        f"| Lê de | {_lista_tabelas(t.le_de, por_nome) if t.le_de else _fonte_de(t)} |",
+        f"| Usada por | {_lista_tabelas(t.usada_por, por_nome) or '—'} |",
         f"| Materialização | {materializacao} |",
         f"| Localização | {localizacao} |",
         f"| Escopo | `{escopo}` ([ADR-0006](adr/0006-marcacao-escopo.md)) |",
@@ -442,11 +567,37 @@ def _linhas_tabela(t: Tabela, por_nome: dict[str, Tabela]) -> list[str]:
         tipo = decl.get("data_type") or tipo_catalogo or "—"
         linhas.append(
             f"| `{nome}` | `{tipo}` | {_texto(decl.get('description')) or '(sem descrição)'} "
-            f"| {_anulavel(t, nome)} | {_dominio(t, nome, por_nome)} | {_origem(t, nome, decl)} "
+            f"| {_anulavel(t, nome)} | {_dominio(t, nome, decl, por_nome)} | {_origem(t, nome, decl)} "
             f"| {_observacoes(t, nome, decl, fk_por_coluna)} |"
         )
     linhas.append("")
+    if t.tipo == "seed":
+        valores = _linhas_seed(t)
+        if valores:
+            cabecalho = list(valores[0])
+            linhas += [
+                f"Linhas da seed ({len(valores)}):",
+                "",
+                "| " + " | ".join(f"`{c}`" for c in cabecalho) + " |",
+                "|" + "---|" * len(cabecalho),
+            ]
+            linhas += ["| " + " | ".join(_texto(v[c]) for c in cabecalho) + " |" for v in valores]
+            linhas.append("")
     return linhas
+
+
+def _diagrama_estrela(tabelas: list[Tabela], por_nome: dict[str, Tabela]) -> list[str]:
+    """`erDiagram` Mermaid das dimensões, fatos e pontes, das FKs (testadas, semânticas ou declaradas)."""
+    nos = {"gold-dim", "gold-fct", "gold-bridge"}
+    arestas = []
+    for t in tabelas:
+        if t.camada not in {"gold-fct", "gold-bridge"}:
+            continue
+        for coluna, alvo, _, _ in _alvo_fk(t, por_nome):
+            destino = por_nome.get(alvo)
+            if destino is not None and destino.camada in nos:
+                arestas.append(f'    {t.nome} }}o--|| {alvo} : "{coluna}"')
+    return ["```mermaid", "erDiagram", *arestas, "```"]
 
 
 def gerar(manifesto: dict, catalogo: dict | None = None) -> str:
@@ -474,13 +625,24 @@ def gerar(manifesto: dict, catalogo: dict | None = None) -> str:
         "  no DuckDB (catálogo do dbt). As fontes raw guardam todo dado como `varchar`; a tipagem acontece no",
         "  staging.",
         "- **Pode ser nulo?**: lido do teste `not_null`. Sem o teste, o dicionário escreve *não testado* — não",
-        "  afirma que a coluna aceita nulos.",
+        "  afirma que a coluna aceita nulos. Com o teste em `severity: warn`, escreve *em geral não*: o teste",
+        "  avisa, não barra o build, e o dado real pode ter exceções.",
         "- **Domínio / valores aceitos**: dos testes `accepted_values`, `accepted_range`, `relationships`,",
-        "  `tamanho_exato`, `data_nao_futura` e `cnpj_dv_valido`.",
+        "  `tamanho_exato`, `data_nao_futura` e `cnpj_dv_valido`, e das linhas das seeds de domínio. A marca",
+        "  `(warn)` indica regra que o dado pode violar (o teste só avisa).",
+        "- **Chaves únicas e grão**: a chave primária é a coluna (ou combinação) com teste de unicidade que",
+        "  está no grão. Sem esse teste, a linha *Chave primária* diz *não testada* e o grão aparece como",
+        "  *declarado, não testado*: é o que a tabela pretende, não o que um teste prova.",
+        "- **Lê de / Usada por**: as tabelas de que cada tabela é lida e as que a leem (dependências do",
+        "  manifesto do dbt; testes não contam). Ligam a cadeia raw → staging → intermediate → gold.",
         "- **Origem**: nas fontes RFB, o nome do campo no leiaute oficial",
         "  ([`cnpj-metadados.pdf`](https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf), `meta.campo_leiaute`);",
         "  nas fontes da Base dos Dados, a coluna no BigQuery (`meta.coluna_bigquery`); nas demais camadas, a",
-        "  linhagem declarada na descrição ou a coluna raw do teste `taxa_conversao_tipada`.",
+        "  linhagem declarada na descrição (*Linhagem:*) ou em `meta.linhagem`, ou a coluna raw do teste",
+        "  `taxa_conversao_tipada`.",
+        "  Coluna sem origem (—) é cópia direta ou cálculo descrito na própria descrição.",
+        "- **Chaves estrangeiras**: *testada* (teste `relationships`), *semântica* (entidade da camada",
+        "  semântica, sem teste) ou *declarada* (`meta.fk_declarada`, sem teste).",
         "- **Chaves**: `-1` (NÃO INFORMADO) e `-2` (data inválida, só em `dim_data`) são membros das dimensões;",
         "  um estabelecimento sem par numa dimensão fica com a chave `-1`, nunca é descartado (exceto nos marts",
         "  `original`, que reproduzem os inner joins do MVP).",
@@ -516,6 +678,17 @@ def gerar(manifesto: dict, catalogo: dict | None = None) -> str:
                 f"| [`{t.nome}`](#{t.ancora}) | {grao} | {t.meta.get('escopo', '?')} | {len(t.colunas)} |"
             )
         linhas.append("")
+    linhas += [
+        '<a id="modelo-estrela"></a>',
+        "### Modelo estrela",
+        "",
+        "Chaves estrangeiras entre fatos, pontes e dimensões do gold (cada linha: muitos para um; o rótulo é",
+        "a coluna da tabela de origem). Inclui as FKs testadas, as da camada semântica e as declaradas em",
+        "`meta.fk_declarada`; a coluna *Chaves estrangeiras* de cada tabela diz de qual tipo é cada uma.",
+        "",
+        *_diagrama_estrela(tabelas, por_nome),
+        "",
+    ]
     for ident, titulo, _ in CAMADAS:
         itens = por_camada.get(ident, [])
         if not itens:
