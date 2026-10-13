@@ -38,13 +38,14 @@ RAIZ = Path(__file__).resolve().parents[2]
 # vizinhança publicada; RN-26 e RN-28, as datas de opção sintéticas (2007-07-01 em todas as raízes
 # do Simples): opção pelo MEI antes do SIMEI nas raízes 11111111 e 33333333 e opção antes do início
 # da matriz em 12 raízes do Simples e nas 2 do MEI. Na RN-24, o universo não conta
-# `dq_historico_testes`, que cresce a cada teste novo do build.
+# `dq_historico_testes`, que cresce a cada teste novo do build, e países e qualificações entram só
+# no mês do relatório (2 linhas cada; as de 2026-08 ficam de fora).
 UNIVERSO_E_VIOLACOES_FIXTURES = {
     "RN-01": (18, 0), "RN-02": (2, 0), "RN-03": (2, 0), "RN-04": (1, 0), "RN-05": (2, 1),
     "RN-06": (2, 0), "RN-07": (2, 0), "RN-08": (2, 0), "RN-09": (0, 0), "RN-10": (18, 0),
     "RN-11": (7, 1), "RN-12": (16, 0), "RN-13": (51, 0), "RN-14": (0, 0), "RN-15": (18, 0),
     "RN-16": (16, 0), "RN-17": (18, 1), "RN-18": (18, 0), "RN-19": (18, 0), "RN-20": (16, 0),
-    "RN-21": (16, 0), "RN-22": (16, 0), "RN-23": (54, 0), "RN-24": (28, 1), "RN-25": (16, 0),
+    "RN-21": (16, 0), "RN-22": (16, 0), "RN-23": (54, 0), "RN-24": (24, 1), "RN-25": (16, 0),
     "RN-26": (2, 2), "RN-27": (0, 0), "RN-28": (17, 14), "RN-29": (2, 0),
 }  # fmt: skip
 _HISTORICO_TESTES = "observabilidade.dq_historico_testes"
@@ -394,3 +395,57 @@ def test_cada_regra_detecta_a_violacao_injetada(
             if (a1 - a0, v1 - v0) != (0, 0):
                 delta[quebra] = (a1 - a0, v1 - v0)
         assert delta == quebras, f"{caso}: {rid}"
+
+
+_FONTES_RFB_RN24 = ("paises", "qualificacoes")
+
+
+def _duplicar_no_mes(raw: Path, mes: str, arquivo: str) -> None:
+    """Grava, na partição de `mes` de cada fonte RFB da RN-24, um Parquet com uma linha repetida."""
+    with duckdb.connect() as con:
+        for tabela in _FONTES_RFB_RN24:
+            pasta = raw / tabela / f"mes_referencia={mes}"
+            origem = f"{raw}/{tabela}/mes_referencia=*/*.parquet"
+            con.execute(
+                f"copy (select * from read_parquet('{origem}') where _mes_referencia = '{mes}' "
+                f"order by codigo limit 1) to '{pasta / arquivo}' (format parquet)"
+            )
+
+
+def test_rn24_conta_so_o_mes_do_relatorio(
+    copia_base: Path, sqls: dict[str, str], tmp_path: Path
+) -> None:
+    """Países e qualificações valem no mês do relatório: um duplicado num mês antigo não conta,
+    um no mês do relatório conta. Lê uma cópia das partições raw, não as do `make ci`."""
+    raiz = Path(os.environ["RAIZ_DADOS"])
+    analise = ler_catalogo()["RN-24"].analise
+    raw = tmp_path / "raw" / "rfb"
+    for tabela in _FONTES_RFB_RN24:
+        shutil.copytree(raiz / "raw" / "rfb" / tabela, raw / tabela)
+    alvo = {analise: sqls[analise].replace(f"{raiz}/raw/rfb/", f"{raw}/")}
+    assert alvo[analise] != sqls[analise]
+    with duckdb.connect(str(copia_base), read_only=True) as con:
+        (mes,) = con.execute(
+            "select max(_mes_referencia) from int_estabelecimentos__enriquecidos"
+        ).fetchone()
+    meses = sorted(p.name.split("=")[1] for p in (raw / "paises").iterdir())
+    antigo = meses[0]
+    assert antigo < mes, "as fixtures têm um mês antigo nas fontes RFB"
+
+    def _delta(antes: dict, depois: dict) -> dict:
+        return {
+            q: (depois[q][0] - antes[q][0], depois[q][1] - antes[q][1])
+            for q in depois
+            if depois[q] != antes[q]
+        }
+
+    antes = _por_quebra(copia_base, alvo)["RN-24"]
+    _duplicar_no_mes(raw, antigo, "duplicado-antigo.parquet")
+    depois_antigo = _por_quebra(copia_base, alvo)["RN-24"]
+    assert _delta(antes, depois_antigo) == {}, "duplicado de mês antigo contou na RN-24"
+    _duplicar_no_mes(raw, mes, "duplicado-corrente.parquet")
+    depois_corrente = _por_quebra(copia_base, alvo)["RN-24"]
+    assert _delta(depois_antigo, depois_corrente) == {
+        ("rfb.paises",): (1, 1),
+        ("rfb.qualificacoes",): (1, 1),
+    }

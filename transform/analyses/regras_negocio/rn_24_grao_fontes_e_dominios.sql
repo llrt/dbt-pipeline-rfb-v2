@@ -2,13 +2,24 @@
 
 -- RN-24 (docs/REGRAS_NEGOCIO.md): grãos declarados e sem teste (RDIC-09) nas fontes e no seed de
 -- exceções. Por tabela: avaliados = linhas; violações = linhas excedentes (linhas − chaves
--- distintas). A vizinhança é avaliada como publicada: o grão declarado admite par repetido.
-with paises as (
+-- distintas). A vizinhança é avaliada como publicada: o grão declarado admite par repetido. As
+-- fontes RFB guardam todos os meses ingeridos: países e qualificações são lidos só no mês do
+-- relatório (o de `int_estabelecimentos__enriquecidos`, como nas demais regras), para que um
+-- duplicado de um mês antigo não conte e apagar meses antigos não mude o total. As demais tabelas
+-- não têm mês: a Base dos Dados e o seed são uma versão só, e o histórico de testes é, por
+-- desenho, um acúmulo de execuções.
+with mes_relatorio as (
+  select max(_mes_referencia) as mes
+  from {{ ref('int_estabelecimentos__enriquecidos') }}
+),
+
+paises as (
   select
     codigo,
     _mes_referencia,
     count(*) as linhas
   from {{ source('rfb', 'paises') }}
+  where _mes_referencia = (select mes_relatorio.mes from mes_relatorio)
   group by all
 ),
 
@@ -18,6 +29,7 @@ qualificacoes as (
     _mes_referencia,
     count(*) as linhas
   from {{ source('rfb', 'qualificacoes') }}
+  where _mes_referencia = (select mes_relatorio.mes from mes_relatorio)
   group by all
 ),
 

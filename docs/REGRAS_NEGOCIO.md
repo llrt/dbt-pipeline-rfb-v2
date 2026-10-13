@@ -535,7 +535,7 @@ testes ao build.
 
 - **Enunciado:** as fontes e o seed sem teste de unicidade têm uma linha por chave do grão declarado:
   [`rfb.paises`](DICIONARIO_DADOS.md#rfb-paises) e [`rfb.qualificacoes`](DICIONARIO_DADOS.md#rfb-qualificacoes)
-  (`codigo` por mês), [`basedosdados.cnae_2`](DICIONARIO_DADOS.md#basedosdados-cnae_2) (`subclasse`),
+  (`codigo` por mês, só no mês do relatório), [`basedosdados.cnae_2`](DICIONARIO_DADOS.md#basedosdados-cnae_2) (`subclasse`),
   [`basedosdados.regiao_metropolitana_2017`](DICIONARIO_DADOS.md#basedosdados-regiao_metropolitana_2017) (município ×
   região), [`basedosdados.vizinhanca_municipio`](DICIONARIO_DADOS.md#basedosdados-vizinhanca_municipio) (`ano`,
   `id_municipio_1`, `id_municipio_2`, como publicada), [`excecoes_conhecidas_municipio`](DICIONARIO_DADOS.md#excecoes_conhecidas_municipio)
@@ -543,7 +543,11 @@ testes ao build.
   (`invocation_id`, `nome_teste`).
 - **Tipo:** estrutural.
 - **Fonte:** regra do projeto (`meta.grao` das fontes e do seed).
-- **Dados:** as sete tabelas. Universo: linhas de cada tabela.
+- **Dados:** as sete tabelas. Universo: linhas de cada tabela. As fontes RFB guardam todos os meses ingeridos:
+  países e qualificações entram só no mês do relatório (o `_mes_referencia` de
+  `int_estabelecimentos__enriquecidos`, o mesmo das demais regras), para o grão valer sobre a fotografia do mês. Um
+  duplicado de um mês antigo não conta, e apagar meses antigos não muda o total. As outras cinco não têm mês: a Base
+  dos Dados e o seed são uma versão só, e o histórico de testes acumula execuções por desenho.
 - **Conceito:** [A1](CAMADA_SEMANTICA.md#a1-as-bases).
 - **Leitura de uma violação:** na vizinhança é comportamento conhecido da fonte: o grão declarado avisa que ela
   "pode repetir o par" e a ponte `bridge_municipio_vizinho` deduplica (RDIC-02). Nas demais, erro de dado da fonte
