@@ -15,7 +15,9 @@ O documento tem duas partes:
 
 Toda regra legal ou de negócio da Parte A tem a fonte indicada entre colchetes, como [IN 2.119, art. 9º]. A
 lista completa, com link e data de acesso, está em [A7](#a7-fontes). Os números de exemplo vêm das **fixtures
-sintéticas do `make ci`**, não do cadastro real.
+sintéticas do `make ci`**, não do cadastro real. As regras que dá para conferir no dado estão catalogadas em
+[REGRAS_NEGOCIO.md](REGRAS_NEGOCIO.md) (`RN-xx`), com o resultado do dado real em
+[RELATORIO_REGRAS_NEGOCIO.md](RELATORIO_REGRAS_NEGOCIO.md) ([ADR-0020](adr/0020-regras-de-negocio.md)).
 
 ## Parte A — Negócio
 
@@ -78,7 +80,7 @@ não mudam [RFB-Alfanumérico, perguntas 6 e 7]. Por isso:
 - não use "ordem `0001`" como sinônimo de matriz: o que diz se é matriz é o identificador matriz/filial
   (`eh_matriz`).
 
-O teste `cnpj_dv_valido` já confere os dígitos dos dois formatos.
+O teste `cnpj_dv_valido` já confere os dígitos dos dois formatos (regra [RN-17](REGRAS_NEGOCIO.md#rn-17)).
 
 #### Empresa × estabelecimento
 
@@ -111,11 +113,12 @@ O identificador matriz/filial vale 1 (matriz) ou 2 (filial) [RFB-Leiaute]; o pro
 filiais em inscrição própria. É uma leitura, não texto expresso: o art. 9º fala da inscrição "da entidade ou do
 estabelecimento filial" [IN 2.119, art. 9º], e o art. 4º, § 1º, inscreve os estados, o DF e os municípios "na
 condição de estabelecimento matriz" [IN 2.119, art. 4º, § 1º]. A entidade pode transformar uma filial em matriz
-[IN 2.119, art. 4º, § 3º], e a baixa da matriz implica a baixa de todas as filiais [IN 2.119, art. 24, § 2º].
+[IN 2.119, art. 4º, § 3º], e a baixa da matriz implica a baixa de todas as filiais [IN 2.119, art. 24, § 2º]
+(regra [RN-14](REGRAS_NEGOCIO.md#rn-14)).
 
 Contar empresas pelas matrizes supõe uma matriz por CNPJ básico. As fixtures cumprem isso. No dado real de
 2026-09 há 70.085.592 matrizes para 70.085.591 CNPJs básicos: todo básico tem matriz, e só um (`08314885`) tem
-duas (conferência da RSEM no dado real de 2026-09).
+duas (conferência da RSEM no dado real de 2026-09; regra [RN-16](REGRAS_NEGOCIO.md#rn-16)).
 
 #### Razão social × nome fantasia
 
@@ -140,7 +143,7 @@ Nenhum dos dois é dimensão da camada semântica: são nomes, não categorias.
 | 5. Organizações Internacionais e Outras Instituições Extraterritoriais | — |
 
 O ente federativo responsável só é preenchido para as naturezas do grupo 1XXX [RFB-Leiaute]
-(`ente_federativo_responsavel`). Nas fixtures do CI, o código `2062` traz a descrição "Sociedade Empresária
+(`ente_federativo_responsavel`; regra [RN-20](REGRAS_NEGOCIO.md#rn-20)). Nas fixtures do CI, o código `2062` traz a descrição "Sociedade Empresária
 Limitada", a mesma do 206-2 da CONCLA.
 
 **MEI não é natureza jurídica.** Pela lei, o MEI é o empresário individual do art. 966 do Código Civil ou o
@@ -149,7 +152,8 @@ industrialização, comercialização e serviços no âmbito rural [LC 123, art.
 188/2021]. A CONCLA não associa o MEI a uma natureza. No dado real, quase todo MEI tem a natureza 213-5
 Empresário (Individual): dos 17.527.414 estabelecimentos com `opcao_mei` em 2026-09, 17.526.176 (99,99 %) têm
 o código 2135, 1.237 têm 2062 (Sociedade Empresária Limitada) e 1 tem 2070 (Sociedade Empresária em Nome
-Coletivo). É observação do projeto, não regra (conferência da RSEM no dado real de 2026-09). Para achar MEI, use
+Coletivo). É observação do projeto, não regra (conferência da RSEM no dado real de 2026-09; contada por empresa
+na [RN-08](REGRAS_NEGOCIO.md#rn-08)). Para achar MEI, use
 `opcao_mei`, não a natureza.
 
 No projeto: `dim_natureza_juridica`, entidade `natureza_juridica`, dimensões
@@ -213,11 +217,12 @@ do arquivo Simples pode ser anterior ao início dos efeitos.
 - só as ocupações permitidas [CGSN 140, art. 100; Portal do Empreendedor];
 - **um único estabelecimento** e nenhuma participação em outra empresa como titular, sócio ou administrador
   [LC 123, art. 18-A, § 4º, II e III]. O dado real tem exceções: 3.749 **filiais** de empresas com `opcao_mei`
-  (conferência da RSEM no dado real de 2026-09). Como `qtd_ativos_mei` conta estabelecimentos, ela pode passar
-  um pouco do número de empresas MEI;
+  (conferência da RSEM no dado real de 2026-09; regra [RN-05](REGRAS_NEGOCIO.md#rn-05)). Como `qtd_ativos_mei`
+  conta estabelecimentos, ela pode passar um pouco do número de empresas MEI;
 - no máximo **um empregado**, com salário mínimo ou piso da categoria [LC 123, art. 18-C; CGSN 140, art. 105].
 
-Todo MEI é optante pelo Simples; o contrário não vale. Sair do SIMEI (desenquadramento) não exclui a empresa do
+Todo MEI é optante pelo Simples ([RN-06](REGRAS_NEGOCIO.md#rn-06)) e é modalidade de microempresa [LC 123, art.
+18-E, § 3º] ([RN-07](REGRAS_NEGOCIO.md#rn-07)); o contrário não vale. Sair do SIMEI (desenquadramento) não exclui a empresa do
 Simples Nacional [CGSN 140, art. 115, § 1º]. O arquivo Simples traz a opção pelo MEI e suas datas [RFB-Leiaute].
 
 Os limites de R$ 81.000,00 e R$ 251.600,00 foram conferidos em 2026-10-10 nas três fontes acima. Eles mudam por
@@ -270,9 +275,12 @@ Pontos que mudam a leitura das métricas:
   inatividade para fins tributários" [IN 2.119, art. 9º, parágrafo único]. Um estabelecimento parado segue ATIVO
   até ser suspenso, declarado inapto ou baixado (ressalva R3-19 do [guia Power BI](POWER_BI.md)).
 - **Motivo.** Cada situação tem um motivo codificado [RFB-Leiaute], descrito no arquivo de motivos da RFB. O projeto o guarda no
-  staging (`motivo_situacao_codigo`, `stg_rfb__motivos`) e não o leva à estrela.
+  staging (`motivo_situacao_codigo`, `stg_rfb__motivos`) e não o leva à estrela. O ATIVO tem o motivo 00 (SEM
+  MOTIVO): é a tradução de "ativa não tem encerramento" ([RN-10](REGRAS_NEGOCIO.md#rn-10)).
 - **Data da situação** é a "data do evento da situação cadastral" [RFB-Leiaute] (`dat_situacao`). Num ativo,
-  costuma coincidir com a data de início de atividade (observação do projeto, sem fonte da RFB).
+  costuma coincidir com a data de início de atividade (observação do projeto, sem fonte da RFB). Regras
+  [RN-11](REGRAS_NEGOCIO.md#rn-11) a [RN-13](REGRAS_NEGOCIO.md#rn-13): o não ativo tem a data, ela não antecede o
+  início de atividade e não passa da data do extrato.
 
 No projeto: `dim_situacao_cadastral`, entidade `situacao_cadastral`, dimensão
 `situacao_cadastral__rotulo_situacao_cadastral` e a flag `eh_ativa` (código 2).
@@ -281,7 +289,7 @@ No projeto: `dim_situacao_cadastral`, entidade `situacao_cadastral`, dimensão
 
 É a "situação especial da empresa" e a "data em que a empresa entrou em situação especial", campos do arquivo
 Estabelecimentos [RFB-Leiaute]. O leiaute não lista os valores possíveis. O projeto mantém os campos só no staging
-(`situacao_especial`, `dat_situacao_especial`).
+(`situacao_especial`, `dat_situacao_especial`); os dois andam juntos ([RN-15](REGRAS_NEGOCIO.md#rn-15)).
 
 #### Data de início de atividade
 
@@ -307,7 +315,8 @@ CNAE-Subclasses 2.3. Tem cinco níveis, por exemplo para a pergunta-guia do proj
 | Subclasse | 4741-5/00 | Comércio varejista de tintas e materiais para pintura |
 
 Cada estabelecimento tem **um CNAE fiscal principal** e **zero ou mais secundários**, estes separados por vírgula
-no arquivo [RFB-Leiaute]. No projeto:
+no arquivo [RFB-Leiaute] (regras [RN-01](REGRAS_NEGOCIO.md#rn-01) a [RN-04](REGRAS_NEGOCIO.md#rn-04)). No
+projeto:
 
 - o principal vira `cnae_principal` (7 dígitos, como `4741500`) e `sk_cnae`;
 - `dim_cnae` traz os cinco níveis (dimensões `cnae__codigo_subclasse`, `cnae__descricao_secao` etc.), da Base dos
@@ -325,7 +334,8 @@ O arquivo Estabelecimentos traz a UF e o "código do município de jurisdição 
 (7 dígitos). O projeto converte um no outro pelo diretório de municípios da Base dos Dados (`codigo_rfb` →
 `id_municipio_ibge`) e usa o código IBGE como chave (`sk_municipio`).
 
-Sem par, o estabelecimento fica no membro `-1` de `dim_municipio`. Os casos conhecidos estão no seed
+Sem par, o estabelecimento fica no membro `-1` de `dim_municipio`. O código existe no domínio da RFB
+([RN-19](REGRAS_NEGOCIO.md#rn-19)). Os casos conhecidos estão no seed
 `excecoes_conhecidas_municipio`: o código 9707 (EXTERIOR, UF `EX`) e municípios criados depois da base.
 
 ### A3. Ciclo de vida

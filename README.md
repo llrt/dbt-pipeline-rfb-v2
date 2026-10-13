@@ -35,6 +35,8 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 | [docs/POWER_BI.md](docs/POWER_BI.md) | modelo estrela e acesso pelo Power BI |
 | [docs/CAMADA_SEMANTICA.md](docs/CAMADA_SEMANTICA.md) | camada semântica (dbt/MetricFlow): conceitos de negócio do CNPJ (empresa × estabelecimento, porte, MEI, situação cadastral), ontologia, entidades, métricas e consultas salvas |
 | [docs/DICIONARIO_DADOS.md](docs/DICIONARIO_DADOS.md) | dicionário de dados: o detalhe dos campos de cada tabela (fontes, staging, gold...), com tipo, grão, chaves, valores dos domínios, origem e linhagem entre tabelas; gerado e conferido no CI |
+| [docs/REGRAS_NEGOCIO.md](docs/REGRAS_NEGOCIO.md) | catálogo das regras e invariantes de negócio do cadastro (RN-01 a RN-24), com fonte primária e leitura de cada violação |
+| [docs/RELATORIO_REGRAS_NEGOCIO.md](docs/RELATORIO_REGRAS_NEGOCIO.md) | inconsistências encontradas no dado real (2026-09), só com contagens, e a interpretação delas |
 | [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt |
 | [.specs/features/rfb-dbt-port/](.specs/features/rfb-dbt-port/spec.md) | spec (EARS) e tarefas |
 
@@ -47,6 +49,7 @@ make pipeline MES=2026-09  # dados reais: ingestão → freshness → dbt build 
 make atualizar             # processa o mês mais recente publicado pela RFB, se houver novidade
 make publicar              # opcional: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO)
 make semantica             # valida a camada semântica (MetricFlow) e lista as métricas; consultas com `mf query`
+make regras                # confere as regras de negócio e gera docs/RELATORIO_REGRAS_NEGOCIO.md (não falha por violação)
 make docs                  # dbt docs
 ```
 
