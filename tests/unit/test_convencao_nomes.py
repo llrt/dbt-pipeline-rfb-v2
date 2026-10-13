@@ -67,6 +67,7 @@ ALVOS_MAKE_ESPERADOS = {
     "atualizar",
     "publicar",
     "semantica",
+    "dicionario",
 }
 
 

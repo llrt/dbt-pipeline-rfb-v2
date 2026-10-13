@@ -7,7 +7,7 @@ MES ?=
 export RAIZ_DADOS
 export DBT_PROFILES_DIR = $(CURDIR)/transform
 
-.PHONY: setup fixtures ingerir ci pipeline atualizar semantica docs lint sincronizar relatorio publicar clean
+.PHONY: setup fixtures ingerir ci pipeline atualizar semantica dicionario docs lint sincronizar relatorio publicar clean
 
 # Parse completo antes dos comandos que chamam o dbt várias vezes: no dbt-core 1.12.5 o partial parse
 # duplica as métricas de um YAML editado ("dbt found two metrics with the name ..."), ADR-0018.
@@ -65,6 +65,14 @@ semantica:
 	$(PARSE_COMPLETO)
 	cd transform && uv run mf validate-configs
 	cd transform && uv run mf list metrics
+
+## dicionario: gera docs/DICIONARIO_DADOS.md (ADR-0019) com o catálogo do dbt sobre o warehouse do `make ci`
+## (rode `make ci` antes; usa o mesmo .tmp/ci/dados). O `make ci` confere se o arquivo versionado está em dia.
+dicionario: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
+dicionario:
+	cd transform && env -u CAMINHO_DUCKDB uv run dbt parse --no-partial-parse --quiet --target ci
+	cd transform && env -u CAMINHO_DUCKDB uv run dbt docs generate --target ci --no-partial-parse
+	uv run python scripts/gerar_dicionario_dados.py
 
 ## docs: gera a documentação de dbt
 docs:

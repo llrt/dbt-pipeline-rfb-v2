@@ -3,7 +3,7 @@ version: 2
 models:
   - name: mart_concorrencia_municipio
     description: >
-      ANA-01 (adição): densidade de concorrência por CNAE principal × município. `ativos` e `inativos`
+      Densidade de concorrência por CNAE principal × município. `ativos` e `inativos`
       pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 /
       população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e
       CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.
@@ -19,11 +19,12 @@ models:
           arguments:
             combination_of_columns: [cnae_principal, sk_municipio]
     config:
+      meta: { grao: "CNAE principal × município (`cnae_principal`, `sk_municipio`)" }
       contract:
         enforced: true
     columns:
       - name: sk_cnae
-        description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        description: Chave de `dim_cnae`; `-1` para CNAE sem par no BD.
         data_type: integer
         data_tests:
           - not_null
@@ -51,7 +52,7 @@ models:
         description: Nome do município (acentuado, Base dos Dados).
         data_type: varchar
       - name: uf
-        description: Sigla da UF.
+        description: Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).
         data_type: varchar
       - name: populacao
         description: População do município no `ano_populacao`; NULL sem dado.
@@ -76,7 +77,7 @@ models:
 
   - name: mart_sobrevivencia_coorte
     description: >
-      ANA-02 (adição): sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF,
+      Sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF,
       a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`);
       sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis.
       Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`.
@@ -85,6 +86,7 @@ models:
           arguments:
             min_value: 1
     config:
+      meta: { grao: "coorte × CNAE principal × porte × UF (`ano_coorte`, `sk_cnae`, `sk_porte`, `uf`)" }
       contract:
         enforced: true
     semantic_model:
@@ -175,7 +177,7 @@ models:
         data_type: bigint
         data_tests: [not_null]
       - name: sk_cnae
-        description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        description: Chave de `dim_cnae`; `-1` para CNAE sem par no BD.
         data_type: integer
         entity: { type: foreign, name: cnae }
         data_tests:
@@ -189,7 +191,7 @@ models:
         data_type: varchar
         data_tests: [not_null]
       - name: sk_porte
-        description: Chave de `dim_porte` (R3-20).
+        description: Chave de `dim_porte`.
         data_type: integer
         entity: { type: foreign, name: porte }
         data_tests:
@@ -238,7 +240,7 @@ models:
 
   - name: mart_dinamica_mercado
     description: >
-      ANA-03 (adição): aberturas, encerramentos e saldo por ano × CNAE principal × município.
+      Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal × município.
       Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`).
       Datas nulas não geram evento.
     data_tests:
@@ -246,6 +248,7 @@ models:
           arguments:
             min_value: 1
     config:
+      meta: { grao: "ano × CNAE principal × município (`ano`, `sk_cnae`, `sk_municipio`)" }
       contract:
         enforced: true
     columns:
@@ -254,7 +257,7 @@ models:
         data_type: integer
         data_tests: [not_null]
       - name: sk_cnae
-        description: Chave de `dim_cnae` (R3-20); `-1` para CNAE sem par no BD.
+        description: Chave de `dim_cnae`; `-1` para CNAE sem par no BD.
         data_type: integer
         data_tests:
           - not_null
@@ -263,7 +266,7 @@ models:
                 to: ref('dim_cnae')
                 field: sk_cnae
       - name: sk_municipio
-        description: Chave de `dim_municipio` (R3-20); `-1` para município sem par no BD.
+        description: Chave de `dim_municipio`; `-1` para município sem par no BD.
         data_type: integer
         data_tests:
           - not_null
@@ -282,7 +285,7 @@ models:
         description: Nome do município (acentuado, Base dos Dados).
         data_type: varchar
       - name: uf
-        description: Sigla da UF.
+        description: Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).
         data_type: varchar
       - name: aberturas
         description: Estabelecimentos com início de atividade no ano.
@@ -299,7 +302,7 @@ models:
 
   - name: mart_fornecedores_proximos
     description: >
-      ANA-04 (adição): fornecedores ATIVOS do município do caso (vars `caso_municipio`/`caso_uf`) cujo
+      Fornecedores próximos: fornecedores ATIVOS do município do caso (vars `caso_municipio`/`caso_uf`) cujo
       CNAE principal ou secundário está em `caso_cnaes_fornecedores`, a até `raio_fornecedores_km` do
       centroide do município (haversine entre centroides da Base dos Dados). Uma linha por
       estabelecimento; `via` indica se casou pelo CNAE principal ou por um secundário.
@@ -308,6 +311,7 @@ models:
           arguments:
             min_value: 1
     config:
+      meta: { grao: "estabelecimento fornecedor (`cnpj_completo`)" }
       contract:
         enforced: true
     columns:
@@ -319,11 +323,11 @@ models:
         description: >
           Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do
           empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11
-          dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008, emenda R4-01).
+          dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008).
         data_type: varchar
         data_tests: [sem_cpf_no_nome]
       - name: sk_cnae
-        description: Chave de `dim_cnae` do CNAE fornecido (R3-20); `-1` se o CNAE não existe na dimensão.
+        description: Chave de `dim_cnae` do CNAE fornecido; `-1` se o CNAE não existe na dimensão.
         data_type: integer
         data_tests:
           - not_null
@@ -342,7 +346,9 @@ models:
           - accepted_values:
               arguments: { values: [principal, secundario] }
       - name: sk_municipio
-        description: Chave de `dim_municipio` do município do fornecedor (R3-20).
+        config: { meta: { membro_desconhecido: false } }
+        description: >
+          Chave de `dim_municipio` do município do fornecedor. Sem chave `-1`: fornecedor sem município na dimensão ou sem centroide fica de fora do mart.
         data_type: integer
         data_tests:
           - not_null
@@ -354,7 +360,7 @@ models:
         description: Município do fornecedor.
         data_type: varchar
       - name: uf
-        description: UF do fornecedor.
+        description: Sigla da UF do município do fornecedor (`dim_municipio.sigla_uf`).
         data_type: varchar
       - name: distancia_km
         description: Distância haversine (km, 2 casas) do centroide do município do caso.
@@ -366,9 +372,9 @@ models:
 
   - name: mart_concorrencia_area_mercado
     description: >
-      ENR-03 (incremento `enriquecimento_bd`, ADR-0015): concorrência na área de mercado por CNAE
+      Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por CNAE
       principal × município: os pares com estabelecimento no município (como
-      `mart_concorrencia_municipio`) e os vazios de mercado (P23), isto é, municípios sem o CNAE
+      `mart_concorrencia_municipio`) e os vazios de mercado, isto é, municípios sem o CNAE
       cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` =
       false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos
       no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município
@@ -377,9 +383,9 @@ models:
       o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em
       `gold/mart_concorrencia_area_mercado.parquet`.
     config:
+      meta: { grao: "CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado", incremento: enriquecimento_bd }
       contract:
         enforced: true
-      meta: { incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     data_tests:
       - dbt_expectations.expect_table_row_count_to_be_between:
@@ -422,7 +428,7 @@ models:
         description: Nome do município (acentuado, Base dos Dados).
         data_type: varchar
       - name: uf
-        description: Sigla da UF.
+        description: Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).
         data_type: varchar
       - name: nome_regiao_metropolitana
         description: Região metropolitana do município; `NÃO PERTENCE` fora de região metropolitana.

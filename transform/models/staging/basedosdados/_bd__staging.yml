@@ -2,6 +2,8 @@ version: 2
 
 models:
   - name: stg_bd__municipios
+    config:
+      meta: { grao: "município IBGE (`id_municipio`)" }
     description: >
       Municípios da Base dos Dados, tipado e limpo: ids como texto (`texto_ou_nulo`),
       `id_municipio_rf` com 4 dígitos (`lpad_codigo`, como o código RFB), `latitude`/`longitude`
@@ -55,6 +57,8 @@ models:
         description: Longitude do centroide do município (extraída do WKT `centroide`).
 
   - name: stg_bd__cnaes
+    config:
+      meta: { grao: "subclasse CNAE (`subclasse`)" }
     description: >
       CNAEs (versão 2.x) da Base dos Dados, tipado e limpo: `subclasse` e demais códigos da
       hierarquia com zeros à esquerda preservados (`lpad_codigo`).
@@ -90,6 +94,8 @@ models:
         description: Descrição da seção.
 
   - name: stg_bd__populacao
+    config:
+      meta: { grao: "município e ano (`id_municipio`, `ano`)" }
     description: "População estimada por município e ano (adição), tipada: `ano` inteiro, `populacao` bigint."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
@@ -127,6 +133,8 @@ models:
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
 
   - name: stg_bd__pib
+    config:
+      meta: { grao: "município e ano (`id_municipio`, `ano`)" }
     description: "PIB municipal e seus componentes (adição), tipados como `double`; `ano` inteiro."
     data_tests:
       - dbt_utils.unique_combination_of_columns:
@@ -173,7 +181,7 @@ models:
   # --- incremento: enriquecimento_bd (ADR-0015) ---
   - name: stg_bd__censo_2022_municipio
     config:
-      meta: { incremento: enriquecimento_bd }
+      meta: { grao: "município IBGE (`id_municipio`)", incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     description: >
       Censo 2022 por município, tipado: contagens `bigint`, taxas `double`; `area` vira
@@ -233,7 +241,7 @@ models:
 
   - name: stg_bd__regioes_metropolitanas
     config:
-      meta: { incremento: enriquecimento_bd }
+      meta: { grao: "município IBGE (`id_municipio`)", incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     description: >
       Região metropolitana de cada município, uma linha por município (a fonte pode listar um
@@ -269,11 +277,11 @@ models:
 
   - name: stg_bd__vizinhanca
     config:
-      meta: { incremento: enriquecimento_bd }
+      meta: { grao: "par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza", incremento: enriquecimento_bd }
       tags: [incremento_enriquecimento_bd]
     description: >
       Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas e autopares
-      em anos antigos), com `ano` inteiro. Ano mais recente e simetria: `int_vizinhanca__municipios`.
+      em anos antigos), com `ano` inteiro. Ano mais recente e simetria: `bridge_municipio_vizinho`.
     columns:
       - name: ano
         description: Ano da malha municipal do par.

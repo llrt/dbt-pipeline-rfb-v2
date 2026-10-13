@@ -49,6 +49,7 @@ Decisões de arquitetura completas em `docs/adr/`. Aqui ficam as decisões de pr
 <br>• lote FRSEM: os 12 achados; métrica `baixas`; todas as métricas comparadas com SQL; afinidade na ontologia; verificador da doc no `make ci`.
 <br>Total: 26 métricas; 15 casos em `test_camada_semantica.py`, 4 de ontologia e 1 de doc. Bugs do dbt-core 1.12.5 contornados: *partial parse* e `fill_nulls_with` | active | 2026-10-09 |
 | AD-038 | PR #1 (camada semântica, contexto de negócio, ontologia) integrado pelo usuário (merge commit `e36b6f5`). **Release v1.1.0**: versão do pacote 1.1.0 (PR de versão) e tag anotada no merge desse PR; notas com a lista de mudanças desde a v1.0.1 | active | 2026-10-10 |
+| AD-039 | **PR A, dicionário de dados (v1.2.0)**, pedido do usuário. Lote DIC (Sonnet médio): `docs/DICIONARIO_DADOS.md` gerado do manifesto e do catálogo (`make dicionario`, teste de atualização), `meta.campo_leiaute` (54 colunas, conferidas no PDF oficial pelo líder), `meta.coluna_bigquery`, `meta.grao`, descrições a 100 % em fontes e gold, ADR-0019. Revisão independente RDIC (Opus alto): aprovável com ressalvas, 11 achados, 8 mutações sobreviventes. Lote FDIC (Sonnet médio): nulidade e domínio com `warn`, Lê de/Usada por, linhagem, valores das seeds, `erDiagram`, testes de conteúdo e testes unitários do gerador. Os testes de unicidade dos grãos declarados (RDIC-09) vão para o PR B (regras de negócio) | active | 2026-10-13 |
 
 ## Handoff
 

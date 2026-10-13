@@ -11,18 +11,19 @@ models:
       original (`audit__bh_empresas_sql_original`, teste `paridade_bh_empresas`). Parquet em
       `gold/bh_empresas.parquet`.
     config:
+      meta: { grao: "estabelecimento (`cnpj_completo`) com par em todos os domínios (inner joins do original)" }
       contract:
         enforced: true
     columns:
       - name: cnpj_raiz
         description: >
-          8 primeiros dígitos de CNPJ da empresa. Linhagem: `empresas.cnpj_raiz`, prefixado (lpad)
-          com '0'. Domínio: caracteres numéricos, prefixado com 0s se necessário.
+          8 primeiros dígitos de CNPJ da empresa. Linhagem: `stg_rfb__empresas.cnpj_raiz`, prefixado
+          com '0' no staging. Domínio: caracteres numéricos, prefixado com 0s se necessário.
         data_type: varchar
       - name: cnpj_completo
         description: >
-          CNPJ completo da empresa, com 14 dígitos. Linhagem: `estabelecimentos.cnpj_raiz`,
-          `cnpj_ordem`, `cnpj_dv`, cada um prefixado (lpad) com '0'.
+          CNPJ completo da empresa, com 14 dígitos. Linhagem: `stg_rfb__estabelecimentos.cnpj_completo`
+          (`cnpj_raiz`, `cnpj_ordem` e `cnpj_dv`, cada um prefixado com '0' no staging).
         data_type: varchar
         data_tests:
           - unique:
@@ -31,12 +32,12 @@ models:
               config: { meta: { escopo: original }, tags: [escopo_original] }
       - name: nome
         description: >
-          Nome da empresa. Linhagem: `estabelecimentos.nome_fantasia`; `empresas.razao_social`
-          apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005,
-          emenda R2-01): sem espaços nas bordas (`trim` do staging), que o original mantinha
+          Nome da empresa. Linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social`
+          apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005):
+          sem espaços nas bordas (`trim` do staging), que o original mantinha
           (fev/2025: ~752 razões sociais com espaço à esquerda); o teste
           `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas. **Adaptado**
-          (ADR-0008, emenda R4-01, decisão do usuário): o CPF que encerra a razão social do
+          (ADR-0008): o CPF que encerra a razão social do
           empresário individual/MEI (todo trecho de exatamente 11 dígitos, no fim ou no meio do
           nome, sem exigir DV: 908 CPFs reais vêm no meio) sai como `***.***.***-**`
           (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste
@@ -51,12 +52,12 @@ models:
       - name: natureza_juridica
         description: >
           Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais).
-          Linhagem: `natureza_juridica.descricao` com `codigo = empresas.natureza_jur`; upper case.
+          Linhagem: `stg_rfb__naturezas.descricao` com `codigo = stg_rfb__empresas.natureza_juridica_codigo`; upper case.
         data_type: varchar
       - name: porte
         description: >
           Porte da empresa, i.e. uma espécie de "tamanho" (em termos de faturamento). Linhagem:
-          `empresas.porte`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro
+          `stg_rfb__empresas.porte_codigo`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro
           valor ou vazio → NULL.
         data_type: varchar
         data_tests:
@@ -67,7 +68,7 @@ models:
       - name: cnae_principal
         description: >
           Subclasse do CNAE (código nacional de atividade econômica) principal da empresa.
-          Linhagem: `estabelecimentos.CNAE_principal`, sem transformação. Domínio: 7 caracteres
+          Linhagem: `stg_rfb__estabelecimentos.cnae_principal`, sem transformação. Domínio: 7 caracteres
           numéricos (classificação IBGE).
         data_type: varchar
         data_tests:
@@ -77,41 +78,41 @@ models:
               config: { meta: { escopo: original }, tags: [escopo_original] }
       - name: desc_cnae_principal
         description: >
-          Descrição textual da subclasse do CNAE principal. Linhagem: `cnae_bd.descricao_subclasse`
-          com `subclasse = estabelecimentos.CNAE_principal`; upper case.
+          Descrição textual da subclasse do CNAE principal. Linhagem: `stg_bd__cnaes.descricao_subclasse`
+          com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case.
         data_type: varchar
       - name: grupo_cnae_principal
         description: >
           Descrição textual do grupo (3 primeiros dígitos do CNAE) do CNAE principal. Linhagem:
-          `cnae_bd.descricao_grupo` com `subclasse = estabelecimentos.CNAE_principal`; upper case.
+          `stg_bd__cnaes.descricao_grupo` com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case.
         data_type: varchar
       - name: cnaes_secundarios
         description: >
           Subclasses dos CNAEs secundários, separadas por vírgula. Linhagem:
-          `estabelecimentos.CNAEs_secundarios`, sem transformação.
+          `stg_rfb__estabelecimentos.cnaes_secundarios`, sem transformação.
         data_type: varchar
       - name: municipio
         description: >
-          Nome do município do estabelecimento. Linhagem: `municipio_bd.nome` com
-          `id_municipio_rf = estabelecimentos.municipio`; upper case.
+          Nome do município do estabelecimento. Linhagem: `stg_bd__municipios.nome` com
+          `id_municipio_rf = stg_rfb__estabelecimentos.municipio_rfb_codigo`; upper case.
         data_type: varchar
       - name: microrregiao_municipio
         description: >
           Nome da microrregião (agregado de municípios vizinhos) do município. Linhagem:
-          `municipio_bd.nome_microrregiao`; upper case.
+          `stg_bd__municipios.nome_microrregiao`; upper case.
         data_type: varchar
       - name: mesorregiao_municipio
         description: >
           Nome da mesorregião (agregado de microrregiões vizinhas) do município. Linhagem:
-          `municipio_bd.nome_mesorregiao`; upper case.
+          `stg_bd__municipios.nome_mesorregiao`; upper case.
         data_type: varchar
       - name: uf
         description: >
-          Sigla da UF do município (`UF` no original). Linhagem: `municipio_bd.sigla_UF`; upper case.
+          Sigla da UF do município (`UF` no original). Linhagem: `stg_bd__municipios.sigla_uf`; upper case.
         data_type: varchar
       - name: situacao
         description: >
-          Situação da empresa, se ativa ou inativa. Linhagem: `estabelecimentos.situacao`, mapeado
+          Situação da empresa, se ativa ou inativa. Linhagem: `stg_rfb__estabelecimentos.situacao_codigo`, mapeado
           2 → "ATIVA", qualquer outro código → "INATIVA".
         data_type: varchar
         data_tests:
@@ -122,11 +123,11 @@ models:
       - name: idade_atual
         description: >
           Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem:
-          `estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`.
+          `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`.
           **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do
           extrato (`data_referencia`), para ser determinística. Fora de [0, 200] anos é dado absurdo
           da RFB (fev/2025: 2 ativos, inícios em 1199 e 1601): avisa (warn) e só falha acima de 100
-          linhas (spec Original AC 12, emenda R2-02). A data não é anulada no staging, para manter
+          linhas. A data não é anulada no staging, para manter
           a paridade.
         data_type: double
         config:
@@ -153,6 +154,7 @@ models:
       idade média do estrato. Reconciliada com `bh_empresas` (teste
       `agg_empresas_reconciliacao`). Parquet em `gold/agg_empresas.parquet`.
     config:
+      meta: { grao: "combinação das 10 dimensões do original (`municipio`, `microrregiao_municipio`, `mesorregiao_municipio`, `uf`, `cnae_principal`, `desc_cnae_principal`, `grupo_cnae_principal`, `natureza_juridica`, `porte`, `situacao`)" }
       contract:
         enforced: true
     columns:

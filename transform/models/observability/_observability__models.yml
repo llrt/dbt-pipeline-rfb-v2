@@ -2,6 +2,8 @@ version: 2
 
 models:
   - name: dq_resumo_execucao
+    config:
+      meta: { grao: "execução do dbt (`invocation_id`)" }
     description: >
       Resumo por execução dbt do histórico de testes (`dq_historico_testes`): totais por status, linhas
       com falha e por escopo. View sobre a tabela mantida pelo `on-run-end`; reflete a execução mais
