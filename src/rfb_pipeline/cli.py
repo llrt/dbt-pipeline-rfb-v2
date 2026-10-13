@@ -407,10 +407,12 @@ def _cmd_regras(argumentos: argparse.Namespace) -> int:
     """Sai com 0 mesmo com regras violadas: inconsistência é conteúdo do relatório (ADR-0020)."""
     configuracao = carregar_configuracao()
     verificar_gold_consistente(configuracao, "regras")  # R4-03
-    saida, regras, violadas = gerar_relatorio_regras(
+    saida, regras, violadas, aviso = gerar_relatorio_regras(
         configuracao, saida=argumentos.saida, target=argumentos.target
     )
     print(f"relatório das regras de negócio em {saida}: {regras} regras, {violadas} violadas")
+    if aviso:
+        _aviso(aviso)  # RRN-07: texto manual de outro mês sob números novos
     return 0
 
 

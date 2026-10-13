@@ -9,15 +9,19 @@ import pytest
 from rfb_pipeline import regras
 from rfb_pipeline.regras import (
     CATALOGO_PADRAO,
-    MARCADOR_INTERPRETACAO,
+    SEM_INTERPRETACAO,
+    Interpretacao,
     Linha,
     Regra,
     RegrasErro,
+    compor_interpretacao,
     cruzar_com_catalogo,
     interpretacao_existente,
     ler_catalogo,
+    marcador,
     padronizar_linhas,
     renderizar,
+    traz_identificador,
 )
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -31,7 +35,7 @@ def test_catalogo_e_analyses_correspondem_um_para_um() -> None:
     """Toda seção RN-xx aponta para uma analysis existente e vice-versa (mutação d)."""
     catalogo = ler_catalogo()
     arquivos = {p.stem for p in ANALISES.glob("rn_*.sql")}
-    assert 15 <= len(catalogo) <= 25
+    assert 15 <= len(catalogo) <= 30
     assert {r.analise for r in catalogo.values()} == arquivos
     for rid, regra in catalogo.items():
         assert regra.analise.startswith(f"rn_{rid[3:]}_"), rid
@@ -102,11 +106,12 @@ def test_padronizar_linhas_sem_linhas_e_universo_vazio() -> None:
             "cnpj_completo",
         ),
         (["regra", "nome", "avaliados", "violacoes"], ("RN-01", "x", 1, 0), "nome"),
-        (["regra", "uf", "avaliados", "violacoes"], ("RN-01", "11222333000181", 1, 0), "11 ou 14"),
+        (["regra", "uf", "avaliados", "violacoes"], ("RN-01", "11222333000181", 1, 0), "CNPJ"),
+        (["regra", "uf", "avaliados", "violacoes"], ("RN-01", "PINTE 52998224725", 1, 0), "CPF"),
         (
-            ["regra", "uf", "avaliados", "violacoes"],
-            ("RN-01", "PINTE 52998224725", 1, 0),
-            "11 ou 14",
+            ["regra", "situacao", "avaliados", "violacoes"],
+            ("RN-01", "ATIVA 14.141.414/0001-55", 1, 0),
+            "identificador",
         ),
         (["regra", "avaliados", "violacoes"], ("RN-02", 1, 0), "!= RN-01"),
         (["regra", "avaliados", "violacoes"], ("RN-01", 1, 2), "violacoes"),
@@ -123,6 +128,45 @@ def test_padronizar_linhas_recusa_fora_do_padrao(colunas, linha, mensagem) -> No
 def test_padronizar_linhas_exige_nome_de_arquivo_no_padrao() -> None:
     with pytest.raises(RegrasErro, match="nome fora do padrão"):
         padronizar_linhas("regra_01", (["regra", "avaliados", "violacoes"], [("RN-01", 1, 0)]))
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "11222333000181",  # CNPJ
+        "11.222.333/0001-81",  # CNPJ com máscara
+        "ATIVA 14.141.414/0001-55",  # CNPJ formatado depois de um rótulo (RRN-01, M7)
+        "ATIVA 14141414",  # CNPJ básico (RRN-01, M8)
+        "11.222.333",  # CNPJ básico com máscara
+        "52998224725",  # CPF
+        "529.982.247-25",  # CPF com máscara
+        "12ABC34501DE35",  # CNPJ alfanumérico (IN 2.119, art. 2º, parágrafo único)
+        "12.ABC.345/01DE-35",  # CNPJ alfanumérico com máscara
+        "x 12abc34501de35",  # minúsculas
+        "2026-09-13",  # data completa: 8 dígitos (as quebras usam rótulos)
+    ],
+)
+def test_traz_identificador_recusa(valor: str) -> None:
+    assert traz_identificador(valor)
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [
+        "ATIVA",
+        "2026",
+        "2062 Sociedade Empresária Limitada",
+        "4741500",  # CNAE: 7 dígitos
+        "opção até 1º de janeiro seguinte",
+        "1350 ENTIDADE PÚBLICA SOB REGIME ESPECIAL",
+        "basedosdados.regiao_metropolitana_2017",
+        "observabilidade.dq_historico_testes",
+        "mais de um, no máximo um não baixado",
+        "2 ou mais",
+    ],
+)
+def test_traz_identificador_aceita_rotulos(valor: str) -> None:
+    assert not traz_identificador(valor)
 
 
 def test_padronizar_linhas_aceita_numeros_que_nao_sao_identificadores() -> None:
@@ -193,6 +237,20 @@ def test_renderizar_singular_e_universo_vazio() -> None:
     assert "| Regra dois | estrutural | 0 | 0 | — |" in texto
 
 
+def test_renderizar_mostra_faixas_informativas_sem_violacao() -> None:
+    faixas = [
+        Linha((("campo", "início"), ("faixa", "até a data do extrato")), 10, 0),
+        Linha((("campo", "início"), ("faixa", "dia seguinte ao extrato")), 2, 0),
+    ]
+    texto = renderizar(CATALOGO, {"RN-01": faixas, "RN-02": [Linha((), 3, 0)]}, "2026-09", "x")
+    assert "_Nenhuma regra violada._" in texto
+    secao = texto.split("## Faixas informativas")[1].split("## Interpretação")[0]
+    assert "### RN-01 — Regra um" in secao and "### RN-02" not in secao
+    assert "| início | dia seguinte ao extrato | 2 | 0 | 0 % |" in secao
+    sem_faixa = renderizar(CATALOGO, {"RN-01": [Linha((), 1, 0)], "RN-02": []}, "2026-09", "x")
+    assert "## Faixas informativas" not in sem_faixa
+
+
 def test_renderizar_limita_as_quebras() -> None:
     muitas = [Linha((("uf", f"U{i:02d}"),), 10, i + 1) for i in range(25)]
     texto = renderizar(CATALOGO, {"RN-01": muitas, "RN-02": []}, "2026-09", "2026-09-12")
@@ -200,17 +258,54 @@ def test_renderizar_limita_as_quebras() -> None:
     assert "| U24 |" in texto and "| U00 |" not in texto
 
 
-def test_interpretacao_manual_e_preservada(tmp_path: Path) -> None:
+def test_interpretacao_manual_e_preservada_no_mesmo_mes(tmp_path: Path) -> None:
     saida = tmp_path / "relatorio.md"
     assert interpretacao_existente(saida) is None
-    saida.write_text("# antigo\n\n" + MARCADOR_INTERPRETACAO + "\nTexto à mão.\n", encoding="utf-8")
-    manual = interpretacao_existente(saida)
-    assert manual == "Texto à mão.\n"
+    saida.write_text("# antigo\n\n" + marcador("2026-10") + "\nTexto à mão.\n", encoding="utf-8")
+    anterior = interpretacao_existente(saida)
+    assert anterior == Interpretacao("2026-10", "Texto à mão.\n")
+    manual, aviso = compor_interpretacao(anterior, "2026-10")
+    assert (manual, aviso) == ("Texto à mão.\n", None)
     texto = renderizar(CATALOGO, _linhas(), "2026-10", "2026-10-11", manual)
-    assert texto.endswith(MARCADOR_INTERPRETACAO + "\nTexto à mão.\n")
+    assert "## Interpretação de 2026-10\n" in texto
+    assert texto.endswith(marcador("2026-10") + "\nTexto à mão.\n")
     assert "# antigo" not in texto
     saida.write_text("# sem marcador\n", encoding="utf-8")
     assert interpretacao_existente(saida) is None
+
+
+def test_interpretacao_de_outro_mes_vira_anterior_e_avisa() -> None:
+    """RRN-07: no mês novo, o texto velho sai de baixo dos números novos e o comando avisa."""
+    manual, aviso = compor_interpretacao(
+        Interpretacao("2026-09", "\n3.247 empresas MEI.\n"), "2026-10"
+    )
+    assert manual.startswith(SEM_INTERPRETACAO)
+    assert "## Interpretação anterior (2026-09)\n" in manual
+    assert manual.rstrip().endswith("3.247 empresas MEI.")
+    assert aviso is not None and "2026-09" in aviso and "2026-10" in aviso
+    # mesmo mês de novo, sem revisão: o aviso continua
+    assert compor_interpretacao(Interpretacao("2026-10", manual), "2026-10") == (manual, aviso)
+    # revisado (seção anterior apagada): sem aviso
+    assert compor_interpretacao(Interpretacao("2026-10", "\nNovo.\n"), "2026-10")[1] is None
+
+
+def test_interpretacao_mantem_uma_so_secao_anterior() -> None:
+    dois_meses = compor_interpretacao(Interpretacao("2026-09", "\nSetembro.\n"), "2026-10")[0]
+    # outubro não foi escrito: novembro mantém a de setembro
+    manual, aviso = compor_interpretacao(Interpretacao("2026-10", dois_meses), "2026-11")
+    assert manual.count("## Interpretação anterior") == 1
+    assert "## Interpretação anterior (2026-09)" in manual and "Setembro." in manual
+    assert "2026-09" in aviso
+    # outubro escrito: novembro guarda só o de outubro
+    escrito = "\nOutubro.\n" + dois_meses.split(SEM_INTERPRETACAO, 1)[1]
+    manual, _ = compor_interpretacao(Interpretacao("2026-10", escrito), "2026-11")
+    assert "## Interpretação anterior (2026-10)" in manual and "Outubro." in manual
+    assert "Setembro." not in manual
+    # nada escrito em nenhum mês: nada a preservar
+    assert compor_interpretacao(Interpretacao("2026-10", SEM_INTERPRETACAO), "2026-11") == (
+        None,
+        None,
+    )
 
 
 @pytest.mark.parametrize(
