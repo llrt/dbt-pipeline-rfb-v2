@@ -250,8 +250,10 @@ Regras sem violação com a quebra `faixa`: casos que a regra aceita e que vale 
 <!-- Interpretação manual de 2026-09: o texto abaixo desta linha é preservado por `rfb regras` no mesmo mês. -->
 
 Leitura do extrato de 2026-09 (73.366.147 estabelecimentos, 70.085.591 CNPJs básicos, 17.523.665 empresas com opção
-pelo MEI). Os números vêm da execução de `rfb regras` sobre uma cópia do warehouse real, em 2026-10-13 (lote FRN);
-os de RN-06 e RN-09 que não estão nas tabelas acima vêm de consultas somente leitura na mesma cópia. As causas são
+pelo MEI). Os números vêm da execução de `rfb regras` sobre uma cópia do warehouse real, em 2026-10-13 (lote FRN,
+reexecutado no lote FRN2 com a RN-05 e a RN-24 revistas, sem mudança nas tabelas acima); os de RN-06 e RN-09 e as
+contagens de situação nula e de meses das fontes RFB, que não estão nas tabelas acima, vêm de consultas somente
+leitura na mesma cópia. As causas são
 as leituras prováveis do [catálogo](REGRAS_NEGOCIO.md) e não foram verificadas registro a registro. Nenhuma
 violação passa de 0,5 % do universo da regra.
 
@@ -266,7 +268,9 @@ dos regimes: nenhuma opção pelo Simples antes de 1º/7/2007 (RN-25) nem pelo M
 - **RN-05, um único estabelecimento não baixado:** 33 empresas MEI têm mais de um estabelecimento não baixado, as
   violações da LC 123, art. 18-A, § 4º, II. Outras 3.214 têm estabelecimentos além do único não baixado, todos
   baixados: o baixado continua no extrato e não contraria a lei, por isso aparece na quebra sem violação. É o
-  mesmo fenômeno das 3.749 filiais de MEI vistas pela RSEM, contado aqui por empresa.
+  mesmo fenômeno das 3.749 filiais de MEI vistas pela RSEM, contado aqui por empresa. Nenhuma empresa MEI está em
+  "indeterminado (situação desconhecida)": nenhum dos 73.366.147 estabelecimentos tem situação nula, então a
+  separação não mudou nenhuma contagem neste mês.
 - **RN-06, MEI optante do Simples:** 469 empresas têm a opção pelo MEI sem a opção pelo Simples. Em 467 delas, a
   exclusão do Simples já está vigente (data até 12/09/2026); nas outras 2, não há data de exclusão. A leitura mais
   provável é o desenquadramento do MEI ainda não registrado depois da exclusão do Simples, não erro de digitação.
@@ -316,7 +320,8 @@ atividade corrigido depois da opção ou opção feita na abertura com início d
   interfederativo e não tem um único ente responsável óbvio. Seguem 28 órgãos do Executivo municipal (1031, 0,23 %)
   e 9 fundações públicas de direito privado municipais (1279, 5,23 %).
 - **RN-24, grãos das fontes:** as 19 linhas excedentes estão todas na vizinhança da Base dos Dados, que o grão
-  declarado já admite repetir (RDIC-02); a ponte `bridge_municipio_vizinho` deduplica.
+  declarado já admite repetir (RDIC-02); a ponte `bridge_municipio_vizinho` deduplica. Países e qualificações agora
+  são lidos só no mês do relatório; como o raw real só tem 2026-09, as 255 e as 68 linhas são as mesmas de antes.
 
 **CNAE (RN-03, RN-04).** 3.310 ocorrências de CNAE secundário repetem o principal e 3.488 estabelecimentos
 repetem um secundário. Mais da metade está em estabelecimentos baixados ou inaptos, e a taxa nos ativos é a menor
