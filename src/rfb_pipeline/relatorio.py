@@ -51,20 +51,24 @@ def compilar_analises(
     raiz_dados: Path | str,
     target: str | None,
     raiz_dados_local: Path | None = None,
+    subpasta: str = "",
+    padrao: str = f"{PREFIXO_ANALISES}*.sql",
 ) -> dict[str, str]:
     """Roda `dbt compile` nas analyses do estudo de caso e devolve `{nome: SQL compilado}`.
 
     `raiz_dados` é o `RAIZ_DADOS` do dbt: caminho local ou URI `s3://` (nesse caso
     `raiz_dados_local` vira `RAIZ_DADOS_LOCAL`, onde o profile `s3` acha o `.duckdb`). Compila num
     `--target-path` temporário: o `target/` do projeto guarda o `run_results.json` do último build,
-    que outras ferramentas e testes leem (R3-16).
+    que outras ferramentas e testes leem (R3-16). `subpasta` e `padrao` escolhem outras analyses
+    (ex.: `regras_negocio`, `rn_*.sql`, ADR-0020).
     """
+    selecao = f"path:analyses/{subpasta}" if subpasta else "path:analyses"
     with tempfile.TemporaryDirectory(prefix="rfb-relatorio-") as temporario:
         comando = [
             *_executavel_dbt(),
             "compile",
             "--select",
-            "path:analyses",
+            selecao,
             "--target-path",
             temporario,
         ]
@@ -82,13 +86,13 @@ def compilar_analises(
         )
         if resultado.returncode != 0:
             raise RelatorioErro(f"`dbt compile` das analyses falhou:\n{resultado.stdout[-2000:]}")
-        compilados = Path(temporario) / "compiled" / "rfb" / "analyses"
+        compilados = Path(temporario) / "compiled" / "rfb" / "analyses" / subpasta
         sqls = {
             arquivo.stem: arquivo.read_text(encoding="utf-8")
-            for arquivo in sorted(compilados.glob(f"{PREFIXO_ANALISES}*.sql"))
+            for arquivo in sorted(compilados.glob(padrao))
         }
         if not sqls:
-            raise RelatorioErro(f"nenhuma analysis `{PREFIXO_ANALISES}*` compilada em {compilados}")
+            raise RelatorioErro(f"nenhuma analysis `{padrao}` compilada em {compilados}")
     return sqls
 
 

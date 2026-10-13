@@ -7,7 +7,7 @@ MES ?=
 export RAIZ_DADOS
 export DBT_PROFILES_DIR = $(CURDIR)/transform
 
-.PHONY: setup fixtures ingerir ci pipeline atualizar semantica dicionario docs lint sincronizar relatorio publicar clean
+.PHONY: setup fixtures ingerir ci pipeline atualizar semantica dicionario docs lint sincronizar relatorio regras publicar clean
 
 # Parse completo antes dos comandos que chamam o dbt várias vezes: no dbt-core 1.12.5 o partial parse
 # duplica as métricas de um YAML editado ("dbt found two metrics with the name ..."), ADR-0018.
@@ -43,6 +43,7 @@ ci:
 	set -o pipefail; uv run rfb atualizar $(CI_ORIGEM) --saida-relatorio .tmp/ci/relatorio.md | tee .tmp/ci/atualizar-noop.log
 	rm -rf "$(RAIZ_DADOS)/gold/fct_resumo_mensal/mes_referencia=2026-08"
 	set -o pipefail; uv run rfb pipeline $(CI_ORIGEM) --mes 2026-08 --sem-relatorio | tee .tmp/ci/backfill.log
+	uv run rfb regras --target ci --saida .tmp/ci/relatorio-regras.md
 	uv run pytest -q tests/integration
 	$(MAKE) lint
 
@@ -92,6 +93,13 @@ sincronizar:
 ## relatorio: gera docs/RELATORIO_ESTUDO_CASO.md (requer `dbt build` prévio sobre RAIZ_DADOS)
 relatorio:
 	uv run rfb relatorio
+
+## regras: verifica as regras de negócio (ADR-0020) no warehouse de RAIZ_DADOS e gera
+## docs/RELATORIO_REGRAS_NEGOCIO.md (SAIDA=<arquivo> opcional). Só lê o warehouse; sai com 0 mesmo
+## havendo violações. Requer `dbt build` prévio sobre RAIZ_DADOS.
+regras:
+	$(PARSE_COMPLETO)
+	uv run rfb regras $(if $(SAIDA),--saida $(SAIDA))
 
 ## publicar: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO; sem eles não faz nada)
 publicar:
