@@ -37,7 +37,10 @@ RAIZ = Path(__file__).resolve().parents[2]
 # RN-11, Q baixado com `dat_situacao` 00000000; RN-17, DV de L adulterado; RN-24, par repetido na
 # vizinhança publicada; RN-26 e RN-28, as datas de opção sintéticas (2007-07-01 em todas as raízes
 # do Simples): opção pelo MEI antes do SIMEI nas raízes 11111111 e 33333333 e opção antes do início
-# da matriz em 12 raízes do Simples e nas 2 do MEI. Na RN-24, o universo não conta
+# da matriz em 12 raízes do Simples e nas 2 do MEI; RN-30 (incremento enriquecimento_ibge), as 8
+# classes do CEMPRE com 3 ou mais unidades e nenhum ativo RFB sem MEI (Serra, Vitória, Linhares e
+# Aracruz em 47.41-5; Serra em 46.79-6; Fundão em 47.11-3 e 47.44-0; Linhares em 01.11-3), nos 16
+# pares de `mart_emprego_setor_municipio`. Na RN-24, o universo não conta
 # `dq_historico_testes`, que cresce a cada teste novo do build, e países e qualificações entram só
 # no mês do relatório (2 linhas cada; as de 2026-08 ficam de fora).
 UNIVERSO_E_VIOLACOES_FIXTURES = {
@@ -46,7 +49,7 @@ UNIVERSO_E_VIOLACOES_FIXTURES = {
     "RN-11": (7, 1), "RN-12": (16, 0), "RN-13": (51, 0), "RN-14": (0, 0), "RN-15": (18, 0),
     "RN-16": (16, 0), "RN-17": (18, 1), "RN-18": (18, 0), "RN-19": (18, 0), "RN-20": (16, 0),
     "RN-21": (16, 0), "RN-22": (16, 0), "RN-23": (54, 0), "RN-24": (24, 1), "RN-25": (16, 0),
-    "RN-26": (2, 2), "RN-27": (0, 0), "RN-28": (17, 14), "RN-29": (2, 0),
+    "RN-26": (2, 2), "RN-27": (0, 0), "RN-28": (17, 14), "RN-29": (2, 0), "RN-30": (16, 8),
 }  # fmt: skip
 _HISTORICO_TESTES = "observabilidade.dq_historico_testes"
 _RE_RESUMO = re.compile(r"^\| \[(RN-\d{2})\]\([^)]*\) \| [^|]+ \| [^|]+ \| ([\d.]+) \| ([\d.]+) \|")
@@ -71,7 +74,7 @@ def _resumo(texto: str) -> dict[str, tuple[int, int]]:
 
 def test_regras_sai_com_zero_mesmo_com_violacoes(relatorio: str) -> None:
     assert any(v for _, v in _resumo(relatorio).values()), "as fixtures têm regras violadas"
-    assert "**29** regras avaliadas: **23** sem violação e **6** com violação." in relatorio
+    assert "**30** regras avaliadas: **23** sem violação e **7** com violação." in relatorio
 
 
 def test_toda_regra_do_catalogo_esta_no_relatorio_e_vice_versa(relatorio: str) -> None:
@@ -158,6 +161,11 @@ def _simples(raiz: str, **colunas: str) -> str:
 
 def _empresa(raiz: str, **colunas: str) -> str:
     return _replace("stg_rfb__empresas", _BASE_EMPRESA, cnpj_raiz=f"'{raiz}'", **colunas)
+
+
+def _fct(cnpj: str, **colunas: str) -> str:  # incremento: enriquecimento_ibge
+    base = "(select * from fct_estabelecimentos order by cnpj_completo limit 1)"
+    return _replace("fct_estabelecimentos", base, cnpj_completo=f"'{cnpj}'", **colunas)
 
 
 def _stg(cnpj: str, **colunas: str) -> str:
@@ -321,6 +329,20 @@ CASOS: list[tuple[str, list[str], Delta]] = [
                dat_opcao_mei="date '2021-01-01'"),
       _est("90000128000101", dat_inicio_atividade="date '2021-01-01'")],
      {"RN-28": {("Simples Nacional",): (1, 0), ("MEI",): (1, 0)}}),
+    # incremento: enriquecimento_ibge — Serra (3205002) tem 33 unidades de 47.41-5 no CEMPRE e só um
+    # MEI na RFB; Vitória (3205309), 25 e nenhum ativo; Água Branca/AL (2700102), `-` no CEMPRE
+    ("ativo sem MEI onde o CEMPRE vê unidades",
+     [_fct("90000030000101", sk_municipio="3205002", sk_cnae="4741500", eh_ativa="true",
+           opcao_mei="false")],
+     {"RN-30": {("ES", "sem ativo RFB sem MEI"): (-1, -1), ("ES", "razão > 2"): (1, 0)}}),
+    ("MEI onde o CEMPRE vê unidades: segue sem ativo sem MEI (mutação: MEI incluído)",
+     [_fct("90000130000101", sk_municipio="3205309", sk_cnae="4741500", eh_ativa="true",
+           opcao_mei="true")],
+     {"RN-30": {}}),
+    ("ativo numa classe sem unidade no CEMPRE",
+     [_fct("90000230000101", sk_municipio="2700102", sk_cnae="4741500", eh_ativa="true",
+           opcao_mei="false")],
+     {"RN-30": {("AL", "sem unidade no CEMPRE"): (1, 0)}}),
 ]  # fmt: skip
 
 
