@@ -9,6 +9,8 @@
 -- Vazios só para CNAE e município conhecidos (`sk_cnae`/`sk_municipio` <> -1); os pares locais com -1
 -- ficam como antes.
 -- NULL quando falta o denominador no município ou em qualquer vizinho (nunca parcial).
+-- incremento: enriquecimento_ibge (ADR-0022): polo de compras do município (REGIC 2018, `dim_municipio`)
+-- e os ativos do CNAE nele (`ativos_no_polo`; 0 quando o polo não tem o CNAE, NULL sem polo).
 with base as (
   select * from {{ ref('mart_concorrencia_municipio') }}
 ),
@@ -20,7 +22,10 @@ municipios as (
     sigla_uf,
     nome_regiao_metropolitana,
     domicilios_2022,
-    area_km2
+    area_km2,
+    id_municipio_polo_compras,  -- incremento: enriquecimento_ibge
+    nome_municipio_polo_compras,
+    pct_compras_no_polo
   from {{ ref('dim_municipio') }}
 ),
 
@@ -109,6 +114,12 @@ area as (
     coalesce(viz.inativos_vizinhos, 0) as inativos_vizinhos,
     reg.ativos_regiao_metropolitana,
     reg.inativos_regiao_metropolitana,
+    -- incremento: enriquecimento_ibge
+    mun.id_municipio_polo_compras,
+    mun.nome_municipio_polo_compras,
+    mun.pct_compras_no_polo,
+    case when mun.id_municipio_polo_compras is not null then coalesce(polo.ativos, 0) end
+      as ativos_no_polo,
     -- denominadores da área (município + vizinhos); NULL se algum membro não tem Censo
     case
       when coalesce(viz.qtd_vizinhos, 0) = coalesce(viz.vizinhos_com_censo, 0)
@@ -129,6 +140,8 @@ area as (
     on par.sk_cnae = viz.sk_cnae and par.sk_municipio = viz.sk_municipio
   left join regioes as reg
     on par.sk_cnae = reg.sk_cnae and mun.nome_regiao_metropolitana = reg.nome_regiao_metropolitana
+  left join base as polo  -- incremento: enriquecimento_ibge
+    on par.sk_cnae = polo.sk_cnae and mun.id_municipio_polo_compras::integer = polo.sk_municipio
 )
 
 select
@@ -154,5 +167,10 @@ select
   round(
     (ativos + ativos_vizinhos) * 1000.0 / nullif(domicilios_area, 0), 6
   ) as ativos_area_por_mil_domicilios,
-  round((ativos + ativos_vizinhos) / nullif(area_km2_area, 0), 6) as ativos_area_por_km2
+  round((ativos + ativos_vizinhos) / nullif(area_km2_area, 0), 6) as ativos_area_por_km2,
+  -- incremento: enriquecimento_ibge
+  id_municipio_polo_compras,
+  nome_municipio_polo_compras,
+  pct_compras_no_polo,
+  ativos_no_polo
 from area

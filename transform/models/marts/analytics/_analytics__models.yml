@@ -380,8 +380,9 @@ models:
       no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município
       incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo
       2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta
-      o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em
-      `gold/mart_concorrencia_area_mercado.parquet`.
+      o denominador (município ou algum vizinho sem Censo), nunca zero. Colunas aditivas do
+      incremento `enriquecimento_ibge` (ADR-0022): o polo de compras do município (REGIC 2018) e os
+      ativos do CNAE nele (`ativos_no_polo`). Parquet em `gold/mart_concorrencia_area_mercado.parquet`.
     config:
       meta: { grao: "CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado", incremento: enriquecimento_bd }
       contract:
@@ -503,6 +504,210 @@ models:
           - dbt_utils.accepted_range:
               arguments: { min_value: 0 }
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+      # incremento: enriquecimento_ibge (ADR-0022): polo de compras da REGIC 2018
+      - name: id_municipio_polo_compras
+        description: >
+          Código IBGE do polo de compras do município (`dim_municipio.id_municipio_polo_compras`: maior % em móveis e eletroeletrônicos, Q2, da REGIC 2018); NULL sem polo. Incremento `enriquecimento_ibge`.
+        data_type: varchar
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.id_municipio_polo_compras`" } }
+      - name: nome_municipio_polo_compras
+        description: Nome do polo de compras; NULL sem polo. Incremento `enriquecimento_ibge`.
+        data_type: varchar
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.nome_municipio_polo_compras`" } }
+      - name: pct_compras_no_polo
+        description: "% dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo. Incremento `enriquecimento_ibge`."
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.pct_compras_no_polo`" } }
+      - name: ativos_no_polo
+        description: >
+          Ativos do mesmo CNAE no município polo de compras (0 quando o polo não tem o CNAE; NULL sem polo). É a concorrência que o morador encontra onde já costuma comprar bens duráveis. Incremento `enriquecimento_ibge`.
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`mart_concorrencia_municipio.ativos` do CNAE em `sk_municipio` = `id_municipio_polo_compras`" } }
+
+  # incremento: enriquecimento_ibge (ADR-0022)
+  - name: mart_emprego_setor_municipio
+    description: >
+      Tamanho real do setor no município (incremento `enriquecimento_ibge`, ADR-0022): o CEMPRE do
+      IBGE (unidades locais, pessoal ocupado, assalariados e salários) ao lado dos CNPJs ativos da
+      RFB, por município × classe CNAE (5 dígitos). Só os pares em que o CEMPRE tem unidade local ou
+      a RFB tem ativo da classe. Os anos são diferentes: o CEMPRE é do `ano_cempre` (hoje 2024) e a
+      RFB do mês do gold (`mes_referencia_rfb`). Sigilo do IBGE (`X`) nunca é imputado: o valor fica
+      NULL e `tem_sigilo` true; por isso somas de pessoal ocupado e salários sobre classes ou
+      municípios **subestimam** o total (as unidades locais nunca são sigilosas). Um CNPJ ativo não é
+      uma unidade com gente trabalhando: o CEMPRE conta organizações formais com CNPJ ativo no ano
+      e, para empresas, com atividade (RAIS/eSocial ou pesquisas do IBGE), e a RFB conta todo
+      cadastro ativo, inclusive MEI e inativos de fato. Parquet em
+      `gold/mart_emprego_setor_municipio.parquet`.
+    config:
+      meta: { grao: "município × classe CNAE de 5 dígitos (`sk_municipio`, `classe_cnae`)", incremento: enriquecimento_ibge }
+      contract:
+        enforced: true
+      tags: [incremento_enriquecimento_ibge]
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments:
+            min_value: 1
+          config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sk_municipio, classe_cnae]
+          config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "coalesce(unidades_locais_cempre, 0) > 0 or ativos_rfb > 0"
+          config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "ativos_rfb_sem_mei <= ativos_rfb"
+          config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      # sigilo nunca imputado: com `X`, o pessoal e a razão pessoal/unidade ficam NULL
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "not tem_sigilo or (pessoal_ocupado_cempre is null and pessoal_por_unidade is null)"
+          config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+    semantic_model:
+      enabled: true
+      config: { meta: { escopo: adicao, incremento: enriquecimento_ibge } }
+    primary_entity: emprego_setor_municipio
+    agg_time_dimension: mes_rfb
+    derived_semantics:
+      dimensions:
+        - name: mes_rfb
+          type: time
+          granularity: month
+          description: Mês do extrato RFB do gold (1º dia do mês); o CEMPRE é do `ano_cempre`, outro ano.
+          expr: strptime(mes_referencia_rfb || '-01', '%Y-%m-%d')::date
+    metrics:
+      - name: unidades_locais_cempre
+        label: Unidades locais (CEMPRE)
+        description: >
+          Unidades locais de empresas e outras organizações formais (CEMPRE/IBGE, `ano_cempre`) na classe e no
+          município. Nunca sigilosas: a soma é exata.
+        type: simple
+        agg: sum
+        expr: unidades_locais_cempre
+        config: { meta: { escopo: adicao, incremento: enriquecimento_ibge } }
+      - name: pessoal_ocupado_cempre
+        label: Pessoal ocupado (CEMPRE)
+        description: >
+          Pessoal ocupado total em 31/12 do `ano_cempre` (CEMPRE/IBGE). Células com sigilo ficam fora da soma
+          (nunca imputadas): o total de vários municípios ou classes subestima o real.
+        type: simple
+        agg: sum
+        expr: pessoal_ocupado_cempre
+        config: { meta: { escopo: adicao, incremento: enriquecimento_ibge } }
+      - name: ativos_rfb
+        label: Ativos RFB (CEMPRE × RFB)
+        description: >
+          Estabelecimentos ativos na RFB (mês do gold) cuja subclasse principal é da classe, nos pares do mart
+          CEMPRE × RFB; inclui MEI. Mesmo número de `qtd_ativos` somado por classe no mês corrente.
+        type: simple
+        agg: sum
+        expr: ativos_rfb
+        config: { meta: { escopo: adicao, incremento: enriquecimento_ibge } }
+    columns:
+      - name: sk_municipio
+        description: Chave de `dim_municipio` (nunca -1).
+        data_type: integer
+        entity: { type: foreign, name: municipio }
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.sk_municipio` (CEMPRE por `id_municipio_ibge`; RFB por `fct_estabelecimentos.sk_municipio`)", membro_desconhecido: false } }
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: id_municipio_ibge
+        description: Código IBGE do município (7 dígitos).
+        data_type: varchar
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.id_municipio_ibge`" } }
+      - name: municipio
+        description: Nome do município (acentuado, Base dos Dados); na camada semântica, use `municipio__nome_municipio`.
+        data_type: varchar
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.nome_municipio`" } }
+      - name: uf
+        description: Sigla da UF do município.
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.sigla_uf`" } }
+      - name: classe_cnae
+        description: >
+          Código da classe CNAE 2.0 (5 dígitos, sem pontuação, como `dim_cnae.codigo_classe`; `47415` = 47.41-5).
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_classe.classe_cnae` ou `dim_cnae.codigo_classe` da subclasse dos ativos" } }
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: descricao_classe
+        description: Descrição da classe CNAE (`dim_cnae.descricao_classe`); NULL se a classe não está na Base dos Dados.
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_cnae.descricao_classe`" } }
+      - name: ano_cempre
+        description: Ano de referência do CEMPRE (o mais recente baixado; hoje 2024). Diferente do mês da RFB.
+        data_type: integer
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "maior `stg_ibge__cempre_municipio_classe.ano`" } }
+      - name: unidades_locais_cempre
+        description: Unidades locais da classe no município (CEMPRE, variável 706); 0 se o IBGE publica `-`; NULL sem CEMPRE do município.
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_classe.unidades_locais`" } }
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: pessoal_ocupado_cempre
+        description: Pessoal ocupado total da classe no município (CEMPRE, 707); NULL com sigilo (`tem_sigilo`) ou sem dado.
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_classe.pessoal_ocupado`" } }
+      - name: pessoal_assalariado_cempre
+        description: Pessoal ocupado assalariado da classe no município (CEMPRE, 708); NULL com sigilo ou sem dado.
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_classe.pessoal_assalariado`" } }
+      - name: salarios_mil_reais
+        description: Salários e outras remunerações da classe no município (CEMPRE, 662, R$ mil, nominais do ano); NULL com sigilo ou sem dado.
+        data_type: decimal(18, 3)
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_classe.salarios_mil_reais`" } }
+      - name: tem_sigilo
+        description: true se alguma variável da célula veio com `X` (sigilo do IBGE); o valor fica NULL, nunca imputado.
+        data_type: boolean
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_classe.tem_sigilo`; false nos pares só da RFB" } }
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: ativos_rfb
+        description: Estabelecimentos ativos na RFB (mês do gold) cuja subclasse principal é da classe; inclui MEI.
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "contagem de `fct_estabelecimentos` com `eh_ativa`, por `sk_municipio` e `dim_cnae.codigo_classe`" } }
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: ativos_rfb_sem_mei
+        description: Ativos da classe na RFB sem os de empresa optante pelo MEI (`opcao_mei`).
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "contagem de `fct_estabelecimentos` com `eh_ativa` e `not opcao_mei`" } }
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: pessoal_por_unidade
+        description: Pessoal ocupado por unidade local (2 casas); NULL com sigilo, sem unidade ou sem dado.
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`pessoal_ocupado_cempre` ÷ `unidades_locais_cempre`, só sem sigilo" } }
+      - name: razao_unidades_cempre_ativos_rfb
+        description: >
+          Unidades locais do CEMPRE por ativo da RFB (4 casas); NULL sem ativo. Abaixo de 1, há mais CNPJs ativos que
+          unidades com atividade; acima de 1, o CEMPRE vê unidades que a RFB classifica em outra classe (ou o
+          cadastro defasado). Anos diferentes: leia como ordem de grandeza.
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`unidades_locais_cempre` ÷ `ativos_rfb`" } }
+      - name: mes_referencia_rfb
+        description: Mês do extrato RFB (`AAAA-MM`) dos ativos; o CEMPRE é de `ano_cempre`, outro ano.
+        data_type: varchar
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "maior `stg_rfb__estabelecimentos._mes_referencia`" } }
 
 unit_tests:
   - name: test_mart_sobrevivencia_coorte_elegibilidade_e_sobrevivencia
@@ -810,3 +1015,79 @@ unit_tests:
         - { ano: 2020, aberturas: 2, encerramentos: 0, saldo: 2 }
         - { ano: 2021, aberturas: 1, encerramentos: 0, saldo: 1 }
         - { ano: 2022, aberturas: 0, encerramentos: 2, saldo: -2 }
+
+  # incremento: enriquecimento_ibge (ADR-0022)
+  - name: test_mart_concorrencia_area_mercado_polo_de_compras
+    description: >
+      Polo de compras: A compra em B, que tem 2 ativos do CNAE (`ativos_no_polo` 2); B compra em C,
+      sem o CNAE (0, não NULL); C não tem ligação na REGIC (polo e ativos no polo NULL).
+    model: mart_concorrencia_area_mercado
+    config:
+      meta: { incremento: enriquecimento_ibge }
+      tags: [incremento_enriquecimento_ibge]
+    given:
+      - input: ref('mart_concorrencia_municipio')
+        rows:
+          - { sk_cnae: 1, cnae_principal: "1", desc_cnae_principal: "x", sk_municipio: 10, municipio: "A", uf: "ES", ativos: 1, inativos: 0 }
+          - { sk_cnae: 1, cnae_principal: "1", desc_cnae_principal: "x", sk_municipio: 20, municipio: "B", uf: "ES", ativos: 2, inativos: 0 }
+          - { sk_cnae: 1, cnae_principal: "1", desc_cnae_principal: "x", sk_municipio: 30, municipio: "C", uf: "ES", ativos: 0, inativos: 1 }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 10, nome_municipio: "A", sigla_uf: "ES", nome_regiao_metropolitana: "NÃO PERTENCE", id_municipio_polo_compras: "20", nome_municipio_polo_compras: "B", pct_compras_no_polo: 45.0 }
+          - { sk_municipio: 20, nome_municipio: "B", sigla_uf: "ES", nome_regiao_metropolitana: "NÃO PERTENCE", id_municipio_polo_compras: "40", nome_municipio_polo_compras: "D", pct_compras_no_polo: 80.0 }
+          - { sk_municipio: 30, nome_municipio: "C", sigla_uf: "ES", nome_regiao_metropolitana: "NÃO PERTENCE", id_municipio_polo_compras: null, nome_municipio_polo_compras: null, pct_compras_no_polo: null }
+          - { sk_municipio: 40, nome_municipio: "D", sigla_uf: "ES", nome_regiao_metropolitana: "NÃO PERTENCE" }
+      - input: ref('bridge_municipio_vizinho')
+        rows: []
+    expect:
+      rows:
+        - { sk_municipio: 10, ativos: 1, id_municipio_polo_compras: "20", nome_municipio_polo_compras: "B", pct_compras_no_polo: 45.0, ativos_no_polo: 2 }
+        - { sk_municipio: 20, ativos: 2, id_municipio_polo_compras: "40", nome_municipio_polo_compras: "D", pct_compras_no_polo: 80.0, ativos_no_polo: 0 }
+        - { sk_municipio: 30, ativos: 0, id_municipio_polo_compras: null, nome_municipio_polo_compras: null, pct_compras_no_polo: null, ativos_no_polo: null }
+
+  - name: test_mart_emprego_setor_municipio_sigilo_mei_e_pares
+    description: >
+      CEMPRE × RFB por município × classe: classe 47415 em M1 com sigilo (pessoal NULL, nunca 0, e
+      `pessoal_por_unidade` NULL) e 2 ativos RFB, 1 deles MEI (`ativos_rfb_sem_mei` 1, razão 12/2);
+      46796 em M1 sem sigilo (80/10 = 8 pessoas por unidade) e sem ativo RFB (razão NULL); 01113 em M2
+      só na RFB (CEMPRE `-` = 0 unidades); 35115 em M2 com 0 unidades e nenhum ativo fica fora; o
+      ativo inativo, o de município -1 e o de CNAE -1 não contam; o CEMPRE de ano anterior não entra.
+    model: mart_emprego_setor_municipio
+    config:
+      meta: { incremento: enriquecimento_ibge }
+      tags: [incremento_enriquecimento_ibge]
+    given:
+      - input: ref('stg_rfb__estabelecimentos')
+        rows:
+          - { _mes_referencia: "2026-09" }
+      - input: ref('stg_ibge__cempre_municipio_classe')
+        rows:
+          - { id_municipio: "M1", ano: 2024, classe_cnae: "47415", unidades_locais: 12, pessoal_ocupado: null, pessoal_assalariado: null, salarios_mil_reais: null, tem_sigilo: true }
+          - { id_municipio: "M1", ano: 2024, classe_cnae: "46796", unidades_locais: 10, pessoal_ocupado: 80, pessoal_assalariado: 70, salarios_mil_reais: 2500.0, tem_sigilo: false }
+          - { id_municipio: "M2", ano: 2024, classe_cnae: "01113", unidades_locais: 0, pessoal_ocupado: 0, pessoal_assalariado: 0, salarios_mil_reais: 0.0, tem_sigilo: false }
+          - { id_municipio: "M2", ano: 2024, classe_cnae: "35115", unidades_locais: 0, pessoal_ocupado: 0, pessoal_assalariado: 0, salarios_mil_reais: 0.0, tem_sigilo: false }
+          - { id_municipio: "M2", ano: 2023, classe_cnae: "35115", unidades_locais: 5, pessoal_ocupado: 9, pessoal_assalariado: 9, salarios_mil_reais: 1.0, tem_sigilo: false }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 1, id_municipio_ibge: "M1", nome_municipio: "Um", sigla_uf: "ES" }
+          - { sk_municipio: 2, id_municipio_ibge: "M2", nome_municipio: "Dois", sigla_uf: "ES" }
+          - { sk_municipio: -1, id_municipio_ibge: "-1", nome_municipio: "NÃO INFORMADO", sigla_uf: "NI" }
+      - input: ref('dim_cnae')
+        rows:
+          - { sk_cnae: 4741500, codigo_classe: "47415", descricao_classe: "Tintas" }
+          - { sk_cnae: 4679601, codigo_classe: "46796", descricao_classe: "Atacado de materiais" }
+          - { sk_cnae: 111301, codigo_classe: "01113", descricao_classe: "Cereais" }
+          - { sk_cnae: -1, codigo_classe: "-1", descricao_classe: "NÃO INFORMADO" }
+      - input: ref('fct_estabelecimentos')
+        rows:
+          - { sk_municipio: 1, sk_cnae: 4741500, eh_ativa: true, opcao_mei: false }
+          - { sk_municipio: 1, sk_cnae: 4741500, eh_ativa: true, opcao_mei: true }
+          - { sk_municipio: 1, sk_cnae: 4741500, eh_ativa: false, opcao_mei: false }
+          - { sk_municipio: 2, sk_cnae: 111301, eh_ativa: true, opcao_mei: false }
+          - { sk_municipio: -1, sk_cnae: 4741500, eh_ativa: true, opcao_mei: false }
+          - { sk_municipio: 2, sk_cnae: -1, eh_ativa: true, opcao_mei: false }
+    expect:
+      rows:
+        - { sk_municipio: 1, classe_cnae: "47415", descricao_classe: "Tintas", ano_cempre: 2024, unidades_locais_cempre: 12, pessoal_ocupado_cempre: null, tem_sigilo: true, ativos_rfb: 2, ativos_rfb_sem_mei: 1, pessoal_por_unidade: null, razao_unidades_cempre_ativos_rfb: 6.0, mes_referencia_rfb: "2026-09" }
+        - { sk_municipio: 1, classe_cnae: "46796", descricao_classe: "Atacado de materiais", ano_cempre: 2024, unidades_locais_cempre: 10, pessoal_ocupado_cempre: 80, tem_sigilo: false, ativos_rfb: 0, ativos_rfb_sem_mei: 0, pessoal_por_unidade: 8.0, razao_unidades_cempre_ativos_rfb: null, mes_referencia_rfb: "2026-09" }
+        - { sk_municipio: 2, classe_cnae: "01113", descricao_classe: "Cereais", ano_cempre: 2024, unidades_locais_cempre: 0, pessoal_ocupado_cempre: 0, tem_sigilo: false, ativos_rfb: 1, ativos_rfb_sem_mei: 1, pessoal_por_unidade: null, razao_unidades_cempre_ativos_rfb: 0.0, mes_referencia_rfb: "2026-09" }
