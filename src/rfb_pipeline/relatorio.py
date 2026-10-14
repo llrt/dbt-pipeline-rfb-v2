@@ -34,6 +34,31 @@ SUBPASTA_REGRAS = "regras_negocio"  # analyses de `rfb regras` (ADR-0020)
 PADRAO_RELATORIO = "*.sql"
 LIMITE_LINHAS = 20  # tabelas longas mostram as N primeiras linhas e o total (R3-16)
 
+# incremento: enriquecimento_ibge — relações e colunas do gold da v1.4 que as analyses do IBGE (a do
+# caso e os cenários) leem. Um warehouse da v1.3 ainda não reconstruído não as tem: o relatório sai
+# com as seções antigas e um aviso no lugar da seção do IBGE (Greptile PR #7), sem falhar.
+ANALISE_CASO_IBGE = f"{PREFIXO_ANALISES}enriquecimento_ibge"
+REQUISITOS_IBGE: dict[str, tuple[str, ...]] = {
+    "dim_municipio": (
+        "renda_per_capita_media_2022", "renda_per_capita_mediana_2022", "moradores_renda_2022",
+        "ano_va", "va_agropecuaria", "va_industria", "va_servicos", "va_adm_publica",
+        "pct_va_agropecuaria", "pct_va_industria", "pct_va_servicos", "pct_va_adm_publica",
+        "regic_hierarquia_codigo", "regic_hierarquia", "regic_arranjo_populacional",
+        "regic_regiao_influencia", "regic_indice_atracao", "id_municipio_polo_compras",
+        "nome_municipio_polo_compras", "pct_compras_no_polo", "ano_cempre",
+        "unidades_locais_cempre", "pessoal_ocupado_cempre",
+    ),
+    "mart_concorrencia_area_mercado": (
+        "id_municipio_polo_compras", "nome_municipio_polo_compras", "pct_compras_no_polo",
+        "ativos_no_polo",
+    ),
+    "mart_emprego_setor_municipio": (),
+    "bridge_municipio_destino_compras": (),
+}  # fmt: skip
+AVISO_IBGE_NAO_CONSTRUIDO = (
+    "dados do IBGE ainda não construídos; rode `rfb pipeline` ou `rfb atualizar --renovar-ibge`"
+)
+
 
 class RelatorioErro(ErroIngestao):
     """Falha ao compilar as analyses ou ao consultar o warehouse para o relatório."""
@@ -167,6 +192,49 @@ def executar_analises(
     return resultados
 
 
+# incremento: enriquecimento_ibge
+def faltas_ibge(warehouse: Path) -> list[str]:
+    """Relações e colunas de `REQUISITOS_IBGE` ausentes do warehouse (`information_schema`).
+
+    Vazia quando o gold da v1.4 já foi construído; `relação` ou `relação.coluna` no warehouse da
+    v1.3 ainda não reconstruído.
+    """
+    if not warehouse.is_file():
+        return []  # `executar_analises` dá o erro claro de warehouse ausente
+    nomes = ", ".join(_literal(nome) for nome in REQUISITOS_IBGE)
+    with duckdb.connect(str(warehouse), read_only=True) as con:
+        existentes = con.execute(
+            "select table_name, column_name from information_schema.columns "
+            f"where table_schema = 'main' and table_name in ({nomes})"
+        ).fetchall()
+    colunas: dict[str, set[str]] = {}
+    for tabela, coluna in existentes:
+        colunas.setdefault(tabela, set()).add(coluna)
+    faltas: list[str] = []
+    for relacao, requeridas in REQUISITOS_IBGE.items():
+        if relacao not in colunas:
+            faltas.append(relacao)
+            continue
+        faltas += [f"{relacao}.{c}" for c in requeridas if c not in colunas[relacao]]
+    return faltas
+
+
+def _resumir_faltas(faltas: list[str]) -> str:
+    """`a, b, c.x, c.y` -> `a, b, c (2 colunas)`."""
+    relacoes = [f for f in faltas if "." not in f]
+    por_relacao: dict[str, int] = {}
+    for falta in faltas:
+        if "." in falta:
+            relacao = falta.split(".", 1)[0]
+            por_relacao[relacao] = por_relacao.get(relacao, 0) + 1
+    colunas = [f"{r} ({n} {_plural(n, 'coluna', 'colunas')})" for r, n in por_relacao.items()]
+    return ", ".join(relacoes + colunas)
+
+
+def _analise_ibge(nome: str) -> bool:
+    return nome == ANALISE_CASO_IBGE or nome.startswith(PREFIXO_CENARIOS)
+
+
 def ler_qualidade(warehouse: Path) -> tuple[dict, list[tuple]] | None:
     """Resumo da última execução dbt e seus testes que não passaram; `None` sem histórico."""
     with duckdb.connect(str(warehouse), read_only=True) as con:
@@ -233,8 +301,15 @@ def _como_dict(tabela: Tabela) -> list[dict]:
     return [dict(zip(colunas, linha, strict=True)) for linha in linhas]
 
 
-def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]] | None) -> str:
-    """Monta o Markdown do relatório a partir das tabelas das analyses."""
+def renderizar(
+    resultados: dict[str, Tabela],
+    qualidade: tuple[dict, list[tuple]] | None,
+    aviso_ibge: str | None = None,
+) -> str:
+    """Monta o Markdown do relatório a partir das tabelas das analyses.
+
+    Com `aviso_ibge` (warehouse sem o gold do IBGE), a seção do IBGE traz só o aviso.
+    """
     caso = _como_dict(resultados[f"{PREFIXO_ANALISES}parametros"])[0]
     local = f"{str(caso['municipio']).title()}/{caso['uf']}"
     q1 = _como_dict(resultados[f"{PREFIXO_ANALISES}q1_concorrentes"])
@@ -347,7 +422,7 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
     if not proximos:
         linhas += ["_Nenhum fornecedor ativo dentro do raio._", ""]
     linhas += _secao_area_mercado(resultados, caso, local)  # incremento: enriquecimento_bd
-    linhas += _secao_ibge(resultados, caso, local)  # incremento: enriquecimento_ibge
+    linhas += _secao_ibge(resultados, caso, local, aviso_ibge)  # incremento: enriquecimento_ibge
     linhas += _secao_qualidade(qualidade)
     return "\n".join(linhas).rstrip("\n") + "\n"
 
@@ -390,13 +465,21 @@ def _secao_area_mercado(resultados: dict[str, Tabela], caso: dict, local: str) -
 
 
 # incremento: enriquecimento_ibge
-def _secao_ibge(resultados: dict[str, Tabela], caso: dict, local: str) -> list[str]:
-    """Renda, polo de compras e CEMPRE do caso, mais três cenários; vazia sem a analysis do caso."""
-    tabela = resultados.get(f"{PREFIXO_ANALISES}enriquecimento_ibge")
+def _secao_ibge(
+    resultados: dict[str, Tabela], caso: dict, local: str, aviso: str | None = None
+) -> list[str]:
+    """Renda, polo de compras e CEMPRE do caso, mais três cenários; vazia sem a analysis do caso.
+
+    Com `aviso` (gold do IBGE ainda não construído), só o título e o aviso.
+    """
+    titulo = "## Enriquecimento com o IBGE (renda, rede urbana e CEMPRE)"
+    if aviso is not None:
+        return [titulo, "", f"> **Aviso:** {aviso}.", ""]
+    tabela = resultados.get(ANALISE_CASO_IBGE)
     if tabela is None:
         return []
     linhas = [
-        "## Enriquecimento com o IBGE (renda, rede urbana e CEMPRE)",
+        titulo,
         "",
         "Renda per capita do Censo 2022, hierarquia urbana e polo de compras da REGIC 2018 e o "
         f"CEMPRE da classe do CNAE {caso['cnae_alvo']} (incremento `enriquecimento_ibge`). Os anos "
@@ -516,8 +599,19 @@ def gerar_relatorio(
         sqls = compilar_analises(
             dir_transform, configuracao.raiz_dados, target, padrao=PADRAO_RELATORIO
         )
+    aviso_ibge = None
+    faltas = faltas_ibge(warehouse)
+    if faltas:  # incremento: enriquecimento_ibge — warehouse da v1.3 ainda não reconstruído
+        aviso_ibge = AVISO_IBGE_NAO_CONSTRUIDO
+        sqls = {nome: sql for nome, sql in sqls.items() if not _analise_ibge(nome)}
+        print(
+            f"aviso: relatório sem a seção do IBGE: {aviso_ibge} (faltam no warehouse: "
+            f"{_resumir_faltas(faltas)})",
+            file=sys.stderr,
+            flush=True,
+        )
     resultados = executar_analises(warehouse, sqls, preparo, segredos)
-    texto = renderizar(resultados, ler_qualidade(warehouse))
+    texto = renderizar(resultados, ler_qualidade(warehouse), aviso_ibge)
     saida.parent.mkdir(parents=True, exist_ok=True)
     saida.write_text(texto, encoding="utf-8")
     return saida

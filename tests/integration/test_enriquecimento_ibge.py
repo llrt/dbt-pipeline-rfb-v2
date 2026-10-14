@@ -454,3 +454,54 @@ def test_raiz_dados_da_v1_3_sem_raw_ibge_roda_regras_atualizar_e_pipeline_sem_in
             f"from '{raiz}/gold/dim_municipio.parquet'"
         ).fetchone() == (9, 0)
     assert main(["regras", "--target", "ci", "--saida", str(tmp_path / "regras.md")]) == 0
+
+
+def test_warehouse_da_v1_3_nao_reconstruido_gera_relatorio_antigo_com_aviso_e_regras(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Greptile PR #7 (P1): código da v1.4 sobre o warehouse da v1.3, antes de qualquer build (ou
+    depois de um `atualizar` sem mês novo): sem `mart_emprego_setor_municipio` nem a ponte, e
+    `dim_municipio` e a área de mercado sem as colunas novas. `rfb relatorio` sai com 0, com as
+    seções antigas e um aviso no lugar da seção do IBGE; `rfb regras` avalia a RN-30 sem quebrar."""
+    import shutil
+
+    import duckdb
+
+    from rfb_pipeline.relatorio import REQUISITOS_IBGE
+
+    raiz = tmp_path / "dados"
+    shutil.copytree(_raiz(), raiz, ignore=shutil.ignore_patterns("_tmp", "em_andamento.json"))
+    monkeypatch.setenv("RAIZ_DADOS", str(raiz))
+    monkeypatch.delenv("CAMINHO_DUCKDB", raising=False)
+    monkeypatch.setenv("DBT_TARGET_PATH", str(tmp_path / "target"))
+    monkeypatch.setenv("DBT_LOG_PATH", str(tmp_path / "logs"))
+    with duckdb.connect(str(raiz / "warehouse.duckdb")) as con:  # a forma da v1.3
+        con.execute("drop view mart_emprego_setor_municipio")
+        con.execute("drop view bridge_municipio_destino_compras")
+        for relacao in ("dim_municipio", "mart_concorrencia_area_mercado"):
+            novas = ", ".join(REQUISITOS_IBGE[relacao])
+            con.execute(
+                f"create or replace view {relacao} as select * exclude ({novas}) "
+                f"from read_parquet('{raiz}/gold/{relacao}.parquet')"
+            )
+    shutil.rmtree(raiz / "raw" / "ibge", ignore_errors=True)  # nem o raw da v1.4
+    capsys.readouterr()
+
+    destino = tmp_path / "relatorio.md"
+    assert main(["relatorio", "--saida", str(destino), "--target", "ci"]) == 0
+    texto = destino.read_text(encoding="utf-8")
+    assert "Em Fundão/ES há **1** concorrente ativo e **4** inativos no CNAE 4741500." in texto
+    assert "| 2 vizinhos | 1 | 0 |" in texto  # área de mercado (BD) segue
+    assert "## Qualidade dos dados (última execução dbt)" in texto
+    assert "## Enriquecimento com o IBGE (renda, rede urbana e CEMPRE)" in texto
+    aviso = (
+        "dados do IBGE ainda não construídos; rode `rfb pipeline` ou `rfb atualizar --renovar-ibge`"
+    )
+    assert f"> **Aviso:** {aviso}." in texto
+    assert "### Polo de compras dos municípios da UF" not in texto
+    erro = capsys.readouterr().err
+    assert aviso in erro and "mart_emprego_setor_municipio" in erro
+
+    regras = tmp_path / "regras.md"
+    assert main(["regras", "--target", "ci", "--saida", str(regras)]) == 0
+    assert "RN-30" in regras.read_text(encoding="utf-8")

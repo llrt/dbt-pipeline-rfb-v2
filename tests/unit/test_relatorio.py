@@ -253,3 +253,39 @@ def test_relatorio_polo_fora_da_dimensao_ainda_e_citado_e_sem_polo_so_quando_nul
     assert "vão principalmente a **Manhuaçu** (56,7 % desses deslocamentos)." in texto
     sem_polo = _CASO[:6] + (None, None) + _CASO[8:]
     assert "não tem polo de compras na REGIC 2018" in renderizar(_caso_ibge(sem_polo, _UF), None)
+
+
+# incremento: enriquecimento_ibge — warehouse da v1.3 ainda não reconstruído (Greptile PR #7)
+def test_relatorio_sem_o_gold_do_ibge_troca_a_secao_pelo_aviso() -> None:
+    from rfb_pipeline.relatorio import AVISO_IBGE_NAO_CONSTRUIDO
+
+    texto = renderizar(_tabelas(), None, AVISO_IBGE_NAO_CONSTRUIDO)
+    assert "## Enriquecimento com o IBGE (renda, rede urbana e CEMPRE)" in texto
+    assert (
+        "> **Aviso:** dados do IBGE ainda não construídos; rode `rfb pipeline` ou "
+        "`rfb atualizar --renovar-ibge`."
+    ) in texto
+    assert "Em Fundão/ES há **1** concorrente ativo" in texto
+    assert "## Qualidade dos dados" in texto
+
+
+def test_faltas_ibge_por_introspeccao_do_warehouse(tmp_path: Path) -> None:
+    from rfb_pipeline.relatorio import REQUISITOS_IBGE, faltas_ibge
+
+    warehouse = tmp_path / "warehouse.duckdb"
+    with duckdb.connect(str(warehouse)) as con:  # forma da v1.3: dim e área sem as colunas novas
+        con.execute(
+            "create view dim_municipio as select 1 as sk_municipio, '1' as id_municipio_ibge"
+        )
+        con.execute("create view mart_concorrencia_area_mercado as select 1 as sk_cnae")
+    faltas = faltas_ibge(warehouse)
+    assert "mart_emprego_setor_municipio" in faltas
+    assert "bridge_municipio_destino_compras" in faltas
+    assert "dim_municipio.renda_per_capita_media_2022" in faltas
+    assert "mart_concorrencia_area_mercado.ativos_no_polo" in faltas
+
+    with duckdb.connect(str(warehouse)) as con:  # forma da v1.4
+        for relacao, colunas in REQUISITOS_IBGE.items():
+            selecao = ", ".join(["1 as sk", *(f"1 as {c}" for c in colunas)])
+            con.execute(f"create or replace view {relacao} as select {selecao}")
+    assert faltas_ibge(warehouse) == []

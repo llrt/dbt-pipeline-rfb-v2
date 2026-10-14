@@ -86,6 +86,11 @@ classe CNAE (API SIDRA, tabela 9528), a renda per capita do Censo 2022 (SIDRA 10
   preenchidas sem esperar um mês novo, `rfb atualizar --renovar-ibge` (ver "Primeiro download longo"). Com `RAIZ_DADOS=s3://` a garantia fica com a ingestão:
   o raw do bucket pode ter o IBGE que a cópia local não tem. O teste
   `test_raiz_dados_da_v1_3_sem_raw_ibge_roda_regras_atualizar_e_pipeline_sem_ingestao` cobre o cenário.
+  Enquanto o warehouse for o da v1.3 (sem `mart_emprego_setor_municipio`, a ponte de destinos de compra e as
+  colunas novas de `dim_municipio` e da área de mercado, vistos no `information_schema`), `rfb relatorio` sai
+  com 0 e gera as seções antigas, com um aviso no lugar da seção do IBGE ("dados do IBGE ainda não
+  construídos; rode `rfb pipeline` ou `rfb atualizar --renovar-ibge`", também na saída de erro). `rfb regras`
+  não depende do gold novo: a RN-30 lê a fonte do CEMPRE e os marts da v1.3.
 - **Uso das bases novas:** [cenários de uso](CENARIOS_DE_USO.md), com as analyses `cenario_*` e o caso.
 
 ## Estado e ordem dos meses (P22)
