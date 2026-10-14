@@ -20,6 +20,7 @@ import csv
 import gzip
 import io
 import json
+import re
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -1647,16 +1648,27 @@ def _xlsx_deterministico(abas: list[tuple[str, list[str], list[tuple]]]) -> byte
     return _rezipar(bruto.getvalue())
 
 
+_RE_DATA_CORE = re.compile(rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*(</dcterms:)")
+
+
 def _rezipar(conteudo_zip: bytes) -> bytes:
-    """Regrava um zip com ordem e datas fixas (o openpyxl usa a hora atual nas entradas)."""
+    """Regrava um xlsx com ordem, datas das entradas e datas de `docProps/core.xml` fixas.
+
+    O `save()` do openpyxl grava a hora atual nas entradas do zip e em `dcterms:modified` (ignora
+    `properties.modified`): sem isto, duas gerações em segundos diferentes dariam bytes diferentes.
+    """
+    fixa = datetime(*XLSX_DATE_TIME).strftime("%Y-%m-%dT%H:%M:%SZ").encode("ascii")
     saida = io.BytesIO()
     with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as origem:
         with zipfile.ZipFile(saida, "w", compression=zipfile.ZIP_DEFLATED) as destino:
-            for nome in origem.namelist():
+            for nome in sorted(origem.namelist()):
+                conteudo = origem.read(nome)
+                if nome == "docProps/core.xml":
+                    conteudo = _RE_DATA_CORE.sub(rb"\g<1>" + fixa + rb"\g<2>", conteudo)
                 info = zipfile.ZipInfo(nome, date_time=XLSX_DATE_TIME)
                 info.compress_type = zipfile.ZIP_DEFLATED
                 info.external_attr = 0o600 << 16
-                destino.writestr(info, origem.read(nome))
+                destino.writestr(info, conteudo)
     return saida.getvalue()
 
 
