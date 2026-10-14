@@ -28,4 +28,4 @@ from {{ ref('dim_municipio') }} as mun
 left join {{ ref('mart_concorrencia_municipio') }} as con
   on mun.sk_municipio = con.sk_municipio and con.cnae_principal = '{{ var("caso_cnae_alvo") }}'
 where mun.sigla_uf = '{{ var("caso_uf") }}' and mun.ano_va is not null
-order by mun.pct_va_servicos desc nulls last, municipio
+order by mun.pct_va_servicos desc nulls last, municipio asc

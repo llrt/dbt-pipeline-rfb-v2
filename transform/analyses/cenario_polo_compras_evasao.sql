@@ -38,4 +38,4 @@ where
   are.cnae_principal = '{{ var("caso_cnae_alvo") }}'
   and are.uf = '{{ var("caso_uf") }}'
   and are.id_municipio_polo_compras is not null
-order by are.pct_compras_no_polo desc, are.municipio
+order by are.pct_compras_no_polo desc, are.municipio asc

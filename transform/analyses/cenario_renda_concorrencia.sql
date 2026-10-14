@@ -41,4 +41,4 @@ select
 from municipios as mun
 cross join medianas as med
 where mun.renda_per_capita_media_2022 > med.mediana_renda_uf
-order by mun.ativos_por_10k_hab nulls last, mun.renda_per_capita_media_2022 desc, municipio
+order by mun.ativos_por_10k_hab asc nulls last, mun.renda_per_capita_media_2022 desc, municipio asc

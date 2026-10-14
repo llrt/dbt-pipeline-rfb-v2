@@ -27,4 +27,4 @@ select
   mes_referencia_rfb
 from {{ ref('mart_emprego_setor_municipio') }}
 where uf = '{{ var("caso_uf") }}' and classe_cnae = '{{ var("caso_cnae_alvo")[:5] }}'
-order by coalesce(unidades_locais_cempre, 0) desc, ativos_rfb desc, municipio
+order by coalesce(unidades_locais_cempre, 0) desc, ativos_rfb desc, municipio asc

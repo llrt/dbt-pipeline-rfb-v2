@@ -37,7 +37,7 @@ cempre as (
   from unidades as uni
   inner join {{ ref('dim_municipio') }} as mun
     on uni.id_municipio = mun.id_municipio_ibge
-  where uni.ano = (select max(ano) from unidades) and uni.unidades_locais > 0
+  where uni.ano = (select max(ult.ano) from unidades as ult) and uni.unidades_locais > 0
 ),
 
 rfb as (

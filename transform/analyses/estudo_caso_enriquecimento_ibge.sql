@@ -27,10 +27,15 @@ municipios as (
     mun.nome_municipio_polo_compras,
     mun.pct_compras_no_polo,
     coalesce(con.ativos, 0) as ativos_cnae,
-    emp.ano_cempre,
-    emp.unidades_locais_cempre,
-    emp.pessoal_ocupado_cempre,
-    emp.tem_sigilo
+    -- fora do mart CEMPRE × RFB = nenhuma unidade da classe no CEMPRE (se o município tem CEMPRE)
+    mun.ano_cempre,
+    coalesce(emp.unidades_locais_cempre, case when mun.ano_cempre is not null then 0 end)
+      as unidades_locais_cempre,
+    coalesce(
+      emp.pessoal_ocupado_cempre,
+      case when emp.sk_municipio is null and mun.ano_cempre is not null then 0 end
+    ) as pessoal_ocupado_cempre,
+    coalesce(emp.tem_sigilo, case when mun.ano_cempre is not null then false end) as tem_sigilo
   from {{ ref('dim_municipio') }} as mun
   left join {{ ref('mart_concorrencia_municipio') }} as con
     on mun.sk_municipio = con.sk_municipio and con.cnae_principal = '{{ var("caso_cnae_alvo") }}'
