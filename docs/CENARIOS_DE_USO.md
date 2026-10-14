@@ -92,7 +92,10 @@ salva `polo_compras_concorrencia_caso` (`uv run mf query --saved-query polo_comp
 **Como ler.** O percentual divide os deslocamentos **entre os destinos de fora**: 98 % de quem sai de Colatina para
 comprar móveis vai a Vitória. A REGIC não mede quanto da compra fica no próprio município, então "evasão" aqui é o
 destino de quem sai, não a fração que sai. Um polo com muito mais lojas que a origem indica que parte da demanda já
-é atendida fora. Os 67 municípios de maior centralidade (Vitória, Vila Velha e Serra, no ES) não têm polo.
+é atendida fora. Os 67 municípios de maior centralidade (Vitória, Vila Velha e Serra, no ES) não têm polo. Todo
+município da UF com polo aparece, inclusive sem nenhum estabelecimento do CNAE nele, nos vizinhos ou na região
+metropolitana (0 ativos no município): no dado real, as lojas de tintas somam 5.503 municípios com polo no Brasil,
+226 deles fora da área de mercado do CNAE (66 no PI, 36 em MG, 21 na PB); no ES, todos os 75 já estavam nela.
 
 ## 3. Tamanho real do setor (CEMPRE)
 

@@ -236,7 +236,7 @@ LINHA_UF_ES = (3, "UF", "ES", None, 2162.57, None, None, None, 2, 73, 360, True,
 
 LINHAS = {
     "estudo_caso_enriquecimento_ibge": 3, "cenario_renda_concorrencia": 2,
-    "cenario_polo_compras_evasao": 2, "cenario_tamanho_setor_cempre": 5,
+    "cenario_polo_compras_evasao": 3, "cenario_tamanho_setor_cempre": 5,
     "cenario_perfil_economico_va": 5, "cenario_hierarquia_urbana": 5,
 }  # fmt: skip
 
@@ -270,6 +270,23 @@ def test_linha_da_uf_do_caso_pondera_a_renda_pelos_moradores(resultados: dict) -
     _, linhas = resultados["estudo_caso_enriquecimento_ibge"]
     (uf,) = [_normalizar(x) for x in linhas if x[1] == "UF"]
     assert uf == LINHA_UF_ES
+
+
+def test_cenario_de_polo_mostra_mercado_sem_ativo_local_com_o_polo(resultados: dict) -> None:
+    """Greptile PR #7 (P2): Linhares não tem o CNAE do caso no município, nos vizinhos nem na RM,
+    então não está em `mart_concorrencia_area_mercado`; o cenário parte de `dim_municipio` e a
+    mostra com 0 ativos locais e com o polo (Vitória)."""
+    colunas, linhas = resultados["cenario_polo_compras_evasao"]
+    por_municipio = {x[0]: dict(zip(colunas, _normalizar(x), strict=True)) for x in linhas}
+    assert sorted(por_municipio) == ["Aracruz", "Fundão", "Linhares"]
+    lin = por_municipio["Linhares"]
+    assert (lin["polo_compras"], lin["ativos_no_municipio"], lin["ativos_no_polo"]) == (
+        "Vitória", 0, 0,
+    )  # fmt: skip
+    assert lin["pct_compras_no_polo"] == pytest.approx(88.33, abs=0.01)
+    assert (lin["destinos_citados"], lin["regic_hierarquia"]) == (
+        1, "Centro Sub-Regional A",
+    )  # fmt: skip
 
 
 @pytest.mark.parametrize("analise", sorted(ANALISES))
