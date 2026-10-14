@@ -85,7 +85,12 @@ acima; pirâmide etária e diretório de CEP ficam sem plano.
 - O valor adicionado vem da Base dos Dados, nos termos do ADR-0015.
 
 **Consequências.** `rfb ingerir` acessa dois hosts novos (`apisidra.ibge.gov.br`, `geoftp.ibge.gov.br`); o CEMPRE
-nacional leva de 1 a 2 horas na primeira vez e depois só é baixado quando sai um ano novo
-([OPERACAO.md](../OPERACAO.md#fontes-do-ibge-incremento-enriquecimento_ibge)). Dependência nova: `openpyxl`. O
+nacional leva de 1 a 2 horas na primeira vez e depois só é baixado quando sai um ano novo, que a ingestão consulta
+no máximo uma vez a cada 30 dias ([OPERACAO.md](../OPERACAO.md#fontes-do-ibge-incremento-enriquecimento_ibge)).
+O mensal passa a depender da SIDRA e do geoftp, mas não a exigir (RIBG-02): falha do IBGE é aviso, com o raw
+anterior (ou vazio) mantido e a falha no manifesto IBGE; `--sem-ibge` desliga o IBGE na execução; e todo
+`RAIZ_DADOS` sem `raw/ibge/` (o da v1.3) ganha o raw vazio antes do dbt e de `rfb regras` (RIBG-01). Para não
+embutir o primeiro download no agendamento mensal, `rfb atualizar --renovar-ibge` sem mês novo baixa só o IBGE e
+reconstrói o gold corrente. Dependência nova: `openpyxl`. O
 caso de Fundão ganha uma explicação para os 0 ativos locais: quem sai de Fundão para comprar bens duráveis vai
 principalmente a Serra (45 %), onde há 45 lojas de tintas ativas.

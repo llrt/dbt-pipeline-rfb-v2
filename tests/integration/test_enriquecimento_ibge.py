@@ -322,3 +322,60 @@ def test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold(
         )["c"]
     )
     assert [r["escopo"] for r in caso] == ["município do caso", "UF"]
+
+
+def test_raiz_dados_da_v1_3_sem_raw_ibge_roda_regras_atualizar_e_pipeline_sem_ingestao(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """RIBG-01: quem atualiza o código da v1.3 para a v1.4 tem gold e warehouse prontos e nenhum
+    `raw/ibge/`. Sem ingestão nova, `rfb regras`, `rfb atualizar` sem mês novo e `rfb pipeline
+    --sem-ingestao` saem com 0 e publicam o raw IBGE vazio, sem rede."""
+    import shutil
+
+    import duckdb
+
+    from rfb_pipeline.esquemas import TABELAS_IBGE
+
+    raiz = tmp_path / "dados"
+    shutil.copytree(_raiz(), raiz, ignore=shutil.ignore_patterns("_tmp", "em_andamento.json"))
+    monkeypatch.setenv("RAIZ_DADOS", str(raiz))
+    monkeypatch.delenv("CAMINHO_DUCKDB", raising=False)
+    monkeypatch.setenv("DBT_TARGET_PATH", str(tmp_path / "target"))
+    monkeypatch.setenv("DBT_LOG_PATH", str(tmp_path / "logs"))
+    fixtures = Path(__file__).resolve().parents[2] / ".tmp" / "ci" / "fixtures"
+    origem = ["--origem-local", str(fixtures), "--permitir-incompleto", "--target", "ci"]
+
+    def sem_raw_ibge() -> None:
+        shutil.rmtree(raiz / "raw" / "ibge", ignore_errors=True)
+
+    def raw_ibge_vazio() -> bool:
+        contagens = []
+        for tabela in TABELAS_IBGE:
+            parquet = raiz / "raw" / "ibge" / tabela / f"{tabela}.parquet"
+            contagens.append(duckdb.sql(f"select count(*) from '{parquet}'").fetchone()[0])
+        return contagens == [0] * len(TABELAS_IBGE)
+
+    sem_raw_ibge()
+    assert main(["regras", "--target", "ci", "--saida", str(tmp_path / "regras.md")]) == 0
+    assert raw_ibge_vazio()
+    assert "rn_30" not in capsys.readouterr().err
+
+    sem_raw_ibge()
+    assert main(["atualizar", *origem, "--sem-publicar", "--sem-relatorio"]) == 0
+    assert "nenhum mês novo" in capsys.readouterr().out
+    assert raw_ibge_vazio()
+
+    sem_raw_ibge()
+    codigo = main(
+        ["pipeline", "--sem-ingestao", "--mes", "2026-09", "--target", "ci", "--sem-publicar",
+         "--sem-relatorio"]
+    )  # fmt: skip
+    assert codigo == 0
+    assert raw_ibge_vazio()
+    assert not (raiz / "_estado" / "em_andamento.json").exists()
+    with duckdb.connect() as con:
+        assert con.execute(
+            f"select count(*), count(renda_per_capita_media_2022) "
+            f"from '{raiz}/gold/dim_municipio.parquet'"
+        ).fetchone() == (9, 0)
+    assert main(["regras", "--target", "ci", "--saida", str(tmp_path / "regras.md")]) == 0

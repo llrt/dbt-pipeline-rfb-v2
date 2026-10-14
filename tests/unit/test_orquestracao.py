@@ -423,6 +423,91 @@ def test_atualizar_sem_mes_novo_e_no_op(
     assert ingeridos == [] and executor.comandos == []
 
 
+def _raw_ibge(configuracao: Configuracao) -> list[str]:
+    pasta = configuracao.raw_dir / "ibge"
+    return sorted(p.parent.name for p in pasta.glob("*/*.parquet"))
+
+
+def test_sem_ingestao_garante_o_raw_ibge_antes_do_dbt(tmp_path: Path) -> None:
+    """RIBG-01: o `RAIZ_DADOS` da v1.3 não tem `raw/ibge/`; as fontes dbt do IBGE o exigem."""
+    from rfb_pipeline.esquemas import TABELAS_IBGE
+
+    configuracao = _config(tmp_path)
+    vistos: list[list[str]] = []
+
+    class _Executor(ExecutorFalso):
+        def __call__(self, argumentos: Sequence[str], ambiente: Mapping[str, str]) -> int:
+            vistos.append(_raw_ibge(configuracao))
+            return super().__call__(argumentos, ambiente)
+
+    executar_pipeline(configuracao, ["2026-09"], _opcoes(ingerir=False), executor=_Executor())
+    assert vistos and all(v == sorted(TABELAS_IBGE) for v in vistos)
+
+
+def test_garantia_do_raw_ibge_nao_age_em_s3(tmp_path: Path) -> None:
+    configuracao = _config(
+        tmp_path,
+        RAIZ_DADOS="s3://balde/prefixo",
+        RAIZ_DADOS_LOCAL=str(tmp_path / "local"),
+        AWS_ACCESS_KEY_ID="id",
+        AWS_SECRET_ACCESS_KEY="segredo",
+        AWS_ENDPOINT_URL_S3="https://s3.exemplo",
+    )
+    assert orquestracao.garantir_raw_ibge_local(configuracao) == []
+    assert _raw_ibge(configuracao) == []
+
+
+def test_atualizar_sem_mes_novo_garante_o_raw_ibge(tmp_path: Path, ingeridos: list) -> None:
+    from rfb_pipeline.esquemas import TABELAS_IBGE
+
+    configuracao = _config(tmp_path)
+    gravar_estado(configuracao, Estado("2026-09", None, "x"))
+    origem = _origem(tmp_path, {"2026-09": True})
+    executor = ExecutorFalso()
+    assert atualizar(configuracao, _opcoes(origem_local=origem), executor=executor) is None
+    assert _raw_ibge(configuracao) == sorted(TABELAS_IBGE)
+    assert executor.comandos == []
+
+
+@pytest.mark.parametrize("renovou", [True, False])
+def test_atualizar_renovar_ibge_sem_mes_novo_renova_o_ibge_e_reconstroi_o_mes(
+    tmp_path: Path,
+    ingeridos: list,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    renovou: bool,
+) -> None:
+    """RIBG-04: sem mês novo, `--renovar-ibge` não é ignorado; sem nada renovado, nada é refeito."""
+    from rfb_pipeline import ibge
+
+    configuracao = _config(tmp_path)
+    gravar_estado(configuracao, Estado("2026-09", None, "x"))
+    origem = _origem(tmp_path, {"2026-09": True})
+    chamadas: list[dict] = []
+
+    def _ingerir_ibge(_configuracao, *, ingerido_em, origem_local, renovar):
+        chamadas.append({"origem_local": origem_local, "renovar": renovar})
+        quando = ingerido_em.isoformat() if renovou else "2026-01-01T00:00:00+00:00"
+        return (ibge.EntradaIBGE("renda_censo_2022_municipio", "x", "2022", None, 1, None, 1, 1,
+                                 "raw/ibge/x.parquet", quando),)  # fmt: skip
+
+    monkeypatch.setattr(ibge, "ingerir_ibge", _ingerir_ibge)
+    executor = ExecutorFalso()
+
+    resultado = atualizar(
+        configuracao, _opcoes(origem_local=origem, renovar_ibge=True), executor=executor
+    )
+
+    assert chamadas == [{"origem_local": origem, "renovar": True}]
+    assert ingeridos == []  # a RFB e a BD não são ingeridas de novo
+    if renovou:
+        assert resultado.mes_referencia == "2026-09"
+        assert executor.meses() == ["2026-09"]
+    else:
+        assert resultado is None and executor.comandos == []
+        assert "nenhuma tabela do IBGE renovada" in capsys.readouterr().out
+
+
 def test_atualizar_ignora_mes_incompleto_e_usa_o_anterior_completo(
     tmp_path: Path, ingeridos: list
 ) -> None:

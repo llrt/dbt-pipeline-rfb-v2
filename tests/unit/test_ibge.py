@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -29,8 +29,10 @@ from rfb_pipeline.ibge import (
     ConsultaSidra,
     consultar_sidra,
     fatiar_categorias,
+    garantir_raw_ibge,
     ingerir_ibge,
     ler_aba_xlsx,
+    ler_falhas_ibge,
     ler_manifesto_ibge,
     normalizar_coluna,
 )
@@ -242,14 +244,16 @@ class _SidraFalsa:
         raise AssertionError(f"URL inesperada: {url}")
 
 
-def _cempre(raiz: Path, sidra: _SidraFalsa, *, renovar: bool = False) -> None:
+def _cempre(
+    raiz: Path, sidra: _SidraFalsa, *, renovar: bool = False, ingerido_em: datetime = INGERIDO_EM
+) -> None:
     from rfb_pipeline.ibge import _Ingestao
 
     ingestao = _Ingestao(
         _configuracao(raiz),
         origem_local=None,
         renovar=renovar,
-        ingerido_em=INGERIDO_EM,
+        ingerido_em=ingerido_em,
         http=_cliente(sidra),
         dormir=lambda _s: None,
     )
@@ -284,16 +288,136 @@ def test_cempre_do_mesmo_periodo_nao_rebaixa_salvo_renovar(tmp_path: Path) -> No
     _cempre(raiz, _SidraFalsa())
 
     de_novo = _SidraFalsa()
-    _cempre(raiz, de_novo)
+    _cempre(raiz, de_novo, ingerido_em=INGERIDO_EM + timedelta(days=31))
     assert de_novo.fatias_pedidas == []
 
     ano_novo = _SidraFalsa(periodo="2025")
-    _cempre(raiz, ano_novo)
+    _cempre(raiz, ano_novo, ingerido_em=INGERIDO_EM + timedelta(days=62))
     assert len(ano_novo.fatias_pedidas) == 2
 
     renovado = _SidraFalsa(periodo="2025")
-    _cempre(raiz, renovado, renovar=True)
+    _cempre(raiz, renovado, renovar=True, ingerido_em=INGERIDO_EM + timedelta(days=63))
     assert len(renovado.fatias_pedidas) == 2
+
+
+def test_sonda_de_ano_novo_do_cempre_no_maximo_uma_vez_em_30_dias(tmp_path: Path) -> None:
+    """RIBG-02: com o CEMPRE no raw, a SIDRA só é consultada de novo 30 dias depois da última
+    sonda (ou sempre com `--renovar-ibge`)."""
+    raiz = tmp_path / "dados"
+    _cempre(raiz, _SidraFalsa())
+    sonda = json.loads((raiz / "_manifestos/ibge/manifesto.json").read_text())["sonda_cempre_em"]
+    assert sonda == INGERIDO_EM.isoformat()
+
+    def proibida(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"consulta à SIDRA dentro da janela: {request.url}")
+
+    _cempre(raiz, proibida, ingerido_em=INGERIDO_EM + timedelta(days=29))  # nenhuma requisição
+
+    ano_novo = _SidraFalsa(periodo="2025")
+    _cempre(raiz, ano_novo, ingerido_em=INGERIDO_EM + timedelta(days=29), renovar=True)
+    assert len(ano_novo.fatias_pedidas) == 2
+
+    passados = _SidraFalsa(periodo="2026")
+    _cempre(raiz, passados, ingerido_em=INGERIDO_EM + timedelta(days=60))
+    assert len(passados.fatias_pedidas) == 2  # a janela conta da última sonda (dia 29)
+
+
+def test_retentativa_da_sidra_inclui_o_429() -> None:
+    """RIBG-05 (mutação P4): a SIDRA limita a taxa; o 429 é retentado com recuo, como o 5xx."""
+    respostas = iter([httpx.Response(429), httpx.Response(200, json=[{"V": "1"}])])
+    recuos: list[float] = []
+
+    corpo, dados = consultar_sidra(
+        _cliente(lambda _r: next(respostas)),
+        "https://apisidra.ibge.gov.br/values/t/1",
+        hosts_permitidos=HOSTS,
+        tentativas=3,
+        dormir=recuos.append,
+    )
+
+    assert dados == [{"V": "1"}] and len(recuos) == 1
+    with pytest.raises(SidraErro, match="HTTP 429 após 2"):
+        consultar_sidra(
+            _cliente(lambda _r: httpx.Response(429)),
+            "https://apisidra.ibge.gov.br/values/t/1",
+            hosts_permitidos=HOSTS,
+            tentativas=2,
+            dormir=lambda _s: None,
+        )
+
+
+def _sidra_fora_do_ar(request: httpx.Request) -> httpx.Response:
+    return httpx.Response(503, text="Service Unavailable")
+
+
+def test_ibge_indisponivel_vira_aviso_publica_vazio_e_registra_a_falha(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """RIBG-02: SIDRA e geoftp fora do ar não levantam; sem raw anterior, as seis tabelas saem
+    vazias (só o esquema) e as falhas ficam no manifesto IBGE."""
+    raiz = tmp_path / "dados"
+    configuracao = _configuracao(raiz)
+
+    entradas = ingerir_ibge(
+        configuracao,
+        ingerido_em=INGERIDO_EM,
+        http=_cliente(_sidra_fora_do_ar),
+        dormir=lambda _s: None,
+    )
+
+    assert entradas == ()
+    erro = capsys.readouterr().err
+    assert erro.count("aviso: ibge.") == len(TABELAS_IBGE)
+    assert "publicada vazia" in erro
+    for nome in TABELAS_IBGE:
+        assert _raw(raiz, nome) == []
+    falhas = ler_falhas_ibge(configuracao)
+    assert sorted(falhas) == sorted(TABELAS_IBGE)
+    assert "HTTP 503" in falhas["renda_censo_2022_municipio"]["erro"]
+
+
+def test_ibge_indisponivel_mantem_o_raw_anterior_e_a_falha_some_no_sucesso(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path / "fx")
+    raiz = tmp_path / "dados"
+    configuracao = _configuracao(raiz)
+    ingerir_ibge(configuracao, ingerido_em=INGERIDO_EM, origem_local=tmp_path / "fx")
+    antes = _raw(raiz, "renda_censo_2022_municipio")
+    capsys.readouterr()
+
+    entradas = ingerir_ibge(
+        configuracao,
+        ingerido_em=INGERIDO_EM,
+        renovar=True,
+        http=_cliente(_sidra_fora_do_ar),
+        dormir=lambda _s: None,
+    )
+
+    assert "mantido o raw anterior" in capsys.readouterr().err
+    assert _raw(raiz, "renda_censo_2022_municipio") == antes
+    assert sorted(e.tabela for e in entradas) == sorted(TABELAS_IBGE)  # o manifesto anterior fica
+    assert sorted(ler_falhas_ibge(configuracao)) == sorted(TABELAS_IBGE)
+
+    ingerir_ibge(configuracao, ingerido_em=INGERIDO_EM, origem_local=tmp_path / "fx", renovar=True)
+    assert ler_falhas_ibge(configuracao) == {}
+
+
+def test_garantir_raw_ibge_publica_so_o_que_falta_sem_tocar_no_existente(tmp_path: Path) -> None:
+    """RIBG-01: o `RAIZ_DADOS` da v1.3 não tem `raw/ibge/`; um raw existente não é tocado."""
+    gerar_fixtures.gerar_fixtures(tmp_path / "fx")
+    raiz = tmp_path / "dados"
+    configuracao = _configuracao(raiz)
+    ingerir_ibge(configuracao, ingerido_em=INGERIDO_EM, origem_local=tmp_path / "fx")
+    antes = _raw(raiz, "renda_censo_2022_municipio")
+    import shutil
+
+    shutil.rmtree(raiz / "raw" / "ibge" / "regic_2018_ligacoes")
+
+    assert garantir_raw_ibge(configuracao) == ["regic_2018_ligacoes"]
+    assert _raw(raiz, "regic_2018_ligacoes") == []
+    assert _raw(raiz, "renda_censo_2022_municipio") == antes
+    assert garantir_raw_ibge(configuracao) == []
 
 
 # --------------------------------------------------------------------------- planilhas

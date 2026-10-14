@@ -67,6 +67,7 @@ class OpcoesPipeline:
     permitir_incompleto: bool = False
     forcar: bool = False
     renovar_ibge: bool = False  # incremento: enriquecimento_ibge
+    sem_ibge: bool = False  # RIBG-02: não consulta o IBGE
     ingerir: bool = True
     target: str | None = None
     saida_relatorio: Path | None = SAIDA_PADRAO  # None = sem relatório
@@ -142,6 +143,24 @@ def verificar_gold_consistente(configuracao: Configuracao, comando: str) -> None
         f"terminou bem; marcador {marcador}). Rode `rfb pipeline --mes {mes}` de novo até concluir "
         '(ver docs/OPERACAO.md, "Gold misto")'
     )
+
+
+# ------------------------------------------------------------------ raw IBGE (RIBG-01)
+
+
+def garantir_raw_ibge_local(configuracao: Configuracao) -> list[str]:
+    """Publica vazio o raw IBGE ausente de um `RAIZ_DADOS` local (o da v1.3 não tem `raw/ibge/`).
+
+    Antes de toda chamada ao dbt e no início de `rfb regras`/`rfb relatorio`: sem o arquivo, as
+    fontes dbt do IBGE falham com "No files found". Sem rede; um raw existente não é tocado. Em
+    `s3://` não faz nada: o raw do bucket pode ter o IBGE que a cópia local não tem, e publicar o
+    vazio por cima o apagaria no `sincronizar` (a ingestão garante o raw local antes de enviar).
+    """
+    if configuracao.raiz_dados_s3 is not None:
+        return []
+    from rfb_pipeline.ibge import garantir_raw_ibge  # import tardio: ibge importa conversao
+
+    return garantir_raw_ibge(configuracao)
 
 
 # ---------------------------------------------------------------------------- dbt
@@ -223,6 +242,7 @@ def _ingerir_mes(configuracao: Configuracao, mes: str | None, opcoes: OpcoesPipe
         forcar=opcoes.forcar,
         permitir_incompleto=opcoes.permitir_incompleto,
         renovar_ibge=opcoes.renovar_ibge,
+        sem_ibge=opcoes.sem_ibge,
     )
     return manifesto.mes_referencia
 
@@ -379,6 +399,7 @@ def executar_pipeline(
             if opcoes.ingerir:
                 mes = cron.medir("ingestao", lambda p=pedido: _ingerir_mes(configuracao, p, opcoes))
                 resultado.mes_referencia = mes
+            garantir_raw_ibge_local(configuracao)  # RIBG-01: as fontes dbt do IBGE exigem o raw
             if configuracao.raiz_dados_s3 is not None:
                 cron.medir("sincronizar", lambda: sincronizar(configuracao))
             estado = ler_estado(configuracao)
@@ -441,18 +462,63 @@ def mes_mais_recente_completo(
     return _resolver_mes(None, cliente, origem_local, permitir_incompleto=permitir_incompleto)
 
 
+def _renovar_ibge_do_mes_corrente(
+    configuracao: Configuracao,
+    mes: str,
+    opcoes: OpcoesPipeline,
+    executor: ExecutorDbt | None,
+) -> ResultadoMes | None:
+    """`rfb atualizar --renovar-ibge` sem mês novo (RIBG-04): baixa de novo o IBGE e reconstrói o
+    gold do mês corrente, sem tocar no raw da RFB e da BD. Se nenhuma tabela IBGE foi renovada (o
+    IBGE falhou, com aviso), não reconstrói nada."""
+    from dataclasses import replace
+
+    from rfb_pipeline.cli import _limpar_residuos
+    from rfb_pipeline.ibge import ingerir_ibge
+    from rfb_pipeline.manifesto import escrever_manifesto, ler_manifesto
+
+    print(f"--renovar-ibge: renovando o IBGE e reconstruindo o gold de {mes}")
+    ingerido_em = datetime.now(UTC)
+    with trava_execucao(configuracao):
+        _limpar_residuos(configuracao)
+        entradas = ingerir_ibge(
+            configuracao, ingerido_em=ingerido_em, origem_local=opcoes.origem_local, renovar=True
+        )
+        manifesto = ler_manifesto(configuracao, mes)
+        if manifesto is not None:
+            escrever_manifesto(
+                configuracao, replace(manifesto, ibge=tuple(e.to_dict() for e in entradas))
+            )
+    if not any(e.ingerido_em == ingerido_em.isoformat() for e in entradas):
+        print("nenhuma tabela do IBGE renovada; o gold não foi reconstruído")
+        return None
+    (resultado,) = executar_pipeline(
+        configuracao, [mes], replace(opcoes, ingerir=False), executor=executor
+    )
+    return resultado
+
+
 def atualizar(
     configuracao: Configuracao,
     opcoes: OpcoesPipeline,
     *,
     executor: ExecutorDbt | None = None,
 ) -> ResultadoMes | None:
-    """Processa o mês completo mais recente se for mais novo que o estado; senão é no-op."""
+    """Processa o mês completo mais recente se for mais novo que o estado; senão é no-op.
+
+    Sem mês novo, `--renovar-ibge` renova só o IBGE e reconstrói o gold do mês corrente (RIBG-04);
+    sem ele, só garante o raw IBGE local (RIBG-01) e não baixa nada.
+    """
     estado = ler_estado(configuracao)
     mes = mes_mais_recente_completo(configuracao, opcoes.origem_local, opcoes.permitir_incompleto)
     if estado is not None and mes <= estado.mes_referencia:
         print(f"nenhum mês novo (mais recente completo: {mes}; último processado: "
               f"{estado.mes_referencia})")  # fmt: skip
+        if opcoes.renovar_ibge:
+            return _renovar_ibge_do_mes_corrente(
+                configuracao, estado.mes_referencia, opcoes, executor
+            )
+        garantir_raw_ibge_local(configuracao)
         return None
     print(f"mês novo: {mes} (último processado: "
           f"{estado.mes_referencia if estado else 'nenhum'})")  # fmt: skip

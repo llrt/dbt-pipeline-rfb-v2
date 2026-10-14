@@ -32,8 +32,13 @@ que chega: uma execução interrompida retoma sem refazer as fatias prontas.
 
 Atualização: `rfb ingerir` não baixa de novo o que já está no raw para o mesmo período (SIDRA) ou
 arquivo (REGIC), conforme `_manifestos/ibge/manifesto.json`; a renovação é explícita
-(`--renovar-ibge`). Só o CEMPRE consulta a SIDRA todo mês (uma requisição leve de categorias)
-para saber se saiu um ano novo.
+(`--renovar-ibge`). Só o CEMPRE consulta a SIDRA para saber se saiu um ano novo (uma requisição
+leve de categorias), no máximo uma vez a cada 30 dias (`sonda_cempre_em` no manifesto IBGE).
+
+Falha do IBGE não derruba o mês (RIBG-02): a tabela que falhar (rede, API, planilha) fica com o raw
+anterior, ou vazia se não havia, a falha vai para `falhas` no manifesto IBGE e a ingestão segue com
+aviso. `rfb ingerir --sem-ibge` nem consulta o IBGE. Antes de toda chamada ao dbt, o raw IBGE que
+faltar é publicado vazio (`garantir_raw_ibge`, RIBG-01).
 
 `--origem-local DIR` lê, em vez da rede, `DIR/ibge/`:
 
@@ -57,13 +62,14 @@ import json
 import math
 import re
 import shutil
+import sys
 import time
 import unicodedata
 import urllib.parse
 import uuid
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -83,6 +89,7 @@ from rfb_pipeline.conversao import (
 from rfb_pipeline.erros import (
     ConversaoErro,
     EntidadeVaziaErro,
+    ErroIngestao,
     PlanilhaIBGEErro,
     SidraErro,
     SidraLimiteExcedidoErro,
@@ -95,6 +102,7 @@ __all__ = [
     "EntradaIBGE",
     "consultar_sidra",
     "fatiar_categorias",
+    "garantir_raw_ibge",
     "ingerir_ibge",
     "ler_aba_xlsx",
     "ler_manifesto_ibge",
@@ -106,6 +114,9 @@ __all__ = [
 CATEGORIA_TOTAL_CEMPRE = "117897"
 RE_CLASSE_CNAE = re.compile(r"^\d{2}\.\d{2}-\d ")  # nome de classe: `47.41-5 Comércio...`
 MUNICIPIOS_ESTIMADOS = 5_600  # teto do fatiamento (o Brasil tem 5.570 municípios no N6)
+# RIBG-02: a consulta de ano novo do CEMPRE (categorias, nível Brasil) roda no máximo uma vez neste
+# intervalo; `--renovar-ibge` consulta sempre
+INTERVALO_SONDA_CEMPRE = timedelta(days=30)
 
 _TABELA_CEMPRE = "9528"
 _VARIAVEIS_CEMPRE = ("706", "707", "708", "662")
@@ -420,25 +431,86 @@ def _caminho_manifesto_ibge(configuracao: Configuracao) -> Path:
     return configuracao.manifestos_dir / "ibge" / "manifesto.json"
 
 
-def ler_manifesto_ibge(configuracao: Configuracao) -> dict[str, EntradaIBGE]:
+def _ler_corpo_manifesto_ibge(configuracao: Configuracao) -> dict:
     caminho = _caminho_manifesto_ibge(configuracao)
     if not caminho.exists():
         return {}
-    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    return json.loads(caminho.read_text(encoding="utf-8"))
+
+
+def ler_manifesto_ibge(configuracao: Configuracao) -> dict[str, EntradaIBGE]:
+    dados = _ler_corpo_manifesto_ibge(configuracao)
     return {nome: EntradaIBGE.from_dict(e) for nome, e in dados.get("tabelas", {}).items()}
 
 
-def _escrever_manifesto_ibge(configuracao: Configuracao, entradas: dict[str, EntradaIBGE]) -> None:
+def ler_falhas_ibge(configuracao: Configuracao) -> dict[str, dict]:
+    """Tabelas cuja última tentativa falhou (`{tabela: {"erro", "em"}}`), do manifesto IBGE."""
+    return dict(_ler_corpo_manifesto_ibge(configuracao).get("falhas", {}))
+
+
+def _escrever_manifesto_ibge(
+    configuracao: Configuracao,
+    entradas: dict[str, EntradaIBGE],
+    *,
+    sonda_cempre_em: str | None = None,
+    falhas: dict[str, dict] | None = None,
+) -> None:
+    """Chaves opcionais (RIBG-02): `sonda_cempre_em`, a última consulta de ano novo do CEMPRE, e
+    `falhas`, as tabelas que não foram atualizadas na última tentativa (raw anterior mantido)."""
     destino = _caminho_manifesto_ibge(configuracao)
     destino.parent.mkdir(parents=True, exist_ok=True)
     tmp = destino.with_name(f".tmp-{destino.name}-{uuid.uuid4().hex}")
-    corpo = {"tabelas": {nome: e.to_dict() for nome, e in sorted(entradas.items())}}
+    corpo: dict = {"tabelas": {nome: e.to_dict() for nome, e in sorted(entradas.items())}}
+    if sonda_cempre_em is not None:
+        corpo["sonda_cempre_em"] = sonda_cempre_em
+    if falhas:
+        corpo["falhas"] = dict(sorted(falhas.items()))
     tmp.write_text(json.dumps(corpo, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(destino)
 
 
 def _parquet_final(configuracao: Configuracao, tabela: str) -> Path:
     return configuracao.raw_dir / "ibge" / tabela / f"{tabela}.parquet"
+
+
+def _publicar_vazia(configuracao: Configuracao, tabela: str) -> None:
+    """Grava `raw/ibge/<tabela>/<tabela>.parquet` só com o cabeçalho (all-VARCHAR, ADR-0002)."""
+    final = _parquet_final(configuracao, tabela)
+    final.parent.parent.mkdir(parents=True, exist_ok=True)
+    tmp_dir = _dir_temporario(final.parent)
+    colunas = ", ".join(f"NULL::VARCHAR AS {coluna}" for coluna in TABELAS_IBGE[tabela].colunas)
+    try:
+        with duckdb.connect() as con:
+            con.execute(
+                f"COPY (SELECT {colunas}, NULL::VARCHAR AS _arquivo_origem, "
+                f"NULL::TIMESTAMP AS _ingerido_em LIMIT 0) "
+                f"TO {_literal(str(tmp_dir / final.name))} (FORMAT parquet)"
+            )
+        _publicar(tmp_dir, final.parent)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def garantir_raw_ibge(configuracao: Configuracao) -> list[str]:
+    """Publica vazia (só o esquema) cada tabela IBGE que falta no raw; devolve as publicadas.
+
+    Sem rede e sem tocar num raw existente. As fontes dbt do IBGE leem
+    `read_parquet(.../raw/ibge/<tabela>/*.parquet)`, que falha sem arquivo: um `RAIZ_DADOS` da v1.3
+    (sem `raw/ibge/`) precisa disto antes de qualquer chamada ao dbt (RIBG-01). Com o raw vazio, o
+    dbt constrói tudo com as colunas do IBGE NULL.
+    """
+    publicadas: list[str] = []
+    for tabela in TABELAS_IBGE:
+        if not _parquet_final(configuracao, tabela).exists():
+            _publicar_vazia(configuracao, tabela)
+            publicadas.append(tabela)
+    if publicadas:
+        print(
+            f"ibge: AVISO raw ausente de {', '.join(publicadas)}; publicado vazio (só o esquema), "
+            "as colunas do IBGE ficam NULL até uma ingestão (docs/OPERACAO.md)",
+            flush=True,
+        )
+    return publicadas
 
 
 def _reaproveitavel(
@@ -480,7 +552,11 @@ class _Ingestao:
         self.dormir = dormir
         self.anteriores = ler_manifesto_ibge(configuracao)
         self.entradas: dict[str, EntradaIBGE] = dict(self.anteriores)
+        corpo = _ler_corpo_manifesto_ibge(configuracao)
+        self.sonda_cempre_em: str | None = corpo.get("sonda_cempre_em")
+        self.falhas: dict[str, dict] = dict(corpo.get("falhas", {}))
         self.baixados = configuracao.raiz_dados / "_baixados" / "ibge"
+        self._regic_obtidos: dict[str, Path] = {}
 
     # -- utilitários
 
@@ -510,30 +586,44 @@ class _Ingestao:
         return True
 
     def _publicar_vazia(self, tabela: str) -> None:
-        """Grava `raw/ibge/<tabela>/<tabela>.parquet` só com o cabeçalho (all-VARCHAR, ADR-0002)."""
-        final = _parquet_final(self.configuracao, tabela)
-        final.parent.parent.mkdir(parents=True, exist_ok=True)
-        tmp_dir = _dir_temporario(final.parent)
-        colunas = ", ".join(f"NULL::VARCHAR AS {coluna}" for coluna in TABELAS_IBGE[tabela].colunas)
-        try:
-            with duckdb.connect() as con:
-                con.execute(
-                    f"COPY (SELECT {colunas}, NULL::VARCHAR AS _arquivo_origem, "
-                    f"NULL::TIMESTAMP AS _ingerido_em LIMIT 0) "
-                    f"TO {_literal(str(tmp_dir / final.name))} (FORMAT parquet)"
-                )
-            _publicar(tmp_dir, final.parent)
-        finally:
-            shutil.rmtree(tmp_dir, ignore_errors=True)
+        _publicar_vazia(self.configuracao, tabela)
 
     def _pular(self, tabela: str, motivo: str) -> None:
         entrada = self.anteriores[tabela]
         self.entradas[tabela] = entrada
+        if self.falhas.pop(tabela, None) is not None:
+            self._gravar_manifesto()
         print(f"ibge.{tabela}: pulada ({motivo}) - {entrada.linhas} linhas", flush=True)
+
+    def _gravar_manifesto(self) -> None:
+        _escrever_manifesto_ibge(
+            self.configuracao,
+            self.entradas,
+            sonda_cempre_em=self.sonda_cempre_em,
+            falhas=self.falhas,
+        )
+
+    def falhou(self, tabela: str, erro: BaseException) -> None:
+        """RIBG-02: a tabela não foi atualizada. Avisa, mantém o raw anterior (ou publica o vazio)
+        e registra a falha no manifesto IBGE; a ingestão do mês segue."""
+        final = _parquet_final(self.configuracao, tabela)
+        destino = "mantido o raw anterior" if final.exists() else "publicada vazia (só o esquema)"
+        if not final.exists():
+            _publicar_vazia(self.configuracao, tabela)
+        motivo = str(erro).strip() or type(erro).__name__
+        print(
+            f"aviso: ibge.{tabela}: não atualizada ({motivo[:300]}); {destino}. A RFB e a BD "
+            "seguem; tente de novo com `rfb ingerir --renovar-ibge` (docs/OPERACAO.md)",
+            file=sys.stderr,
+            flush=True,
+        )
+        self.falhas[tabela] = {"erro": motivo[:500], "em": self.ingerido_em.isoformat()}
+        self._gravar_manifesto()
 
     def _registrar(self, entrada: EntradaIBGE, inicio: float) -> None:
         self.entradas[entrada.tabela] = entrada
-        _escrever_manifesto_ibge(self.configuracao, self.entradas)
+        self.falhas.pop(entrada.tabela, None)
+        self._gravar_manifesto()
         print(
             f"ibge.{entrada.tabela}: {entrada.linhas} linhas, {entrada.bytes} bytes, "
             f"{time.monotonic() - inicio:.1f}s",
@@ -568,6 +658,16 @@ class _Ingestao:
             shutil.rmtree(tmp_dir, ignore_errors=True)
             shutil.rmtree(trabalho, ignore_errors=True)
         return linhas, str(final.relative_to(self.configuracao.raiz_dados))
+
+    def _sonda_recente(self) -> bool:
+        """A consulta de ano novo do CEMPRE foi feita há menos de `INTERVALO_SONDA_CEMPRE`?"""
+        if self.sonda_cempre_em is None:
+            return False
+        try:
+            ultima = datetime.fromisoformat(self.sonda_cempre_em)
+        except ValueError:
+            return False
+        return timedelta(0) <= self.ingerido_em - ultima < INTERVALO_SONDA_CEMPRE
 
     def _consultar(self, url: str) -> tuple[bytes, list[dict]]:
         return consultar_sidra(
@@ -629,6 +729,21 @@ class _Ingestao:
             self._registrar(entrada, inicio)
             return periodo, dados
 
+        anterior = self.anteriores.get(tabela)
+        if not self.renovar and self._sonda_recente() and anterior is not None:
+            periodo = anterior.periodo
+            if _reaproveitavel(
+                self.configuracao, anterior, periodo=self.configuracao.cempre_periodo or periodo
+            ) and _reaproveitavel(
+                self.configuracao, self.anteriores.get("cempre_municipio_cnae"), periodo=periodo
+            ):
+                self._pular(
+                    tabela,
+                    f"ano novo consultado em {self.sonda_cempre_em[:10]}; próxima consulta "
+                    f"{INTERVALO_SONDA_CEMPRE.days} dias depois ou com --renovar-ibge",
+                )
+                return periodo, []
+
         consulta = ConsultaSidra(
             tabela=_TABELA_CEMPRE,
             nivel="n1",
@@ -640,6 +755,8 @@ class _Ingestao:
         url = consulta.url(self.configuracao.sidra_base_url)
         conteudo, dados = self._consultar(url)
         periodo = _periodo_unico(dados, "D3C", url)
+        self.sonda_cempre_em = self.ingerido_em.isoformat()
+        self._gravar_manifesto()
         if not self.renovar and _reaproveitavel(
             self.configuracao, self.anteriores.get(tabela), periodo=periodo
         ):
@@ -848,9 +965,9 @@ class _Ingestao:
         obtidos[nome] = caminho
         return caminho
 
-    def regic(self) -> None:
-        obtidos: dict[str, Path] = {}
-        for planilha in PLANILHAS_REGIC:
+    def regic(self, planilhas: Sequence[PlanilhaRegic] = PLANILHAS_REGIC) -> None:
+        obtidos = self._regic_obtidos  # o zip de ligações e atração serve a duas tabelas
+        for planilha in planilhas:
             tabela = planilha.tabela
             inicio = time.monotonic()
             anterior = self.anteriores.get(tabela)
@@ -918,9 +1035,10 @@ def ingerir_ibge(
     """Baixa (ou lê de `origem_local`) e converte as tabelas IBGE; devolve o manifesto IBGE.
 
     Tabelas já presentes no raw com o mesmo período/arquivo são puladas, salvo `renovar`. O
-    manifesto `_manifestos/ibge/manifesto.json` é regravado a cada tabela concluída; uma falha deixa
-    o raw anterior da tabela intacto e, no CEMPRE, as fatias prontas no disco para a próxima
-    execução.
+    manifesto `_manifestos/ibge/manifesto.json` é regravado a cada tabela concluída. Uma falha numa
+    tabela não levanta (RIBG-02): avisa, deixa o raw anterior intacto (ou publica o vazio), registra
+    a falha no manifesto e, no CEMPRE, deixa as fatias prontas no disco para a próxima execução. No
+    fim, toda tabela ausente do raw é publicada vazia (`garantir_raw_ibge`).
     """
     cliente_http = http if http is not None else httpx.Client(timeout=configuracao.tempo_limite_s)
     try:
@@ -932,11 +1050,38 @@ def ingerir_ibge(
             http=cliente_http,
             dormir=dormir,
         )
-        periodo, categorias = ingestao.categorias_cempre()
-        ingestao.cempre_municipio(periodo, categorias)
-        ingestao.renda()
-        ingestao.regic()
+        try:
+            periodo, categorias = ingestao.categorias_cempre()
+        except _FALHAS_TOLERADAS as exc:
+            ingestao.falhou("cempre_categorias_cnae", exc)
+            if origem_local is None:  # na rede, o CEMPRE municipal depende do período e das classes
+                ingestao.falhou("cempre_municipio_cnae", exc)
+            else:
+                _tolerar(
+                    ingestao, "cempre_municipio_cnae", lambda: ingestao.cempre_municipio(None, [])
+                )
+        else:
+            _tolerar(
+                ingestao,
+                "cempre_municipio_cnae",
+                lambda: ingestao.cempre_municipio(periodo, categorias),
+            )
+        _tolerar(ingestao, "renda_censo_2022_municipio", ingestao.renda)
+        for planilha in PLANILHAS_REGIC:
+            _tolerar(ingestao, planilha.tabela, lambda p=planilha: ingestao.regic((p,)))
     finally:
         if http is None:
             cliente_http.close()
+    garantir_raw_ibge(configuracao)
     return tuple(ingestao.entradas[nome] for nome in sorted(ingestao.entradas))
+
+
+# RIBG-02: falhas do IBGE (rede, API, planilha, conversão) viram aviso; o mês segue
+_FALHAS_TOLERADAS = (ErroIngestao, httpx.HTTPError, duckdb.Error, OSError)
+
+
+def _tolerar(ingestao: _Ingestao, tabela: str, etapa: Callable[[], object]) -> None:
+    try:
+        etapa()
+    except _FALHAS_TOLERADAS as exc:
+        ingestao.falhou(tabela, exc)
