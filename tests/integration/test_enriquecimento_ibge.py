@@ -72,10 +72,16 @@ def test_participacoes_do_va_somam_100(consultar) -> None:
 
 def test_ponte_outros_vira_menos_um_e_posto_um_e_o_polo(consultar) -> None:
     outros = consultar(
-        "select sk_municipio_origem, tema, pct, posto from {bridge_municipio_destino_compras} "
-        "where eh_outros"
+        "select sk_municipio_origem, tema, round(pct, 2), posto "
+        "from {bridge_municipio_destino_compras} where eh_outros"
     )
-    assert outros == [(3203205, "moveis_eletro", 3.33, None)]  # Q1 de "Outros" é 0: fica fora
+    # Fundão só tem "Outros" no Q1 (o Q2 é 0: fica fora); Água Branca/PB é o polo noutra UF
+    assert sorted(outros) == [
+        (2500106, "moveis_eletro", 30.0, None), (2500106, "vestuario_calcados", 40.0, None),
+        (3200607, "moveis_eletro", 28.33, None), (3200607, "vestuario_calcados", 26.67, None),
+        (3202207, "vestuario_calcados", 6.67, None), (3203205, "moveis_eletro", 11.67, None),
+        (3203205, "vestuario_calcados", 35.0, None),
+    ]  # fmt: skip
     (soma,) = consultar(
         "select round(sum(pct), 6) from {bridge_municipio_destino_compras} "
         "where sk_municipio_origem = 3202207 and tema = 'moveis_eletro'"
@@ -93,10 +99,32 @@ def test_ponte_outros_vira_menos_um_e_posto_um_e_o_polo(consultar) -> None:
     assert polos == pelo_dim
 
 
+def test_cada_origem_soma_100_em_cada_tema(consultar) -> None:
+    """RIBG-11: com o "Outros", toda origem das fixtures fecha 100 por tema, como no real; assim o
+    teste `destino_compras_soma_100` (warn) só avisa de ligação perdida de verdade."""
+    fora = consultar(
+        "select sk_municipio_origem, tema, round(sum(pct), 4) "
+        "from {bridge_municipio_destino_compras} group by all having abs(sum(pct) - 100) > 1"
+    )
+    assert fora == []
+    (origens,) = consultar(
+        "select count(distinct sk_municipio_origem) from {bridge_municipio_destino_compras}"
+    )
+    assert origens == (4,)
+
+
+def test_polo_noutra_uf_esta_na_dimensao_e_na_area_de_mercado(consultar) -> None:
+    """RIBG-03: Água Branca/PB compra sobretudo em Água Branca/PI."""
+    assert consultar(
+        "select id_municipio_polo_compras, nome_municipio_polo_compras, pct_compras_no_polo "
+        "from {dim_municipio} where sk_municipio = 2500106"
+    ) == [("2200202", "Água Branca", 70.0)]
+
+
 # ------------------------------------------------------------------------ mart CEMPRE × RFB
 
 
-def test_mart_emprego_tem_os_16_pares_e_nunca_imputa_sigilo(consultar) -> None:
+def test_mart_emprego_tem_os_17_pares_e_nunca_imputa_sigilo(consultar) -> None:
     (total,) = consultar("select count(*) from {mart_emprego_setor_municipio}")
     assert total == (17,)
     sigilo = consultar(
@@ -167,9 +195,9 @@ ANALISES = {
     "estudo_caso_enriquecimento_ibge": (
         ["ordem", "escopo", "municipio", "regic_hierarquia", "renda_per_capita_media_2022",
          "renda_per_capita_mediana_2022", "polo_compras", "pct_compras_no_polo", "ativos_cnae",
-         "unidades_locais_cempre", "pessoal_ocupado_cempre", "tem_sigilo", "ano_cempre"],
+         "unidades_locais_cempre", "pessoal_ocupado_cempre", "tem_sigilo", "ano_cempre", "uf"],
         (2, "polo de compras", "Serra", "Metrópole", 1720.1, 1200.0, None, None, 1, 33, 196, False,
-         2024),
+         2024, "ES"),
     ),
     "cenario_renda_concorrencia": (
         ["municipio", "renda_per_capita_media_2022", "mediana_renda_uf", "populacao", "ativos",
@@ -202,6 +230,10 @@ ANALISES = {
 }  # fmt: skip
 
 
+# ativos 4741500: Fundão 1 + Serra 1; unidades 47.41-5: 12 + 3 + 33 + 25; pessoal sem sigilo:
+# 196 + 164
+LINHA_UF_ES = (3, "UF", "ES", None, 2162.57, None, None, None, 2, 73, 360, True, 2024, "ES")
+
 LINHAS = {
     "estudo_caso_enriquecimento_ibge": 3, "cenario_renda_concorrencia": 2,
     "cenario_polo_compras_evasao": 2, "cenario_tamanho_setor_cempre": 5,
@@ -231,6 +263,15 @@ def test_analise_roda_nas_fixtures_com_as_colunas_e_a_linha_esperadas(
     assert len(linhas) == LINHAS[analise]
 
 
+def test_linha_da_uf_do_caso_pondera_a_renda_pelos_moradores(resultados: dict) -> None:
+    """RIBG-05 (mutação D4): a renda da UF é a média dos municípios ponderada pelos moradores
+    (Σ renda × moradores ÷ Σ moradores = 2.162,57 no ES das fixtures; a média simples daria
+    1.941,81), e os totais da UF somam só os municípios da UF, mesmo com o polo noutra UF."""
+    _, linhas = resultados["estudo_caso_enriquecimento_ibge"]
+    (uf,) = [_normalizar(x) for x in linhas if x[1] == "UF"]
+    assert uf == LINHA_UF_ES
+
+
 @pytest.mark.parametrize("analise", sorted(ANALISES))
 def test_analise_so_traz_agregados_sem_cnpj_nem_nome(analise: str) -> None:
     """ADR-0008: nenhuma analysis do incremento lê o CNPJ ou o nome dos estabelecimentos."""
@@ -238,6 +279,29 @@ def test_analise_so_traz_agregados_sem_cnpj_nem_nome(analise: str) -> None:
     texto = "\n".join(x for x in linhas.splitlines() if not x.lstrip().startswith("--"))
     for proibido in ("cnpj", "razao_social", "nome_fantasia", "fct_estabelecimentos"):
         assert proibido not in texto.lower(), proibido
+
+
+def test_caso_com_polo_noutra_uf_mostra_o_polo_com_a_uf_dele() -> None:
+    """RIBG-03: o polo de Água Branca/PB é Água Branca/PI; antes a linha do polo sumia (o CTE dos
+    municípios filtrava a UF do caso) e o relatório dizia que não havia polo."""
+    sqls = compilar_analises(
+        DIR_TRANSFORM, _raiz(), "ci", variaveis={"caso_municipio": "ÁGUA BRANCA", "caso_uf": "PB"}
+    )
+    colunas, linhas = executar_analises(
+        _raiz() / "warehouse.duckdb",
+        {"c": sqls["estudo_caso_enriquecimento_ibge"]},
+    )["c"]
+    por_escopo = {x[1]: dict(zip(colunas, _normalizar(x), strict=True)) for x in linhas}
+    assert sorted(por_escopo) == ["UF", "município do caso", "polo de compras"]
+    caso, polo = por_escopo["município do caso"], por_escopo["polo de compras"]
+    uf = por_escopo["UF"]
+    assert (caso["polo_compras"], caso["pct_compras_no_polo"], caso["uf"]) == (
+        "Água Branca", 70.0, "PB",
+    )  # fmt: skip
+    assert (polo["municipio"], polo["uf"], polo["renda_per_capita_media_2022"]) == (
+        "Água Branca", "PI", 610.15,
+    )  # fmt: skip
+    assert (uf["municipio"], uf["uf"], uf["renda_per_capita_media_2022"]) == ("PB", "PB", 540.9)
 
 
 def test_relatorio_do_caso_traz_a_secao_do_ibge(tmp_path: Path) -> None:

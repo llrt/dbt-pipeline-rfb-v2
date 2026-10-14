@@ -10,6 +10,7 @@ do cabeçalho da seção de qualidade carrega identificador e horário da últim
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -58,6 +59,7 @@ def compilar_analises(
     raiz_dados_local: Path | None = None,
     subpasta: str = "",
     padrao: str = f"{PREFIXO_ANALISES}*.sql",
+    variaveis: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Roda `dbt compile` nas analyses do estudo de caso e devolve `{nome: SQL compilado}`.
 
@@ -66,7 +68,7 @@ def compilar_analises(
     `--target-path` temporário: o `target/` do projeto guarda o `run_results.json` do último build,
     que outras ferramentas e testes leem (R3-16). `subpasta` e `padrao` escolhem outras analyses
     (ex.: `regras_negocio`, `rn_*.sql`, ADR-0020). Sem `subpasta`, as analyses das regras de negócio
-    ficam fora da compilação (RRN-09).
+    ficam fora da compilação (RRN-09). `variaveis` vira `--vars` (ex.: outro `caso_municipio`).
     """
     selecao = f"path:analyses/{subpasta}" if subpasta else "path:analyses"
     with tempfile.TemporaryDirectory(prefix="rfb-relatorio-") as temporario:
@@ -82,6 +84,8 @@ def compilar_analises(
             comando += ["--exclude", f"path:analyses/{SUBPASTA_REGRAS}"]
         if target:
             comando += ["--target", target]
+        if variaveis:
+            comando += ["--vars", json.dumps(variaveis, ensure_ascii=False)]
         ambiente = {
             **os.environ,
             "RAIZ_DADOS": str(raiz_dados),
@@ -411,16 +415,27 @@ def _secao_ibge(resultados: dict[str, Tabela], caso: dict, local: str) -> list[s
     caso_ibge = next((r for r in dados if r["escopo"] == "município do caso"), None)
     polo = next((r for r in dados if r["escopo"] == "polo de compras"), None)
     if caso_ibge and polo:
+        # RIBG-03: o polo pode ficar noutra UF (Iúna/ES -> Manhuaçu/MG)
+        nome_polo = polo["municipio"]
+        if polo.get("uf") and polo["uf"] != caso_ibge.get("uf"):
+            nome_polo = f"{nome_polo}/{polo['uf']}"
         linhas += [
             "Para comprar móveis e eletroeletrônicos fora do município, os moradores de "
-            f"{local} vão principalmente a **{polo['municipio']}** "
+            f"{local} vão principalmente a **{nome_polo}** "
             f"({_numero(caso_ibge['pct_compras_no_polo'], 1)} % desses deslocamentos), onde há "
             f"**{_numero(polo['ativos_cnae'])}** "
             f"{_plural(polo['ativos_cnae'] or 0, 'ativo', 'ativos')} do CNAE {caso['cnae_alvo']}.",
             "",
         ]
-    elif caso_ibge:
+    elif caso_ibge and caso_ibge["polo_compras"] is None:
         linhas += [f"_{local} não tem polo de compras na REGIC 2018._", ""]
+    elif caso_ibge:  # polo fora da dimensão de municípios: só o nome e o %
+        linhas += [
+            "Para comprar móveis e eletroeletrônicos fora do município, os moradores de "
+            f"{local} vão principalmente a **{caso_ibge['polo_compras']}** "
+            f"({_numero(caso_ibge['pct_compras_no_polo'], 1)} % desses deslocamentos).",
+            "",
+        ]
     cenarios = (
         ("polo_compras_evasao", "Polo de compras dos municípios da UF", {"pct_compras_no_polo": 1}),
         (

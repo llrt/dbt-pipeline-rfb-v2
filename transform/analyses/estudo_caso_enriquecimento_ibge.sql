@@ -7,7 +7,9 @@
 -- caso, o seu polo de compras (REGIC 2018, maior % em móveis e eletroeletrônicos) e a UF inteira, com a
 -- renda per capita do Censo 2022, a hierarquia urbana, os ativos do CNAE do caso (RFB, mês do gold) e o
 -- CEMPRE da classe do CNAE (5 primeiros dígitos). Na UF, a renda é a média dos municípios ponderada pelos
--- moradores e o pessoal ocupado soma só as células sem sigilo (subestima). Só agregados (ADR-0008).
+-- moradores e o pessoal ocupado soma só as células sem sigilo (subestima). O polo pode ficar noutra UF
+-- (Iúna/ES -> Manhuaçu/MG): ele é lido de todos os municípios e `uf` diz onde ele está (RIBG-03); a
+-- linha da UF soma só os municípios da UF do caso. Só agregados (ADR-0008).
 {% set classe = var('caso_cnae_alvo')[:5] -%}
 with caso as (
   select *
@@ -26,6 +28,7 @@ municipios as (
     mun.moradores_renda_2022,
     mun.nome_municipio_polo_compras,
     mun.pct_compras_no_polo,
+    mun.sigla_uf = '{{ var("caso_uf") }}' as na_uf_do_caso,
     coalesce(con.ativos, 0) as ativos_cnae,
     -- fora do mart CEMPRE × RFB = nenhuma unidade da classe no CEMPRE (se o município tem CEMPRE)
     mun.ano_cempre,
@@ -41,7 +44,6 @@ municipios as (
     on mun.sk_municipio = con.sk_municipio and con.cnae_principal = '{{ var("caso_cnae_alvo") }}'
   left join {{ ref('mart_emprego_setor_municipio') }} as emp
     on mun.sk_municipio = emp.sk_municipio and emp.classe_cnae = '{{ classe }}'
-  where mun.sigla_uf = '{{ var("caso_uf") }}'
 )
 
 select
@@ -57,7 +59,8 @@ select
   mun.unidades_locais_cempre,
   mun.pessoal_ocupado_cempre,
   mun.tem_sigilo,
-  mun.ano_cempre
+  mun.ano_cempre,
+  mun.sigla_uf as uf
 from municipios as mun
 inner join caso on mun.sk_municipio = caso.sk_municipio
 
@@ -76,7 +79,8 @@ select
   mun.unidades_locais_cempre,
   mun.pessoal_ocupado_cempre,
   mun.tem_sigilo,
-  mun.ano_cempre
+  mun.ano_cempre,
+  mun.sigla_uf as uf
 from municipios as mun
 inner join caso on mun.sk_municipio::varchar = caso.id_municipio_polo_compras
 
@@ -97,7 +101,9 @@ select
   sum(unidades_locais_cempre) as unidades_locais_cempre,
   sum(pessoal_ocupado_cempre) as pessoal_ocupado_cempre,
   coalesce(bool_or(tem_sigilo), false) as tem_sigilo,
-  max(ano_cempre) as ano_cempre
+  max(ano_cempre) as ano_cempre,
+  max(sigla_uf) as uf
 from municipios
+where na_uf_do_caso
 
 order by ordem

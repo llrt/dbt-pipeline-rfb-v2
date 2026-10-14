@@ -1449,7 +1449,9 @@ _SEDES = {  # longitude, latitude da sede municipal
     "3202207": (-40.4067, -19.9329), "3203205": (-40.0683, -19.398),
     "3200607": (-40.2648, -19.825), "3205002": (-40.3079, -20.1209),
     "3205309": (-40.3128, -20.3155),
+    "2500106": (-37.6357, -7.5121), "2200202": (-42.6366, -5.8925),
 }  # fmt: skip
+_UF_POR_CODIGO = {"32": "ES", "27": "AL", "22": "PI", "25": "PB"}
 # (origem, destino, Q1..Q10, PERC_LIG) — reais. Fundão -> Serra e Fundão -> Vitória são os oráculos
 # (Q1 vestuário e calçados, Q2 móveis e eletroeletrônicos). Vitória não tem ligação de origem.
 _REGIC_LIGACOES = [
@@ -1551,8 +1553,22 @@ _REGIC_LIGACOES = [
         12.9,
     ),
     # Destino `0` = "Outros / Não circula jornal": a parcela dos deslocamentos para lugares não
-    # listados (no real, 3.888 origens têm essa linha; Fundão não). Sintético, no formato do real.
-    ("3203205", "0", (0, 3.33, 0, 3.33, 8.33, 6.67, 8.33, 0, 6.67, 0), 0.0366666666666667),
+    # listados (no real, 3.888 origens têm essa linha). Sintético, no formato do real. As fixtures
+    # são um subconjunto das ligações reais; o "Outros" fecha 100 em Q1 e Q2 em cada origem, como
+    # no real (RIBG-11: `destino_compras_soma_100` volta a ser sinal). Em Fundão só o Q1 (o Q2, o
+    # do caso, já soma 100 e não muda).
+    ("3202207", "0", (6.66666666666667, 0, 0, 0, 0, 0, 0, 0, 0, 0), 0.0666666666666667),
+    (
+        "3203205",
+        "0",
+        (35, 11.6666666666667, 0, 3.33, 8.33, 6.67, 8.33, 0, 6.67, 0),
+        0.0366666666666667,
+    ),
+    ("3200607", "0", (26.6666666666667, 28.3333333333333, 0, 0, 0, 0, 0, 0, 0, 0), 0.245),
+    # Polo noutra UF (RIBG-03; no real, 314 origens, como Iúna/ES -> Manhuaçu/MG): sintético, Água
+    # Branca/PB -> Água Branca/PI
+    ("2500106", "2200202", (60, 70, 50, 60, 55, 50, 40, 0, 0, 30), 45.0),
+    ("2500106", "0", (40, 30, 50, 40, 45, 50, 60, 100, 100, 70), 55.0),
 ]
 _DESTINO_OUTROS = "0"
 _NOME_OUTROS = "Outros / Não circula jornal"
@@ -1689,12 +1705,12 @@ def _linha_ligacao(origem: str, destino: str, qs: tuple, perc_lig: float) -> tup
         uf_d, sede_d = None, (None, None)
         d = ("0", 0, _NOME_OUTROS, None, None, None, None, None, None)
     else:
-        uf_d, d, sede_d = "ES", lado(destino), _SEDES[destino]
+        uf_d, d, sede_d = _UF_POR_CODIGO[destino[:2]], lado(destino), _SEDES[destino]
     pop_o = o[3]
     ias = [round(q * pop_o / 100, 4) for q in qs]
     return (
-        int(origem + destino), "ES", *o[:9], uf_d, *d[:9], *qs, *ias, perc_lig,
-        round(perc_lig * pop_o / 100, 4), *_SEDES[origem], *sede_d,
+        int(origem + destino), _UF_POR_CODIGO[origem[:2]], *o[:9], uf_d, *d[:9], *qs, *ias,
+        perc_lig, round(perc_lig * pop_o / 100, 4), *_SEDES[origem], *sede_d,
     )  # fmt: skip
 
 
