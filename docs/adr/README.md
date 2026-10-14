@@ -1,6 +1,6 @@
 # Registro de decisões (ADR)
 
-Formato curto: contexto → decisão → consequências. Status: `aceita`, `substituída por ADR-XXXX`.
+Formato curto: contexto → decisão → consequências. Status: `proposta`, `aceita`, `substituída por ADR-XXXX`.
 Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`](../../.specs/STATE.md).
 
 | ADR | Título | Status |
@@ -25,3 +25,4 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0018](0018-camada-semantica-metricflow.md) | Camada semântica no padrão dbt/MetricFlow (YAML) | aceita |
 | [0019](0019-dicionario-de-dados.md) | Dicionário de dados gerado, conferido no CI, com o campo do leiaute em `meta` | aceita |
 | [0020](0020-regras-de-negocio.md) | Regras de negócio verificadas fora do build (analyses + `rfb regras`), com relatório próprio | aceita |
+| [0021](0021-analises-nivel-bairro.md) | Análises no nível de bairro: bairro oficial IBGE via CEP; decisões em aberto | proposta |
