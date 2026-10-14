@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -423,10 +424,15 @@ def executar_pipeline(
 # ---------------------------------------------------------------------------- atualizar
 
 
+_RE_DIR_MES = re.compile(r"^\d{4}-\d{2}$")  # `_baixados/<AAAA-MM>`
+
+
 def aplicar_retencao(configuracao: Configuracao, mes_processado: str) -> list[Path]:
     """Mantém as partições raw dos `meses_retidos` meses mais recentes e apaga zips (ADR-0012).
 
     Apaga `_baixados/<mês>` do mês processado (salvo `manter_zips`) e de todo mês fora da janela.
+    Só diretórios com nome de mês (`AAAA-MM`) são considerados: `_baixados/ibge` (fatias do CEMPRE
+    guardadas para retomar após uma falha tolerada, RIBG-02) e qualquer outro nome ficam intactos.
     Devolve o que foi removido.
     """
     raiz_rfb = configuracao.raw_dir / "rfb"
@@ -441,6 +447,8 @@ def aplicar_retencao(configuracao: Configuracao, mes_processado: str) -> list[Pa
     baixados = configuracao.raiz_dados / "_baixados"
     if baixados.is_dir():
         for pasta in sorted(baixados.iterdir()):
+            if not _RE_DIR_MES.match(pasta.name):
+                continue
             fora_da_janela = pasta.name not in retidos
             processado = pasta.name == mes_processado and not configuracao.manter_zips
             if pasta.is_dir() and (fora_da_janela or processado):

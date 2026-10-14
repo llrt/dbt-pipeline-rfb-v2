@@ -125,7 +125,8 @@ Após um `rfb atualizar` bem-sucedido:
   `raw/rfb/<entidade>/` só as partições dos N meses mais recentes; as demais são apagadas. A série
   `fct_resumo_mensal` não depende do raw e preserva todos os meses.
 - `RFB_MANTER_ZIPS` (padrão `false`): com `false`, apaga `_baixados/<mês processado>/` (~7 GB de zips em
-  2026-09); zips de meses fora da janela são sempre apagados.
+  2026-09); zips de meses fora da janela são sempre apagados. Só diretórios de mês (`AAAA-MM`) entram
+  na retenção: `_baixados/ibge/` (fatias do CEMPRE guardadas para retomar) nunca é apagado por ela.
 
 `rfb pipeline` não aplica retenção (é a ferramenta de reprocessamento e backfill).
 

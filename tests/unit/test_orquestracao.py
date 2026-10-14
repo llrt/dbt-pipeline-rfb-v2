@@ -591,6 +591,55 @@ def test_atualizar_aplica_retencao_apos_sucesso(tmp_path: Path, ingeridos: list)
     assert not configuracao.baixados_dir("2026-09").exists()
 
 
+def _fatias_ibge(configuracao: Configuracao) -> Path:
+    """Fatia do CEMPRE guardada em `_baixados/ibge` para retomar (RIBG-02)."""
+    fatia = (
+        configuracao.raiz_dados / "_baixados" / "ibge" / "sidra" / "cempre_municipio_cnae"
+        / "2023" / "fatia-0001-abc.parquet"
+    )  # fmt: skip
+    fatia.parent.mkdir(parents=True)
+    fatia.write_bytes(b"x")
+    return fatia
+
+
+def test_retencao_so_considera_diretorios_de_mes(tmp_path: Path) -> None:
+    """Greptile PR #7: `_baixados/ibge` e outros nomes não são meses e ficam intactos."""
+    configuracao = _config(tmp_path, RFB_MESES_RETIDOS="1")
+    _particoes(configuracao, ["2026-08", "2026-09"])
+    fatia = _fatias_ibge(configuracao)
+    outro = configuracao.raiz_dados / "_baixados" / "outro"
+    outro.mkdir()
+    removidos = aplicar_retencao(configuracao, "2026-09")
+    assert fatia.is_file()
+    assert outro.is_dir()
+    assert sorted(p.name for p in removidos if p.parent.name == "_baixados") == [
+        "2026-08",
+        "2026-09",
+    ]
+
+
+def test_atualizar_com_falha_tolerada_do_ibge_preserva_as_fatias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Falha tolerada do CEMPRE (fatias no disco) seguida da retenção do `atualizar`."""
+    configuracao = _config(tmp_path, RFB_MESES_RETIDOS="1")
+    _particoes(configuracao, ["2026-08", "2026-09"])
+    gravar_estado(configuracao, Estado("2026-08", None, "x"))
+    fatias: list[Path] = []
+
+    def _ingestao_com_falha_ibge(
+        _configuracao: Configuracao, mes: str | None, _opcoes: OpcoesPipeline
+    ) -> str:
+        fatias.append(_fatias_ibge(configuracao))  # o CEMPRE parou no meio; o mês segue
+        return mes or "2026-09"
+
+    monkeypatch.setattr(orquestracao, "_ingerir_mes", _ingestao_com_falha_ibge)
+    origem = _origem(tmp_path, {"2026-09": True})
+    atualizar(configuracao, _opcoes(origem_local=origem), executor=ExecutorFalso())
+    assert not configuracao.baixados_dir("2026-09").exists()
+    assert fatias[0].is_file()
+
+
 # ---------------------------------------------------------------------------- estado e CLI
 
 
