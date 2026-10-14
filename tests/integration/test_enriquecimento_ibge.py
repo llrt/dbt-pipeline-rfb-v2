@@ -98,7 +98,7 @@ def test_ponte_outros_vira_menos_um_e_posto_um_e_o_polo(consultar) -> None:
 
 def test_mart_emprego_tem_os_16_pares_e_nunca_imputa_sigilo(consultar) -> None:
     (total,) = consultar("select count(*) from {mart_emprego_setor_municipio}")
-    assert total == (16,)
+    assert total == (17,)
     sigilo = consultar(
         "select municipio, classe_cnae, unidades_locais_cempre, pessoal_ocupado_cempre, "
         "pessoal_por_unidade from {mart_emprego_setor_municipio} where tem_sigilo order by 1, 2"
@@ -141,11 +141,22 @@ def test_rn30_avalia_os_pares_do_mart_e_viola_onde_ele_diz(consultar) -> None:
     _, linhas = padronizar_linhas(analise, resultado[analise])
     avaliados = sum(x.avaliados for x in linhas)
     violacoes = sum(x.violacoes for x in linhas)
+    # RIBG-09: só as classes que existem na CNAE da RFB (a 20.51-7 de Serra e a 35.11-5 de Aracruz,
+    # sem subclasse na CNAE das fixtures, ficam de fora)
     (esperado,) = consultar(
         "select count(*), count(*) filter (where coalesce(unidades_locais_cempre, 0) >= 3 "
-        "and ativos_rfb_sem_mei = 0) from {mart_emprego_setor_municipio}"
+        "and ativos_rfb_sem_mei = 0) from {mart_emprego_setor_municipio} "
+        "where classe_cnae in (select codigo_classe from {dim_cnae})"
     )
-    assert (avaliados, violacoes) == esperado == (16, 8)
+    assert (avaliados, violacoes) == esperado == (15, 8)
+
+
+def test_classe_do_cempre_sem_par_na_cnae_da_rfb_leva_o_nome_do_cempre(consultar) -> None:
+    """RIBG-09: 20.51-7 não está na `dim_cnae` das fixtures (no real: 70.10-7)."""
+    assert consultar(
+        "select municipio, descricao_classe, unidades_locais_cempre, ativos_rfb "
+        "from {mart_emprego_setor_municipio} where classe_cnae = '20517'"
+    ) == [("Serra", "Fabricação de defensivos agrícolas", 4, 0)]
 
 
 # ------------------------------------------------------------------------------- analyses

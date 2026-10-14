@@ -3,7 +3,9 @@
 -- local (`unidades_locais` > 0) OU a RFB tem estabelecimento ativo com subclasse da classe. O CEMPRE
 -- vem do ano mais recente baixado; a RFB, do mês do gold (`mes_referencia_rfb`): os anos são
 -- diferentes. Sigilo (`X` do IBGE) nunca é imputado: o valor fica NULL e `tem_sigilo` true, e
--- `pessoal_por_unidade` sai NULL. Município (-1) e CNAE (-1) desconhecidos ficam de fora.
+-- `pessoal_por_unidade` sai NULL. Município (-1) e CNAE (-1) desconhecidos ficam de fora. Classe do
+-- CEMPRE sem par na CNAE da RFB (`dim_cnae`, ex.: 70.10-7 "Sedes de empresas") leva a descrição do
+-- próprio CEMPRE (RIBG-09).
 with mes as (
   select max(_mes_referencia)::varchar as mes_referencia
   from {{ ref('stg_rfb__estabelecimentos') }}
@@ -17,6 +19,7 @@ cempre as (
   select
     mun.sk_municipio,
     cla.classe_cnae,
+    cla.nome_classe_cnae,
     cla.ano,
     cla.unidades_locais,
     cla.pessoal_ocupado,
@@ -54,6 +57,7 @@ pares as (
   select
     coalesce(cem.sk_municipio, rfb.sk_municipio) as sk_municipio,
     coalesce(cem.classe_cnae, rfb.classe_cnae) as classe_cnae,
+    cem.nome_classe_cnae,
     cem.unidades_locais,
     cem.pessoal_ocupado,
     cem.pessoal_assalariado,
@@ -73,7 +77,7 @@ select
   mun.nome_municipio as municipio,
   mun.sigla_uf as uf,
   par.classe_cnae,
-  cla.descricao_classe,
+  coalesce(cla.descricao_classe, par.nome_classe_cnae) as descricao_classe,
   ano_cempre.ano as ano_cempre,
   par.unidades_locais as unidades_locais_cempre,
   par.pessoal_ocupado as pessoal_ocupado_cempre,

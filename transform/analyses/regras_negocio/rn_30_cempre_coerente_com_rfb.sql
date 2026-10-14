@@ -9,7 +9,9 @@
 -- cadastro, não erro de nenhuma delas. Universo: pares município × classe com unidade local no CEMPRE
 -- (ano mais recente) ou ativo na RFB (os de `mart_emprego_setor_municipio`), por UF e faixa da razão
 -- unidades CEMPRE ÷ ativos RFB sem MEI. Lê o CEMPRE pela fonte (o warehouse de quem só roda
--- `rfb regras` pode não ter o staging do IBGE) e a RFB por `fct_estabelecimentos`.
+-- `rfb regras` pode não ter o staging do IBGE) e a RFB por `fct_estabelecimentos`. Só classes que
+-- existem na CNAE da RFB (`dim_cnae`): uma classe do CEMPRE sem par (70.10-7, "Sedes de empresas")
+-- nunca tem ativo na RFB e seria violação estrutural, não divergência (RIBG-09).
 with categorias as (
   select
     d4c as id_categoria_sidra,
@@ -37,7 +39,12 @@ cempre as (
   from unidades as uni
   inner join {{ ref('dim_municipio') }} as mun
     on uni.id_municipio = mun.id_municipio_ibge
-  where uni.ano = (select max(ult.ano) from unidades as ult) and uni.unidades_locais > 0
+  where
+    uni.ano = (select max(ult.ano) from unidades as ult)
+    and uni.unidades_locais > 0
+    and uni.classe_cnae in (
+      select cnae.codigo_classe from {{ ref('dim_cnae') }} as cnae where cnae.sk_cnae <> -1
+    )
 ),
 
 rfb as (

@@ -580,7 +580,11 @@ testes ao build.
   ativos (`eh_ativa`, `opcao_mei`) × [`dim_cnae`](DICIONARIO_DADOS.md#dim_cnae)`.codigo_classe` ×
   [`dim_municipio`](DICIONARIO_DADOS.md#dim_municipio). Universo: os pares município × classe com unidade local no
   CEMPRE ou ativo na RFB (o grão de [`mart_emprego_setor_municipio`](DICIONARIO_DADOS.md#mart_emprego_setor_municipio)),
-  sem município e CNAE desconhecidos (-1), por UF e faixa da razão unidades CEMPRE ÷ ativos RFB sem MEI. Lê o
+  sem município e CNAE desconhecidos (-1), por UF e faixa da razão unidades CEMPRE ÷ ativos RFB sem MEI. Só entram
+  as classes do CEMPRE que existem na CNAE da RFB (`dim_cnae.codigo_classe`): no dado real, 2 das 673 não existem,
+  70.10-7 ("Sedes de empresas e unidades administrativas locais", 92 unidades no Brasil) e 47.90-3 (nenhuma
+  unidade), e uma classe sem par nunca teria ativo na RFB: seria violação estrutural, não divergência. No
+  `mart_emprego_setor_municipio` esses pares ficam, com a descrição da classe pelo CEMPRE. Lê o
   CEMPRE pela fonte, e não pelo staging, para rodar sobre um warehouse que ainda não tem os modelos do IBGE.
   Sem `ibge/` (modo offline) o CEMPRE é vazio e a regra avalia só os pares da RFB, sem violação.
 - **Conceito:** [CEMPRE](CAMADA_SEMANTICA.md#cempre-unidades-locais-e-pessoal-ocupado) e
@@ -593,7 +597,9 @@ testes ao build.
   Fundão em 47.11-3 e 47.44-0 têm 3 ou mais unidades sem ativo RFB sem MEI (Serra só tem um MEI: é o caso que separa
   "com MEI" de "sem MEI"); Aracruz tem exatamente 3 (a fronteira). Os casos injetados em
   `tests/integration/test_regras_negocio.py` põem um ativo sem MEI onde havia violação (sai da violação e muda de
-  faixa), um MEI (não muda nada) e um ativo numa classe sem CEMPRE (entra no universo sem violar).
+  faixa), um MEI (não muda nada) e um ativo numa classe sem CEMPRE (entra no universo sem violar). Serra tem 4
+  unidades em 20.51-7 e Aracruz 1 em 35.11-5, classes que não estão na CNAE das fixtures: ficam fora da regra (como
+  a 70.10-7 no real), e a de Serra seria violação.
 - **Analysis:** `transform/analyses/regras_negocio/rn_30_cempre_coerente_com_rfb.sql`.
 
 ## Fontes

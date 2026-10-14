@@ -642,10 +642,11 @@ models:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
       - name: descricao_classe
-        description: Descrição da classe CNAE (`dim_cnae.descricao_classe`); NULL se a classe não está na Base dos Dados.
+        description: >
+          Descrição da classe CNAE (`dim_cnae.descricao_classe`); se a classe do CEMPRE não está na CNAE da RFB (ex.: 70.10-7, "Sedes de empresas e unidades administrativas locais"), o nome da classe no próprio CEMPRE.
         data_type: varchar
         dimension: categorical
-        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_cnae.descricao_classe`" } }
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_cnae.descricao_classe`, ou `stg_ibge__cempre_municipio_classe.nome_classe_cnae` sem par na `dim_cnae`" } }
       - name: ano_cempre
         description: Ano de referência do CEMPRE (o mais recente baixado; hoje 2024). Diferente do mês da RFB.
         data_type: integer
@@ -1067,6 +1068,7 @@ unit_tests:
           - { id_municipio: "M2", ano: 2024, classe_cnae: "01113", unidades_locais: 0, pessoal_ocupado: 0, pessoal_assalariado: 0, salarios_mil_reais: 0.0, tem_sigilo: false }
           - { id_municipio: "M2", ano: 2024, classe_cnae: "35115", unidades_locais: 0, pessoal_ocupado: 0, pessoal_assalariado: 0, salarios_mil_reais: 0.0, tem_sigilo: false }
           - { id_municipio: "M2", ano: 2023, classe_cnae: "35115", unidades_locais: 5, pessoal_ocupado: 9, pessoal_assalariado: 9, salarios_mil_reais: 1.0, tem_sigilo: false }
+          - { id_municipio: "M2", ano: 2024, classe_cnae: "70107", nome_classe_cnae: "Sedes de empresas e unidades administrativas locais", unidades_locais: 4, pessoal_ocupado: 30, pessoal_assalariado: 28, salarios_mil_reais: 900.0, tem_sigilo: false }
       - input: ref('dim_municipio')
         rows:
           - { sk_municipio: 1, id_municipio_ibge: "M1", nome_municipio: "Um", sigla_uf: "ES" }
@@ -1091,3 +1093,4 @@ unit_tests:
         - { sk_municipio: 1, classe_cnae: "47415", descricao_classe: "Tintas", ano_cempre: 2024, unidades_locais_cempre: 12, pessoal_ocupado_cempre: null, tem_sigilo: true, ativos_rfb: 2, ativos_rfb_sem_mei: 1, pessoal_por_unidade: null, razao_unidades_cempre_ativos_rfb: 6.0, mes_referencia_rfb: "2026-09" }
         - { sk_municipio: 1, classe_cnae: "46796", descricao_classe: "Atacado de materiais", ano_cempre: 2024, unidades_locais_cempre: 10, pessoal_ocupado_cempre: 80, tem_sigilo: false, ativos_rfb: 0, ativos_rfb_sem_mei: 0, pessoal_por_unidade: 8.0, razao_unidades_cempre_ativos_rfb: null, mes_referencia_rfb: "2026-09" }
         - { sk_municipio: 2, classe_cnae: "01113", descricao_classe: "Cereais", ano_cempre: 2024, unidades_locais_cempre: 0, pessoal_ocupado_cempre: 0, tem_sigilo: false, ativos_rfb: 1, ativos_rfb_sem_mei: 1, pessoal_por_unidade: null, razao_unidades_cempre_ativos_rfb: 0.0, mes_referencia_rfb: "2026-09" }
+        - { sk_municipio: 2, classe_cnae: "70107", descricao_classe: "Sedes de empresas e unidades administrativas locais", ano_cempre: 2024, unidades_locais_cempre: 4, pessoal_ocupado_cempre: 30, tem_sigilo: false, ativos_rfb: 0, ativos_rfb_sem_mei: 0, pessoal_por_unidade: 7.5, razao_unidades_cempre_ativos_rfb: null, mes_referencia_rfb: "2026-09" }
