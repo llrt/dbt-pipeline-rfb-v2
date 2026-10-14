@@ -35,6 +35,11 @@ Fase 2 (tabelas que só saem de graça via BigQuery).
 **Fora (Fase 2, adiada pelo usuário para depois da entrega da v1 — AD-029).** Pirâmide etária municipal, RAIS, CAGED, exportadoras/importadoras,
 diretório de CEP — exigem BigQuery (conta Google Cloud).
 
+> **Nota (2026-10-14):** a Fase 2 via BigQuery está **encerrada** pelo
+> [ADR-0022](0022-enriquecimento-fontes-gratuitas-ibge.md). As tabelas não são pagas na origem: o projeto passa a
+> buscá-las na fonte primária gratuita (CEMPRE e renda do Censo 2022 no SIDRA, REGIC no geoftp do IBGE; CAGED como
+> pacote 2 futuro), e o BigQuery contraria o princípio de não transferir custo a quem usa.
+
 **Consequências.** Dados de população/PIB atualizados mudam números reais (densidade por 10 mil hab. passa a
 usar 2025); fixtures ganham as três tabelas novas com respostas conhecidas; `rfb ingerir` baixa 3 tabelas a
 mais (~5 MB). Se a API da BD mudar, o download quebra — mitigado pelo `--origem-local` e pelo manifesto.

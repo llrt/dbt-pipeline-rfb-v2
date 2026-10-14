@@ -19,10 +19,11 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0012](0012-atualizacao-mensal.md) | Atualização mensal: mês novo, completude, retenção, série histórica | aceita |
 | [0013](0013-modelo-estrela-bi.md) | Modelo estrela otimizado para BI (Power BI) | aceita |
 | [0014](0014-convencao-idioma.md) | Convenção de idioma: vocabulário dbt/ferramentas em inglês, resto em português | aceita |
-| [0015](0015-enriquecimento-base-dos-dados.md) | Enriquecimento com novas bases da Base dos Dados (Fase 1) — incremento `enriquecimento_bd` | aceita |
+| [0015](0015-enriquecimento-base-dos-dados.md) | Enriquecimento com novas bases da Base dos Dados (Fase 1) — incremento `enriquecimento_bd`; Fase 2 via BigQuery encerrada pelo ADR-0022 | aceita |
 | [0016](0016-publicacao-motherduck.md) | Publicação opcional do gold no MotherDuck e formas de acesso pelo Power BI | aceita |
 | [0017](0017-avaliacao-dbt-fusion.md) | Avaliação do dbt Fusion (dbt v2): adiar a migração; critérios para reavaliar | aceita |
 | [0018](0018-camada-semantica-metricflow.md) | Camada semântica no padrão dbt/MetricFlow (YAML) | aceita |
 | [0019](0019-dicionario-de-dados.md) | Dicionário de dados gerado, conferido no CI, com o campo do leiaute em `meta` | aceita |
 | [0020](0020-regras-de-negocio.md) | Regras de negócio verificadas fora do build (analyses + `rfb regras`), com relatório próprio | aceita |
 | [0021](0021-analises-nivel-bairro.md) | Análises no nível de bairro: adiar (custo × benefício desfavorável); gatilhos para reabrir | adiada |
+| [0022](0022-enriquecimento-fontes-gratuitas-ibge.md) | Enriquecimento com fontes gratuitas direto da origem (pacote 1: CEMPRE, renda do Censo 2022, REGIC 2018, VA) — incremento `enriquecimento_ibge` | aceita |
