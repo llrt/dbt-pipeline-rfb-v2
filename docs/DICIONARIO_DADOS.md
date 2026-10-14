@@ -52,7 +52,7 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
 | [Fontes — IBGE (raw)](#fontes-ibge) | 6 | 128 |
 | [Fontes — observabilidade](#fontes-obs) | 1 | 8 |
 | [Seeds](#seeds) | 4 | 12 |
-| [Staging](#staging) | 20 | 179 |
+| [Staging](#staging) | 20 | 180 |
 | [Intermediate](#intermediate) | 3 | 44 |
 | [Gold — dimensões](#gold-dim) | 6 | 63 |
 | [Gold — fatos](#gold-fct) | 2 | 26 |
@@ -60,7 +60,7 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
 | [Gold — marts originais](#gold-original) | 2 | 27 |
 | [Gold — marts analíticos](#gold-analytics) | 5 | 67 |
 | [Observabilidade](#obs) | 2 | 10 |
-| **Total** | **69** | **753** |
+| **Total** | **69** | **754** |
 
 <a id="fontes-rfb"></a>
 ### Fontes — RFB (raw)
@@ -147,7 +147,7 @@ Views com tipagem, limpeza e minimização de dados pessoais.
 | [`stg_ibge__cempre_municipio_total`](#stg_ibge__cempre_municipio_total) | município × ano (`id_municipio`, `ano`) | adicao | 7 |
 | [`stg_ibge__regic_atracao`](#stg_ibge__regic_atracao) | município de destino (`id_municipio`) | adicao | 14 |
 | [`stg_ibge__regic_hierarquia`](#stg_ibge__regic_hierarquia) | município (`id_municipio`) | adicao | 16 |
-| [`stg_ibge__regic_ligacoes`](#stg_ibge__regic_ligacoes) | ligação origem → destino (`id_municipio_origem`, `id_municipio_destino`) | adicao | 14 |
+| [`stg_ibge__regic_ligacoes`](#stg_ibge__regic_ligacoes) | ligação origem → destino (`id_municipio_origem`, `id_municipio_destino`) | adicao | 15 |
 | [`stg_ibge__renda_municipio`](#stg_ibge__renda_municipio) | município (`id_municipio`) | adicao | 5 |
 | [`stg_rfb__cnaes`](#stg_rfb__cnaes) | subclasse CNAE (`codigo`) | adicao | 2 |
 | [`stg_rfb__empresas`](#stg_rfb__empresas) | empresa (`cnpj_raiz`) do mês selecionado | adicao | 9 |
@@ -1549,7 +1549,7 @@ CEMPRE (IBGE, SIDRA 9528) por município, todas as atividades (categoria Total, 
 <a id="stg_ibge__regic_atracao"></a>
 #### `stg_ibge__regic_atracao`
 
-REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamentos dos questionários, geral e por tema. Município que não atrai ninguém não aparece.
+REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamentos dos questionários, geral e por tema. Município que não atrai ninguém não aparece, nem a pseudo-localidade `0` ("Outros / Não circula jornal") da planilha.
 
 | Atributo | Valor |
 |---|---|
@@ -1625,7 +1625,7 @@ REGIC 2018 (IBGE): hierarquia urbana da cidade a que o município pertence (o pr
 <a id="stg_ibge__regic_ligacoes"></a>
 #### `stg_ibge__regic_ligacoes`
 
-REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*` é o percentual estimado dos deslocamentos dos moradores da origem que vão ao destino para o tema (Q1 a Q10 da planilha), de 0 a 100; NULL quando ausente. Município sem ligação de origem não aparece.
+REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*` é o percentual estimado dos deslocamentos dos moradores da origem que vão ao destino para o tema (Q1 a Q10 da planilha), de 0 a 100; NULL quando ausente. Município sem ligação de origem não aparece. O destino `0` da planilha ("Outros / Não circula jornal", 3.888 origens no dado real) é a parcela dos deslocamentos para lugares não listados: fica com `id_municipio_destino` NULL e `destino_outros` verdadeiro (no máximo uma linha por origem).
 
 | Atributo | Valor |
 |---|---|
@@ -1640,12 +1640,13 @@ REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
-| Colunas | 14 |
+| Colunas | 15 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
 | `id_municipio_origem` | `varchar` | Geocódigo IBGE do município de origem (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`) | — | — |
-| `id_municipio_destino` | `varchar` | Geocódigo IBGE do município de destino (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`) | — | — |
+| `id_municipio_destino` | `varchar` | Geocódigo IBGE do município de destino (7 dígitos, texto); NULL no destino "Outros" (`destino_outros`). | não (`not_null`, onde `not destino_outros`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`) | — | — |
+| `destino_outros` | `boolean` | Verdadeiro na linha do destino `0` da planilha ("Outros / Não circula jornal"): a parcela dos deslocamentos da origem para lugares não listados. | não (`not_null`) | — | — | — |
 | `pct_vestuario_calcados` | `double` | % dos deslocamentos da origem ao destino para comprar vestuário e calçados (Q1). | não testado | `0` ≤ valor ≤ `100` | — | — |
 | `pct_moveis_eletro` | `double` | % dos deslocamentos da origem ao destino para comprar móveis e eletroeletrônicos (Q2). | não testado | `0` ≤ valor ≤ `100` | — | — |
 | `pct_saude_baixa_media_complexidade` | `double` | % dos deslocamentos para serviços de saúde de baixa e média complexidades (Q3). | não testado | — | — | — |

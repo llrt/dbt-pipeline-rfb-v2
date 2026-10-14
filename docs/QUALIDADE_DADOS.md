@@ -30,7 +30,7 @@
 |---|---|---|
 | Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (43 testes) |
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
-| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (115 testes) |
+| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (116 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (13 testes) |
 | Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (74 testes) |
@@ -156,6 +156,7 @@
 | `stg_ibge__regic_hierarquia.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_ibge__regic_hierarquia.id_municipio` | `unique` | error | adicao | — |
 | `stg_ibge__regic_ligacoes` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio_origem", "id_municipio_destino"]} | error | adicao | — |
+| `stg_ibge__regic_ligacoes.destino_outros` | `not_null` | error | adicao | — |
 | `stg_ibge__regic_ligacoes.id_municipio_destino` | `not_null` | error | adicao | — |
 | `stg_ibge__regic_ligacoes.id_municipio_destino` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
 | `stg_ibge__regic_ligacoes.id_municipio_origem` | `not_null` | error | adicao | — |
@@ -431,6 +432,7 @@
 | `stg_bd__regioes_metropolitanas` | `test_stg_bd__regioes_metropolitanas_uma_por_municipio` | adicao |
 | `stg_ibge__cempre_municipio_classe` | `test_stg_ibge__cempre_municipio_classe_simbolos` | adicao |
 | `stg_ibge__cempre_municipio_total` | `test_stg_ibge__cempre_municipio_total_so_categoria_total` | adicao |
+| `stg_ibge__regic_atracao` | `test_stg_ibge__regic_atracao_sem_destino_outros` | adicao |
 | `stg_ibge__regic_hierarquia` | `test_stg_ibge__regic_hierarquia_codigo` | adicao |
 | `stg_ibge__regic_ligacoes` | `test_stg_ibge__regic_ligacoes_temas` | adicao |
 | `stg_ibge__renda_municipio` | `test_stg_ibge__renda_municipio_pivo` | adicao |
