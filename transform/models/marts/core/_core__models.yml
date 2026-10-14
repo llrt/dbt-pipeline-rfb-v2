@@ -373,6 +373,7 @@ models:
         description: >
           % dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo (incremento `enriquecimento_ibge`).
         data_type: double
+        dimension: categorical
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`int_regic__destinos_compras.pct` do polo" } }
         data_tests:
           - dbt_utils.accepted_range:

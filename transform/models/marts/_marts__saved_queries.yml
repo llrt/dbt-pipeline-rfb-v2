@@ -81,6 +81,7 @@ saved_queries:
         - "TimeDimension('metric_time', 'month')"
         - "Dimension('municipio__nome_municipio')"
         - "Dimension('municipio__nome_municipio_polo_compras')"
+        - "Dimension('municipio__pct_compras_no_polo')"
         - "Dimension('municipio__regic_hierarquia')"
         - "Dimension('municipio__renda_per_capita_media_2022')"
       where:

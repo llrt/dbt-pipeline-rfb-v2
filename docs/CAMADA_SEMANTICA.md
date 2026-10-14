@@ -585,7 +585,7 @@ dimensão).
 | Abertura / encerramento / baixa | — | `mart_dinamica_mercado` | `estabelecimento` | `aberturas`, `encerramentos`, `baixas`, `saldo_aberturas_encerramentos` |
 | Coorte de abertura | — | `mart_sobrevivencia_coorte` | `coorte_sobrevivencia` | `elegiveis_3a`, `sobreviventes_3a`, `taxa_sobrevivencia_3a` (e 1a, 5a) |
 | Hierarquia urbana (REGIC) | `stg_ibge__regic_hierarquia.codigo_hierarquia` | `dim_municipio.regic_hierarquia` | `municipio__regic_hierarquia`, `municipio__regic_hierarquia_codigo` | todas, como recorte |
-| Compra em (destino de compras) | `stg_ibge__regic_ligacoes.pct_moveis_eletro` | `bridge_municipio_destino_compras`, `dim_municipio.id_municipio_polo_compras` | `municipio__nome_municipio_polo_compras` | — |
+| Compra em (destino de compras) | `stg_ibge__regic_ligacoes.pct_moveis_eletro` | `bridge_municipio_destino_compras`, `dim_municipio.id_municipio_polo_compras` | `municipio__nome_municipio_polo_compras`, `municipio__pct_compras_no_polo` | — |
 | Renda per capita | `stg_ibge__renda_municipio.renda_per_capita_media` | `dim_municipio.renda_per_capita_media_2022` | `municipio__renda_per_capita_media_2022` | — |
 | Setor no município (CEMPRE) | `stg_ibge__cempre_municipio_classe.unidades_locais` | `mart_emprego_setor_municipio` | `emprego_setor_municipio` | `unidades_locais_cempre`, `pessoal_ocupado_cempre`, `ativos_rfb` |
 
@@ -823,7 +823,7 @@ erDiagram
 
 | Modelo semântico | Entidade principal | Dimensões |
 |---|---|---|
-| `dim_municipio` | `municipio` (`sk_municipio`) | `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, meso/microrregião, regiões intermediária e imediata, `id_municipio_ibge`, `nome_regiao_metropolitana` (incremento enriquecimento BD); `renda_per_capita_media_2022`, `renda_per_capita_mediana_2022`, `regic_hierarquia`, `regic_hierarquia_codigo`, `regic_arranjo_populacional`, `regic_regiao_influencia`, `nome_municipio_polo_compras` (incremento enriquecimento IBGE) |
+| `dim_municipio` | `municipio` (`sk_municipio`) | `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, meso/microrregião, regiões intermediária e imediata, `id_municipio_ibge`, `nome_regiao_metropolitana` (incremento enriquecimento BD); `renda_per_capita_media_2022`, `renda_per_capita_mediana_2022`, `regic_hierarquia`, `regic_hierarquia_codigo`, `regic_arranjo_populacional`, `regic_regiao_influencia`, `nome_municipio_polo_compras`, `pct_compras_no_polo` (incremento enriquecimento IBGE) |
 | `dim_cnae` | `cnae` (`sk_cnae`) | códigos e descrições de seção, divisão, grupo, classe e subclasse |
 | `dim_natureza_juridica` | `natureza_juridica` | código e descrição |
 | `dim_porte` | `porte` | `codigo_porte`, `rotulo_porte` |
@@ -893,7 +893,7 @@ de médias. Por isso a taxa de um estado ou de um ano é ponderada pelo número 
 | `estudo_caso_fundao_tintas` | pergunta-guia do MVP: lojas de tintas (CNAE 4741500) em Fundão/ES por mês e porte |
 | `dinamica_anual_por_secao_cnae` | aberturas, encerramentos e saldo por ano e seção CNAE. O último ano é parcial, e os encerramentos incluem inaptidões em lote (veja a [A3](#a3-ciclo-de-vida)) |
 | `sobrevivencia_por_coorte_e_porte` | taxas de sobrevivência a 1, 3 e 5 anos por coorte e porte |
-| `polo_compras_concorrencia_caso` | ativos de lojas de tintas por mês e município do ES, com o polo de compras, a hierarquia e a renda (incremento enriquecimento IBGE) |
+| `polo_compras_concorrencia_caso` | ativos de lojas de tintas por mês e município do ES, com o polo de compras e o % dos deslocamentos que vão a ele, a hierarquia e a renda (incremento enriquecimento IBGE) |
 
 ### B5. Como usar
 
