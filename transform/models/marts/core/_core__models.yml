@@ -60,6 +60,10 @@ models:
       Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias
       geográficas em colunas, centroide, população e PIB. Membro `-1` "NÃO INFORMADO" para
       estabelecimentos sem município na Base dos Dados (exterior, município criado após a base).
+      Incremento `enriquecimento_bd`: Censo 2022 e região metropolitana. Incremento
+      `enriquecimento_ibge` (ADR-0022): renda per capita do Censo 2022, valor adicionado por
+      atividade (`ano_va`, que pode diferir de `ano_pib`), hierarquia urbana, índice de atração e
+      polo de compras da REGIC 2018 e o total do CEMPRE (`ano_cempre`); NULL sem a fonte.
     config:
       meta: { grao: "município (`sk_municipio`), mais o membro `-1`" }
       contract:
@@ -242,6 +246,148 @@ models:
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
+
+      # incremento: enriquecimento_ibge (ADR-0022) — linhagem: `int_municipios__perfil_ibge`
+      - name: renda_per_capita_media_2022
+        description: >
+          Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1.
+        data_type: decimal(12, 2)
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__renda_municipio.renda_per_capita_media` (ano 2022)" } }
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: renda_per_capita_mediana_2022
+        description: >
+          Rendimento domiciliar per capita mediano (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado (o IBGE marca `...` em alguns municípios).
+        data_type: decimal(12, 2)
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__renda_municipio.renda_per_capita_mediana` (ano 2022)" } }
+      - name: moradores_renda_2022
+        description: >
+          Moradores em domicílios particulares permanentes ocupados, a base da renda per capita do Censo 2022 (incremento `enriquecimento_ibge`).
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__renda_municipio.moradores` (ano 2022)" } }
+      - name: ano_va
+        description: >
+          Ano do valor adicionado (VA) por atividade: o último ano com as quatro aberturas preenchidas no PIB dos Municípios (hoje 2021), independente de `ano_pib` — o PIB total e o VA podem ser de anos diferentes (incremento `enriquecimento_ibge`).
+        data_type: integer
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "maior `stg_bd__pib.ano` com `va_agropecuaria`, `va_industria`, `va_servicos` e `va_adespss` preenchidos" } }
+      - name: va_agropecuaria
+        description: >
+          Valor adicionado bruto da agropecuária (R$ mil, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_agropecuaria` em `ano_va`" } }
+      - name: va_industria
+        description: >
+          Valor adicionado bruto da indústria (R$ mil, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_industria` em `ano_va`" } }
+      - name: va_servicos
+        description: >
+          Valor adicionado bruto dos serviços, exceto administração pública (R$ mil, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_servicos` em `ano_va`" } }
+      - name: va_adm_publica
+        description: >
+          Valor adicionado bruto da administração, defesa, educação e saúde públicas e seguridade social (R$ mil) em `ano_va` (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_adespss` em `ano_va`" } }
+      - name: pct_va_agropecuaria
+        description: >
+          Participação da agropecuária na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_agropecuaria` × 100 ÷ (`va_agropecuaria` + `va_industria` + `va_servicos` + `va_adm_publica`)" } }
+        data_tests: &faixa_pct_ibge
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0, max_value: 100 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: pct_va_industria
+        description: >
+          Participação da indústria na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_industria` × 100 ÷ soma das quatro aberturas" } }
+        data_tests: *faixa_pct_ibge
+      - name: pct_va_servicos
+        description: >
+          Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_servicos` × 100 ÷ soma das quatro aberturas" } }
+        data_tests: *faixa_pct_ibge
+      - name: pct_va_adm_publica
+        description: >
+          Participação da administração pública na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_adm_publica` × 100 ÷ soma das quatro aberturas" } }
+        data_tests: *faixa_pct_ibge
+      - name: regic_hierarquia_codigo
+        description: >
+          Código do nível na hierarquia urbana da REGIC 2018 (`1A` Grande Metrópole Nacional … `5` Centro Local); NULL sem dado (incremento `enriquecimento_ibge`).
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_hierarquia.codigo_hierarquia`" } }
+      - name: regic_hierarquia
+        description: >
+          Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`).
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_hierarquia.nome_hierarquia`" } }
+      - name: regic_arranjo_populacional
+        description: >
+          Arranjo populacional da REGIC 2018 de que o município faz parte; NULL quando é município isolado (incremento `enriquecimento_ibge`).
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_hierarquia.nome_arranjo_populacional`" } }
+      - name: regic_regiao_influencia
+        description: >
+          Cidade (ou arranjo) de vinculação imediata do município na rede urbana da REGIC 2018 (incremento `enriquecimento_ibge`).
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_hierarquia.regiao_influencia`" } }
+      - name: regic_indice_atracao
+        description: >
+          Índice de atração geral da REGIC 2018 (deslocamentos recebidos de outros municípios); NULL quando o município não é destino de nenhuma ligação (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_atracao.indice_atracao`" } }
+      - name: id_municipio_polo_compras
+        description: >
+          Código IBGE do polo de compras: o destino listado na REGIC 2018 com o maior % dos deslocamentos para comprar móveis e eletroeletrônicos (Q2, a melhor proxy de bem durável e material de construção). O destino "Outros" nunca é polo; empate fica com o menor código; NULL sem ligação com Q2 > 0 (incremento `enriquecimento_ibge`).
+        data_type: varchar
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`int_regic__destinos_compras.id_municipio_destino` com `tema` = `moveis_eletro` e `posto` = 1" } }
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: id_municipio_ibge
+              config: { severity: warn, store_failures: true, meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: nome_municipio_polo_compras
+        description: >
+          Nome do município polo de compras (`id_municipio_polo_compras`); NULL sem polo (incremento `enriquecimento_ibge`).
+        data_type: varchar
+        dimension: categorical
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`int_municipios__conformados.nome_municipio` do polo" } }
+      - name: pct_compras_no_polo
+        description: >
+          % dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo (incremento `enriquecimento_ibge`).
+        data_type: double
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`int_regic__destinos_compras.pct` do polo" } }
+        data_tests: *faixa_pct_ibge
+      - name: ano_cempre
+        description: >
+          Ano de referência do CEMPRE baixado (hoje 2024), diferente do mês da RFB; NULL sem dado (incremento `enriquecimento_ibge`).
+        data_type: integer
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_total.ano` (o mais recente)" } }
+      - name: unidades_locais_cempre
+        description: >
+          Unidades locais de empresas e outras organizações formais no município, todas as atividades (CEMPRE, Total); NULL sem dado (incremento `enriquecimento_ibge`).
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_total.unidades_locais` em `ano_cempre`" } }
+      - name: pessoal_ocupado_cempre
+        description: >
+          Pessoal ocupado total no município, todas as atividades (CEMPRE, Total, 31/12 do ano); NULL sem dado ou com sigilo (incremento `enriquecimento_ibge`).
+        data_type: bigint
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__cempre_municipio_total.pessoal_ocupado` em `ano_cempre`" } }
 
   - name: dim_cnae
     description: >
@@ -1091,6 +1237,181 @@ models:
                 field: sk_municipio
               config: { meta: { escopo: adicao, incremento: enriquecimento_bd }, tags: [escopo_adicao, incremento_enriquecimento_bd] }
 
+  # incremento: enriquecimento_ibge (ADR-0022)
+  - name: int_regic__destinos_compras
+    description: >
+      REGIC 2018 em formato longo (incremento `enriquecimento_ibge`): para cada município de origem,
+      os destinos aonde os moradores vão comprar vestuário e calçados (`vestuario_calcados`, Q1) e
+      móveis e eletroeletrônicos (`moveis_eletro`, Q2), com o % dos deslocamentos (> 0) e o `posto`
+      do destino (1 = principal destino listado; empate fica com o menor código IBGE). O destino
+      "Outros" (lugares não listados) fica com `eh_outros` e sem posto. Base do polo de compras de
+      `dim_municipio` e de `bridge_municipio_destino_compras`.
+    config:
+      meta: { grao: "origem × destino × tema (`id_municipio_origem`, `id_municipio_destino`, `tema`); o destino \"Outros\" tem `id_municipio_destino` NULL", incremento: enriquecimento_ibge }
+      tags: [incremento_enriquecimento_ibge]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_municipio_origem, id_municipio_destino, tema]
+          config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+    columns:
+      - name: id_municipio_origem
+        description: Código IBGE do município de origem dos deslocamentos.
+      - name: id_municipio_destino
+        description: Código IBGE do destino; NULL no destino "Outros".
+      - name: eh_outros
+        description: true no destino "Outros / Não circula jornal" (lugares não listados na REGIC).
+      - name: tema
+        description: "`vestuario_calcados` (Q1) ou `moveis_eletro` (Q2)."
+        data_tests:
+          - accepted_values:
+              arguments: { values: [vestuario_calcados, moveis_eletro] }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: pct
+        description: "% dos deslocamentos da origem que vão ao destino no tema (0–100, > 0)."
+      - name: posto
+        description: Posição do destino entre os listados da origem no tema (1 = maior %, empate pelo menor código); NULL no destino "Outros".
+
+  - name: int_municipios__perfil_ibge
+    description: >
+      Perfil do município com as fontes do IBGE (incremento `enriquecimento_ibge`, ADR-0022), uma
+      linha por município de `int_municipios__conformados`: renda do Censo 2022, valor adicionado
+      por atividade (`ano_va` próprio, independente de `ano_pib`), hierarquia urbana, índice de
+      atração e polo de compras (REGIC 2018) e o total do CEMPRE. NULL onde a fonte não tem o
+      município ou está vazia (modo offline sem `ibge/`). Base das colunas novas de `dim_municipio`.
+    config:
+      meta: { grao: "município IBGE (`id_municipio_ibge`)", incremento: enriquecimento_ibge }
+      tags: [incremento_enriquecimento_ibge]
+    columns:
+      - name: id_municipio_ibge
+        description: Código IBGE do município (7 dígitos).
+        data_tests:
+          - unique:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: renda_per_capita_media_2022
+        description: Rendimento domiciliar per capita médio (R$) do Censo 2022.
+      - name: renda_per_capita_mediana_2022
+        description: Rendimento domiciliar per capita mediano (R$) do Censo 2022.
+      - name: moradores_renda_2022
+        description: Moradores (base da renda per capita) do Censo 2022.
+      - name: ano_va
+        description: Último ano com as quatro aberturas do VA preenchidas.
+      - name: va_agropecuaria
+        description: VA da agropecuária em `ano_va`.
+      - name: va_industria
+        description: VA da indústria em `ano_va`.
+      - name: va_servicos
+        description: VA dos serviços (exceto administração pública) em `ano_va`.
+      - name: va_adm_publica
+        description: VA da administração, defesa, educação e saúde públicas e seguridade social em `ano_va`.
+      - name: pct_va_agropecuaria
+        description: Participação da agropecuária na soma das quatro aberturas (0–100).
+      - name: pct_va_industria
+        description: Participação da indústria na soma das quatro aberturas (0–100).
+      - name: pct_va_servicos
+        description: Participação dos serviços na soma das quatro aberturas (0–100).
+      - name: pct_va_adm_publica
+        description: Participação da administração pública na soma das quatro aberturas (0–100).
+      - name: regic_hierarquia_codigo
+        description: Código do nível da hierarquia urbana (REGIC 2018).
+      - name: regic_hierarquia
+        description: Nome do nível da hierarquia urbana (REGIC 2018).
+      - name: regic_arranjo_populacional
+        description: Arranjo populacional do município (REGIC 2018); NULL se isolado.
+      - name: regic_regiao_influencia
+        description: Vinculação imediata do município na rede urbana (REGIC 2018).
+      - name: regic_indice_atracao
+        description: Índice de atração geral (REGIC 2018); NULL se não é destino.
+      - name: id_municipio_polo_compras
+        description: Código IBGE do polo de compras (maior Q2 entre os destinos listados).
+      - name: nome_municipio_polo_compras
+        description: Nome do polo de compras.
+      - name: pct_compras_no_polo
+        description: "% dos deslocamentos para móveis e eletroeletrônicos (Q2) que vão ao polo."
+      - name: ano_cempre
+        description: Ano do CEMPRE (o mais recente baixado).
+      - name: unidades_locais_cempre
+        description: Unidades locais, todas as atividades (CEMPRE, Total).
+      - name: pessoal_ocupado_cempre
+        description: Pessoal ocupado total, todas as atividades (CEMPRE, Total).
+
+  - name: bridge_municipio_destino_compras
+    description: >
+      Para onde os moradores de cada município vão comprar (incremento `enriquecimento_ibge`,
+      ADR-0022), da REGIC 2018, em tabela longa: grão = origem × destino × tema, nos temas de
+      compra `vestuario_calcados` (Q1) e `moveis_eletro` (Q2), só ligações com % > 0. `posto` 1 é o
+      principal destino listado da origem no tema. O destino "Outros" (lugares não listados) é a
+      linha com `sk_municipio_destino` = -1 e `eh_outros`, sem posto: com ela a soma de `pct` por
+      origem e tema bate ~100 (teste `destino_compras_soma_100`, warn). A REGIC é de 2018: municípios criados depois não aparecem como origem.
+      Parquet em `gold/bridge_municipio_destino_compras.parquet`; opcional no BI.
+    config:
+      meta: { grao: "origem × destino × tema (`sk_municipio_origem`, `sk_municipio_destino`, `tema`)", incremento: enriquecimento_ibge }
+      contract:
+        enforced: true
+      tags: [incremento_enriquecimento_ibge]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sk_municipio_origem, sk_municipio_destino, tema]
+          config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+    columns:
+      - name: sk_municipio_origem
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.sk_municipio` da origem (`stg_ibge__regic_ligacoes.id_municipio_origem`)", membro_desconhecido: false } }
+        description: >
+          Município de origem dos deslocamentos; FK para `dim_municipio.sk_municipio`. Sem `-1`: origem fora de `dim_municipio` fica de fora.
+        data_type: integer
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: sk_municipio_destino
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`dim_municipio.sk_municipio` do destino (`stg_ibge__regic_ligacoes.id_municipio_destino`); `-1` no destino \"Outros\"" } }
+        description: >
+          Município de destino; FK para `dim_municipio.sk_municipio`. `-1` no destino "Outros" (lugares não listados, `eh_outros`).
+        data_type: integer
+        data_tests:
+          - not_null:
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+          - relationships:
+              arguments:
+                to: ref('dim_municipio')
+                field: sk_municipio
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: eh_outros
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_ligacoes.destino_outros`" } }
+        description: >
+          true na linha do destino "Outros / Não circula jornal" da REGIC: a parcela dos deslocamentos para lugares não listados.
+        data_type: boolean
+      - name: tema
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "coluna Q1 (`vestuario_calcados`) ou Q2 (`moveis_eletro`) de `stg_ibge__regic_ligacoes`" } }
+        description: >
+          Tema de compra do questionário da REGIC: `vestuario_calcados` (Q1, vestuário e calçados) ou `moveis_eletro` (Q2, móveis e eletroeletrônicos).
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments: { values: [vestuario_calcados, moveis_eletro] }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: pct
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_ligacoes.pct_vestuario_calcados` ou `.pct_moveis_eletro`" } }
+        description: >
+          % dos deslocamentos da origem para comprar no tema que vão a este destino (0–100).
+        data_type: double
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0, max_value: 100, inclusive: true }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+      - name: posto
+        config: { meta: { incremento: enriquecimento_ibge, linhagem: "ordem de `pct` decrescente entre os destinos listados da origem no tema (empate: menor código IBGE)" } }
+        description: >
+          Posição do destino entre os listados da origem no tema (1 = principal destino, o polo em `moveis_eletro`); NULL no destino "Outros".
+        data_type: bigint
+
 unit_tests:
   - name: test_int_municipios_conformados_ano_mais_recente
     description: "CORE-01: sem a var `ano_populacao`, usa o último ano de população (2024: 20000, não 2023: 19000); PIB do último ano."
@@ -1146,6 +1467,8 @@ unit_tests:
       - input: ref('stg_bd__censo_2022_municipio')
         rows: []
       - input: ref('stg_bd__regioes_metropolitanas')
+        rows: []
+      - input: ref('int_municipios__perfil_ibge')  # incremento: enriquecimento_ibge
         rows: []
     expect:
       rows:
@@ -1381,8 +1704,108 @@ unit_tests:
       - input: ref('stg_bd__regioes_metropolitanas')
         rows:
           - { id_municipio: "3202207", nome_regiao_metropolitana: "RM Grande Vitória" }
+      - input: ref('int_municipios__perfil_ibge')  # incremento: enriquecimento_ibge
+        rows: []
     expect:
       rows:
         - { sk_municipio: 3202207, populacao_censo_2022: 17951, domicilios_2022: 6715, area_km2: 287.0, densidade_hab_km2: 62.55, taxa_alfabetizacao: 0.93371, idade_mediana: 37.0, razao_sexo: 97.67, indice_envelhecimento: 67.68, nome_regiao_metropolitana: "RM Grande Vitória" }
         - { sk_municipio: 3203205, populacao_censo_2022: null, domicilios_2022: null, area_km2: null, densidade_hab_km2: null, taxa_alfabetizacao: null, idade_mediana: null, razao_sexo: null, indice_envelhecimento: null, nome_regiao_metropolitana: "NÃO PERTENCE" }
         - { sk_municipio: -1, populacao_censo_2022: null, domicilios_2022: null, area_km2: null, densidade_hab_km2: null, taxa_alfabetizacao: null, idade_mediana: null, razao_sexo: null, indice_envelhecimento: null, nome_regiao_metropolitana: "NÃO INFORMADO" }
+
+  # incremento: enriquecimento_ibge (ADR-0022)
+  - name: test_int_regic_destinos_compras_posto_empate_e_outros
+    description: >
+      Formato longo da REGIC nos temas Q1 e Q2: ligação com % 0 sai; em Q2, B e C empatam em 40 e o
+      posto 1 fica com o menor código (B); "Outros" (60 em Q1, maior que todos) fica sem posto, e o
+      posto 1 de Q1 é o maior destino listado (C). Os demais temas (Q3…) não entram.
+    model: int_regic__destinos_compras
+    config:
+      meta: { incremento: enriquecimento_ibge }
+      tags: [incremento_enriquecimento_ibge]
+    given:
+      - input: ref('stg_ibge__regic_ligacoes')
+        rows:
+          - { id_municipio_origem: "A", id_municipio_destino: "C", destino_outros: false, pct_vestuario_calcados: 30.0, pct_moveis_eletro: 40.0, pct_saude_baixa_media_complexidade: 90.0 }
+          - { id_municipio_origem: "A", id_municipio_destino: "B", destino_outros: false, pct_vestuario_calcados: 10.0, pct_moveis_eletro: 40.0 }
+          - { id_municipio_origem: "A", id_municipio_destino: "D", destino_outros: false, pct_vestuario_calcados: 0.0, pct_moveis_eletro: 0.0 }
+          - { id_municipio_origem: "A", id_municipio_destino: null, destino_outros: true, pct_vestuario_calcados: 60.0, pct_moveis_eletro: 20.0 }
+    expect:
+      rows:
+        - { id_municipio_origem: "A", id_municipio_destino: "C", eh_outros: false, tema: "vestuario_calcados", pct: 30.0, posto: 1 }
+        - { id_municipio_origem: "A", id_municipio_destino: "B", eh_outros: false, tema: "vestuario_calcados", pct: 10.0, posto: 2 }
+        - { id_municipio_origem: "A", id_municipio_destino: null, eh_outros: true, tema: "vestuario_calcados", pct: 60.0, posto: null }
+        - { id_municipio_origem: "A", id_municipio_destino: "B", eh_outros: false, tema: "moveis_eletro", pct: 40.0, posto: 1 }
+        - { id_municipio_origem: "A", id_municipio_destino: "C", eh_outros: false, tema: "moveis_eletro", pct: 40.0, posto: 2 }
+        - { id_municipio_origem: "A", id_municipio_destino: null, eh_outros: true, tema: "moveis_eletro", pct: 20.0, posto: null }
+
+  - name: test_int_municipios_perfil_ibge_polo_va_e_fontes
+    description: >
+      Polo de compras = posto 1 em móveis e eletroeletrônicos (Q2), não em vestuário (Q1): Fundão
+      compra móveis em Serra (45) e roupa em Vitória (60). Sem ligação (Linhares), polo NULL. `ano_va`
+      = 2021, o último ano com as quatro aberturas, mesmo com PIB total de 2023 (independente de
+      `ano_pib`); participações sobre a soma das aberturas. Renda, REGIC e CEMPRE (ano mais recente)
+      passam; município sem fonte fica NULL.
+    model: int_municipios__perfil_ibge
+    config:
+      meta: { incremento: enriquecimento_ibge }
+      tags: [incremento_enriquecimento_ibge]
+    given:
+      - input: ref('int_municipios__conformados')
+        rows:
+          - { id_municipio_ibge: "3202207", nome_municipio: "Fundão" }
+          - { id_municipio_ibge: "3203205", nome_municipio: "Linhares" }
+          - { id_municipio_ibge: "3205002", nome_municipio: "Serra" }
+          - { id_municipio_ibge: "3205309", nome_municipio: "Vitória" }
+      - input: ref('stg_bd__pib')
+        rows:
+          - { id_municipio: "3202207", ano: 2021, pib: 900.0, va_agropecuaria: 50.0, va_industria: 150.0, va_servicos: 200.0, va_adespss: 100.0 }
+          - { id_municipio: "3202207", ano: 2023, pib: 1000.0, va_agropecuaria: null, va_industria: null, va_servicos: null, va_adespss: null }
+      - input: ref('int_regic__destinos_compras')
+        rows:
+          - { id_municipio_origem: "3202207", id_municipio_destino: "3205002", eh_outros: false, tema: "moveis_eletro", pct: 45.0, posto: 1 }
+          - { id_municipio_origem: "3202207", id_municipio_destino: "3205309", eh_outros: false, tema: "moveis_eletro", pct: 38.33, posto: 2 }
+          - { id_municipio_origem: "3202207", id_municipio_destino: "3205309", eh_outros: false, tema: "vestuario_calcados", pct: 60.0, posto: 1 }
+          - { id_municipio_origem: "3202207", id_municipio_destino: "3205002", eh_outros: false, tema: "vestuario_calcados", pct: 40.0, posto: 2 }
+      - input: ref('stg_ibge__cempre_municipio_total')
+        rows:
+          - { id_municipio: "3202207", ano: 2023, unidades_locais: 1000, pessoal_ocupado: 5000 }
+          - { id_municipio: "3202207", ano: 2024, unidades_locais: 1054, pessoal_ocupado: 5125 }
+      - input: ref('stg_ibge__renda_municipio')
+        rows:
+          - { id_municipio: "3202207", ano: 2022, moradores: 17961, renda_per_capita_media: 1406.78, renda_per_capita_mediana: 1040.00 }
+      - input: ref('stg_ibge__regic_hierarquia')
+        rows:
+          - { id_municipio: "3202207", codigo_hierarquia: "1C", nome_hierarquia: "Metrópole", nome_arranjo_populacional: "Arranjo Populacional de Vitória/ES", regiao_influencia: "Arranjo Populacional de Vitória/ES - Metrópole (1C)" }
+      - input: ref('stg_ibge__regic_atracao')
+        rows:
+          - { id_municipio: "3205002", indice_atracao: 120.5 }
+    expect:
+      rows:
+        - { id_municipio_ibge: "3202207", renda_per_capita_media_2022: 1406.78, renda_per_capita_mediana_2022: 1040.00, moradores_renda_2022: 17961, ano_va: 2021, va_servicos: 200.0, va_adm_publica: 100.0, pct_va_agropecuaria: 10.0, pct_va_industria: 30.0, pct_va_servicos: 40.0, pct_va_adm_publica: 20.0, regic_hierarquia_codigo: "1C", regic_hierarquia: "Metrópole", regic_arranjo_populacional: "Arranjo Populacional de Vitória/ES", regic_indice_atracao: null, id_municipio_polo_compras: "3205002", nome_municipio_polo_compras: "Serra", pct_compras_no_polo: 45.0, ano_cempre: 2024, unidades_locais_cempre: 1054, pessoal_ocupado_cempre: 5125 }
+        - { id_municipio_ibge: "3203205", renda_per_capita_media_2022: null, renda_per_capita_mediana_2022: null, moradores_renda_2022: null, ano_va: null, va_servicos: null, va_adm_publica: null, pct_va_agropecuaria: null, pct_va_industria: null, pct_va_servicos: null, pct_va_adm_publica: null, regic_hierarquia_codigo: null, regic_hierarquia: null, regic_arranjo_populacional: null, regic_indice_atracao: null, id_municipio_polo_compras: null, nome_municipio_polo_compras: null, pct_compras_no_polo: null, ano_cempre: null, unidades_locais_cempre: null, pessoal_ocupado_cempre: null }
+        - { id_municipio_ibge: "3205002", renda_per_capita_media_2022: null, renda_per_capita_mediana_2022: null, moradores_renda_2022: null, ano_va: null, va_servicos: null, va_adm_publica: null, pct_va_agropecuaria: null, pct_va_industria: null, pct_va_servicos: null, pct_va_adm_publica: null, regic_hierarquia_codigo: null, regic_hierarquia: null, regic_arranjo_populacional: null, regic_indice_atracao: 120.5, id_municipio_polo_compras: null, nome_municipio_polo_compras: null, pct_compras_no_polo: null, ano_cempre: null, unidades_locais_cempre: null, pessoal_ocupado_cempre: null }
+        - { id_municipio_ibge: "3205309", renda_per_capita_media_2022: null, renda_per_capita_mediana_2022: null, moradores_renda_2022: null, ano_va: null, va_servicos: null, va_adm_publica: null, pct_va_agropecuaria: null, pct_va_industria: null, pct_va_servicos: null, pct_va_adm_publica: null, regic_hierarquia_codigo: null, regic_hierarquia: null, regic_arranjo_populacional: null, regic_indice_atracao: null, id_municipio_polo_compras: null, nome_municipio_polo_compras: null, pct_compras_no_polo: null, ano_cempre: null, unidades_locais_cempre: null, pessoal_ocupado_cempre: null }
+
+  - name: test_bridge_municipio_destino_compras_outros_e_chaves
+    description: >
+      O destino "Outros" vira `sk_municipio_destino` = -1 com `eh_outros` e sem posto; origem fora de
+      `dim_municipio` sai; posto e % passam.
+    model: bridge_municipio_destino_compras
+    config:
+      meta: { incremento: enriquecimento_ibge }
+      tags: [incremento_enriquecimento_ibge]
+    given:
+      - input: ref('int_regic__destinos_compras')
+        rows:
+          - { id_municipio_origem: "A", id_municipio_destino: "B", eh_outros: false, tema: "moveis_eletro", pct: 70.0, posto: 1 }
+          - { id_municipio_origem: "A", id_municipio_destino: null, eh_outros: true, tema: "moveis_eletro", pct: 30.0, posto: null }
+          - { id_municipio_origem: "Z", id_municipio_destino: "B", eh_outros: false, tema: "moveis_eletro", pct: 100.0, posto: 1 }
+      - input: ref('dim_municipio')
+        rows:
+          - { sk_municipio: 1, id_municipio_ibge: "A" }
+          - { sk_municipio: 2, id_municipio_ibge: "B" }
+          - { sk_municipio: -1, id_municipio_ibge: "-1" }
+    expect:
+      rows:
+        - { sk_municipio_origem: 1, sk_municipio_destino: 2, eh_outros: false, tema: "moveis_eletro", pct: 70.0, posto: 1 }
+        - { sk_municipio_origem: 1, sk_municipio_destino: -1, eh_outros: true, tema: "moveis_eletro", pct: 30.0, posto: null }
