@@ -1,8 +1,8 @@
 """Incremento `enriquecimento_ibge` (ADR-0022) contra as fixtures do `make ci` (mês 2026-09).
 
-`dim_municipio` com renda, VA, REGIC, polo de compras e CEMPRE; a ponte de destinos de compra; o mart
-CEMPRE × RFB; as colunas do polo na área de mercado; a RN-30 coerente com o mart; as analyses do caso e
-dos cenários de uso (docs/CENARIOS_DE_USO.md) e a seção nova do relatório do caso.
+`dim_municipio` com renda, VA, REGIC, polo de compras e CEMPRE; a ponte de destinos de compra; o
+mart CEMPRE × RFB; as colunas do polo na área de mercado; a RN-30 coerente com o mart; as analyses
+do caso e dos cenários de uso (docs/CENARIOS_DE_USO.md) e a seção nova do relatório do caso.
 
 incremento: enriquecimento_ibge
 """
@@ -150,7 +150,8 @@ def test_rn30_avalia_os_pares_do_mart_e_viola_onde_ele_diz(consultar) -> None:
 
 # ------------------------------------------------------------------------------- analyses
 
-# (analysis, colunas, uma linha esperada) — números das fixtures do `make ci`
+# (analysis, colunas, uma linha esperada) — números das fixtures do `make ci`; as linhas por
+# analysis ficam em LINHAS
 ANALISES = {
     "estudo_caso_enriquecimento_ibge": (
         ["ordem", "escopo", "municipio", "regic_hierarquia", "renda_per_capita_media_2022",
@@ -190,6 +191,13 @@ ANALISES = {
 }  # fmt: skip
 
 
+LINHAS = {
+    "estudo_caso_enriquecimento_ibge": 3, "cenario_renda_concorrencia": 2,
+    "cenario_polo_compras_evasao": 2, "cenario_tamanho_setor_cempre": 5,
+    "cenario_perfil_economico_va": 5, "cenario_hierarquia_urbana": 5,
+}  # fmt: skip
+
+
 @pytest.fixture(scope="module")
 def resultados() -> dict:
     sqls = compilar_analises(DIR_TRANSFORM, _raiz(), "ci", padrao="*.sql")
@@ -209,6 +217,7 @@ def test_analise_roda_nas_fixtures_com_as_colunas_e_a_linha_esperadas(
     esperadas, linha = ANALISES[analise]
     assert colunas == esperadas
     assert linha in [_normalizar(x) for x in linhas]
+    assert len(linhas) == LINHAS[analise]
 
 
 @pytest.mark.parametrize("analise", sorted(ANALISES))
@@ -225,7 +234,8 @@ def test_relatorio_do_caso_traz_a_secao_do_ibge(tmp_path: Path) -> None:
     assert main(["relatorio", "--saida", str(destino), "--target", "ci"]) == 0
     texto = destino.read_text(encoding="utf-8")
     assert "## Enriquecimento com o IBGE (renda, rede urbana e CEMPRE)" in texto
-    assert "| município do caso | Fundão | Metrópole | 1406,78 | 1040,00 | Serra | 45,00 | 1 |" in texto
+    caso = "| município do caso | Fundão | Metrópole | 1406,78 | 1040,00 | Serra | 45,00 | 1 |"
+    assert caso in texto
     assert (
         "os moradores de Fundão/ES vão principalmente a **Serra** (45,0 % desses "
         "deslocamentos), onde há **1** ativo do CNAE 4741500."
@@ -240,11 +250,11 @@ def test_relatorio_do_caso_traz_a_secao_do_ibge(tmp_path: Path) -> None:
 def test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Condição da v1.4 ser minor: um espelho `--origem-local` da v1.3 (sem `ibge/`) segue funcionando.
+    """Condição da v1.4 ser minor: um espelho `--origem-local` da v1.3 (sem `ibge/`) funciona.
 
-    dbt real num `RAIZ_DADOS` temporário (target e logs do dbt também temporários, para não tocar no
-    `transform/target` do `make ci`). As colunas do IBGE saem NULL, a ponte sai vazia, o mart CEMPRE ×
-    RFB só tem os pares da RFB e a RN-30 avalia esses pares sem violação; o relatório do caso sai.
+    dbt real num `RAIZ_DADOS` temporário (target e logs do dbt também temporários, para não tocar
+    no `transform/target` do `make ci`). As colunas do IBGE saem NULL, a ponte sai vazia, o mart
+    CEMPRE × RFB só tem os pares da RFB e a RN-30 os avalia sem violação; o relatório do caso sai.
     """
     import shutil
 
@@ -260,7 +270,9 @@ def test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold(
     monkeypatch.setenv("DBT_LOG_PATH", str(tmp_path / "logs"))
 
     argumentos = ["--origem-local", str(origem), "--permitir-incompleto", "--target", "ci"]
-    codigo = main(["pipeline", *argumentos, "--sem-publicar", "--sem-relatorio", "--mes", "2026-09"])
+    codigo = main(
+        ["pipeline", *argumentos, "--sem-publicar", "--sem-relatorio", "--mes", "2026-09"]
+    )
 
     assert codigo == 0
     assert capsys.readouterr().out.count("AVISO") == 6  # as seis tabelas IBGE, publicadas vazias
@@ -276,8 +288,8 @@ def test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold(
         "select count(*), count(renda_per_capita_media_2022), count(regic_hierarquia), "
         "count(id_municipio_polo_compras), count(unidades_locais_cempre), count(ano_va) "
         "from '{gold}/dim_municipio.parquet'"
-    ) == [(9, 0, 0, 0, 0, 1 * 8)]  # o VA vem da Base dos Dados, não do IBGE direto
-    # relação vazia: o dbt-duckdb grava uma linha toda NULL no Parquet (a view do warehouse a filtra)
+    ) == [(9, 0, 0, 0, 0, 8)]  # o VA vem da Base dos Dados, não do IBGE direto
+    # relação vazia: o dbt-duckdb grava uma linha toda NULL no Parquet (a view do warehouse filtra)
     assert consultar(
         "select count(sk_municipio_origem) from '{gold}/bridge_municipio_destino_compras.parquet'"
     ) == [(0,)]
@@ -306,9 +318,7 @@ def test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold(
     caso = _como_dict(
         executar_analises(
             raiz / "warehouse.duckdb",
-            {
-                "c": compilar_analises(DIR_TRANSFORM, raiz, "ci")["estudo_caso_enriquecimento_ibge"]
-            },
+            {"c": compilar_analises(DIR_TRANSFORM, raiz, "ci")["estudo_caso_enriquecimento_ibge"]},
         )["c"]
     )
     assert [r["escopo"] for r in caso] == ["município do caso", "UF"]
