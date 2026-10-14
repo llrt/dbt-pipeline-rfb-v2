@@ -377,3 +377,60 @@ def test_origem_local_converte_tudo_e_pula_arquivos_iguais(tmp_path: Path, capsy
     ingerir_ibge(configuracao, ingerido_em=INGERIDO_EM, origem_local=tmp_path / "fx")
     saida = capsys.readouterr().out
     assert saida.count("pulada (arquivo local sem mudanças)") == len(TABELAS_IBGE)
+
+
+# incremento: enriquecimento_ibge — compatibilidade do modo offline (espelho sem `ibge/`, v1.3)
+def test_origem_local_sem_ibge_avisa_e_publica_raw_vazio_com_o_esquema(
+    tmp_path: Path, capsys
+) -> None:
+    origem = tmp_path / "espelho-v1.3"
+    origem.mkdir()
+    raiz = tmp_path / "dados"
+
+    entradas = ingerir_ibge(_configuracao(raiz), ingerido_em=INGERIDO_EM, origem_local=origem)
+
+    assert entradas == ()  # nada no manifesto: a próxima execução com os arquivos converte tudo
+    saida = capsys.readouterr().out
+    assert saida.count("AVISO") == len(TABELAS_IBGE)
+    for nome, tabela in TABELAS_IBGE.items():
+        caminho = raiz / "raw" / "ibge" / nome / f"{nome}.parquet"
+        colunas = duckdb.sql(f"describe select * from '{caminho}'").fetchall()
+        assert [c[0] for c in colunas] == [*tabela.colunas, "_arquivo_origem", "_ingerido_em"]
+        assert {c[1] for c in colunas[:-1]} == {"VARCHAR"}
+        assert colunas[-1][1] == "TIMESTAMP"
+        assert _raw(raiz, nome) == []
+
+
+def test_origem_local_sem_um_arquivo_mantem_o_raw_existente_e_converte_os_demais(
+    tmp_path: Path, capsys
+) -> None:
+    gerar_fixtures.gerar_fixtures(tmp_path / "fx")
+    raiz = tmp_path / "dados"
+    configuracao = _configuracao(raiz)
+    ingerir_ibge(configuracao, ingerido_em=INGERIDO_EM, origem_local=tmp_path / "fx")
+    antes = _raw(raiz, "renda_censo_2022_municipio")
+    (tmp_path / "fx" / "ibge" / "renda_censo_2022_municipio.json").unlink()
+    (tmp_path / "fx" / "ibge" / "REGIC2018_Municipios_Hierarquia_e_regiao.xlsx").unlink()
+    capsys.readouterr()
+
+    entradas = ingerir_ibge(configuracao, ingerido_em=INGERIDO_EM, origem_local=tmp_path / "fx")
+
+    saida = capsys.readouterr().out
+    assert "ibge.renda_censo_2022_municipio: AVISO" in saida
+    assert "mantido o raw existente" in saida
+    assert saida.count("AVISO") == 2
+    assert saida.count("pulada (arquivo local sem mudanças)") == len(TABELAS_IBGE) - 2
+    assert _raw(raiz, "renda_censo_2022_municipio") == antes
+    assert sorted(e.tabela for e in entradas) == sorted(TABELAS_IBGE)  # o manifesto anterior fica
+
+
+def test_colunas_do_esquema_ibge_batem_com_a_fonte_dbt() -> None:
+    import yaml
+
+    fonte = Path(__file__).resolve().parents[2] / "transform/models/staging/ibge/_ibge__sources.yml"
+    (ibge,) = yaml.safe_load(fonte.read_text(encoding="utf-8"))["sources"]
+    declaradas = {
+        t["name"]: tuple(c["name"] for c in t["columns"] if not c["name"].startswith("_"))
+        for t in ibge["tables"]
+    }
+    assert declaradas == {nome: t.colunas for nome, t in TABELAS_IBGE.items()}

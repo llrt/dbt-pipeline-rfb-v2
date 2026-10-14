@@ -43,7 +43,10 @@ para saber se saiu um ano novo.
 - `REGIC2018_Municipios_Hierarquia_e_regiao.xlsx` e
   `REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip`, como publicados no geoftp.
 
-Com origem local, uma tabela só é reconvertida se o sha256 do arquivo mudar.
+Com origem local, uma tabela só é reconvertida se o sha256 do arquivo mudar. Arquivo ausente (por
+exemplo, um espelho offline anterior ao incremento, sem `ibge/`) não é erro: a ingestão avisa e
+segue, e a tabela fica no raw só com o esquema (Parquet vazio), salvo se já existir lá. O dbt
+constrói tudo com as colunas do IBGE NULL (compatibilidade da v1.4 com a v1.3, docs/OPERACAO.md).
 """
 
 from __future__ import annotations
@@ -84,6 +87,7 @@ from rfb_pipeline.erros import (
     SidraErro,
     SidraLimiteExcedidoErro,
 )
+from rfb_pipeline.esquemas import TABELAS_IBGE
 from rfb_pipeline.manifesto import sha256_arquivo
 
 __all__ = [
@@ -484,6 +488,44 @@ class _Ingestao:
         assert self.origem_local is not None
         return self.origem_local / "ibge" / nome
 
+    def _ausente_local(self, tabela: str, arquivo: Path) -> bool:
+        """Modo offline sem o arquivo da tabela: avisa, garante o raw vazio e devolve True.
+
+        Compatibilidade com espelhos offline anteriores ao incremento (sem `ibge/`): a ingestão
+        segue e o dbt constrói tudo, com as colunas do IBGE NULL. Um raw já existente fica como
+        está.
+        """
+        if self.origem_local is None or arquivo.is_file():
+            return False
+        final = _parquet_final(self.configuracao, tabela)
+        if final.exists():
+            print(f"ibge.{tabela}: AVISO {arquivo} ausente; mantido o raw existente", flush=True)
+            return True
+        self._publicar_vazia(tabela)
+        print(
+            f"ibge.{tabela}: AVISO {arquivo} ausente; publicada vazia (só o esquema), "
+            "as colunas do IBGE ficam NULL",
+            flush=True,
+        )
+        return True
+
+    def _publicar_vazia(self, tabela: str) -> None:
+        """Grava `raw/ibge/<tabela>/<tabela>.parquet` só com o cabeçalho (all-VARCHAR, ADR-0002)."""
+        final = _parquet_final(self.configuracao, tabela)
+        final.parent.parent.mkdir(parents=True, exist_ok=True)
+        tmp_dir = _dir_temporario(final.parent)
+        colunas = ", ".join(f"NULL::VARCHAR AS {coluna}" for coluna in TABELAS_IBGE[tabela].colunas)
+        try:
+            with duckdb.connect() as con:
+                con.execute(
+                    f"COPY (SELECT {colunas}, NULL::VARCHAR AS _arquivo_origem, "
+                    f"NULL::TIMESTAMP AS _ingerido_em LIMIT 0) "
+                    f"TO {_literal(str(tmp_dir / final.name))} (FORMAT parquet)"
+                )
+            _publicar(tmp_dir, final.parent)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
     def _pular(self, tabela: str, motivo: str) -> None:
         entrada = self.anteriores[tabela]
         self.entradas[tabela] = entrada
@@ -560,11 +602,16 @@ class _Ingestao:
 
         return self._publicar_parquet(tabela, gravar)
 
-    def categorias_cempre(self) -> tuple[str, list[dict]]:
-        """Período do CEMPRE e as categorias CNAE (com nomes); grava `cempre_categorias_cnae`."""
+    def categorias_cempre(self) -> tuple[str | None, list[dict]]:
+        """Período do CEMPRE e as categorias CNAE (com nomes); grava `cempre_categorias_cnae`.
+
+        Offline sem o arquivo: `(None, [])` (o CEMPRE municipal offline não usa o período).
+        """
         tabela = "cempre_categorias_cnae"
         inicio = time.monotonic()
         if self.origem_local is not None:
+            if self._ausente_local(tabela, self._local(f"{tabela}.json")):
+                return None, []
             arquivo, dados, sha = self._sidra_local(tabela)
             periodo = _periodo_unico(dados, "D3C", str(arquivo))
             if not self.renovar and _reaproveitavel(
@@ -606,10 +653,12 @@ class _Ingestao:
         self._registrar(entrada, inicio)
         return periodo, dados
 
-    def cempre_municipio(self, periodo: str, categorias: list[dict]) -> None:
+    def cempre_municipio(self, periodo: str | None, categorias: list[dict]) -> None:
         tabela = "cempre_municipio_cnae"
         inicio = time.monotonic()
         if self.origem_local is not None:
+            if self._ausente_local(tabela, self._local(f"{tabela}.json")):
+                return
             arquivo, dados, sha = self._sidra_local(tabela)
             if not self.renovar and _reaproveitavel(
                 self.configuracao, self.anteriores.get(tabela), sha256=sha
@@ -627,6 +676,7 @@ class _Ingestao:
             self._registrar(entrada, inicio)
             return
 
+        assert periodo is not None  # na rede, `categorias_cempre` sempre devolve o período
         if not self.renovar and _reaproveitavel(
             self.configuracao, self.anteriores.get(tabela), periodo=periodo
         ):
@@ -729,6 +779,8 @@ class _Ingestao:
         tabela = "renda_censo_2022_municipio"
         inicio = time.monotonic()
         if self.origem_local is not None:
+            if self._ausente_local(tabela, self._local(f"{tabela}.json")):
+                return
             arquivo, dados, sha = self._sidra_local(tabela)
             if not self.renovar and _reaproveitavel(
                 self.configuracao, self.anteriores.get(tabela), sha256=sha
@@ -810,6 +862,8 @@ class _Ingestao:
                 sha = sha256_arquivo(arquivo)
                 origem = self.configuracao.regic_base_url + planilha.arquivo
             else:
+                if self._ausente_local(tabela, self._local(planilha.arquivo)):
+                    continue
                 arquivo = self._arquivo_regic(planilha.arquivo, obtidos)
                 sha = sha256_arquivo(arquivo)
                 origem = str(arquivo)
