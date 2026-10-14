@@ -74,10 +74,14 @@ acima; pirâmide etária e diretório de CEP ficam sem plano.
 **Licenças e termos de uso** (conferidos em 2026-10-14).
 
 - O IBGE é fundação pública do Poder Executivo federal. O Decreto nº 8.777/2016, que institui a Política de Dados
-  Abertos do Poder Executivo federal, diz no art. 4º: "Os dados disponibilizados pelo Poder Executivo federal, bem
-  como qualquer informação de transparência ativa, são de livre utilização pelo Governo federal e pela
-  sociedade", e define dados abertos (art. 2º, III) como os que permitem "livre utilização, consumo ou cruzamento,
-  limitando-se a creditar a autoria ou a fonte". [Planalto](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8777.htm).
+  Abertos do Poder Executivo federal, diz no art. 4º, na redação dada pelo Decreto nº 9.903/2019: "Os dados
+  disponibilizados pelo Poder Executivo federal e as informações de transparência ativa são de livre utilização
+  pelos Poderes Públicos e pela sociedade", e define dados abertos (art. 2º, III) como os que permitem "livre
+  utilização, consumo ou cruzamento, limitando-se a creditar a autoria ou a fonte". O § 1º do art. 4º (incluído
+  pelo mesmo decreto) autoriza o uso gratuito das bases cujo detentor de direitos autorais patrimoniais seja a
+  **União**; o IBGE é fundação, com personalidade jurídica própria, e fica fora dele, mas o caput basta: os dados
+  são do Poder Executivo federal. Texto vigente conferido no
+  [Planalto](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8777.htm) em 2026-10-14.
 - As publicações do IBGE trazem "© IBGE" (por exemplo, a REGIC 2018) e não citam uma licença aberta nomeada; não
   achamos, no portal do IBGE, um termo específico de uso dos dados (o "Termo de Uso e Política de Privacidade" do
   portal trata de dados pessoais). O projeto credita a fonte em cada tabela (`docs/DICIONARIO_DADOS.md`, fontes dbt
