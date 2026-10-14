@@ -67,14 +67,17 @@ import time
 import unicodedata
 import urllib.parse
 import uuid
+import zipfile
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 import duckdb
 import httpx
 import openpyxl
+from openpyxl.utils.exceptions import InvalidFileException
 
 from rfb_pipeline.cliente_rfb import _recuo_s, _verificar_host_permitido, baixar_com_retentativas
 from rfb_pipeline.configuracao import Configuracao
@@ -93,6 +96,7 @@ from rfb_pipeline.erros import (
     PlanilhaIBGEErro,
     SidraErro,
     SidraLimiteExcedidoErro,
+    ZipCorrompidoErro,
 )
 from rfb_pipeline.esquemas import TABELAS_IBGE
 from rfb_pipeline.manifesto import sha256_arquivo
@@ -321,6 +325,18 @@ def _texto_celula(valor: object) -> str | None:
     return str(valor)
 
 
+# Arquivo que não é um xlsx legível (página HTML de erro salva com status 200, zip sem as partes do
+# Office, XML truncado): o openpyxl levanta estes ao abrir ou ao ler as linhas. Viram
+# `PlanilhaIBGEErro` só em volta das chamadas ao openpyxl, para o mês seguir (RIBG-02) sem que um
+# `KeyError` de outro lugar seja tolerado.
+_ERROS_XLSX_INVALIDO = (zipfile.BadZipFile, InvalidFileException, ParseError, KeyError)
+
+
+def _xlsx_invalido(caminho: Path, exc: BaseException) -> PlanilhaIBGEErro:
+    motivo = str(exc).strip() or type(exc).__name__
+    return PlanilhaIBGEErro(caminho.name, f"arquivo xlsx inválido ({type(exc).__name__}: {motivo})")
+
+
 def ler_aba_xlsx(
     caminho: Path, aba: str
 ) -> tuple[list[str], list[str], Iterator[list[str | None]]]:
@@ -328,14 +344,22 @@ def ler_aba_xlsx(
 
     A primeira linha é o cabeçalho; colunas vazias à direita são ignoradas e linhas totalmente
     vazias, descartadas. Cabeçalho ausente, vazio no meio ou repetido após normalizar levanta
-    `PlanilhaIBGEErro`, assim como valor numa coluna sem cabeçalho.
+    `PlanilhaIBGEErro`, assim como valor numa coluna sem cabeçalho e arquivo que não é um xlsx
+    legível (`_ERROS_XLSX_INVALIDO`).
     """
-    livro = openpyxl.load_workbook(caminho, read_only=True, data_only=True)
+    try:
+        livro = openpyxl.load_workbook(caminho, read_only=True, data_only=True)
+    except _ERROS_XLSX_INVALIDO as exc:
+        raise _xlsx_invalido(caminho, exc) from exc
     if aba not in livro.sheetnames:
         livro.close()
         raise PlanilhaIBGEErro(caminho.name, f"aba {aba!r} ausente (abas: {livro.sheetnames})")
-    linhas = livro[aba].iter_rows(values_only=True)
-    cabecalho_bruto = list(next(linhas, ()))
+    try:
+        linhas = livro[aba].iter_rows(values_only=True)
+        cabecalho_bruto = list(next(linhas, ()))
+    except _ERROS_XLSX_INVALIDO as exc:
+        livro.close()
+        raise _xlsx_invalido(caminho, exc) from exc
     while cabecalho_bruto and cabecalho_bruto[-1] in (None, ""):
         cabecalho_bruto.pop()
     if not cabecalho_bruto or any(c in (None, "") for c in cabecalho_bruto):
@@ -361,6 +385,8 @@ def ler_aba_xlsx(
                 if all(v in (None, "") for v in valores):
                     continue
                 yield valores
+        except _ERROS_XLSX_INVALIDO as exc:
+            raise _xlsx_invalido(caminho, exc) from exc
         finally:
             livro.close()
 
@@ -965,6 +991,13 @@ class _Ingestao:
         obtidos[nome] = caminho
         return caminho
 
+    def _descartar_regic_baixado(self, nome: str) -> None:
+        """Arquivo baixado inválido: sai do cache (`_baixados/ibge/regic/`), para a próxima
+        tentativa baixar de novo. A origem local nunca é apagada."""
+        caminho = self._regic_obtidos.pop(nome, None)
+        if self.origem_local is None and caminho is not None:
+            caminho.unlink(missing_ok=True)
+
     def regic(self, planilhas: Sequence[PlanilhaRegic] = PLANILHAS_REGIC) -> None:
         obtidos = self._regic_obtidos  # o zip de ligações e atração serve a duas tabelas
         for planilha in planilhas:
@@ -1006,7 +1039,11 @@ class _Ingestao:
                     con, xlsx, planilha.aba, destino, trabalho, self.ingerido_em
                 )
 
-            linhas, parquet = self._publicar_parquet(tabela, gravar)
+            try:
+                linhas, parquet = self._publicar_parquet(tabela, gravar)
+            except (PlanilhaIBGEErro, ZipCorrompidoErro):
+                self._descartar_regic_baixado(planilha.arquivo)
+                raise
             entrada = EntradaIBGE(
                 tabela, origem, _PERIODO_REGIC, arquivo.name, arquivo.stat().st_size, sha, 0,
                 linhas, parquet, self.ingerido_em.isoformat(),

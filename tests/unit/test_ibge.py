@@ -5,8 +5,10 @@ incremento: enriquecimento_ibge
 
 from __future__ import annotations
 
+import io
 import json
 import sys
+import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -470,6 +472,78 @@ def test_xlsx_sem_aba_ou_com_coluna_repetida_falha(tmp_path: Path) -> None:
         ler_aba_xlsx(caminho, "B")
     with pytest.raises(PlanilhaIBGEErro, match="repetidas"):
         ler_aba_xlsx(caminho, "A")
+
+
+def _zip(membros: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for nome, conteudo in membros.items():
+            zf.writestr(nome, conteudo)
+    return buffer.getvalue()
+
+
+_PAGINA_HTML = b"<!DOCTYPE html><html><body>Servico indisponivel</body></html>"
+
+
+def test_xlsx_invalido_vira_planilha_ibge_erro(tmp_path: Path) -> None:
+    """Greptile PR #7: HTML salvo como xlsx, zip sem as partes do Office ou XML truncado."""
+    html = tmp_path / "html.xlsx"
+    html.write_bytes(_PAGINA_HTML)
+    sem_partes = tmp_path / "sem_partes.xlsx"
+    sem_partes.write_bytes(_zip({"leia-me.txt": b"oi"}))
+    xml_truncado = tmp_path / "xml_truncado.xlsx"
+    xml_truncado.write_bytes(_zip({"[Content_Types].xml": b"<Types"}))
+    with pytest.raises(PlanilhaIBGEErro, match="xlsx inválido.*BadZipFile"):
+        ler_aba_xlsx(html, "A")
+    with pytest.raises(PlanilhaIBGEErro, match="xlsx inválido.*KeyError"):
+        ler_aba_xlsx(sem_partes, "A")
+    with pytest.raises(PlanilhaIBGEErro, match="xlsx inválido.*ParseError"):
+        ler_aba_xlsx(xml_truncado, "A")
+
+
+def test_regic_baixada_invalida_mantem_o_raw_anterior_sem_cache_e_registra_a_falha(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Greptile PR #7 (P1): o geoftp responde 200 com uma página HTML no lugar da hierarquia e um
+    zip sem as planilhas esperadas (a de ligações é um zip sem as partes do Office). O mês segue:
+    raw anterior mantido, falha no manifesto e nada do arquivo ruim no cache."""
+    gerar_fixtures.gerar_fixtures(tmp_path / "fx")
+    raiz = tmp_path / "dados"
+    configuracao = _configuracao(raiz)
+    ingerir_ibge(configuracao, ingerido_em=INGERIDO_EM, origem_local=tmp_path / "fx")
+    regic = ("regic_2018_hierarquia", "regic_2018_ligacoes", "regic_2018_atracao")
+    antes = {t: _raw(raiz, t) for t in regic}
+    zip_ruim = _zip({"REGIC2018_Quest_Ligacoes_entre_Municipios.xlsx": _zip({"x.txt": b"oi"})})
+    baixados: list[str] = []
+
+    def _geoftp(request: httpx.Request) -> httpx.Response:
+        if request.url.host != "geoftp.ibge.gov.br":
+            return _sidra_fora_do_ar(request)
+        baixados.append(request.url.path.rsplit("/", 1)[-1])
+        if request.url.path.endswith(".zip"):
+            return httpx.Response(200, content=zip_ruim)
+        return httpx.Response(200, content=_PAGINA_HTML)
+
+    capsys.readouterr()
+    ingerir_ibge(
+        configuracao,
+        ingerido_em=INGERIDO_EM,
+        renovar=True,
+        http=_cliente(_geoftp),
+        dormir=lambda _s: None,
+    )
+
+    erro = capsys.readouterr().err
+    for tabela in regic:
+        assert f"aviso: ibge.{tabela}: não atualizada" in erro
+        assert _raw(raiz, tabela) == antes[tabela]
+    falhas = ler_falhas_ibge(configuracao)
+    assert "xlsx inválido" in falhas["regic_2018_hierarquia"]["erro"]
+    assert "xlsx inválido" in falhas["regic_2018_ligacoes"]["erro"]
+    assert "sem REGIC2018_Quest_Atracao_Municipios.xlsx" in falhas["regic_2018_atracao"]["erro"]
+    cache = raiz / "_baixados" / "ibge" / "regic"
+    assert sorted(p.name for p in cache.iterdir()) == []  # a próxima execução baixa de novo
+    assert baixados.count("REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip") == 2
 
 
 # ------------------------------------------------------------------- origem local

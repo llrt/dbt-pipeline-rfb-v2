@@ -40,7 +40,9 @@ classe CNAE (API SIDRA, tabela 9528), a renda per capita do Censo 2022 (SIDRA 10
   não havia, a ingestão avisa na saída de erro (`aviso: ibge.<tabela>: não atualizada (...)`) e segue: a RFB,
   a BD, o manifesto do mês e o dbt correm como sempre. A falha fica em `falhas` no manifesto IBGE e sai dele
   quando a tabela é atualizada. Tente de novo com `rfb ingerir --renovar-ibge` (ou espere o próximo mês). Só
-  é erro se o raw vazio não puder ser gravado.
+  é erro se o raw vazio não puder ser gravado. Planilha da REGIC ilegível (por exemplo, uma página de erro
+  servida com HTTP 200, ou um zip sem a planilha esperada) conta como falha: o arquivo baixado sai de
+  `_baixados/ibge/regic/`, para a próxima execução baixar de novo.
 - **Renovar à força:** `rfb ingerir --renovar-ibge` (também em `pipeline`/`atualizar`). É uma opção
   separada de `--forcar` porque o CEMPRE nacional leva de 1 a 2 horas (~340 requisições de ≤ 50.000
   valores), e `--forcar` serve para reconverter um mês RFB sem rede. Em `rfb atualizar` **sem mês novo**,
