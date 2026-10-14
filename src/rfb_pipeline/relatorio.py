@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -26,7 +27,10 @@ RAIZ_REPO = Path(__file__).resolve().parents[2]
 DIR_TRANSFORM = RAIZ_REPO / "transform"
 SAIDA_PADRAO = RAIZ_REPO / "docs" / "RELATORIO_ESTUDO_CASO.md"
 PREFIXO_ANALISES = "estudo_caso_"
+PREFIXO_CENARIOS = "cenario_"  # incremento: enriquecimento_ibge (docs/CENARIOS_DE_USO.md)
 SUBPASTA_REGRAS = "regras_negocio"  # analyses de `rfb regras` (ADR-0020)
+# Analyses do relatório: as do caso e os cenários de uso (incremento enriquecimento_ibge)
+PADRAO_RELATORIO = "*.sql"
 LIMITE_LINHAS = 20  # tabelas longas mostram as N primeiras linhas e o total (R3-16)
 
 
@@ -339,6 +343,7 @@ def renderizar(resultados: dict[str, Tabela], qualidade: tuple[dict, list[tuple]
     if not proximos:
         linhas += ["_Nenhum fornecedor ativo dentro do raio._", ""]
     linhas += _secao_area_mercado(resultados, caso, local)  # incremento: enriquecimento_bd
+    linhas += _secao_ibge(resultados, caso, local)  # incremento: enriquecimento_ibge
     linhas += _secao_qualidade(qualidade)
     return "\n".join(linhas).rstrip("\n") + "\n"
 
@@ -378,6 +383,72 @@ def _secao_area_mercado(resultados: dict[str, Tabela], caso: dict, local: str) -
         "",
     ]
     return linhas
+
+
+# incremento: enriquecimento_ibge
+def _secao_ibge(resultados: dict[str, Tabela], caso: dict, local: str) -> list[str]:
+    """Renda, polo de compras e CEMPRE do caso, mais três cenários; vazia sem a analysis do caso."""
+    tabela = resultados.get(f"{PREFIXO_ANALISES}enriquecimento_ibge")
+    if tabela is None:
+        return []
+    linhas = [
+        "## Enriquecimento com o IBGE (renda, rede urbana e CEMPRE)",
+        "",
+        "Renda per capita do Censo 2022, hierarquia urbana e polo de compras da REGIC 2018 e o "
+        f"CEMPRE da classe do CNAE {caso['cnae_alvo']} (incremento `enriquecimento_ibge`). Os anos "
+        "são diferentes: renda de 2022 (nominal), REGIC de 2018, CEMPRE do `ano_cempre` e ativos "
+        "da RFB do mês de referência. O CEMPRE não conta MEI; com sigilo do IBGE o pessoal ocupado "
+        "fica vazio, nunca imputado. Como usar cada base: `docs/CENARIOS_DE_USO.md`.",
+        "",
+    ]
+    dados = _como_dict(tabela)
+    if not dados:
+        return [*linhas, f"_{local} não está na dimensão de municípios._", ""]
+    formatos = {"renda_per_capita_media_2022": 2, "pct_compras_no_polo": 2}
+    colunas, registros = tabela
+    sem_ordem = (colunas[1:], [_sem_decimal(r[1:]) for r in registros])
+    linhas += [_tabela(sem_ordem, formatos), ""]
+    caso_ibge = next((r for r in dados if r["escopo"] == "município do caso"), None)
+    polo = next((r for r in dados if r["escopo"] == "polo de compras"), None)
+    if caso_ibge and polo:
+        linhas += [
+            "Para comprar móveis e eletroeletrônicos fora do município, os moradores de "
+            f"{local} vão principalmente a **{polo['municipio']}** "
+            f"({_numero(caso_ibge['pct_compras_no_polo'], 1)} % desses deslocamentos), onde há "
+            f"**{_numero(polo['ativos_cnae'])}** "
+            f"{_plural(polo['ativos_cnae'] or 0, 'ativo', 'ativos')} do CNAE {caso['cnae_alvo']}.",
+            "",
+        ]
+    elif caso_ibge:
+        linhas += [f"_{local} não tem polo de compras na REGIC 2018._", ""]
+    cenarios = (
+        ("polo_compras_evasao", "Polo de compras dos municípios da UF", {"pct_compras_no_polo": 1}),
+        (
+            "tamanho_setor_cempre",
+            "Tamanho do setor na UF: CEMPRE × RFB",
+            {"pessoal_por_unidade": 2},
+        ),
+        ("renda_concorrencia", "Renda acima da mediana da UF e concorrência", {}),
+    )
+    for nome, titulo, formatos_cenario in cenarios:
+        cenario = resultados.get(f"{PREFIXO_CENARIOS}{nome}")
+        if cenario is None:
+            continue
+        colunas_c, registros_c = cenario
+        linhas += [
+            f"### {titulo}",
+            "",
+            _tabela(
+                (colunas_c, [_sem_decimal(r) for r in registros_c]), formatos_cenario, LIMITE_LINHAS
+            ),
+            "",
+        ]
+    return linhas
+
+
+def _sem_decimal(linha: tuple) -> tuple:
+    """`Decimal` (renda, salários) vira `float`, para sair com vírgula como os demais números."""
+    return tuple(float(v) if isinstance(v, Decimal) else v for v in linha)
 
 
 def _secao_qualidade(qualidade: tuple[dict, list[tuple]] | None) -> list[str]:
@@ -420,10 +491,16 @@ def gerar_relatorio(
         preparo = sql_conexao_s3(credenciais)
         segredos = (credenciais.secret_access_key, credenciais.access_key_id)
         sqls = compilar_analises(
-            dir_transform, configuracao.raiz_dados_s3, target or "s3", configuracao.raiz_dados
+            dir_transform,
+            configuracao.raiz_dados_s3,
+            target or "s3",
+            configuracao.raiz_dados,
+            padrao=PADRAO_RELATORIO,
         )
     else:
-        sqls = compilar_analises(dir_transform, configuracao.raiz_dados, target)
+        sqls = compilar_analises(
+            dir_transform, configuracao.raiz_dados, target, padrao=PADRAO_RELATORIO
+        )
     resultados = executar_analises(warehouse, sqls, preparo, segredos)
     texto = renderizar(resultados, ler_qualidade(warehouse))
     saida.parent.mkdir(parents=True, exist_ok=True)
