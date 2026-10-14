@@ -276,51 +276,53 @@ models:
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "maior `stg_bd__pib.ano` com `va_agropecuaria`, `va_industria`, `va_servicos` e `va_adespss` preenchidos" } }
       - name: va_agropecuaria
         description: >
-          Valor adicionado bruto da agropecuária (R$ mil, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
+          Valor adicionado bruto da agropecuária (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_agropecuaria` em `ano_va`" } }
       - name: va_industria
         description: >
-          Valor adicionado bruto da indústria (R$ mil, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
+          Valor adicionado bruto da indústria (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_industria` em `ano_va`" } }
       - name: va_servicos
         description: >
-          Valor adicionado bruto dos serviços, exceto administração pública (R$ mil, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
+          Valor adicionado bruto dos serviços, exceto administração pública (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_servicos` em `ano_va`" } }
       - name: va_adm_publica
         description: >
-          Valor adicionado bruto da administração, defesa, educação e saúde públicas e seguridade social (R$ mil) em `ano_va` (incremento `enriquecimento_ibge`).
+          Valor adicionado bruto da administração, defesa, educação e saúde públicas e seguridade social (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_bd__pib.va_adespss` em `ano_va`" } }
       - name: pct_va_agropecuaria
         description: >
-          Participação da agropecuária na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+          Participação da agropecuária na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_agropecuaria` × 100 ÷ (`va_agropecuaria` + `va_industria` + `va_servicos` + `va_adm_publica`)" } }
-        data_tests: &faixa_pct_ibge
+        # Só sem abertura negativa: o IBGE publica VA negativo (no real, a indústria de Cachoeira
+        # Dourada/GO em 2021), e aí as participações saem de 0–100 sem erro.
+        data_tests: &faixa_pct_va
           - dbt_utils.accepted_range:
               arguments: { min_value: 0, max_value: 100 }
-              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
+              config: { where: "va_agropecuaria >= 0 and va_industria >= 0 and va_servicos >= 0 and va_adm_publica >= 0", meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
       - name: pct_va_industria
         description: >
-          Participação da indústria na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+          Participação da indústria na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_industria` × 100 ÷ soma das quatro aberturas" } }
-        data_tests: *faixa_pct_ibge
+        data_tests: *faixa_pct_va
       - name: pct_va_servicos
         description: >
-          Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+          Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_servicos` × 100 ÷ soma das quatro aberturas" } }
-        data_tests: *faixa_pct_ibge
+        data_tests: *faixa_pct_va
       - name: pct_va_adm_publica
         description: >
-          Participação da administração pública na soma das quatro aberturas do VA (0–100, 2 casas); NULL sem VA (incremento `enriquecimento_ibge`).
+          Participação da administração pública na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_adm_publica` × 100 ÷ soma das quatro aberturas" } }
-        data_tests: *faixa_pct_ibge
+        data_tests: *faixa_pct_va
       - name: regic_hierarquia_codigo
         description: >
           Código do nível na hierarquia urbana da REGIC 2018 (`1A` Grande Metrópole Nacional … `5` Centro Local); NULL sem dado (incremento `enriquecimento_ibge`).
@@ -372,7 +374,10 @@ models:
           % dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo (incremento `enriquecimento_ibge`).
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`int_regic__destinos_compras.pct` do polo" } }
-        data_tests: *faixa_pct_ibge
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments: { min_value: 0, max_value: 100 }
+              config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
       - name: ano_cempre
         description: >
           Ano de referência do CEMPRE baixado (hoje 2024), diferente do mês da RFB; NULL sem dado (incremento `enriquecimento_ibge`).

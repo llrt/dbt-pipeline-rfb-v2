@@ -5,9 +5,10 @@
 -- município (ou está vazia, no modo offline sem `ibge/`).
 --
 -- VA: `ano_va` é o último ano com as quatro aberturas preenchidas, independente de `ano_pib` (o IBGE
--- publica o PIB total antes das aberturas por atividade). As participações `pct_va_*` são sobre a soma das
--- quatro aberturas (0–100). Polo de compras: o destino listado com maior % em móveis e eletroeletrônicos
--- (Q2, a melhor proxy de bem durável e material de construção), `posto` 1 de `int_regic__destinos_compras`.
+-- publica o PIB total antes das aberturas por atividade). As participações `pct_va_*` são sobre a soma
+-- das quatro aberturas (0–100, salvo abertura negativa, que o IBGE publica). Polo de compras: o destino
+-- listado com maior % em móveis e eletroeletrônicos (Q2, a melhor proxy de bem durável e material de
+-- construção), `posto` 1 de `int_regic__destinos_compras`.
 with municipios as (
   select
     id_municipio_ibge,
