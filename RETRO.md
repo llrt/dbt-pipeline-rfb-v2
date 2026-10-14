@@ -1,8 +1,11 @@
-# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1)
+# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1 e pós-v1 até a v1.3.0)
 
-> Retrospectiva do líder (agente Traycer "Migração dbt DuckDB MVP v2", Claude Opus 5.5), 28/09 a 01/10/2026.
-> Custos por agente: [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md). Decisões: `.specs/STATE.md` (AD-001..AD-035)
-> e `docs/adr/` (0001–0017). Revisões: `docs/revisoes/`.
+> Retrospectiva do líder (agente Traycer "Migração dbt DuckDB MVP v2", Claude Opus 5.5).
+> - Seções 1–7: v1, de 28/09 a 01/10/2026.
+> - Seção 8: pós-v1, de 01/10 a 13/10/2026 (v1.0.0 a v1.3.0).
+>
+> Custos por agente: [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md). Decisões: `.specs/STATE.md` (AD-001..AD-040)
+> e `docs/adr/` (0001–0020). Revisões: `docs/revisoes/`.
 
 ## 1. O que foi entregue
 
@@ -104,3 +107,83 @@ foi o B8 (US$ 16,25, E2E real); Opus 5.5 respondeu por 69 % do custo (líder, cr
 - Sugestões R4-11 pendentes: warn de controles C1 nos nomes, raiz alfanumérica em teste de unidade,
   gitleaks/detect-secrets, teto de descompressão contra zip bomb.
 - *(Resolvido após a entrega)* **Limpeza**: 32 worktrees integrados/órfãos e ~49 GB de cópias de dados reais removidos com aprovação do usuário (AD-031).
+
+## 8. Pós-v1: v1.1.0 a v1.3.0 (01/10 a 13/10/2026)
+
+### 8.1 O que foi entregue
+
+| Versão | PR | Entrega |
+|---|---|---|
+| v1.0.0 / v1.0.1 | — (direto em `main`, antes da regra de PR) | Repositório público, CI no GitHub (shell, Node 24, runner fixado), avaliação do dbt Fusion (ADR-0017, adiado), YAML no formato `config:` (lote AF), testes herméticos sem `.env` |
+| [v1.1.0](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.1.0) | [#1](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/1) | Camada semântica dbt/MetricFlow (26 métricas, fotografia mensal, saved queries); Parte A de negócio com fontes primárias; ontologia OWL com testes (ADR-0018) |
+| [v1.2.0](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.2.0) | [#3](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/3) | Dicionário de dados gerado (57 tabelas, 559 colunas, campo do leiaute oficial, linhagem, nulidade com aviso) (ADR-0019) |
+| [v1.3.0](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.3.0) | [#4](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/4) | 29 regras de negócio com fonte, checks em `analyses/`, `rfb regras` sem falhar o build, relatório do dado real de 2026-09 (16 regras com inconsistência, nenhuma acima de 0,5 %) (ADR-0020) |
+
+### 8.2 Processo: o que mudou
+- **Tudo por PR** desde 09/10, a pedido do usuário. O merge fica com o usuário, salvo quando o pedido já inclui a
+  release ("nova versão minor se buildar no CI").
+- **Erro do líder corrigido pelo usuário.** O lote AF e a camada semântica inicial foram feitos **no contexto do
+  líder**, sem implementador nem revisor de contexto limpo. O usuário cobrou: "isso é muito importante para a
+  qualidade do projeto". A partir daí, toda mudança seguiu a dinâmica original:
+  - implementador novo;
+  - verificação do líder por evidência;
+  - revisor independente (Opus alto);
+  - correções por outro agente novo;
+  - PR com CI e Greptile.
+- **Três camadas de revisão, e cada uma achou o que as outras não acharam:**
+  - **Verificação do líder.** A mutação própria pegou lacunas que os autores não viam: datas inválidas sem teste (FSEM), FK declarada sem teste (FDIC), fronteira do mesmo dia na RN-27 (FRN). Também conferiu fatos na fonte: limite do MEI e PLP 186/2026 (FNEG), os 54 campos do leiaute no PDF (DIC).
+  - **Revisores independentes** (RSEM 12 achados, RDIC 11, RRN 10). Os achados mais valiosos vieram do **dado real**: a fotografia mensal que devolve mês antigo sob filtro, 44 % dos encerramentos de 2026 como inaptidões em lote, a RN-13 marcando como "futuro" o dia seguinte ao extrato, a RN-05 contando 3.247 empresas MEI quando só 33 violam.
+  - **Greptile:** 3 + 2 + 2 comentários P2, todos procedentes. Pegou divergências de regra com o mart, versão mínima, limiares `warn_if`/`error_if`, situação desconhecida e mês do relatório. Revisou de novo depois de cada correção e fechou as threads.
+
+### 8.3 Achados de produto
+1. **"Ativa" no cadastro não quer dizer "em operação"**, e "encerramento" no projeto inclui inaptidões declaradas em lote
+   pela RFB. Daí a métrica `baixas` (só BAIXADA).
+2. **O extrato tem corte D+1:** 1.038 datas caem exatamente no dia seguinte ao token do arquivo. **A opção pelo Simples
+   para 2027** aparece com data futura legítima (CGSN 190/194/2026).
+3. **Inconsistências reais do cadastro (2026-09), todas abaixo de 0,5 %:**
+   - 2.427 filiais que começaram depois do fim da matriz;
+   - 1.236 empresas MEI com natureza de sociedade;
+   - 3.488 estabelecimentos com CNAE secundário repetido;
+   - 33 empresas MEI com mais de um estabelecimento não baixado.
+4. **Dois bugs do dbt-core 1.12.5**, contornados e documentados:
+   - o *partial parse* duplica métricas;
+   - o `fill_nulls_with` é descartado nas métricas do YAML novo.
+5. **O dbt v2 (Fusion)** ainda não suporta `options` na materialização `external` (dbt#16526). A migração foi adiada
+   com critérios.
+
+### 8.4 O que custou caro
+
+| Problema | Efeito | Lição |
+|---|---|---|
+| Lote AF e camada semântica inicial feitos inline pelo líder | sem revisor de contexto limpo; no PR #1, o Greptile e a RSEM acharam depois 3 + 12 problemas; ~US$ 20 do líder nas fases com trabalho inline | **o líder não implementa**, nem lote "pequeno" ou "mecânico" (memória `delegar-implementacao-revisao`) |
+| Teste não hermético com token real no `.env` | 3 tabelas sintéticas publicadas no MotherDuck real | teste que remove variáveis precisa isolar também a fonte que as recarrega |
+| Testes que provam sincronia ou totais, não conteúdo | 7/8 (RSEM), 8/8 (RDIC) e 10/10 (RRN) mutações sobreviventes na 1ª entrega | o brief já pede mutações do autor, mas o revisor e o líder precisam fazer as **suas**; fixar o universo por regra e injetar violação por regra |
+| Regras de negócio traduzidas sem olhar o dado real | falsos positivos em massa (RN-05, RN-13, RN-14) | rodar cada regra no dado real **antes** de escrever a interpretação; ler a distribuição do que viola |
+| Script de custos da v1 só no scratchpad | perdido; reimplementado | ferramenta de relatório recorrente vai para `scripts/` |
+| Script do líder com separador `||` na triagem (2 vezes) | tabela quebrada, commit extra | conferir a contagem de colunas depois de edição programática de tabela |
+
+### 8.5 Lições
+1. **A delegação é a garantia de qualidade, não um custo a otimizar.** O autor não acha o próprio ponto cego. Em todo
+   PR, a revisão independente ou o líder acharam algo que o autor tinha dado como pronto.
+2. **Verificação do líder = gates + dado + mutação própria + fonte.** Pelo menos uma mutação diferente das do autor;
+   pelo menos um fato conferido na fonte primária.
+3. **Greptile complementa, não substitui:** pega divergências de regra e de configuração no diff. A revisão
+   independente pega semântica e dado real.
+4. **Documento gerado + teste de atualização + teste de conteúdo.** Só o de atualização prova sincronia, não verdade
+   (RDIC-08).
+5. **Fatos que mudam com o tempo** (limites do MEI, prazos do Simples) levam data de acesso e a ressalva do que está em
+   tramitação (PLP 186/2026). Blogs não são fonte.
+
+### 8.6 Custo (resumo)
+Pós-v1: **US$ 156,77 ≈ R$ 787**, todo no Claude (equivalente de API da assinatura), sem OpenRouter. Acumulado do
+projeto: **US$ 404,15 ≈ R$ 2.082**, dos quais US$ 10,55 foram desembolso real.
+
+| Papel | US$ | % |
+|---|---:|---:|
+| Líder (6,45 h ativas; ~US$ 20 nas fases com trabalho inline) | 77,22 | 49 % |
+| Correções (FSEM, FRSEM, FDIC, FDIC2, FRN, FRN2) | 36,24 | 23 % |
+| Implementação (FNEG, DIC, RN) | 25,02 | 16 % |
+| Revisões independentes (RSEM, RDIC, RRN) | 18,29 | 12 % |
+
+Por versão, sem o líder: v1.1.0 US$ 35,39; v1.2.0 US$ 15,38; v1.3.0 US$ 28,78. Detalhe em
+[docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md#pós-v1-v110-a-v130).

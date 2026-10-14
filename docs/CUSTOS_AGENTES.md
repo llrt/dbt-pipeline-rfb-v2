@@ -1,4 +1,4 @@
-# Custo por agente — v1
+# Custo por agente — v1 e pós-v1 (v1.1.0 a v1.3.0)
 
 > Gerado pelo líder em 2026-10-01 a partir dos transcripts do Claude Code (`~/.claude/projects/*dbt-pipeline-rfb-v2*`, deduplicados por mensagem) e do banco do opencode (`~/.local/share/opencode/opencode.db`, sessões do OpenRouter). A tentativa anterior do projeto (24/09, outra sessão: `fase-0-design`, `guia-g1-guia-dbt`, `fase-1-b1a-fundacao`) está fora.
 
@@ -75,4 +75,73 @@
 - **Revisões** (Opus alto) custaram em média ~US$ 8 cada e foram as que mais acharam problemas reais (paridade em dado real, capital inflado, CPF).
 - **Gemini 3.8 Flash** (guia) foi ~2× mais barato que um lote Sonnet equivalente, mas exigiu uma rodada de correção de referências e outra de 43 erros técnicos (FBPg).
 - **DeepSeek v4 Flash** custou centavos; falhou no B2 (estouro de saída) e foi substituído por Sonnet.
-- Reproduzir: `python3 custos.py custos.json` (script do líder no scratchpad da sessão; lógica descrita acima).
+- Reproduzir: o script da v1 ficou só no scratchpad da sessão e se perdeu. A lógica está descrita acima e foi reimplementada em `scripts/custos_agentes_pos_v1.py`.
+
+## Pós-v1 (v1.1.0 a v1.3.0)
+
+> Gerado pelo líder em 2026-10-13 com `scripts/custos_agentes_pos_v1.py`, versionado desta vez. A metodologia e os preços são os da v1. Cobre o período depois do commit da RETRO v1 (`eef3b22`, 01/10/2026 15:16): a publicação no GitHub, o CI, as releases v1.0.0 a v1.3.0, a avaliação do dbt Fusion e os 12 agentes dos PRs #1, #3 e #4. Todos os agentes rodaram no Claude (assinatura). Não houve uso do OpenRouter. Câmbio US$ 1 = R$ 5,021 (AwesomeAPI, 13/10/2026). O transcript do líder é o desta sessão, ainda em uso; os números do líder vão até a geração.
+
+| | US$ | R$ | % |
+|---|---:|---:|---:|
+| Líder | 77,22 | 387,72 | 49 % |
+| Implementação | 25,02 | 125,63 | 16 % |
+| Revisão | 18,29 | 91,83 | 12 % |
+| Correção | 36,24 | 181,96 | 23 % |
+| **Total pós-v1** | **156,77** | **787,14** | 100 % |
+
+| Modelo | US$ | R$ |
+|---|---:|---:|
+| Claude Opus 5.5 | 146,79 | 737,03 |
+| Claude Sonnet 5.5 | 9,98 | 50,11 |
+
+**Líder por fase**
+
+| Fase | Horas ativas | US$ | R$ |
+|---|---:|---:|---:|
+| Publicação no GitHub, CI e v1.0.0 | 0,83 | 10,96 | 55,02 |
+| Avaliação do Fusion, lote AF inline e v1.0.1 | 0,57 | 10,93 | 54,86 |
+| Camada semântica inicial inline | 0,28 | 8,86 | 44,49 |
+| Orquestração delegada v1.1.0 a v1.3.0 | 4,77 | 46,47 | 233,33 |
+| **Total do líder** | **6,45** | **77,22** | **387,72** |
+
+**Agentes por versão** (sem o líder)
+
+| Versão | Entrega | US$ | R$ |
+|---|---|---:|---:|
+| v1.1.0 | camada semântica: correções, contexto de negócio, ontologia | 35,39 | 177,69 |
+| v1.2.0 | dicionário de dados | 15,38 | 77,22 |
+| v1.3.0 | regras de negócio, checks e relatório | 28,78 | 144,50 |
+
+**Por agente (ordem de início)**
+
+| Agente | Papel | Versão | Modelo | Saída (tokens) | Leitura de cache | Entrada + escrita de cache | Horas ativas | US$ | R$ |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|
+| FSEM, correções do Greptile (PR #1) | correção | v1.1.0 | Claude Opus 5.5 | 67.335 | 17.148.322 | 196.686 | 0,46 | 6,35 | 31,88 |
+| FNEG, contexto de negócio e ontologia | implementação | v1.1.0 | Claude Opus 5.5 | 122.413 | 28.738.046 | 315.822 | 0,51 | 10,72 | 53,83 |
+| RSEM, revisão independente | revisão | v1.1.0 | Claude Opus 5.5 | 70.686 | 19.562.634 | 271.401 | 0,36 | 7,50 | 37,64 |
+| FRSEM, correções da RSEM | correção | v1.1.0 | Claude Opus 5.5 | 120.778 | 28.895.433 | 328.353 | 0,73 | 10,82 | 54,33 |
+| DIC, dicionário de dados | implementação | v1.2.0 | Claude Sonnet 5.5 | 80.738 | 12.887.102 | 262.815 | 0,39 | 4,44 | 22,27 |
+| RDIC, revisão independente | revisão | v1.2.0 | Claude Opus 5.5 | 58.062 | 12.205.388 | 225.351 | 0,23 | 5,40 | 27,14 |
+| FDIC, correções da RDIC | correção | v1.2.0 | Claude Sonnet 5.5 | 85.463 | 15.841.930 | 226.882 | 0,38 | 4,93 | 24,75 |
+| FDIC2, comentários do Greptile (PR #3) | correção | v1.2.0 | Claude Sonnet 5.5 | 9.744 | 1.697.767 | 44.445 | 0,14 | 0,61 | 3,09 |
+| RN, regras de negócio | implementação | v1.3.0 | Claude Opus 5.5 | 130.669 | 23.156.356 | 326.930 | 0,60 | 9,86 | 49,50 |
+| RRN, revisão independente | revisão | v1.3.0 | Claude Opus 5.5 | 71.086 | 11.184.979 | 216.617 | 0,31 | 5,39 | 27,07 |
+| FRN, correções da RRN | correção | v1.3.0 | Claude Opus 5.5 | 119.930 | 27.951.907 | 305.413 | 0,70 | 10,43 | 52,38 |
+| FRN2, comentários do Greptile (PR #4) | correção | v1.3.0 | Claude Opus 5.5 | 31.317 | 7.600.615 | 119.588 | 0,33 | 3,10 | 15,58 |
+
+## Total acumulado
+
+| Período | US$ | R$ |
+|---|---:|---:|
+| v1 (até 01/10/2026; câmbio 5,2353) | 247,38 | 1.295,11 |
+| Pós-v1 (v1.1.0 a v1.3.0; câmbio 5,021) | 156,77 | 787,14 |
+| **Total** | **404,15** | **2.082,25** |
+
+Do total, **US$ 10,55 foram desembolso real** (OpenRouter, todo na v1). O resto é equivalente de API da assinatura Claude.
+
+### Observações do pós-v1
+
+- **Correção custou mais que implementação** (US$ 36,24 × 25,02). Cada PR teve uma revisão independente e os comentários do Greptile, e cada rodada voltou com achados reais: falsos positivos nas regras, guarda de privacidade furada, mutações sobreviventes. Revisão + correção = 35 % do pós-v1, contra 33 % na v1.
+- **O líder ficou em 49 % do pós-v1.** 8,86 desses dólares foram a camada semântica feita inline, em 17 minutos de relógio, antes da cobrança do usuário; e 10,93 incluem o lote AF, também inline. Na orquestração delegada, o custo do líder se dividiu entre briefs, verificação por evidência (`make ci`, mutação própria, dado real), triagens, PRs e releases.
+- **Sonnet 5.5 no dicionário** (DIC, FDIC, FDIC2) custou cerca de metade de um lote Opus equivalente. A revisão RDIC (Opus) ainda achou 11 pontos, o que sustenta o roteamento "não crítico → Sonnet, revisão → Opus alto".
+- Reproduzir: `uv run python scripts/custos_agentes_pos_v1.py` (lê os transcripts locais do Claude Code; os IDs das sessões estão no script).
