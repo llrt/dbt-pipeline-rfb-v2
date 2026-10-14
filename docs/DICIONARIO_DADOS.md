@@ -53,14 +53,14 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
 | [Fontes — observabilidade](#fontes-obs) | 1 | 8 |
 | [Seeds](#seeds) | 4 | 12 |
 | [Staging](#staging) | 20 | 180 |
-| [Intermediate](#intermediate) | 3 | 44 |
-| [Gold — dimensões](#gold-dim) | 6 | 63 |
+| [Intermediate](#intermediate) | 5 | 74 |
+| [Gold — dimensões](#gold-dim) | 6 | 86 |
 | [Gold — fatos](#gold-fct) | 2 | 26 |
-| [Gold — pontes](#gold-bridge) | 2 | 5 |
+| [Gold — pontes](#gold-bridge) | 3 | 11 |
 | [Gold — marts originais](#gold-original) | 2 | 27 |
-| [Gold — marts analíticos](#gold-analytics) | 5 | 67 |
+| [Gold — marts analíticos](#gold-analytics) | 6 | 88 |
 | [Observabilidade](#obs) | 2 | 10 |
-| **Total** | **69** | **754** |
+| **Total** | **73** | **834** |
 
 <a id="fontes-rfb"></a>
 ### Fontes — RFB (raw)
@@ -167,6 +167,8 @@ Tabelas de junção e conformação entre o staging e o gold.
 | [`int_cnaes_secundarios__explodidos`](#int_cnaes_secundarios__explodidos) | estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`) | adicao | 2 |
 | [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) | estabelecimento (`cnpj_completo`) do mês selecionado | adicao | 21 |
 | [`int_municipios__conformados`](#int_municipios__conformados) | município IBGE (`sk_municipio`) | adicao | 21 |
+| [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) | município IBGE (`id_municipio_ibge`) | adicao | 24 |
+| [`int_regic__destinos_compras`](#int_regic__destinos_compras) | origem × destino × tema (`id_municipio_origem`, `id_municipio_destino`, `tema`); o destino "Outros" tem `id_municipio_destino` NULL | adicao | 6 |
 
 <a id="gold-dim"></a>
 ### Gold — dimensões
@@ -177,7 +179,7 @@ Dimensões do modelo estrela (ADR-0013), com membros `-1`/`-2`.
 |---|---|---|---|
 | [`dim_cnae`](#dim_cnae) | subclasse CNAE (`sk_cnae`), mais o membro `-1` | adicao | 11 |
 | [`dim_data`](#dim_data) | dia do calendário (`sk_data`), mais os membros `-1` e `-2` | adicao | 11 |
-| [`dim_municipio`](#dim_municipio) | município (`sk_municipio`), mais o membro `-1` | adicao | 30 |
+| [`dim_municipio`](#dim_municipio) | município (`sk_municipio`), mais o membro `-1` | adicao | 53 |
 | [`dim_natureza_juridica`](#dim_natureza_juridica) | natureza jurídica (`sk_natureza_juridica`), mais o membro `-1` | adicao | 3 |
 | [`dim_porte`](#dim_porte) | porte da empresa (`sk_porte`), mais o membro `-1` | adicao | 4 |
 | [`dim_situacao_cadastral`](#dim_situacao_cadastral) | situação cadastral (`sk_situacao_cadastral`), mais o membro `-1` | adicao | 4 |
@@ -200,6 +202,7 @@ Relações muitos-para-muitos opcionais no BI.
 | Tabela | Uma linha por | Escopo | Colunas |
 |---|---|---|---|
 | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario) | estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`) | adicao | 3 |
+| [`bridge_municipio_destino_compras`](#bridge_municipio_destino_compras) | origem × destino × tema (`sk_municipio_origem`, `sk_municipio_destino`, `tema`) | adicao | 6 |
 | [`bridge_municipio_vizinho`](#bridge_municipio_vizinho) | par de municípios vizinhos do ano mais recente, nos dois sentidos (`sk_municipio`, `sk_municipio_vizinho`) | adicao | 2 |
 
 <a id="gold-original"></a>
@@ -219,9 +222,10 @@ Marts de análise (concorrência, dinâmica, sobrevivência, fornecedores).
 
 | Tabela | Uma linha por | Escopo | Colunas |
 |---|---|---|---|
-| [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado) | CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado | adicao | 21 |
+| [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado) | CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado | adicao | 25 |
 | [`mart_concorrencia_municipio`](#mart_concorrencia_municipio) | CNAE principal × município (`cnae_principal`, `sk_municipio`) | adicao | 11 |
 | [`mart_dinamica_mercado`](#mart_dinamica_mercado) | ano × CNAE principal × município (`ano`, `sk_cnae`, `sk_municipio`) | adicao | 10 |
+| [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio) | município × classe CNAE de 5 dígitos (`sk_municipio`, `classe_cnae`) | adicao | 17 |
 | [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) | estabelecimento fornecedor (`cnpj_completo`) | adicao | 9 |
 | [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) | coorte × CNAE principal × porte × UF (`ano_coorte`, `sk_cnae`, `sk_porte`, `uf`) | adicao | 16 |
 
@@ -246,6 +250,8 @@ a coluna da tabela de origem). Inclui as FKs testadas, as da camada semântica e
 erDiagram
     bridge_estabelecimento_cnae_secundario }o--|| fct_estabelecimentos : "cnpj_completo"
     bridge_estabelecimento_cnae_secundario }o--|| dim_cnae : "sk_cnae"
+    bridge_municipio_destino_compras }o--|| dim_municipio : "sk_municipio_destino"
+    bridge_municipio_destino_compras }o--|| dim_municipio : "sk_municipio_origem"
     bridge_municipio_vizinho }o--|| dim_municipio : "sk_municipio"
     bridge_municipio_vizinho }o--|| dim_municipio : "sk_municipio_vizinho"
     fct_estabelecimentos }o--|| dim_cnae : "sk_cnae"
@@ -1380,7 +1386,7 @@ PIB municipal e seus componentes (adição), tipados como `double`; `ano` inteir
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
 | Lê de | [`basedosdados.pib`](#basedosdados-pib) |
-| Usada por | [`int_municipios__conformados`](#int_municipios__conformados) |
+| Usada por | [`int_municipios__conformados`](#int_municipios__conformados), [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1495,7 +1501,7 @@ CEMPRE (IBGE, SIDRA 9528) por município e classe CNAE 2.0 (nível 4): unidades 
 | Outras chaves únicas | — |
 | Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
 | Lê de | [`ibge.cempre_categorias_cnae`](#ibge-cempre_categorias_cnae), [`ibge.cempre_municipio_cnae`](#ibge-cempre_municipio_cnae) |
-| Usada por | — |
+| Usada por | [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1528,7 +1534,7 @@ CEMPRE (IBGE, SIDRA 9528) por município, todas as atividades (categoria Total, 
 | Outras chaves únicas | — |
 | Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
 | Lê de | [`ibge.cempre_municipio_cnae`](#ibge-cempre_municipio_cnae) |
-| Usada por | — |
+| Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1558,7 +1564,7 @@ REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamen
 | Outras chaves únicas | — |
 | Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
 | Lê de | [`ibge.regic_2018_atracao`](#ibge-regic_2018_atracao) |
-| Usada por | — |
+| Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1595,7 +1601,7 @@ REGIC 2018 (IBGE): hierarquia urbana da cidade a que o município pertence (o pr
 | Outras chaves únicas | — |
 | Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
 | Lê de | [`ibge.regic_2018_hierarquia`](#ibge-regic_2018_hierarquia) |
-| Usada por | — |
+| Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1634,7 +1640,7 @@ REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*
 | Outras chaves únicas | — |
 | Chaves estrangeiras | `id_municipio_destino` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn))<br>`id_municipio_origem` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
 | Lê de | [`ibge.regic_2018_ligacoes`](#ibge-regic_2018_ligacoes) |
-| Usada por | — |
+| Usada por | [`int_regic__destinos_compras`](#int_regic__destinos_compras) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1672,7 +1678,7 @@ Censo 2022 (IBGE, SIDRA 10295) por município: moradores em domicílios particul
 | Outras chaves únicas | — |
 | Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
 | Lê de | [`ibge.renda_censo_2022_municipio`](#ibge-renda_censo_2022_municipio) |
-| Usada por | — |
+| Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1757,7 +1763,7 @@ Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referênci
 | Outras chaves únicas | — |
 | Chaves estrangeiras | — |
 | Lê de | [`rfb.estabelecimentos`](#rfb-estabelecimentos) |
-| Usada por | [`bh_empresas`](#bh_empresas), [`dim_data`](#dim_data), [`fct_resumo_mensal`](#fct_resumo_mensal), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
+| Usada por | [`bh_empresas`](#bh_empresas), [`dim_data`](#dim_data), [`fct_resumo_mensal`](#fct_resumo_mensal), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -1983,7 +1989,7 @@ Município conformado (Base dos Dados + população do `ano_populacao` + PIB do 
 | Outras chaves únicas | `codigo_rfb` (`warn`) |
 | Chaves estrangeiras | — |
 | Lê de | [`stg_bd__municipios`](#stg_bd__municipios), [`stg_bd__pib`](#stg_bd__pib), [`stg_bd__populacao`](#stg_bd__populacao) |
-| Usada por | [`dim_municipio`](#dim_municipio), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
+| Usada por | [`dim_municipio`](#dim_municipio), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -2015,6 +2021,82 @@ Município conformado (Base dos Dados + população do `ano_populacao` + PIB do 
 | `ano_pib` | `integer` | Último ano com PIB disponível; NULL sem dado. | não testado | — | — | — |
 | `pib` | `double` | PIB do município (R$) em `ano_pib`; NULL sem dado. | não testado | — | — | — |
 
+<a id="int_municipios__perfil_ibge"></a>
+#### `int_municipios__perfil_ibge`
+
+Perfil do município com as fontes do IBGE (incremento `enriquecimento_ibge`, ADR-0022), uma linha por município de `int_municipios__conformados`: renda do Censo 2022, valor adicionado por atividade (`ano_va` próprio, independente de `ano_pib`), hierarquia urbana, índice de atração e polo de compras (REGIC 2018) e o total do CEMPRE. NULL onde a fonte não tem o município ou está vazia (modo offline sem `ibge/`). Base das colunas novas de `dim_municipio`.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município IBGE (`id_municipio_ibge`). |
+| Chave primária (testada) | `id_municipio_ibge` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | — |
+| Lê de | [`int_municipios__conformados`](#int_municipios__conformados), [`int_regic__destinos_compras`](#int_regic__destinos_compras), [`stg_bd__pib`](#stg_bd__pib), [`stg_ibge__cempre_municipio_total`](#stg_ibge__cempre_municipio_total), [`stg_ibge__regic_atracao`](#stg_ibge__regic_atracao), [`stg_ibge__regic_hierarquia`](#stg_ibge__regic_hierarquia), [`stg_ibge__renda_municipio`](#stg_ibge__renda_municipio) |
+| Usada por | [`dim_municipio`](#dim_municipio) |
+| Materialização | tabela dbt |
+| Localização | `warehouse.duckdb` (tabela, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 24 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio_ibge` | `varchar` | Código IBGE do município (7 dígitos). | não (`not_null`) | — | — | — |
+| `renda_per_capita_media_2022` | `decimal(12,2)` | Rendimento domiciliar per capita médio (R$) do Censo 2022. | não testado | — | — | — |
+| `renda_per_capita_mediana_2022` | `decimal(12,2)` | Rendimento domiciliar per capita mediano (R$) do Censo 2022. | não testado | — | — | — |
+| `moradores_renda_2022` | `bigint` | Moradores (base da renda per capita) do Censo 2022. | não testado | — | — | — |
+| `ano_va` | `integer` | Último ano com as quatro aberturas do VA preenchidas. | não testado | — | — | — |
+| `va_agropecuaria` | `double` | VA da agropecuária em `ano_va`. | não testado | — | — | — |
+| `va_industria` | `double` | VA da indústria em `ano_va`. | não testado | — | — | — |
+| `va_servicos` | `double` | VA dos serviços (exceto administração pública) em `ano_va`. | não testado | — | — | — |
+| `va_adm_publica` | `double` | VA da administração, defesa, educação e saúde públicas e seguridade social em `ano_va`. | não testado | — | — | — |
+| `pct_va_agropecuaria` | `double` | Participação da agropecuária na soma das quatro aberturas (0–100). | não testado | — | — | — |
+| `pct_va_industria` | `double` | Participação da indústria na soma das quatro aberturas (0–100). | não testado | — | — | — |
+| `pct_va_servicos` | `double` | Participação dos serviços na soma das quatro aberturas (0–100). | não testado | — | — | — |
+| `pct_va_adm_publica` | `double` | Participação da administração pública na soma das quatro aberturas (0–100). | não testado | — | — | — |
+| `regic_hierarquia_codigo` | `varchar` | Código do nível da hierarquia urbana (REGIC 2018). | não testado | — | — | — |
+| `regic_hierarquia` | `varchar` | Nome do nível da hierarquia urbana (REGIC 2018). | não testado | — | — | — |
+| `regic_arranjo_populacional` | `varchar` | Arranjo populacional do município (REGIC 2018); NULL se isolado. | não testado | — | — | — |
+| `regic_regiao_influencia` | `varchar` | Vinculação imediata do município na rede urbana (REGIC 2018). | não testado | — | — | — |
+| `regic_indice_atracao` | `double` | Índice de atração geral (REGIC 2018); NULL se não é destino. | não testado | — | — | — |
+| `id_municipio_polo_compras` | `varchar` | Código IBGE do polo de compras (maior Q2 entre os destinos listados). | não testado | — | — | — |
+| `nome_municipio_polo_compras` | `varchar` | Nome do polo de compras. | não testado | — | — | — |
+| `pct_compras_no_polo` | `double` | % dos deslocamentos para móveis e eletroeletrônicos (Q2) que vão ao polo. | não testado | — | — | — |
+| `ano_cempre` | `integer` | Ano do CEMPRE (o mais recente baixado). | não testado | — | — | — |
+| `unidades_locais_cempre` | `bigint` | Unidades locais, todas as atividades (CEMPRE, Total). | não testado | — | — | — |
+| `pessoal_ocupado_cempre` | `bigint` | Pessoal ocupado total, todas as atividades (CEMPRE, Total). | não testado | — | — | — |
+
+<a id="int_regic__destinos_compras"></a>
+#### `int_regic__destinos_compras`
+
+REGIC 2018 em formato longo (incremento `enriquecimento_ibge`): para cada município de origem, os destinos aonde os moradores vão comprar vestuário e calçados (`vestuario_calcados`, Q1) e móveis e eletroeletrônicos (`moveis_eletro`, Q2), com o % dos deslocamentos (> 0) e o `posto` do destino (1 = principal destino listado; empate fica com o menor código IBGE). O destino "Outros" (lugares não listados) fica com `eh_outros` e sem posto. Base do polo de compras de `dim_municipio` e de `bridge_municipio_destino_compras`.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por origem × destino × tema (`id_municipio_origem`, `id_municipio_destino`, `tema`); o destino "Outros" tem `id_municipio_destino` NULL. |
+| Chave primária (testada) | `id_municipio_origem` + `id_municipio_destino` + `tema` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | — |
+| Lê de | [`stg_ibge__regic_ligacoes`](#stg_ibge__regic_ligacoes) |
+| Usada por | [`bridge_municipio_destino_compras`](#bridge_municipio_destino_compras), [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
+| Materialização | tabela dbt |
+| Localização | `warehouse.duckdb` (tabela, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 6 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio_origem` | `varchar` | Código IBGE do município de origem dos deslocamentos. | não testado | — | — | — |
+| `id_municipio_destino` | `varchar` | Código IBGE do destino; NULL no destino "Outros". | não testado | — | — | — |
+| `eh_outros` | `boolean` | true no destino "Outros / Não circula jornal" (lugares não listados na REGIC). | não testado | — | — | — |
+| `tema` | `varchar` | `vestuario_calcados` (Q1) ou `moveis_eletro` (Q2). | não testado | valores: `vestuario_calcados`, `moveis_eletro` | — | — |
+| `pct` | `double` | % dos deslocamentos da origem que vão ao destino no tema (0–100, > 0). | não testado | — | — | — |
+| `posto` | `bigint` | Posição do destino entre os listados da origem no tema (1 = maior %, empate pelo menor código); NULL no destino "Outros". | não testado | — | — | — |
+
 ## Gold — dimensões
 
 <a id="dim_cnae"></a>
@@ -2029,7 +2111,7 @@ Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo →
 | Outras chaves únicas | `codigo_subclasse` |
 | Chaves estrangeiras | — |
 | Lê de | [`stg_bd__cnaes`](#stg_bd__cnaes) |
-| Usada por | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
+| Usada por | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_cnae.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -2089,23 +2171,23 @@ Calendário (ADR-0013): uma linha por dia de 1900-01-01 até `data_referencia` (
 <a id="dim_municipio"></a>
 #### `dim_municipio`
 
-Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias geográficas em colunas, centroide, população e PIB. Membro `-1` "NÃO INFORMADO" para estabelecimentos sem município na Base dos Dados (exterior, município criado após a base).
+Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias geográficas em colunas, centroide, população e PIB. Membro `-1` "NÃO INFORMADO" para estabelecimentos sem município na Base dos Dados (exterior, município criado após a base). Incremento `enriquecimento_bd`: Censo 2022 e região metropolitana. Incremento `enriquecimento_ibge` (ADR-0022): renda per capita do Censo 2022, valor adicionado por atividade (`ano_va`, que pode diferir de `ano_pib`), hierarquia urbana, índice de atração e polo de compras da REGIC 2018 e o total do CEMPRE (`ano_cempre`); NULL sem a fonte.
 
 | Atributo | Valor |
 |---|---|
 | Grão | Uma linha por município (`sk_municipio`), mais o membro `-1`. |
 | Chave primária (testada) | `sk_municipio` |
 | Outras chaves únicas | `codigo_rfb` (`warn`) |
-| Chaves estrangeiras | — |
-| Lê de | [`int_municipios__conformados`](#int_municipios__conformados), [`stg_bd__censo_2022_municipio`](#stg_bd__censo_2022_municipio), [`stg_bd__regioes_metropolitanas`](#stg_bd__regioes_metropolitanas) |
-| Usada por | [`bridge_municipio_vizinho`](#bridge_municipio_vizinho), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
+| Chaves estrangeiras | `id_municipio_polo_compras` → [`dim_municipio`](#dim_municipio).`id_municipio_ibge` (testada (warn)) |
+| Lê de | [`int_municipios__conformados`](#int_municipios__conformados), [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge), [`stg_bd__censo_2022_municipio`](#stg_bd__censo_2022_municipio), [`stg_bd__regioes_metropolitanas`](#stg_bd__regioes_metropolitanas) |
+| Usada por | [`bridge_municipio_destino_compras`](#bridge_municipio_destino_compras), [`bridge_municipio_vizinho`](#bridge_municipio_vizinho), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_municipio.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `municipio` (primary, `sk_municipio`); dimensões: `id_municipio_ibge`, `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, `nome_mesorregiao`, `nome_microrregiao`, `nome_regiao_intermediaria`, `nome_regiao_imediata`, `nome_regiao_metropolitana`; métricas: — (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
-| Colunas | 30 |
+| Camada semântica | entidades: `municipio` (primary, `sk_municipio`); dimensões: `id_municipio_ibge`, `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, `nome_mesorregiao`, `nome_microrregiao`, `nome_regiao_intermediaria`, `nome_regiao_imediata`, `nome_regiao_metropolitana`, `renda_per_capita_media_2022`, `renda_per_capita_mediana_2022`, `regic_hierarquia_codigo`, `regic_hierarquia`, `regic_arranjo_populacional`, `regic_regiao_influencia`, `nome_municipio_polo_compras`; métricas: — (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Colunas | 53 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
@@ -2139,6 +2221,29 @@ Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística
 | `indice_envelhecimento` | `double` | Índice de envelhecimento (idosos por 100 jovens) do Censo 2022. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.indice_envelhecimento` | — |
 | `razao_sexo` | `double` | Razão de sexo (homens por 100 mulheres) do Censo 2022. | não testado | — | linhagem: `stg_bd__censo_2022_municipio.razao_sexo` | — |
 | `nome_regiao_metropolitana` | `varchar` | Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1. | não (`not_null`) | — | linhagem: `stg_bd__regioes_metropolitanas.nome_regiao_metropolitana`; `NÃO PERTENCE` quando o município não consta | dimensão semântica (categorical) |
+| `renda_per_capita_media_2022` | `decimal(12, 2)` | Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1. | não testado | valor ≥ `0` | linhagem: `stg_ibge__renda_municipio.renda_per_capita_media` (ano 2022) | dimensão semântica (categorical) |
+| `renda_per_capita_mediana_2022` | `decimal(12, 2)` | Rendimento domiciliar per capita mediano (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado (o IBGE marca `...` em alguns municípios). | não testado | — | linhagem: `stg_ibge__renda_municipio.renda_per_capita_mediana` (ano 2022) | dimensão semântica (categorical) |
+| `moradores_renda_2022` | `bigint` | Moradores em domicílios particulares permanentes ocupados, a base da renda per capita do Censo 2022 (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__renda_municipio.moradores` (ano 2022) | — |
+| `ano_va` | `integer` | Ano do valor adicionado (VA) por atividade: o último ano com as quatro aberturas preenchidas no PIB dos Municípios (hoje 2021), independente de `ano_pib` — o PIB total e o VA podem ser de anos diferentes (incremento `enriquecimento_ibge`). | não testado | — | linhagem: maior `stg_bd__pib.ano` com `va_agropecuaria`, `va_industria`, `va_servicos` e `va_adespss` preenchidos | — |
+| `va_agropecuaria` | `double` | Valor adicionado bruto da agropecuária (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_bd__pib.va_agropecuaria` em `ano_va` | — |
+| `va_industria` | `double` | Valor adicionado bruto da indústria (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_bd__pib.va_industria` em `ano_va` | — |
+| `va_servicos` | `double` | Valor adicionado bruto dos serviços, exceto administração pública (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_bd__pib.va_servicos` em `ano_va` | — |
+| `va_adm_publica` | `double` | Valor adicionado bruto da administração, defesa, educação e saúde públicas e seguridade social (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_bd__pib.va_adespss` em `ano_va` | — |
+| `pct_va_agropecuaria` | `double` | Participação da agropecuária na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`). | não testado | `0` ≤ valor ≤ `100` (onde `va_agropecuaria >= 0 and va_industria >= 0 and va_servicos >= 0 and va_adm_publica >= 0`) | linhagem: `va_agropecuaria` × 100 ÷ (`va_agropecuaria` + `va_industria` + `va_servicos` + `va_adm_publica`) | — |
+| `pct_va_industria` | `double` | Participação da indústria na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`). | não testado | `0` ≤ valor ≤ `100` (onde `va_agropecuaria >= 0 and va_industria >= 0 and va_servicos >= 0 and va_adm_publica >= 0`) | linhagem: `va_industria` × 100 ÷ soma das quatro aberturas | — |
+| `pct_va_servicos` | `double` | Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`). | não testado | `0` ≤ valor ≤ `100` (onde `va_agropecuaria >= 0 and va_industria >= 0 and va_servicos >= 0 and va_adm_publica >= 0`) | linhagem: `va_servicos` × 100 ÷ soma das quatro aberturas | — |
+| `pct_va_adm_publica` | `double` | Participação da administração pública na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`). | não testado | `0` ≤ valor ≤ `100` (onde `va_agropecuaria >= 0 and va_industria >= 0 and va_servicos >= 0 and va_adm_publica >= 0`) | linhagem: `va_adm_publica` × 100 ÷ soma das quatro aberturas | — |
+| `regic_hierarquia_codigo` | `varchar` | Código do nível na hierarquia urbana da REGIC 2018 (`1A` Grande Metrópole Nacional … `5` Centro Local); NULL sem dado (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__regic_hierarquia.codigo_hierarquia` | dimensão semântica (categorical) |
+| `regic_hierarquia` | `varchar` | Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__regic_hierarquia.nome_hierarquia` | dimensão semântica (categorical) |
+| `regic_arranjo_populacional` | `varchar` | Arranjo populacional da REGIC 2018 de que o município faz parte; NULL quando é município isolado (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__regic_hierarquia.nome_arranjo_populacional` | dimensão semântica (categorical) |
+| `regic_regiao_influencia` | `varchar` | Cidade (ou arranjo) de vinculação imediata do município na rede urbana da REGIC 2018 (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__regic_hierarquia.regiao_influencia` | dimensão semântica (categorical) |
+| `regic_indice_atracao` | `double` | Índice de atração geral da REGIC 2018 (deslocamentos recebidos de outros municípios); NULL quando o município não é destino de nenhuma ligação (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__regic_atracao.indice_atracao` | — |
+| `id_municipio_polo_compras` | `varchar` | Código IBGE do polo de compras: o destino listado na REGIC 2018 com o maior % dos deslocamentos para comprar móveis e eletroeletrônicos (Q2, a melhor proxy de bem durável e material de construção). O destino "Outros" nunca é polo; empate fica com o menor código; NULL sem ligação com Q2 > 0 (incremento `enriquecimento_ibge`). | não testado | FK → [`dim_municipio`](#dim_municipio).`id_municipio_ibge` (`warn`) | linhagem: `int_regic__destinos_compras.id_municipio_destino` com `tema` = `moveis_eletro` e `posto` = 1 | sem par na dimensão → chave `-1` |
+| `nome_municipio_polo_compras` | `varchar` | Nome do município polo de compras (`id_municipio_polo_compras`); NULL sem polo (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `int_municipios__conformados.nome_municipio` do polo | dimensão semântica (categorical) |
+| `pct_compras_no_polo` | `double` | % dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo (incremento `enriquecimento_ibge`). | não testado | `0` ≤ valor ≤ `100` | linhagem: `int_regic__destinos_compras.pct` do polo | — |
+| `ano_cempre` | `integer` | Ano de referência do CEMPRE baixado (hoje 2024), diferente do mês da RFB; NULL sem dado (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__cempre_municipio_total.ano` (o mais recente) | — |
+| `unidades_locais_cempre` | `bigint` | Unidades locais de empresas e outras organizações formais no município, todas as atividades (CEMPRE, Total); NULL sem dado (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__cempre_municipio_total.unidades_locais` em `ano_cempre` | — |
+| `pessoal_ocupado_cempre` | `bigint` | Pessoal ocupado total no município, todas as atividades (CEMPRE, Total, 31/12 do ano); NULL sem dado ou com sigilo (incremento `enriquecimento_ibge`). | não testado | — | linhagem: `stg_ibge__cempre_municipio_total.pessoal_ocupado` em `ano_cempre` | — |
 
 <a id="dim_natureza_juridica"></a>
 #### `dim_natureza_juridica`
@@ -2237,7 +2342,7 @@ Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimen
 | Outras chaves únicas | — |
 | Chaves estrangeiras | `sk_cnae` → [`dim_cnae`](#dim_cnae).`sk_cnae` (testada)<br>`sk_data_inicio_atividade` → [`dim_data`](#dim_data).`sk_data` (testada)<br>`sk_data_situacao` → [`dim_data`](#dim_data).`sk_data` (testada)<br>`sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada)<br>`sk_natureza_juridica` → [`dim_natureza_juridica`](#dim_natureza_juridica).`sk_natureza_juridica` (testada)<br>`sk_porte` → [`dim_porte`](#dim_porte).`sk_porte` (testada)<br>`sk_situacao_cadastral` → [`dim_situacao_cadastral`](#dim_situacao_cadastral).`sk_situacao_cadastral` (testada) |
 | Lê de | [`dim_cnae`](#dim_cnae), [`dim_data`](#dim_data), [`dim_municipio`](#dim_municipio), [`dim_natureza_juridica`](#dim_natureza_juridica), [`dim_porte`](#dim_porte), [`dim_situacao_cadastral`](#dim_situacao_cadastral), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
-| Usada por | [`fct_resumo_mensal`](#fct_resumo_mensal), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
+| Usada por | [`fct_resumo_mensal`](#fct_resumo_mensal), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/fct_estabelecimentos.parquet` (relativo a `RAIZ_DADOS`) |
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
@@ -2326,6 +2431,35 @@ Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos en
 | `cnpj_completo` | `varchar` | CNPJ completo; FK para `fct_estabelecimentos.cnpj_completo`. | não (`not_null`) | FK → [`fct_estabelecimentos`](#fct_estabelecimentos).`cnpj_completo` | linhagem: `int_cnaes_secundarios__explodidos.cnpj_completo` | — |
 | `sk_cnae` | `integer` | Chave de `dim_cnae` (CNAE secundário); `-1` quando sem par na Base dos Dados. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | linhagem: `dim_cnae.sk_cnae`, casando `codigo_cnae_secundario` com `dim_cnae.codigo_subclasse`; `-1` sem par | chave sentinela: `-1` |
 | `codigo_cnae_secundario` | `varchar` | Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda. | não testado | — | linhagem: um item de `stg_rfb__estabelecimentos.cnaes_secundarios` (lista separada por vírgula), sem repetição por estabelecimento | — |
+
+<a id="bridge_municipio_destino_compras"></a>
+#### `bridge_municipio_destino_compras`
+
+Para onde os moradores de cada município vão comprar (incremento `enriquecimento_ibge`, ADR-0022), da REGIC 2018, em tabela longa: grão = origem × destino × tema, nos temas de compra `vestuario_calcados` (Q1) e `moveis_eletro` (Q2), só ligações com % > 0. `posto` 1 é o principal destino listado da origem no tema. O destino "Outros" (lugares não listados) é a linha com `sk_municipio_destino` = -1 e `eh_outros`, sem posto: com ela a soma de `pct` por origem e tema bate ~100 (teste `destino_compras_soma_100`, warn). A REGIC é de 2018: municípios criados depois não aparecem como origem. Parquet em `gold/bridge_municipio_destino_compras.parquet`; opcional no BI.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por origem × destino × tema (`sk_municipio_origem`, `sk_municipio_destino`, `tema`). |
+| Chave primária (testada) | `sk_municipio_origem` + `sk_municipio_destino` + `tema` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `sk_municipio_destino` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada)<br>`sk_municipio_origem` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada) |
+| Lê de | [`dim_municipio`](#dim_municipio), [`int_regic__destinos_compras`](#int_regic__destinos_compras) |
+| Usada por | — |
+| Materialização | Parquet (`external`) |
+| Localização | `gold/bridge_municipio_destino_compras.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | sim |
+| Colunas | 6 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `sk_municipio_origem` | `integer` | Município de origem dos deslocamentos; FK para `dim_municipio.sk_municipio`. Sem `-1`: origem fora de `dim_municipio` fica de fora. | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | linhagem: `dim_municipio.sk_municipio` da origem (`stg_ibge__regic_ligacoes.id_municipio_origem`) | não recebe a chave `-1` (ver a descrição) |
+| `sk_municipio_destino` | `integer` | Município de destino; FK para `dim_municipio.sk_municipio`. `-1` no destino "Outros" (lugares não listados, `eh_outros`). | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | linhagem: `dim_municipio.sk_municipio` do destino (`stg_ibge__regic_ligacoes.id_municipio_destino`); `-1` no destino "Outros" | chave sentinela: `-1` |
+| `eh_outros` | `boolean` | true na linha do destino "Outros / Não circula jornal" da REGIC: a parcela dos deslocamentos para lugares não listados. | não testado | — | linhagem: `stg_ibge__regic_ligacoes.destino_outros` | — |
+| `tema` | `varchar` | Tema de compra do questionário da REGIC: `vestuario_calcados` (Q1, vestuário e calçados) ou `moveis_eletro` (Q2, móveis e eletroeletrônicos). | não testado | valores: `vestuario_calcados`, `moveis_eletro` | linhagem: coluna Q1 (`vestuario_calcados`) ou Q2 (`moveis_eletro`) de `stg_ibge__regic_ligacoes` | — |
+| `pct` | `double` | % dos deslocamentos da origem para comprar no tema que vão a este destino (0–100). | não testado | `0` ≤ valor ≤ `100` | linhagem: `stg_ibge__regic_ligacoes.pct_vestuario_calcados` ou `.pct_moveis_eletro` | — |
+| `posto` | `bigint` | Posição do destino entre os listados da origem no tema (1 = principal destino, o polo em `moveis_eletro`); NULL no destino "Outros". | não testado | — | linhagem: ordem de `pct` decrescente entre os destinos listados da origem no tema (empate: menor código IBGE) | — |
 
 <a id="bridge_municipio_vizinho"></a>
 #### `bridge_municipio_vizinho`
@@ -2432,7 +2566,7 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 <a id="mart_concorrencia_area_mercado"></a>
 #### `mart_concorrencia_area_mercado`
 
-Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por CNAE principal × município: os pares com estabelecimento no município (como `mart_concorrencia_municipio`) e os vazios de mercado, isto é, municípios sem o CNAE cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` = false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta o denominador (município ou algum vizinho sem Censo), nunca zero. Parquet em `gold/mart_concorrencia_area_mercado.parquet`.
+Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por CNAE principal × município: os pares com estabelecimento no município (como `mart_concorrencia_municipio`) e os vazios de mercado, isto é, municípios sem o CNAE cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` = false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta o denominador (município ou algum vizinho sem Censo), nunca zero. Colunas aditivas do incremento `enriquecimento_ibge` (ADR-0022): o polo de compras do município (REGIC 2018) e os ativos do CNAE nele (`ativos_no_polo`). Parquet em `gold/mart_concorrencia_area_mercado.parquet`.
 
 | Atributo | Valor |
 |---|---|
@@ -2447,7 +2581,7 @@ Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por
 | Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | sim |
-| Colunas | 21 |
+| Colunas | 25 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
@@ -2472,6 +2606,10 @@ Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por
 | `ativos_por_km2` | `double` | Ativos do município por km² (6 casas); 0 nos vazios de mercado; NULL sem área. | não testado | valor ≥ `0` | — | — |
 | `ativos_area_por_mil_domicilios` | `double` | Ativos do município e dos vizinhos por mil domicílios dos mesmos municípios; NULL se algum não tem Censo. | não testado | valor ≥ `0` | — | — |
 | `ativos_area_por_km2` | `double` | Ativos do município e dos vizinhos por km² dos mesmos municípios; NULL se algum não tem Censo. | não testado | valor ≥ `0` | — | — |
+| `id_municipio_polo_compras` | `varchar` | Código IBGE do polo de compras do município (`dim_municipio.id_municipio_polo_compras`: maior % em móveis e eletroeletrônicos, Q2, da REGIC 2018); NULL sem polo. Incremento `enriquecimento_ibge`. | não testado | — | linhagem: `dim_municipio.id_municipio_polo_compras` | — |
+| `nome_municipio_polo_compras` | `varchar` | Nome do polo de compras; NULL sem polo. Incremento `enriquecimento_ibge`. | não testado | — | linhagem: `dim_municipio.nome_municipio_polo_compras` | — |
+| `pct_compras_no_polo` | `double` | % dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo. Incremento `enriquecimento_ibge`. | não testado | — | linhagem: `dim_municipio.pct_compras_no_polo` | — |
+| `ativos_no_polo` | `bigint` | Ativos do mesmo CNAE no município polo de compras (0 quando o polo não tem o CNAE; NULL sem polo). É a concorrência que o morador encontra onde já costuma comprar bens duráveis. Incremento `enriquecimento_ibge`. | não testado | — | linhagem: `mart_concorrencia_municipio.ativos` do CNAE em `sk_municipio` = `id_municipio_polo_compras` | — |
 
 <a id="mart_concorrencia_municipio"></a>
 #### `mart_concorrencia_municipio`
@@ -2539,6 +2677,47 @@ Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal
 | `aberturas` | `bigint` | Estabelecimentos com início de atividade no ano. | não (`not_null`) | — | — | — |
 | `encerramentos` | `bigint` | Estabelecimentos inativos com data da situação no ano. | não (`not_null`) | — | — | — |
 | `saldo` | `bigint` | aberturas − encerramentos. | não (`not_null`) | — | — | — |
+
+<a id="mart_emprego_setor_municipio"></a>
+#### `mart_emprego_setor_municipio`
+
+Tamanho real do setor no município (incremento `enriquecimento_ibge`, ADR-0022): o CEMPRE do IBGE (unidades locais, pessoal ocupado, assalariados e salários) ao lado dos CNPJs ativos da RFB, por município × classe CNAE (5 dígitos). Só os pares em que o CEMPRE tem unidade local ou a RFB tem ativo da classe. Os anos são diferentes: o CEMPRE é do `ano_cempre` (hoje 2024) e a RFB do mês do gold (`mes_referencia_rfb`). Sigilo do IBGE (`X`) nunca é imputado: o valor fica NULL e `tem_sigilo` true; por isso somas de pessoal ocupado e salários sobre classes ou municípios **subestimam** o total (as unidades locais nunca são sigilosas). Um CNPJ ativo não é uma unidade com gente trabalhando: o CEMPRE conta organizações formais com CNPJ ativo no ano e, para empresas, com atividade (RAIS/eSocial ou pesquisas do IBGE), e a RFB conta todo cadastro ativo, inclusive MEI e inativos de fato. Parquet em `gold/mart_emprego_setor_municipio.parquet`.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município × classe CNAE de 5 dígitos (`sk_municipio`, `classe_cnae`). |
+| Chave primária (testada) | `sk_municipio` + `classe_cnae` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `sk_municipio` → [`dim_municipio`](#dim_municipio).`sk_municipio` (testada) |
+| Lê de | [`dim_cnae`](#dim_cnae), [`dim_municipio`](#dim_municipio), [`fct_estabelecimentos`](#fct_estabelecimentos), [`stg_ibge__cempre_municipio_classe`](#stg_ibge__cempre_municipio_classe), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) |
+| Usada por | — |
+| Materialização | Parquet (`external`) |
+| Localização | `gold/mart_emprego_setor_municipio.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | sim |
+| Camada semântica | entidades: `municipio` (foreign, `sk_municipio`); dimensões: `uf`, `classe_cnae`, `descricao_classe`, `ano_cempre`, `tem_sigilo`, `mes_rfb`; métricas: `ativos_rfb`, `pessoal_ocupado_cempre`, `unidades_locais_cempre` (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Colunas | 17 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `sk_municipio` | `integer` | Chave de `dim_municipio` (nunca -1). | não (`not_null`) | FK → [`dim_municipio`](#dim_municipio).`sk_municipio` | linhagem: `dim_municipio.sk_municipio` (CEMPRE por `id_municipio_ibge`; RFB por `fct_estabelecimentos.sk_municipio`) | não recebe a chave `-1` (ver a descrição); entidade semântica `municipio` (foreign) |
+| `id_municipio_ibge` | `varchar` | Código IBGE do município (7 dígitos). | não testado | — | linhagem: `dim_municipio.id_municipio_ibge` | — |
+| `municipio` | `varchar` | Nome do município (acentuado, Base dos Dados); na camada semântica, use `municipio__nome_municipio`. | não testado | — | linhagem: `dim_municipio.nome_municipio` | — |
+| `uf` | `varchar` | Sigla da UF do município. | não testado | — | linhagem: `dim_municipio.sigla_uf` | dimensão semântica (categorical) |
+| `classe_cnae` | `varchar` | Código da classe CNAE 2.0 (5 dígitos, sem pontuação, como `dim_cnae.codigo_classe`; `47415` = 47.41-5). | não (`not_null`) | — | linhagem: `stg_ibge__cempre_municipio_classe.classe_cnae` ou `dim_cnae.codigo_classe` da subclasse dos ativos | dimensão semântica (categorical) |
+| `descricao_classe` | `varchar` | Descrição da classe CNAE (`dim_cnae.descricao_classe`); NULL se a classe não está na Base dos Dados. | não testado | — | linhagem: `dim_cnae.descricao_classe` | dimensão semântica (categorical) |
+| `ano_cempre` | `integer` | Ano de referência do CEMPRE (o mais recente baixado; hoje 2024). Diferente do mês da RFB. | não testado | — | linhagem: maior `stg_ibge__cempre_municipio_classe.ano` | dimensão semântica (categorical) |
+| `unidades_locais_cempre` | `bigint` | Unidades locais da classe no município (CEMPRE, variável 706); 0 se o IBGE publica `-`; NULL sem CEMPRE do município. | não testado | valor ≥ `0` | linhagem: `stg_ibge__cempre_municipio_classe.unidades_locais` | — |
+| `pessoal_ocupado_cempre` | `bigint` | Pessoal ocupado total da classe no município (CEMPRE, 707); NULL com sigilo (`tem_sigilo`) ou sem dado. | não testado | — | linhagem: `stg_ibge__cempre_municipio_classe.pessoal_ocupado` | — |
+| `pessoal_assalariado_cempre` | `bigint` | Pessoal ocupado assalariado da classe no município (CEMPRE, 708); NULL com sigilo ou sem dado. | não testado | — | linhagem: `stg_ibge__cempre_municipio_classe.pessoal_assalariado` | — |
+| `salarios_mil_reais` | `decimal(18, 3)` | Salários e outras remunerações da classe no município (CEMPRE, 662, R$ mil, nominais do ano); NULL com sigilo ou sem dado. | não testado | — | linhagem: `stg_ibge__cempre_municipio_classe.salarios_mil_reais` | — |
+| `tem_sigilo` | `boolean` | true se alguma variável da célula veio com `X` (sigilo do IBGE); o valor fica NULL, nunca imputado. | não (`not_null`) | — | linhagem: `stg_ibge__cempre_municipio_classe.tem_sigilo`; false nos pares só da RFB | dimensão semântica (categorical) |
+| `ativos_rfb` | `bigint` | Estabelecimentos ativos na RFB (mês do gold) cuja subclasse principal é da classe; inclui MEI. | não (`not_null`) | — | linhagem: contagem de `fct_estabelecimentos` com `eh_ativa`, por `sk_municipio` e `dim_cnae.codigo_classe` | — |
+| `ativos_rfb_sem_mei` | `bigint` | Ativos da classe na RFB sem os de empresa optante pelo MEI (`opcao_mei`). | não (`not_null`) | — | linhagem: contagem de `fct_estabelecimentos` com `eh_ativa` e `not opcao_mei` | — |
+| `pessoal_por_unidade` | `double` | Pessoal ocupado por unidade local (2 casas); NULL com sigilo, sem unidade ou sem dado. | não testado | — | linhagem: `pessoal_ocupado_cempre` ÷ `unidades_locais_cempre`, só sem sigilo | — |
+| `razao_unidades_cempre_ativos_rfb` | `double` | Unidades locais do CEMPRE por ativo da RFB (4 casas); NULL sem ativo. Abaixo de 1, há mais CNPJs ativos que unidades com atividade; acima de 1, o CEMPRE vê unidades que a RFB classifica em outra classe (ou o cadastro defasado). Anos diferentes: leia como ordem de grandeza. | não testado | — | linhagem: `unidades_locais_cempre` ÷ `ativos_rfb` | — |
+| `mes_referencia_rfb` | `varchar` | Mês do extrato RFB (`AAAA-MM`) dos ativos; o CEMPRE é de `ano_cempre`, outro ano. | não testado | — | linhagem: maior `stg_rfb__estabelecimentos._mes_referencia` | — |
 
 <a id="mart_fornecedores_proximos"></a>
 #### `mart_fornecedores_proximos`
