@@ -1,4 +1,4 @@
-"""Contrato da camada raw: entidades RFB (colunas, padrão de zip) e tabelas da Base dos Dados."""
+"""Contrato da camada raw: entidades RFB (colunas, padrão de zip), tabelas BD e IBGE."""
 
 from __future__ import annotations
 
@@ -169,4 +169,27 @@ TABELAS_BD: dict[str, TabelaBD] = {
         tabela="municipio",
         incremento="enriquecimento_bd",
     ),
+}
+
+
+# incremento: enriquecimento_ibge
+@dataclass(frozen=True)
+class TabelaIBGE:
+    """Tabela raw baixada direto do IBGE (`raw/ibge/<nome>/<nome>.parquet`); ver `ibge.py`."""
+
+    nome: str
+    origem: str  # "sidra" (API SIDRA) | "regic" (planilha do geoftp)
+    incremento: str | None = "enriquecimento_ibge"
+
+
+TABELAS_IBGE: dict[str, TabelaIBGE] = {
+    t.nome: t
+    for t in (
+        TabelaIBGE(nome="cempre_categorias_cnae", origem="sidra"),
+        TabelaIBGE(nome="cempre_municipio_cnae", origem="sidra"),
+        TabelaIBGE(nome="renda_censo_2022_municipio", origem="sidra"),
+        TabelaIBGE(nome="regic_2018_hierarquia", origem="regic"),
+        TabelaIBGE(nome="regic_2018_ligacoes", origem="regic"),
+        TabelaIBGE(nome="regic_2018_atracao", origem="regic"),
+    )
 }

@@ -70,9 +70,20 @@ class Configuracao:
     webdav_url: str = "https://arquivos.receitafederal.gov.br/public.php/webdav/"
     webdav_token: str = "YggdBLfdninEJX9"
     bd_base_url: str = "https://basedosdados.org/api/tables/downloadTable"
+    # incremento: enriquecimento_ibge — API SIDRA e geoftp do IBGE (ver `ibge.py`)
+    sidra_base_url: str = "https://apisidra.ibge.gov.br/values"
+    regic_base_url: str = (
+        "https://geoftp.ibge.gov.br/organizacao_do_territorio/divisao_regional/"
+        "regioes_de_influencia_das_cidades/"
+        "Regioes_de_influencia_das_cidades_2018_Resultados_definitivos/base_tabular/"
+    )
+    cempre_periodo: str | None = None  # ano do CEMPRE (None: o mais recente publicado)
+    sidra_max_valores: int = 50_000  # limite de valores por requisição da API SIDRA
     hosts_permitidos: tuple[str, ...] = (
         "arquivos.receitafederal.gov.br",
         "basedosdados.org",
+        "apisidra.ibge.gov.br",
+        "geoftp.ibge.gov.br",
     )
     max_taxa_rejeito: float = 0.0001
     tempo_limite_s: float = 60.0
@@ -177,6 +188,11 @@ def carregar_configuracao(env: Mapping[str, str] | None = None) -> Configuracao:
         if manter_zips.lower() not in _VERDADEIROS | _FALSOS:
             raise ConfiguracaoInvalidaErro("RFB_MANTER_ZIPS", manter_zips, "true ou false")
         sobrescritas["manter_zips"] = manter_zips.lower() in _VERDADEIROS
+    cempre_periodo = _texto(env, "RFB_CEMPRE_PERIODO")  # incremento: enriquecimento_ibge
+    if cempre_periodo is not None:
+        if not (cempre_periodo.isdigit() and len(cempre_periodo) == 4):
+            raise ConfiguracaoInvalidaErro("RFB_CEMPRE_PERIODO", cempre_periodo, "ano AAAA")
+        sobrescritas["cempre_periodo"] = cempre_periodo
     memoria = _texto(env, "DUCKDB_MEMORY_LIMIT")
     if memoria is not None:
         sobrescritas["duckdb_memory_limit"] = memoria

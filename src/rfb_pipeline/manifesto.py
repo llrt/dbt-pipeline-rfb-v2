@@ -91,6 +91,7 @@ class Manifesto:
     concluido_em: str | None
     arquivos: tuple[ArquivoManifesto, ...]
     versao_pipeline: str = VERSAO_PIPELINE
+    ibge: tuple[dict, ...] = ()  # incremento: enriquecimento_ibge — tabelas IBGE usadas no mês
 
     @property
     def entidades(self) -> dict[str, dict[str, int]]:
@@ -113,6 +114,7 @@ class Manifesto:
             "arquivos": [a.to_dict() for a in self.arquivos],
             "entidades": self.entidades,
             "versao_pipeline": self.versao_pipeline,
+            "ibge": list(self.ibge),
         }
 
     @staticmethod
@@ -124,6 +126,7 @@ class Manifesto:
             concluido_em=dados.get("concluido_em"),
             arquivos=tuple(ArquivoManifesto.from_dict(a) for a in dados["arquivos"]),
             versao_pipeline=dados.get("versao_pipeline", VERSAO_PIPELINE),
+            ibge=tuple(dados.get("ibge", [])),
         )
 
 

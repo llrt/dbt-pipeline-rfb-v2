@@ -148,3 +148,26 @@ class VariavelAntigaErro(ErroIngestao):
         self.antigas = antigas
         migracao = "; ".join(f"renomeie {a} para {n}" for a, n in antigas.items())
         super().__init__(f"variáveis de ambiente antigas definidas: {migracao}")
+
+
+# incremento: enriquecimento_ibge
+class SidraErro(ErroIngestao):
+    """A API SIDRA do IBGE respondeu com erro em texto, corpo inválido ou vazio."""
+
+    def __init__(self, url: str, motivo: str) -> None:
+        self.url = url
+        super().__init__(f"SIDRA: {motivo} ({url})")
+
+
+# incremento: enriquecimento_ibge
+class SidraLimiteExcedidoErro(SidraErro):
+    """A requisição pediu mais valores que o limite da API SIDRA (50.000 por requisição)."""
+
+
+# incremento: enriquecimento_ibge
+class PlanilhaIBGEErro(ErroIngestao):
+    """Planilha do IBGE sem a aba esperada, sem cabeçalho ou com colunas repetidas."""
+
+    def __init__(self, arquivo: str, motivo: str) -> None:
+        self.arquivo = arquivo
+        super().__init__(f"planilha {arquivo}: {motivo}")

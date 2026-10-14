@@ -66,6 +66,7 @@ class OpcoesPipeline:
     origem_local: Path | None = None
     permitir_incompleto: bool = False
     forcar: bool = False
+    renovar_ibge: bool = False  # incremento: enriquecimento_ibge
     ingerir: bool = True
     target: str | None = None
     saida_relatorio: Path | None = SAIDA_PADRAO  # None = sem relatório
@@ -221,6 +222,7 @@ def _ingerir_mes(configuracao: Configuracao, mes: str | None, opcoes: OpcoesPipe
         origem_local=opcoes.origem_local,
         forcar=opcoes.forcar,
         permitir_incompleto=opcoes.permitir_incompleto,
+        renovar_ibge=opcoes.renovar_ibge,
     )
     return manifesto.mes_referencia
 
