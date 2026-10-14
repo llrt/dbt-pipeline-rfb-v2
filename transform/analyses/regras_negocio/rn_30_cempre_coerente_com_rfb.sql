@@ -43,7 +43,9 @@ cempre as (
     uni.ano = (select max(ult.ano) from unidades as ult)
     and uni.unidades_locais > 0
     and uni.classe_cnae in (
-      select cnae.codigo_classe from {{ ref('dim_cnae') }} as cnae where cnae.sk_cnae <> -1
+      select cnae.codigo_classe
+      from {{ ref('dim_cnae') }} as cnae
+      where cnae.sk_cnae <> -1
     )
 ),
 
