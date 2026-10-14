@@ -37,7 +37,7 @@
 | [RN-27](REGRAS_NEGOCIO.md#rn-27) | Filial não começa depois do fim da matriz | coerência do projeto | 1.134.226 | 2.427 | 0,21 % |
 | [RN-28](REGRAS_NEGOCIO.md#rn-28) | Opção não antecede o início de atividade (observação) | coerência do projeto | 87.479.562 | 1.751 | < 0,01 % |
 | [RN-29](REGRAS_NEGOCIO.md#rn-29) | MEI não é sociedade | legal | 17.523.665 | 1.236 | < 0,01 % |
-| [RN-30](REGRAS_NEGOCIO.md#rn-30) | CEMPRE e RFB concordam sobre a presença do setor no município (observação) | coerência do projeto | 1.073.321 | 2.107 | 0,20 % |
+| [RN-30](REGRAS_NEGOCIO.md#rn-30) | CEMPRE e RFB concordam sobre a presença do setor no município (observação) | coerência do projeto | 1.073.268 | 2.101 | 0,20 % |
 
 ## Regras com violação
 
@@ -227,29 +227,29 @@ _Mostrando 20 de 90 linhas._
 
 ### RN-30 — CEMPRE e RFB concordam sobre a presença do setor no município (observação)
 
-**2.107** violações em **1.073.321** avaliados (0,20 %). Como ler: [catálogo, RN-30](REGRAS_NEGOCIO.md#rn-30).
+**2.101** violações em **1.073.268** avaliados (0,20 %). Como ler: [catálogo, RN-30](REGRAS_NEGOCIO.md#rn-30).
 
 | uf | faixa | Avaliados | Violações | % |
 |---|---|---:|---:|---:|
-| SP | sem ativo RFB sem MEI | 25.703 | 346 | 1,35 % |
-| PR | sem ativo RFB sem MEI | 16.440 | 244 | 1,48 % |
-| RS | sem ativo RFB sem MEI | 18.276 | 193 | 1,06 % |
-| SC | sem ativo RFB sem MEI | 11.085 | 190 | 1,71 % |
-| MG | sem ativo RFB sem MEI | 35.006 | 116 | 0,33 % |
-| BA | sem ativo RFB sem MEI | 16.450 | 105 | 0,64 % |
-| PE | sem ativo RFB sem MEI | 8.122 | 95 | 1,17 % |
-| MT | sem ativo RFB sem MEI | 5.799 | 83 | 1,43 % |
-| PI | sem ativo RFB sem MEI | 6.564 | 80 | 1,22 % |
-| GO | sem ativo RFB sem MEI | 10.203 | 77 | 0,75 % |
-| TO | sem ativo RFB sem MEI | 4.906 | 68 | 1,39 % |
-| CE | sem ativo RFB sem MEI | 7.371 | 66 | 0,90 % |
-| MS | sem ativo RFB sem MEI | 3.274 | 64 | 1,95 % |
+| SP | sem ativo RFB sem MEI | 25.690 | 345 | 1,34 % |
+| PR | sem ativo RFB sem MEI | 16.435 | 244 | 1,48 % |
+| RS | sem ativo RFB sem MEI | 18.275 | 193 | 1,06 % |
+| SC | sem ativo RFB sem MEI | 11.084 | 190 | 1,71 % |
+| MG | sem ativo RFB sem MEI | 34.999 | 116 | 0,33 % |
+| BA | sem ativo RFB sem MEI | 16.447 | 104 | 0,63 % |
+| PE | sem ativo RFB sem MEI | 8.118 | 95 | 1,17 % |
+| MT | sem ativo RFB sem MEI | 5.798 | 83 | 1,43 % |
+| PI | sem ativo RFB sem MEI | 6.563 | 80 | 1,22 % |
+| GO | sem ativo RFB sem MEI | 10.202 | 76 | 0,74 % |
+| TO | sem ativo RFB sem MEI | 4.905 | 68 | 1,39 % |
+| CE | sem ativo RFB sem MEI | 7.369 | 65 | 0,88 % |
+| MS | sem ativo RFB sem MEI | 3.273 | 64 | 1,96 % |
 | PB | sem ativo RFB sem MEI | 8.444 | 53 | 0,63 % |
 | PA | sem ativo RFB sem MEI | 5.504 | 47 | 0,85 % |
-| MA | sem ativo RFB sem MEI | 6.848 | 46 | 0,67 % |
-| ES | sem ativo RFB sem MEI | 3.552 | 40 | 1,13 % |
+| MA | sem ativo RFB sem MEI | 6.847 | 46 | 0,67 % |
+| ES | sem ativo RFB sem MEI | 3.549 | 40 | 1,13 % |
 | AM | sem ativo RFB sem MEI | 2.055 | 34 | 1,65 % |
-| RJ | sem ativo RFB sem MEI | 4.104 | 33 | 0,80 % |
+| RJ | sem ativo RFB sem MEI | 4.102 | 32 | 0,78 % |
 | RO | sem ativo RFB sem MEI | 2.053 | 32 | 1,56 % |
 
 _Mostrando 20 de 135 linhas._
@@ -359,9 +359,10 @@ repetem um secundário. Mais da metade está em estabelecimentos baixados ou ina
 Não afetam as métricas, que usam só o CNAE principal, nem a ponte de secundários, que deduplica os pares.
 
 **CEMPRE × RFB (RN-30, observação, incremento `enriquecimento_ibge`).** Lida em 2026-10-14 sobre a mesma cópia do
-warehouse, com o CEMPRE 2024 baixado do IBGE. Dos 1.073.321 pares município × classe CNAE com unidade local no
-CEMPRE ou ativo na RFB, 2.107 (0,20 %) têm 3 ou mais unidades locais no CEMPRE e nenhum estabelecimento ativo sem
-MEI na RFB; 1.935 deles não têm nenhum ativo da classe, nem MEI. A mediana é de 4 unidades por par violado (90º
+warehouse, com o CEMPRE 2024 baixado do IBGE. Dos 1.073.268 pares município × classe CNAE com unidade local no
+CEMPRE ou ativo na RFB, 2.101 (0,20 %) têm 3 ou mais unidades locais no CEMPRE e nenhum estabelecimento ativo sem
+MEI na RFB; 1.929 deles não têm nenhum ativo da classe, nem MEI. Ficam fora as duas classes do CEMPRE sem par na
+CNAE da RFB (70.10-7 e 47.90-3), que antes somavam 53 pares e 6 violações estruturais (RIBG-09). A mediana é de 4 unidades por par violado (90º
 percentil, 12; máximo, 78). A concentração é setorial: 1.309 pares estão nas divisões 85, Educação (1.082, dos
 quais 1.032 só em "atividades de apoio à educação"), e 84, Administração pública (227); seguem o comércio atacadista
 (137) e o varejista (66). Consultas somente leitura na mesma cópia. A leitura do catálogo vale aqui sem ter sido
