@@ -401,8 +401,9 @@ traz todos os destinos de vestuário e calçados (Q1) e de móveis e eletroeletr
 
 Rendimento domiciliar per capita médio e mediano por município, do Censo Demográfico 2022 (tabela SIDRA 10295)
 [IBGE-SIDRA]. Valores em reais nominais de 2022, sem correção. A média é puxada pelas rendas altas; a mediana
-descreve o domicílio típico (Vitória: média de R$ 3.351,64 e mediana de R$ 1.750,00). O IBGE marca `...` (não
-disponível) a mediana de alguns municípios, que fica NULL.
+descreve o domicílio típico (Vitória: média de R$ 3.351,64 e mediana de R$ 1.750,00). Na tabela 10295 publicada, os
+5.570 municípios têm média e mediana numéricas; se o IBGE publicar um símbolo (`...`, não disponível), o
+valor fica NULL. O `...` das fixtures só existe para provar esse tratamento.
 
 #### Valor adicionado por atividade
 

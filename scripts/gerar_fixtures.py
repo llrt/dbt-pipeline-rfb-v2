@@ -1101,7 +1101,8 @@ _VALORES_CEMPRE = {
     ("2500106", "117897"): ("90", "600", "400", "9000"),
 }
 # Renda do Censo 2022 (tabela 10295): moradores, média e mediana do rendimento domiciliar per capita
-# (R$). Fundão e Vitória reais; demais sintéticos; Água Branca/PI com mediana `...`.
+# (R$). Fundão e Vitória reais; demais sintéticos; Água Branca/PI com mediana `...` (a 10295 real
+# não tem nenhum símbolo: o `...` só prova o tratamento).
 _RENDA_2022 = {
     "3202207": ("17961", "1406.78", "1040.00"),
     "3203205": ("166000", "1650.20", "1100.00"),

@@ -260,7 +260,7 @@ models:
               config: { meta: { escopo: adicao, incremento: enriquecimento_ibge }, tags: [escopo_adicao, incremento_enriquecimento_ibge] }
       - name: renda_per_capita_mediana_2022
         description: >
-          Rendimento domiciliar per capita mediano (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado (o IBGE marca `...` em alguns municípios).
+          Rendimento domiciliar per capita mediano (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado: a 10295 publicada tem valor numérico nos 5.570 municípios; um símbolo do IBGE (`...`) viraria NULL.
         data_type: decimal(12, 2)
         dimension: categorical
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__renda_municipio.renda_per_capita_mediana` (ano 2022)" } }
