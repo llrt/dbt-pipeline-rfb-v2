@@ -1,9 +1,13 @@
 -- incremento: enriquecimento_ibge
 -- REGIC 2018: ligações origem -> destino dos questionários, com o % dos deslocamentos da origem que vão
--- ao destino para cada tema (Q1 a Q10). NULL quando ausente na planilha.
+-- ao destino para cada tema (Q1 a Q10). NULL quando ausente na planilha. O destino `0` ("Outros / Não
+-- circula jornal") é a parcela que vai a lugares não listados: fica, com `id_municipio_destino` NULL e
+-- `destino_outros`, para que os percentuais de cada origem continuem somando o total.
 select
   {{ texto_ou_nulo('mun_origem') }} as id_municipio_origem,
-  {{ texto_ou_nulo('mun_destino') }} as id_municipio_destino,
+  case when trim(mun_destino) <> '0' then {{ texto_ou_nulo('mun_destino') }} end
+    as id_municipio_destino,
+  coalesce(trim(mun_destino) = '0', false) as destino_outros,
   q1::double as pct_vestuario_calcados,
   q2::double as pct_moveis_eletro,
   q3::double as pct_saude_baixa_media_complexidade,

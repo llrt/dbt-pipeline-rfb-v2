@@ -1052,20 +1052,20 @@ _CATEGORIAS_CEMPRE = [
         "117424",
         "46.79-6 Comércio atacadista especializado de materiais de construção não especificados anteriormente e de materiais de construção em geral",  # noqa: E501
         "16511",
-    ),  # fmt: skip
+    ),
     ("117438", "47 Comércio varejista", "2291295"),
     (
         "117440",
         "47.11-3 Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - hipermercados e supermercados",  # noqa: E501
         "55169",
-    ),  # fmt: skip
+    ),
     ("117452", "47.4 Comércio varejista de material de construção", "293179"),
     ("117453", "47.41-5 Comércio varejista de tintas e materiais para pintura", "15716"),
     (
         "117456",
         "47.44-0 Comércio varejista de ferragens, madeira e materiais de construção",
         "231116",
-    ),  # fmt: skip
+    ),
 ]
 _CLASSES_CEMPRE = ["116833", "117066", "117073", "117299", "117424", "117440", "117453", "117456"]
 _VARIAVEIS_CEMPRE = (
@@ -1076,7 +1076,7 @@ _VARIAVEIS_CEMPRE = (
 )  # (variável, unidade)
 # (município, categoria) -> (unidades locais, pessoal ocupado, assalariado, salários em mil R$);
 # o que não está aqui é `-` (zero absoluto). Fundão: Total e 47.41-5 reais (CEMPRE 2024); Serra e
-# Vitória em 47.41-5: unidades e pessoal reais. `X` = sigilo, `...` = não disponível, `..` = não se
+# Vitória em 47.41-5: as 4 variáveis reais. `X` = sigilo, `...` = não disponível, `..` = não se
 # aplica.
 _VALORES_CEMPRE = {
     ("3202207", "117897"): ("1054", "5125", "3831", "96332"),
@@ -1089,11 +1089,11 @@ _VALORES_CEMPRE = {
     ("3200607", "117453"): ("3", "X", "X", "X"),
     ("3200607", "117299"): ("1", "..", "..", ".."),
     ("3205002", "117897"): ("16000", "160000", "140000", "5100000"),
-    ("3205002", "117453"): ("33", "196", "150", "4210"),
+    ("3205002", "117453"): ("33", "196", "167", "6358"),
     ("3205002", "117073"): ("2", "X", "X", "X"),
     ("3205002", "117424"): ("10", "80", "70", "2500"),
     ("3205309", "117897"): ("21000", "290000", "250000", "11200000"),
-    ("3205309", "117453"): ("25", "164", "120", "3890"),
+    ("3205309", "117453"): ("25", "164", "144", "5892"),
     ("3205309", "117424"): ("8", "50", "45", "1800"),
     ("2700102", "117897"): ("150", "900", "600", "15000"),
     ("2200202", "117897"): ("220", "1500", "1100", "26000"),
@@ -1150,7 +1150,7 @@ _REGIC_HIERARQUIA = [
         None,
         None,
         None,
-    ),  # fmt: skip
+    ),
     (
         "25",
         "PB",
@@ -1172,7 +1172,7 @@ _REGIC_HIERARQUIA = [
         "Tabira (PE)",
         None,
         None,
-    ),  # fmt: skip
+    ),
     (
         "27",
         "AL",
@@ -1194,7 +1194,7 @@ _REGIC_HIERARQUIA = [
         None,
         None,
         None,
-    ),  # fmt: skip
+    ),
     (
         "32",
         "ES",
@@ -1212,7 +1212,7 @@ _REGIC_HIERARQUIA = [
         "3 - Centro Sub-Regional",
         1,
         *_VINCULO_VITORIA,
-    ),  # fmt: skip
+    ),
     (
         "32",
         "ES",
@@ -1227,7 +1227,7 @@ _REGIC_HIERARQUIA = [
         *_INTEGRANTE_VITORIA,
         1,
         *_VINCULO_VITORIA,
-    ),  # fmt: skip
+    ),
     (
         "32",
         "ES",
@@ -1245,7 +1245,7 @@ _REGIC_HIERARQUIA = [
         "3 - Centro Sub-Regional",
         1,
         *_VINCULO_VITORIA,
-    ),  # fmt: skip
+    ),
     (
         "32",
         "ES",
@@ -1260,7 +1260,7 @@ _REGIC_HIERARQUIA = [
         *_INTEGRANTE_VITORIA,
         1,
         *_VINCULO_VITORIA,
-    ),  # fmt: skip
+    ),
     (
         "32",
         "ES",
@@ -1275,7 +1275,7 @@ _REGIC_HIERARQUIA = [
         *_INTEGRANTE_VITORIA,
         1,
         *_VINCULO_VITORIA,
-    ),  # fmt: skip
+    ),
 ]
 
 _CABECALHO_REGIC_ATRACAO = [
@@ -1307,7 +1307,7 @@ _REGIC_ATRACAO = [
             2537671.75,
             281181.21,
         ),
-    ),  # fmt: skip
+    ),
     (
         "3205002",
         "Serra",
@@ -1329,7 +1329,7 @@ _REGIC_ATRACAO = [
             7407.47,
             59725.43,
         ),
-    ),  # fmt: skip
+    ),
     (
         "3203205",
         "Linhares",
@@ -1351,7 +1351,7 @@ _REGIC_ATRACAO = [
             18143.43,
             61764.66,
         ),
-    ),  # fmt: skip
+    ),
     (
         "3202207",
         "Fundão",
@@ -1362,7 +1362,7 @@ _REGIC_ATRACAO = [
         21061,
         4580.80969216309,
         (0, 0, 0, 0, 0, 0, 0, 0, 0, 45808.0969216309),
-    ),  # fmt: skip
+    ),
     (
         "3200607",
         "Aracruz",
@@ -1373,7 +1373,7 @@ _REGIC_ATRACAO = [
         99305,
         14592.5630619228,
         (21580.27, 20749.57, 18241.58, 3510.17, 37738.63, 14338.82, 19267.52, 0, 824.33, 9674.75),
-    ),  # fmt: skip
+    ),
     (
         "2700102",
         "Água Branca",
@@ -1384,7 +1384,7 @@ _REGIC_ATRACAO = [
         20162,
         1259.49666666667,
         (0, 0, 0, 0, 0, 4015.63, 7412.87, 0, 0, 0),
-    ),  # fmt: skip
+    ),
     (
         "2500106",
         "Água Branca",
@@ -1395,7 +1395,7 @@ _REGIC_ATRACAO = [
         10161,
         2605.34054189714,
         (1217.83, 1217.83, 0, 0, 0, 8684.45, 6881.97, 0, 0, 6272.5),
-    ),  # fmt: skip
+    ),
     (
         "2200202",
         "Água Branca",
@@ -1406,6 +1406,29 @@ _REGIC_ATRACAO = [
         17349,
         25331.0973656827,
         (54645.47, 45399.87, 23399.92, 866.97, 22901.27, 26959.01, 25712.77, 0, 0, 35194.04),
+    ),
+    # pseudo-destino "Outros / Não circula jornal" (no real: `CODMUN` 0, sem hierarquia e população)
+    (
+        "0",
+        "Outros / Não circula jornal",
+        None,
+        None,
+        None,
+        None,
+        None,
+        2379854.69235186,
+        (
+            1394139.13,
+            1324777.16,
+            1172195.21,
+            1125295.7,
+            1621141.86,
+            1750225.56,
+            2065193.26,
+            959544.76,
+            33672992.69,
+            0,
+        ),
     ),  # fmt: skip
 ]
 
@@ -1441,7 +1464,7 @@ _REGIC_LIGACOES = [
             20.5,
         ),
         31.1,
-    ),  # fmt: skip
+    ),
     (
         "3202207",
         "3205002",
@@ -1458,7 +1481,7 @@ _REGIC_LIGACOES = [
             30.2,
         ),
         25.4,
-    ),  # fmt: skip
+    ),
     (
         "3202207",
         "3200607",
@@ -1475,13 +1498,13 @@ _REGIC_LIGACOES = [
             12.5675012272951,
         ),
         15.1,
-    ),  # fmt: skip
+    ),
     (
         "3202207",
         "3203205",
         (0, 0, 0, 0, 0, 0, 0, 0, 6.66666666666667, 0),
         0.666666666666667,
-    ),  # fmt: skip
+    ),
     (
         "3203205",
         "3205309",
@@ -1498,13 +1521,13 @@ _REGIC_LIGACOES = [
             11.2757731958763,
         ),
         71.9,
-    ),  # fmt: skip
+    ),
     (
         "3200607",
         "3205309",
         (60, 58.3333333333333, 60, 80, 60, 40, 60, 100, 86.6666666666667, 21.2719298245614),
         62.6,
-    ),  # fmt: skip
+    ),
     (
         "3200607",
         "3205002",
@@ -1521,8 +1544,13 @@ _REGIC_LIGACOES = [
             9.75877192982456,
         ),
         12.9,
-    ),  # fmt: skip
+    ),
+    # Destino `0` = "Outros / Não circula jornal": a parcela dos deslocamentos para lugares não
+    # listados (no real, 3.888 origens têm essa linha; Fundão não). Sintético, no formato do real.
+    ("3203205", "0", (0, 3.33, 0, 3.33, 8.33, 6.67, 8.33, 0, 6.67, 0), 0.0366666666666667),
 ]
+_DESTINO_OUTROS = "0"
+_NOME_OUTROS = "Outros / Não circula jornal"
 
 
 def _escrever_json_ibge(saida_dir: Path, nome: str, registros: list[dict]) -> Path:
@@ -1640,12 +1668,17 @@ def _linha_ligacao(origem: str, destino: str, qs: tuple, perc_lig: float) -> tup
         arranjo = ("3205309", _AP_VITORIA) if integra == "SIM" else (None, None)
         return (municipio, int(municipio), nome, pop, *arranjo, hierar_mun, hierar_cid, nome_hierar)
 
-    o, d = lado(origem), lado(destino)
+    o = lado(origem)
+    if destino == _DESTINO_OUTROS:  # como no real: sem UF, população, hierarquia nem sede
+        uf_d, sede_d = None, (None, None)
+        d = ("0", 0, _NOME_OUTROS, None, None, None, None, None, None)
+    else:
+        uf_d, d, sede_d = "ES", lado(destino), _SEDES[destino]
     pop_o = o[3]
     ias = [round(q * pop_o / 100, 4) for q in qs]
     return (
-        int(origem + destino), "ES", *o[:9], "ES", *d[:9], *qs, *ias, perc_lig,
-        round(perc_lig * pop_o / 100, 4), *_SEDES[origem], *_SEDES[destino],
+        int(origem + destino), "ES", *o[:9], uf_d, *d[:9], *qs, *ias, perc_lig,
+        round(perc_lig * pop_o / 100, 4), *_SEDES[origem], *sede_d,
     )  # fmt: skip
 
 

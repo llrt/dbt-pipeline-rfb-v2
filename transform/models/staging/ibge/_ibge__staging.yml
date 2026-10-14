@@ -211,7 +211,10 @@ models:
     description: >
       REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*` é o percentual
       estimado dos deslocamentos dos moradores da origem que vão ao destino para o tema (Q1 a Q10 da
-      planilha), de 0 a 100; NULL quando ausente. Município sem ligação de origem não aparece.
+      planilha), de 0 a 100; NULL quando ausente. Município sem ligação de origem não aparece. O
+      destino `0` da planilha ("Outros / Não circula jornal", 3.888 origens no dado real) é a parcela
+      dos deslocamentos para lugares não listados: fica com `id_municipio_destino` NULL e
+      `destino_outros` verdadeiro (no máximo uma linha por origem).
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -227,14 +230,23 @@ models:
                 field: id_municipio
               config: { severity: warn, store_failures: true }
       - name: id_municipio_destino
-        description: Geocódigo IBGE do município de destino (7 dígitos, texto).
+        description: >
+          Geocódigo IBGE do município de destino (7 dígitos, texto); NULL no destino "Outros"
+          (`destino_outros`).
         data_tests:
-          - not_null
+          - not_null:
+              config: { where: "not destino_outros" }
           - relationships:
               arguments:
                 to: ref('stg_bd__municipios')
                 field: id_municipio
               config: { severity: warn, store_failures: true }
+      - name: destino_outros
+        description: >
+          Verdadeiro na linha do destino `0` da planilha ("Outros / Não circula jornal"): a parcela dos
+          deslocamentos da origem para lugares não listados.
+        data_tests:
+          - not_null
       - name: pct_vestuario_calcados
         description: "% dos deslocamentos da origem ao destino para comprar vestuário e calçados (Q1)."
         data_tests:
@@ -275,7 +287,8 @@ models:
       meta: { grao: "município de destino (`id_municipio`)" }
     description: >
       REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamentos dos
-      questionários, geral e por tema. Município que não atrai ninguém não aparece.
+      questionários, geral e por tema. Município que não atrai ninguém não aparece, nem a
+      pseudo-localidade `0` ("Outros / Não circula jornal") da planilha.
     columns:
       - name: id_municipio
         description: Geocódigo IBGE do município (7 dígitos, texto).
@@ -380,7 +393,9 @@ unit_tests:
         - { id_municipio: "2200202", ano: 2022, moradores: 16800, renda_per_capita_media: 610.15, renda_per_capita_mediana: null }
 
   - name: test_stg_ibge__regic_ligacoes_temas
-    description: "Q1 é vestuário e calçados e Q2 é móveis e eletroeletrônicos (oráculo Fundão -> Serra: 46,67 / 45)."
+    description: >
+      Q1 é vestuário e calçados e Q2 é móveis e eletroeletrônicos (oráculo Fundão -> Serra: 46,67 /
+      45); o destino `0` ("Outros") vira `id_municipio_destino` NULL com `destino_outros`.
     model: stg_ibge__regic_ligacoes
     given:
       - input: source('ibge', 'regic_2018_ligacoes')
@@ -389,9 +404,12 @@ unit_tests:
           select '3202207' as mun_origem, '3205002' as mun_destino, '46.6666666666667' as q1, '45' as q2,
                  null as q3, '0' as q4, null as q5, null as q6, null as q7, null as q8, null as q9,
                  null as q10, '25.4' as perc_lig, '100' as ia
+          union all select '3203205', '0', '0', '3.33', null, null, null, null, null, null, '6.67', null,
+                 '0.0367', '1126.4'
     expect:
       rows:
-        - { id_municipio_origem: "3202207", id_municipio_destino: "3205002", pct_vestuario_calcados: 46.6666666666667, pct_moveis_eletro: 45, pct_saude_baixa_media_complexidade: null, pct_saude_alta_complexidade: 0 }
+        - { id_municipio_origem: "3202207", id_municipio_destino: "3205002", destino_outros: false, pct_vestuario_calcados: 46.6666666666667, pct_moveis_eletro: 45, pct_saude_baixa_media_complexidade: null, pct_saude_alta_complexidade: 0 }
+        - { id_municipio_origem: "3203205", id_municipio_destino: null, destino_outros: true, pct_vestuario_calcados: 0, pct_moveis_eletro: 3.33, pct_saude_baixa_media_complexidade: null, pct_saude_alta_complexidade: null }
 
   - name: test_stg_ibge__regic_hierarquia_codigo
     description: "O código da hierarquia sai do início de `Hierarquia 3`, também para integrante de arranjo."
@@ -416,3 +434,19 @@ unit_tests:
       rows:
         - { id_municipio: "3202207", integra_arranjo_populacional: true, codigo_hierarquia: "1C", nome_hierarquia: "Metrópole" }
         - { id_municipio: "2700102", integra_arranjo_populacional: false, codigo_hierarquia: "5", nome_hierarquia: "Centro Local" }
+
+  - name: test_stg_ibge__regic_atracao_sem_destino_outros
+    description: "A pseudo-localidade `0` (\"Outros / Não circula jornal\") não é município e fica de fora."
+    model: stg_ibge__regic_atracao
+    given:
+      - input: source('ibge', 'regic_2018_atracao')
+        format: sql
+        rows: |
+          select '3202207' as codmun, 'Fundão' as nome_mun, '21061' as pop2018, '4580.8' as ia,
+                 '0' as ia_q1, '0' as ia_q2, '0' as ia_q3, '0' as ia_q4, '0' as ia_q5, '0' as ia_q6,
+                 '0' as ia_q7, '0' as ia_q8, '0' as ia_q9, '45808.1' as ia_q10
+          union all select '0', 'Outros / Não circula jornal', null, '2379854.7', '1', '1', '1', '1', '1',
+                 '1', '1', '1', '1', '0'
+    expect:
+      rows:
+        - { id_municipio: "3202207", populacao_2018: 21061, indice_atracao: 4580.8 }
