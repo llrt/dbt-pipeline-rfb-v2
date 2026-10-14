@@ -137,3 +137,36 @@ def test_todos_os_nos_do_projeto_tem_meta_escopo_e_tag_coerente() -> None:
     assert total > 0
     assert manifesto.get("metrics") and manifesto.get("saved_queries")  # ADR-0018
     assert nos_com_problema(manifesto) == []
+
+
+# incremento: enriquecimento_ibge
+def test_validador_cobre_o_incremento_enriquecimento_ibge() -> None:
+    def no(meta: dict, tags: list[str]) -> dict:
+        return {"nodes": {"model.rfb.m": {"package_name": "rfb", "meta": meta, "tags": tags}}}
+
+    meta = {"escopo": "adicao", "incremento": "enriquecimento_ibge"}
+    assert nos_com_problema(no(meta, ["escopo_adicao", "incremento_enriquecimento_ibge"])) == []
+    assert len(nos_com_problema(no(meta, ["escopo_adicao", "incremento_enriquecimento_bd"]))) == 1
+    assert len(nos_com_problema(no(meta, ["escopo_adicao"]))) == 1
+
+
+# incremento: enriquecimento_ibge
+@pytest.mark.skipif(not MANIFESTO.is_file(), reason="rode `dbt build` antes")
+def test_fontes_e_staging_do_ibge_levam_o_incremento() -> None:
+    """Toda fonte `ibge` e todo nó sob `models/staging/ibge/` levam `enriquecimento_ibge`."""
+    manifesto = json.loads(MANIFESTO.read_text(encoding="utf-8"))
+    nos = [
+        n
+        for secao in ("nodes", "sources", "unit_tests")
+        for n in manifesto.get(secao, {}).values()
+        if n.get("package_name") == "rfb"
+        and (n.get("source_name") == "ibge" or "staging/ibge/" in n.get("original_file_path", ""))
+    ]
+    assert len(nos) > 6
+    sem_incremento = [
+        n["unique_id"]
+        for n in nos
+        if (n.get("meta") or (n.get("config") or {}).get("meta") or {}).get("incremento")
+        != "enriquecimento_ibge"
+    ]
+    assert sem_incremento == []

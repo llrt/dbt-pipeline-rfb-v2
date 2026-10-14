@@ -221,6 +221,14 @@ def test_identificadores_de_tabela_citados_existem(manifesto_e_catalogo) -> None
     existentes = {n["name"] for n in manifesto["nodes"].values() if n["package_name"] == "rfb"}
     existentes |= {s["name"] for s in manifesto["sources"].values() if s["package_name"] == "rfb"}
     existentes |= {m["name"] for m in manifesto["macros"].values() if m["package_name"] == "rfb"}
+    # colunas cujo nome publicado começa por um prefixo (`int_arr`, `INT_ARR` da REGIC 2018)
+    existentes |= {
+        coluna
+        for secao in ("nodes", "sources")
+        for no in manifesto[secao].values()
+        if no["package_name"] == "rfb"
+        for coluna in no.get("columns", {})
+    }
     inexistentes = set()
     for citado in re.findall(r"`([^`\n]+)`", DICIONARIO.read_text(encoding="utf-8")):
         base = re.split(r"[.\s(]", citado)[0]

@@ -6,10 +6,11 @@ script) ou, com os dois arquivos já gerados em `transform/target/`,
 `uv run python scripts/gerar_dicionario_dados.py`. Com `--verificar` não escreve nada: gera em memória
 e falha (código 1) se `docs/DICIONARIO_DADOS.md` estiver desatualizado.
 
-O dicionário descreve toda tabela disponível na base: fontes raw (RFB e Base dos Dados), seeds,
+O dicionário descreve toda tabela disponível na base: fontes raw (RFB, Base dos Dados e IBGE), seeds,
 staging, intermediate, gold (dimensões, fatos, pontes e marts) e observabilidade. Os tipos vêm do
 contrato (`data_type`) e, na falta dele, do catálogo (tipos reais no DuckDB); o resto (grão em
 `meta.grao`, campo do leiaute em `meta.campo_leiaute`, coluna no BigQuery em `meta.coluna_bigquery`,
+campo publicado pelo IBGE em `meta.campo_ibge`,
 testes, camada semântica) vem do manifesto. As seções de texto fixas ficam neste script.
 """
 
@@ -36,6 +37,7 @@ CAMADA_SEMANTICA = "[CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)"
 CAMADAS = [
     ("fontes-rfb", "Fontes — RFB (raw)", "Parquet raw dos dados abertos de CNPJ (todas as colunas de dado são `varchar`)."),
     ("fontes-bd", "Fontes — Base dos Dados (raw)", "Parquet raw das tabelas públicas da Base dos Dados (`basedosdados`)."),
+    ("fontes-ibge", "Fontes — IBGE (raw)", "Parquet raw das fontes baixadas direto do IBGE: API SIDRA e planilhas da REGIC 2018 (`ibge`)."),
     ("fontes-obs", "Fontes — observabilidade", "Tabela mantida pelos hooks `on-run-start`/`on-run-end` (não é modelo)."),
     ("seeds", "Seeds", "Domínios estáticos em CSV."),
     ("staging", "Staging", "Views com tipagem, limpeza e minimização de dados pessoais."),
@@ -114,7 +116,7 @@ def _tabelas(manifesto: dict, catalogo: dict | None) -> list[Tabela]:
     for uid, fonte in manifesto["sources"].items():
         if fonte["package_name"] != PACOTE:
             continue
-        camada = {"rfb": "fontes-rfb", "basedosdados": "fontes-bd"}.get(
+        camada = {"rfb": "fontes-rfb", "basedosdados": "fontes-bd", "ibge": "fontes-ibge"}.get(
             fonte["source_name"], "fontes-obs"
         )
         nome = f"{fonte['source_name']}.{fonte['name']}"
@@ -466,6 +468,8 @@ def _origem(t: Tabela, coluna: str, decl: dict) -> str:
             else meta["coluna_bigquery"]
         )
         partes.append(f"BigQuery: `{caminho}`")
+    if meta.get("campo_ibge"):
+        partes.append(f"IBGE: **{meta['campo_ibge']}**")
     if t.tipo == "source" and coluna.startswith("_"):
         partes.append("coluna técnica da ingestão")
     elif t.camada == "fontes-rfb" and not meta.get("campo_leiaute"):
@@ -528,6 +532,7 @@ def _fonte_de(t: Tabela) -> str:
     return {
         "fontes-rfb": "arquivos dos dados abertos de CNPJ da RFB (ingestão)",
         "fontes-bd": "Base dos Dados (ingestão)",
+        "fontes-ibge": "IBGE: API SIDRA e geoftp (ingestão)",
         "fontes-obs": "hooks `on-run-start`/`on-run-end` do dbt",
     }.get(t.camada, "—")
 
@@ -658,7 +663,8 @@ def gerar(manifesto: dict, catalogo: dict | None = None) -> str:
         "  manifesto do dbt; testes não contam). Ligam a cadeia raw → staging → intermediate → gold.",
         "- **Origem**: nas fontes RFB, o nome do campo no leiaute oficial",
         "  ([`cnpj-metadados.pdf`](https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf), `meta.campo_leiaute`);",
-        "  nas fontes da Base dos Dados, a coluna no BigQuery (`meta.coluna_bigquery`); nas demais camadas, a",
+        "  nas fontes da Base dos Dados, a coluna no BigQuery (`meta.coluna_bigquery`); nas fontes do IBGE, o",
+        "  campo como publicado (cabeçalho SIDRA ou da planilha, `meta.campo_ibge`); nas demais camadas, a",
         "  linhagem declarada na descrição (*Linhagem:*) ou em `meta.linhagem`, ou a coluna raw do teste",
         "  `taxa_conversao_tipada`.",
         "  Coluna sem origem (—) é cópia direta ou cálculo descrito na própria descrição.",

@@ -38,3 +38,9 @@ macros:
       esquerda) só se todos os valores do mês forem inteiros; senão fica o texto original (CNPJ
       alfanumérico, extrato real 2026-09).
     meta: { escopo: adicao }
+  - name: valor_ibge
+    description: >
+      Valor SIDRA (texto) -> `tipo`, tratando os símbolos do IBGE: `-` (zero absoluto) -> 0; `X`
+      (sigilo), `..` (não se aplica), `...` (não disponível) e vazio -> NULL. Qualquer outro texto não
+      numérico falha no cast, de propósito (símbolo novo do IBGE tem de ser tratado aqui).
+    meta: { escopo: adicao, incremento: enriquecimento_ibge }

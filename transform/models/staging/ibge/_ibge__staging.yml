@@ -1,0 +1,418 @@
+version: 2
+
+# incremento: enriquecimento_ibge — `meta.incremento` e a tag vêm da pasta (dbt_project.yml), para
+# modelos, testes de dados e testes unitários.
+models:
+  - name: stg_ibge__cempre_municipio_classe
+    config:
+      meta: { grao: "município × classe CNAE × ano (`id_municipio`, `classe_cnae`, `ano`)" }
+    description: >
+      CEMPRE (IBGE, SIDRA 9528) por município e classe CNAE 2.0 (nível 4): unidades locais, pessoal
+      ocupado, pessoal assalariado e salários. Uma linha por município, classe e ano. Só entram as
+      categorias cujo nome começa por um código de classe (`NN.NN-N`): o Total fica em
+      `stg_ibge__cempre_municipio_total`, e grupos que a SIDRA marca como nível 4 (`20.5`) ficam de
+      fora, para nunca somar em dobro. Símbolos do IBGE (`valor_ibge`): `-` vira 0; `X` (sigilo),
+      `..` e `...` viram NULL, e `tem_sigilo` marca a linha com algum `X`.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_municipio, classe_cnae, ano]
+    columns:
+      - name: id_municipio
+        description: Geocódigo IBGE do município (7 dígitos, texto), o mesmo de `dim_municipio.id_municipio_ibge`.
+        data_tests:
+          - not_null
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+          - relationships:
+              arguments:
+                to: ref('stg_bd__municipios')
+                field: id_municipio
+              config: { severity: warn, store_failures: true }
+      - name: ano
+        description: Ano de referência do CEMPRE.
+        data_tests:
+          - not_null
+      - name: classe_cnae
+        description: >
+          Classe CNAE 2.0 com 5 dígitos, sem pontuação (`47.41-5` -> `47415`): casa com os 5 primeiros
+          dígitos da subclasse da RFB (`4741500`).
+        data_tests:
+          - not_null
+          - tamanho_exato:
+              arguments:
+                tamanho: 5
+      - name: nome_classe_cnae
+        description: Nome da classe CNAE, como publicado pelo IBGE (sem o código).
+      - name: id_categoria_sidra
+        description: >
+          Id da categoria na classificação 12762 da SIDRA (por exemplo `117453`). Linhagem:
+          `ibge.cempre_municipio_cnae.d4c`.
+      - name: unidades_locais
+        description: >
+          Número de unidades locais (variável 706). Não é sigiloso no CEMPRE: NULL só com `..`/`...`.
+      - name: pessoal_ocupado
+        description: Pessoal ocupado total (variável 707). NULL quando sigiloso (`X`) ou indisponível.
+      - name: pessoal_assalariado
+        description: Pessoal ocupado assalariado (variável 708). NULL quando sigiloso (`X`) ou indisponível.
+      - name: salarios_mil_reais
+        description: >
+          Salários e outras remunerações, em **mil reais** (variável 662). NULL quando sigiloso (`X`)
+          ou indisponível.
+      - name: tem_sigilo
+        description: >
+          Verdadeiro se alguma das variáveis veio como `X` (valor inibido para não identificar o
+          informante; acontece quando há poucas unidades locais).
+        data_tests:
+          - not_null
+
+  - name: stg_ibge__cempre_municipio_total
+    config:
+      meta: { grao: "município × ano (`id_municipio`, `ano`)" }
+    description: >
+      CEMPRE (IBGE, SIDRA 9528) por município, todas as atividades (categoria Total, 117897).
+      Separado das classes para nunca somar em dobro com `stg_ibge__cempre_municipio_classe`. Mesmo
+      tratamento de símbolos (`valor_ibge`).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_municipio, ano]
+    columns:
+      - name: id_municipio
+        description: Geocódigo IBGE do município (7 dígitos, texto).
+        data_tests:
+          - not_null
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+          - relationships:
+              arguments:
+                to: ref('stg_bd__municipios')
+                field: id_municipio
+              config: { severity: warn, store_failures: true }
+      - name: ano
+        description: Ano de referência do CEMPRE.
+        data_tests:
+          - not_null
+      - name: unidades_locais
+        description: Número de unidades locais de todas as atividades (variável 706).
+        data_tests:
+          - not_null
+      - name: pessoal_ocupado
+        description: Pessoal ocupado total (variável 707). NULL se sigiloso ou indisponível.
+      - name: pessoal_assalariado
+        description: Pessoal ocupado assalariado (variável 708). NULL se sigiloso ou indisponível.
+      - name: salarios_mil_reais
+        description: Salários e outras remunerações, em mil reais (variável 662). NULL se sigiloso ou indisponível.
+      - name: tem_sigilo
+        description: Verdadeiro se alguma das variáveis veio como `X` (sigilo).
+        data_tests:
+          - not_null
+
+  - name: stg_ibge__renda_municipio
+    config:
+      meta: { grao: "município (`id_municipio`)" }
+    description: >
+      Censo 2022 (IBGE, SIDRA 10295) por município: moradores em domicílios particulares permanentes
+      ocupados e rendimento nominal mensal domiciliar per capita médio e mediano, em reais, nos
+      totais de sexo, cor ou raça e grupo de idade. Símbolos do IBGE viram NULL (`valor_ibge`).
+    columns:
+      - name: id_municipio
+        description: Geocódigo IBGE do município (7 dígitos, texto).
+        data_tests:
+          - unique
+          - not_null
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+          - relationships:
+              arguments:
+                to: ref('stg_bd__municipios')
+                field: id_municipio
+              config: { severity: warn, store_failures: true }
+      - name: ano
+        description: Ano do Censo (2022).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [2022]
+      - name: moradores
+        description: Moradores em domicílios particulares permanentes ocupados (variável 13604).
+      - name: renda_per_capita_media
+        description: Rendimento nominal mensal domiciliar per capita **médio**, em R$ (variável 13431).
+      - name: renda_per_capita_mediana
+        description: Rendimento nominal mensal domiciliar per capita **mediano**, em R$ (variável 13534).
+
+  - name: stg_ibge__regic_hierarquia
+    config:
+      meta: { grao: "município (`id_municipio`)" }
+    description: >
+      REGIC 2018 (IBGE): hierarquia urbana da cidade a que o município pertence (o próprio município
+      isolado ou o arranjo populacional) e a sua região de influência (cidades de vinculação).
+    columns:
+      - name: id_municipio
+        description: Geocódigo IBGE do município (7 dígitos, texto).
+        data_tests:
+          - unique
+          - not_null
+          - tamanho_exato:
+              arguments:
+                tamanho: 7
+          - relationships:
+              arguments:
+                to: ref('stg_bd__municipios')
+                field: id_municipio
+              config: { severity: warn, store_failures: true }
+      - name: nome_municipio
+        description: Nome do município, como na REGIC.
+      - name: sigla_uf
+        description: Sigla da UF.
+      - name: id_cidade_regic
+        description: Código da cidade da REGIC (o arranjo populacional, ou o próprio município isolado).
+      - name: integra_arranjo_populacional
+        description: Verdadeiro se o município integra um arranjo populacional (categoria `Arranjo Populacional`).
+      - name: id_arranjo_populacional
+        description: Geocódigo do arranjo populacional (NULL para município isolado).
+      - name: nome_arranjo_populacional
+        description: Nome do arranjo populacional (NULL para município isolado).
+      - name: codigo_hierarquia
+        description: >
+          Código da hierarquia urbana: `1A` Grande Metrópole Nacional, `1B` Metrópole Nacional, `1C`
+          Metrópole, `2A`-`2C` Capital Regional, `3A`/`3B` Centro Sub-Regional, `4A`/`4B` Centro de
+          Zona, `5` Centro Local.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["1A", "1B", "1C", "2A", "2B", "2C", "3A", "3B", "4A", "4B", "5"]
+      - name: nome_hierarquia
+        description: Nome da hierarquia urbana (por exemplo `Metrópole`, `Centro Local`).
+      - name: descricao_hierarquia
+        description: Hierarquia como publicada, com o código e, se for o caso, o arranjo (`Hierarquia`).
+      - name: quantidade_subordinacoes
+        description: Número de cidades a que o município se subordina diretamente (`Múltiplas Subordinações`).
+      - name: regiao_influencia
+        description: >
+          Cidade(s) de vinculação imediata, com a hierarquia de cada uma (por exemplo `Arranjo Populacional
+          de Vitória/ES - Metrópole (1C)`).
+      - name: cidade_influencia_1
+        description: Primeira cidade de vinculação.
+      - name: cidade_influencia_2
+        description: Segunda cidade de vinculação (NULL se não houver).
+      - name: cidade_influencia_3
+        description: Terceira cidade de vinculação (NULL se não houver).
+      - name: cidade_influencia_4
+        description: Quarta cidade de vinculação (NULL se não houver).
+
+  - name: stg_ibge__regic_ligacoes
+    config:
+      meta: { grao: "ligação origem → destino (`id_municipio_origem`, `id_municipio_destino`)" }
+    description: >
+      REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*` é o percentual
+      estimado dos deslocamentos dos moradores da origem que vão ao destino para o tema (Q1 a Q10 da
+      planilha), de 0 a 100; NULL quando ausente. Município sem ligação de origem não aparece.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_municipio_origem, id_municipio_destino]
+    columns:
+      - name: id_municipio_origem
+        description: Geocódigo IBGE do município de origem (7 dígitos, texto).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_bd__municipios')
+                field: id_municipio
+              config: { severity: warn, store_failures: true }
+      - name: id_municipio_destino
+        description: Geocódigo IBGE do município de destino (7 dígitos, texto).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_bd__municipios')
+                field: id_municipio
+              config: { severity: warn, store_failures: true }
+      - name: pct_vestuario_calcados
+        description: "% dos deslocamentos da origem ao destino para comprar vestuário e calçados (Q1)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: pct_moveis_eletro
+        description: "% dos deslocamentos da origem ao destino para comprar móveis e eletroeletrônicos (Q2)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: pct_saude_baixa_media_complexidade
+        description: "% dos deslocamentos para serviços de saúde de baixa e média complexidades (Q3)."
+      - name: pct_saude_alta_complexidade
+        description: "% dos deslocamentos para serviços de saúde de alta complexidade (Q4)."
+      - name: pct_ensino_superior
+        description: "% dos deslocamentos para ensino superior (Q5)."
+      - name: pct_atividades_culturais
+        description: "% dos deslocamentos para atividades culturais (Q6)."
+      - name: pct_atividades_esportivas
+        description: "% dos deslocamentos para atividades esportivas (Q7)."
+      - name: pct_aeroporto
+        description: "% dos deslocamentos para usar aeroporto (Q8)."
+      - name: pct_jornais
+        description: "% dos jornais que circulam na origem editados no destino (Q9)."
+      - name: pct_transporte_coletivo
+        description: "% do destino entre os destinos mais frequentes de transporte público coletivo da origem (Q10)."
+      - name: pct_bens_servicos
+        description: "% dos deslocamentos da origem ao destino para bens e serviços em outros municípios, todos os temas (`PERC_LIG`)."
+      - name: indice_atracao
+        description: Índice de atração geral do destino sobre a origem (`IA`).
+
+  - name: stg_ibge__regic_atracao
+    config:
+      meta: { grao: "município de destino (`id_municipio`)" }
+    description: >
+      REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamentos dos
+      questionários, geral e por tema. Município que não atrai ninguém não aparece.
+    columns:
+      - name: id_municipio
+        description: Geocódigo IBGE do município (7 dígitos, texto).
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_bd__municipios')
+                field: id_municipio
+              config: { severity: warn, store_failures: true }
+      - name: nome_municipio
+        description: Nome do município, como na REGIC.
+      - name: populacao_2018
+        description: População do município em 2018 (estimativa usada pela REGIC).
+      - name: indice_atracao
+        description: Índice de atração geral (`IA`).
+      - name: indice_atracao_vestuario_calcados
+        description: Índice de atração para compra de vestuário e calçados (`IA_Q1`).
+      - name: indice_atracao_moveis_eletro
+        description: Índice de atração para compra de móveis e eletroeletrônicos (`IA_Q2`).
+      - name: indice_atracao_saude_baixa_media_complexidade
+        description: Índice de atração para saúde de baixa e média complexidades (`IA_Q3`).
+      - name: indice_atracao_saude_alta_complexidade
+        description: Índice de atração para saúde de alta complexidade (`IA_Q4`).
+      - name: indice_atracao_ensino_superior
+        description: Índice de atração para ensino superior (`IA_Q5`).
+      - name: indice_atracao_atividades_culturais
+        description: Índice de atração para atividades culturais (`IA_Q6`).
+      - name: indice_atracao_atividades_esportivas
+        description: Índice de atração para atividades esportivas (`IA_Q7`).
+      - name: indice_atracao_aeroporto
+        description: Índice de atração para aeroporto (`IA_Q8`).
+      - name: indice_atracao_jornais
+        description: Índice de atração dos jornais editados no município (`IA_Q9`).
+      - name: indice_atracao_transporte_coletivo
+        description: Índice de atração para transporte público coletivo (`IA_Q10`).
+
+unit_tests:
+  - name: test_stg_ibge__cempre_municipio_classe_simbolos
+    description: >
+      `-` vira 0, `X` vira NULL com `tem_sigilo`, `...` vira NULL; o Total (117897) e o grupo `20.5`
+      (marcado como nível 4 na SIDRA) não entram; `47.41-5` vira `47415`.
+    model: stg_ibge__cempre_municipio_classe
+    given:
+      - input: source('ibge', 'cempre_categorias_cnae')
+        format: sql
+        rows: |
+          select '117453' as d4c, '47.41-5 Comércio varejista de tintas e materiais para pintura' as d4n
+          union all select '117897', 'Total'
+          union all select '117065', '20.5 Fabricação de defensivos agrícolas e desinfestantes domissanitários'
+      - input: source('ibge', 'cempre_municipio_cnae')
+        format: sql
+        rows: |
+          select '3202207' as d1c, '706' as d2c, '2024' as d3c, '117453' as d4c, '-' as v
+          union all select '3202207', '707', '2024', '117453', '-'
+          union all select '3202207', '708', '2024', '117453', '-'
+          union all select '3202207', '662', '2024', '117453', '-'
+          union all select '3203205', '706', '2024', '117453', '12'
+          union all select '3203205', '707', '2024', '117453', 'X'
+          union all select '3203205', '708', '2024', '117453', 'X'
+          union all select '3203205', '662', '2024', '117453', '...'
+          union all select '3202207', '706', '2024', '117897', '1054'
+          union all select '3202207', '706', '2024', '117065', '7'
+    expect:
+      rows:
+        - { id_municipio: "3202207", ano: 2024, classe_cnae: "47415", unidades_locais: 0, pessoal_ocupado: 0, pessoal_assalariado: 0, salarios_mil_reais: 0, tem_sigilo: false }
+        - { id_municipio: "3203205", ano: 2024, classe_cnae: "47415", unidades_locais: 12, pessoal_ocupado: null, pessoal_assalariado: null, salarios_mil_reais: null, tem_sigilo: true }
+
+  - name: test_stg_ibge__cempre_municipio_total_so_categoria_total
+    description: "Só a categoria Total (117897) entra; `salarios_mil_reais` é decimal (mil reais)."
+    model: stg_ibge__cempre_municipio_total
+    given:
+      - input: source('ibge', 'cempre_municipio_cnae')
+        format: sql
+        rows: |
+          select '3202207' as d1c, '706' as d2c, '2024' as d3c, '117897' as d4c, '1054' as v
+          union all select '3202207', '707', '2024', '117897', '5125'
+          union all select '3202207', '708', '2024', '117897', '3831'
+          union all select '3202207', '662', '2024', '117897', '96332'
+          union all select '3202207', '706', '2024', '117453', '9'
+    expect:
+      rows:
+        - { id_municipio: "3202207", ano: 2024, unidades_locais: 1054, pessoal_ocupado: 5125, pessoal_assalariado: 3831, salarios_mil_reais: 96332, tem_sigilo: false }
+
+  - name: test_stg_ibge__renda_municipio_pivo
+    description: "Pivô das variáveis 13604/13431/13534 nos totais; `...` vira NULL."
+    model: stg_ibge__renda_municipio
+    given:
+      - input: source('ibge', 'renda_censo_2022_municipio')
+        format: sql
+        rows: |
+          select '3202207' as d1c, '13604' as d2c, '2022' as d3c, '6794' as d4c, '95251' as d5c, '95253' as d6c, '17961' as v
+          union all select '3202207', '13431', '2022', '6794', '95251', '95253', '1406.78'
+          union all select '3202207', '13534', '2022', '6794', '95251', '95253', '1040.00'
+          union all select '2200202', '13604', '2022', '6794', '95251', '95253', '16800'
+          union all select '2200202', '13431', '2022', '6794', '95251', '95253', '610.15'
+          union all select '2200202', '13534', '2022', '6794', '95251', '95253', '...'
+    expect:
+      rows:
+        - { id_municipio: "3202207", ano: 2022, moradores: 17961, renda_per_capita_media: 1406.78, renda_per_capita_mediana: 1040.00 }
+        - { id_municipio: "2200202", ano: 2022, moradores: 16800, renda_per_capita_media: 610.15, renda_per_capita_mediana: null }
+
+  - name: test_stg_ibge__regic_ligacoes_temas
+    description: "Q1 é vestuário e calçados e Q2 é móveis e eletroeletrônicos (oráculo Fundão -> Serra: 46,67 / 45)."
+    model: stg_ibge__regic_ligacoes
+    given:
+      - input: source('ibge', 'regic_2018_ligacoes')
+        format: sql
+        rows: |
+          select '3202207' as mun_origem, '3205002' as mun_destino, '46.6666666666667' as q1, '45' as q2,
+                 null as q3, '0' as q4, null as q5, null as q6, null as q7, null as q8, null as q9,
+                 null as q10, '25.4' as perc_lig, '100' as ia
+    expect:
+      rows:
+        - { id_municipio_origem: "3202207", id_municipio_destino: "3205002", pct_vestuario_calcados: 46.6666666666667, pct_moveis_eletro: 45, pct_saude_baixa_media_complexidade: null, pct_saude_alta_complexidade: 0 }
+
+  - name: test_stg_ibge__regic_hierarquia_codigo
+    description: "O código da hierarquia sai do início de `Hierarquia 3`, também para integrante de arranjo."
+    model: stg_ibge__regic_hierarquia
+    given:
+      - input: source('ibge', 'regic_2018_hierarquia')
+        format: sql
+        rows: |
+          select '3202207' as codmun, 'Fundão' as municipio, 'ES' as siguf, '3205309' as codcid,
+                 'Arranjo Populacional' as categoria, '3205309' as codap,
+                 'Arranjo Populacional de Vitória/ES' as arranjo_populacional,
+                 'Metrópole (1C) - Município integrante do Arranjo Populacional de Vitória/ES' as hierarquia,
+                 'Metrópole - Integrante de Arranjo Populacional' as hierarquia_2,
+                 '1C - Integrante de Arranjo Populacional' as hierarquia_3, '1' as multiplas_subordinacoes,
+                 'Arranjo Populacional de Vitória/ES - Metrópole (1C)' as regiao_de_influencia_vinculacao_imediata_consolidada,
+                 'Arranjo Populacional de Vitória/ES' as regiao_de_influencia_1, null as regiao_de_influencia_2,
+                 null as regiao_de_influencia_3, null as regiao_de_influencia_4
+          union all select '2700102', 'Água Branca', 'AL', '2700102', 'Município isolado', null, null,
+                 'Centro Local (5)', 'Centro Local', '5', '1', 'Delmiro Gouveia (AL) - Centro Sub-Regional B (3B)',
+                 'Delmiro Gouveia (AL)', null, null, null
+    expect:
+      rows:
+        - { id_municipio: "3202207", integra_arranjo_populacional: true, codigo_hierarquia: "1C", nome_hierarquia: "Metrópole" }
+        - { id_municipio: "2700102", integra_arranjo_populacional: false, codigo_hierarquia: "5", nome_hierarquia: "Centro Local" }
