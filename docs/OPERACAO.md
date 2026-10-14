@@ -47,6 +47,19 @@ classe CNAE (API SIDRA, tabela 9528), a renda per capita do Censo 2022 (SIDRA 10
   todas as linhas num arquivo só), `REGIC2018_Municipios_Hierarquia_e_regiao.xlsx` e
   `REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip`, como publicados no geoftp. Uma tabela só é
   reconvertida se o sha256 do arquivo mudar. `scripts/gerar_fixtures.py` gera esse layout.
+- **Espelho offline sem `ibge/` (compatibilidade com a v1.3).** Um `--origem-local` montado antes do
+  incremento não tem a pasta `ibge/`. A ingestão **não falha**: para cada arquivo IBGE ausente, avisa
+  (`ibge.<tabela>: AVISO ... ausente; publicada vazia`) e publica `raw/ibge/<tabela>/<tabela>.parquet` só com
+  o esquema (as colunas da fonte dbt, sem linhas). Se a tabela já existir no raw (de uma ingestão anterior),
+  ela é mantida (`mantido o raw existente`). Nada entra no manifesto IBGE, então a próxima execução com os
+  arquivos converte tudo. O `dbt build` segue igual: as colunas novas de `dim_municipio` saem NULL, o polo de
+  compras sai NULL, `bridge_municipio_destino_compras` sai vazia, `mart_emprego_setor_municipio` tem só os
+  pares com ativo na RFB e a RN-30 avalia esses pares sem violação. Nenhum teste dbt depende de haver dado do
+  IBGE: os de linhas e de soma do incremento passam vazios ou são `warn`. Detalhe do dbt-duckdb: o Parquet de
+  um modelo `external` vazio (a ponte, aqui) traz uma linha toda NULL, que a view do warehouse filtra; quem lê
+  o Parquet direto (Power BI) deve ignorar essa linha. O teste
+  `test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold` roda o pipeline nesse cenário.
+- **Uso das bases novas:** [cenários de uso](CENARIOS_DE_USO.md), com as analyses `cenario_*` e o caso.
 
 ## Estado e ordem dos meses (P22)
 
