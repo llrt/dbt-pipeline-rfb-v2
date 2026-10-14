@@ -99,6 +99,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 ├── dados/ (gitignored)          # RAIZ_DADOS padrão
 │   ├── raw/rfb/<entidade>/mes_referencia=YYYY-MM/*.parquet
 │   ├── raw/bd/<tabela>/*.parquet
+│   ├── raw/ibge/<tabela>/*.parquet   # SIDRA e REGIC (incremento enriquecimento_ibge)
 │   ├── raw/_rejeitos/  _manifestos/  _baixados/ (cache de zips)
 │   ├── gold/<modelo>.parquet
 │   └── warehouse.duckdb

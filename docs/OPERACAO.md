@@ -15,13 +15,38 @@ usuário** (ADR-0012, ADR-0016); o original carregava um único mês à mão.
 | `make regras` (`rfb regras`) | Executa os checks das regras de negócio ([REGRAS_NEGOCIO.md](REGRAS_NEGOCIO.md), ADR-0020) no warehouse de `RAIZ_DADOS`, **só lendo**, e regrava `docs/RELATORIO_REGRAS_NEGOCIO.md` (`SAIDA=ARQ` muda o destino). Sai com 0 mesmo com violações. Não faz parte do `pipeline`: rode depois de um mês novo concluído e revise a seção "Interpretação de AAAA-MM": no mesmo mês ela é preservada; num mês novo, o texto antigo vai para "Interpretação anterior (AAAA-MM)" e o comando avisa (`aviso:` na saída de erro) até que ela seja reescrita e a seção anterior apagada. Recusa rodar com o gold misto, como `rfb relatorio`. No dado real de 2026-09 levou 88 s com as 29 regras (`DUCKDB_MEMORY_LIMIT=16GB`, `DUCKDB_THREADS=4`). |
 
 Opções comuns a `pipeline` e `atualizar`: `--origem-local DIR` (fixtures, sem rede),
-`--permitir-incompleto`, `--forcar` (reconverte), `--target` (padrão: o do profile; `s3` com
+`--permitir-incompleto`, `--forcar` (reconverte), `--renovar-ibge` (ver abaixo), `--target` (padrão: o do profile; `s3` com
 `RAIZ_DADOS=s3://`), `--saida-relatorio ARQ`, `--sem-relatorio`, `--sem-publicar`. O `make ci` usa
 exatamente esses comandos sobre as fixtures (pipeline 2026-08 → atualizar 2026-09 → atualizar no-op →
 backfill de 2026-08).
 
 Cada etapa imprime `== etapa <nome>: <segundos>s` e o fim do mês imprime o resumo
 `pipeline <mês> [corrente|backfill] concluído em …`.
+
+## Fontes do IBGE (incremento `enriquecimento_ibge`)
+
+`rfb ingerir` (e, por ele, `pipeline`/`atualizar`) também baixa, direto do IBGE, o CEMPRE por município ×
+classe CNAE (API SIDRA, tabela 9528), a renda per capita do Censo 2022 (SIDRA 10295) e a REGIC 2018
+(planilhas do geoftp), para `raw/ibge/<tabela>/<tabela>.parquet` (detalhes em `src/rfb_pipeline/ibge.py`).
+
+- **Não rebaixa todo mês.** São fontes anuais ou estáticas: uma tabela já no raw com o mesmo período
+  (SIDRA) ou o mesmo arquivo (REGIC) é pulada (`ibge.<tabela>: pulada (...)`), conforme
+  `_manifestos/ibge/manifesto.json` (origem, período, bytes, sha256 quando há arquivo, requisições, linhas). Só o
+  CEMPRE faz uma consulta leve por mês à SIDRA para saber se saiu um ano novo. O manifesto do mês
+  (`_manifestos/AAAA-MM.json`) copia essas entradas em `ibge`.
+- **Renovar à força:** `rfb ingerir --renovar-ibge` (também em `pipeline`/`atualizar`). É uma opção
+  separada de `--forcar` porque o CEMPRE nacional leva de 1 a 2 horas (~340 requisições de ≤ 50.000
+  valores), e `--forcar` serve para reconverter um mês RFB sem rede.
+- **Ano do CEMPRE:** `RFB_CEMPRE_PERIODO=AAAA` fixa o ano (padrão: o mais recente publicado).
+- **Retomada:** o CEMPRE grava cada fatia em `_baixados/ibge/sidra/cempre_municipio_cnae/<ano>/` assim
+  que ela chega; uma execução interrompida continua de onde parou. As fatias somem depois de publicado o
+  raw.
+- **`--origem-local DIR`** lê `DIR/ibge/` em vez da rede:
+  `cempre_categorias_cnae.json`, `cempre_municipio_cnae.json` e `renda_censo_2022_municipio.json`
+  (respostas da SIDRA: lista JSON de objetos `NC`, `MC`, `V`, `D1C`…; as categorias com nomes, `/f/a`;
+  todas as linhas num arquivo só), `REGIC2018_Municipios_Hierarquia_e_regiao.xlsx` e
+  `REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip`, como publicados no geoftp. Uma tabela só é
+  reconvertida se o sha256 do arquivo mudar. `scripts/gerar_fixtures.py` gera esse layout.
 
 ## Estado e ordem dos meses (P22)
 

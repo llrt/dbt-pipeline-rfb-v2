@@ -27,7 +27,8 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
   manifesto do dbt; testes não contam). Ligam a cadeia raw → staging → intermediate → gold.
 - **Origem**: nas fontes RFB, o nome do campo no leiaute oficial
   ([`cnpj-metadados.pdf`](https://www.gov.br/receitafederal/dados/cnpj-metadados.pdf), `meta.campo_leiaute`);
-  nas fontes da Base dos Dados, a coluna no BigQuery (`meta.coluna_bigquery`); nas demais camadas, a
+  nas fontes da Base dos Dados, a coluna no BigQuery (`meta.coluna_bigquery`); nas fontes do IBGE, o
+  campo como publicado (cabeçalho SIDRA ou da planilha, `meta.campo_ibge`); nas demais camadas, a
   linhagem declarada na descrição (*Linhagem:*) ou em `meta.linhagem`, ou a coluna raw do teste
   `taxa_conversao_tipada`.
   Coluna sem origem (—) é cópia direta ou cálculo descrito na própria descrição.
@@ -48,9 +49,10 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
 |---|---|---|
 | [Fontes — RFB (raw)](#fontes-rfb) | 9 | 92 |
 | [Fontes — Base dos Dados (raw)](#fontes-bd) | 7 | 92 |
+| [Fontes — IBGE (raw)](#fontes-ibge) | 6 | 128 |
 | [Fontes — observabilidade](#fontes-obs) | 1 | 8 |
 | [Seeds](#seeds) | 4 | 12 |
-| [Staging](#staging) | 14 | 113 |
+| [Staging](#staging) | 20 | 179 |
 | [Intermediate](#intermediate) | 3 | 44 |
 | [Gold — dimensões](#gold-dim) | 6 | 63 |
 | [Gold — fatos](#gold-fct) | 2 | 26 |
@@ -58,7 +60,7 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
 | [Gold — marts originais](#gold-original) | 2 | 27 |
 | [Gold — marts analíticos](#gold-analytics) | 5 | 67 |
 | [Observabilidade](#obs) | 2 | 10 |
-| **Total** | **57** | **559** |
+| **Total** | **69** | **753** |
 
 <a id="fontes-rfb"></a>
 ### Fontes — RFB (raw)
@@ -91,6 +93,20 @@ Parquet raw das tabelas públicas da Base dos Dados (`basedosdados`).
 | [`basedosdados.populacao`](#basedosdados-populacao) | município e ano (`id_municipio`, `ano`) | adicao | 6 |
 | [`basedosdados.regiao_metropolitana_2017`](#basedosdados-regiao_metropolitana_2017) | par município × região metropolitana (`id_municipio`, `nome_regiao_metropolitana`) | adicao | 10 |
 | [`basedosdados.vizinhanca_municipio`](#basedosdados-vizinhanca_municipio) | par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza | adicao | 5 |
+
+<a id="fontes-ibge"></a>
+### Fontes — IBGE (raw)
+
+Parquet raw das fontes baixadas direto do IBGE: API SIDRA e planilhas da REGIC 2018 (`ibge`).
+
+| Tabela | Uma linha por | Escopo | Colunas |
+|---|---|---|---|
+| [`ibge.cempre_categorias_cnae`](#ibge-cempre_categorias_cnae) | categoria da CNAE 2.0 na SIDRA (`d4c`) | adicao | 15 |
+| [`ibge.cempre_municipio_cnae`](#ibge-cempre_municipio_cnae) | município × variável × ano × categoria CNAE (`d1c`, `d2c`, `d3c`, `d4c`) | adicao | 9 |
+| [`ibge.regic_2018_atracao`](#ibge-regic_2018_atracao) | município (`codmun`) | adicao | 22 |
+| [`ibge.regic_2018_hierarquia`](#ibge-regic_2018_hierarquia) | município (`codmun`) | adicao | 22 |
+| [`ibge.regic_2018_ligacoes`](#ibge-regic_2018_ligacoes) | ligação origem → destino (`mun_origem`, `mun_destino`) | adicao | 49 |
+| [`ibge.renda_censo_2022_municipio`](#ibge-renda_censo_2022_municipio) | município × variável (`d1c`, `d2c`) | adicao | 11 |
 
 <a id="fontes-obs"></a>
 ### Fontes — observabilidade
@@ -127,6 +143,12 @@ Views com tipagem, limpeza e minimização de dados pessoais.
 | [`stg_bd__populacao`](#stg_bd__populacao) | município e ano (`id_municipio`, `ano`) | adicao | 4 |
 | [`stg_bd__regioes_metropolitanas`](#stg_bd__regioes_metropolitanas) | município IBGE (`id_municipio`) | adicao | 7 |
 | [`stg_bd__vizinhanca`](#stg_bd__vizinhanca) | par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza | adicao | 3 |
+| [`stg_ibge__cempre_municipio_classe`](#stg_ibge__cempre_municipio_classe) | município × classe CNAE × ano (`id_municipio`, `classe_cnae`, `ano`) | adicao | 10 |
+| [`stg_ibge__cempre_municipio_total`](#stg_ibge__cempre_municipio_total) | município × ano (`id_municipio`, `ano`) | adicao | 7 |
+| [`stg_ibge__regic_atracao`](#stg_ibge__regic_atracao) | município de destino (`id_municipio`) | adicao | 14 |
+| [`stg_ibge__regic_hierarquia`](#stg_ibge__regic_hierarquia) | município (`id_municipio`) | adicao | 16 |
+| [`stg_ibge__regic_ligacoes`](#stg_ibge__regic_ligacoes) | ligação origem → destino (`id_municipio_origem`, `id_municipio_destino`) | adicao | 14 |
+| [`stg_ibge__renda_municipio`](#stg_ibge__renda_municipio) | município (`id_municipio`) | adicao | 5 |
 | [`stg_rfb__cnaes`](#stg_rfb__cnaes) | subclasse CNAE (`codigo`) | adicao | 2 |
 | [`stg_rfb__empresas`](#stg_rfb__empresas) | empresa (`cnpj_raiz`) do mês selecionado | adicao | 9 |
 | [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) | estabelecimento (`cnpj_completo`) do mês selecionado | adicao | 27 |
@@ -796,6 +818,274 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | `_arquivo_origem` | `varchar` | Nome do arquivo de origem (zip da RFB ou csv.gz da Base dos Dados) de onde a linha foi convertida. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 | `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet; base do `freshness` da fonte. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
 
+## Fontes — IBGE (raw)
+
+<a id="ibge-cempre_categorias_cnae"></a>
+#### `ibge.cempre_categorias_cnae`
+
+CEMPRE (SIDRA, tabela 9528), nível Brasil, variável 706, todas as 1.067 categorias da classificação 12762 (CNAE 2.0) com códigos e nomes (`/f/a`), no período baixado. Serve para escolher as classes CNAE (nome `NN.NN-N ...`) e dar o código e o nome da classe ao staging.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por categoria da CNAE 2.0 na SIDRA (`d4c`). |
+| Chave primária (testada) | `d4c` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | — |
+| Lê de | IBGE: API SIDRA e geoftp (ingestão) |
+| Usada por | [`stg_ibge__cempre_municipio_classe`](#stg_ibge__cempre_municipio_classe) |
+| Materialização | Parquet raw (leitura direta, `external_location`) |
+| Localização | `raw/ibge/cempre_categorias_cnae/*.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 15 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `nc` | `varchar` | Código do nível territorial (`6` = município, `1` = Brasil). | não testado | — | IBGE: **Nível Territorial (Código)** | — |
+| `nn` | `varchar` | Nome do nível territorial (`Brasil`). | não testado | — | IBGE: **Nível Territorial** | — |
+| `mc` | `varchar` | Código da unidade de medida do valor (ex.: `1020` unidades, `45` pessoas, `40` mil reais, `38` reais). | não testado | — | IBGE: **Unidade de Medida (Código)** | — |
+| `mn` | `varchar` | Nome da unidade de medida (`Unidades`). | não testado | — | IBGE: **Unidade de Medida** | — |
+| `v` | `varchar` | Valor como publicado, em texto: número com ponto decimal ou símbolo do IBGE — `-` zero absoluto, `X` valor inibido por sigilo, `..` não se aplica, `...` não disponível. | não testado | — | IBGE: **Valor** | — |
+| `d1c` | `varchar` | Código da localidade (`1` = Brasil). | não testado | — | IBGE: **Brasil (Código)** | — |
+| `d1n` | `varchar` | Nome da localidade. | não testado | — | IBGE: **Brasil** | — |
+| `d2c` | `varchar` | Código da variável (`706` = número de unidades locais). | não testado | — | IBGE: **Variável (Código)** | — |
+| `d2n` | `varchar` | Nome da variável. | não testado | — | IBGE: **Variável** | — |
+| `d3c` | `varchar` | Ano de referência do CEMPRE (período baixado). | não testado | — | IBGE: **Ano (Código)** | — |
+| `d3n` | `varchar` | Ano de referência, como nome. | não testado | — | IBGE: **Ano** | — |
+| `d4c` | `varchar` | Id da categoria na SIDRA (ex.: `117453`; `117897` = Total). Não é o código CNAE. | não (`not_null`) | — | IBGE: **Classificação Nacional de Atividades Econômicas (CNAE 2.0) (Código)** | — |
+| `d4n` | `varchar` | Nome da categoria, começando pelo código CNAE: `Total`, seção (`G ...`), divisão (`47 ...`), grupo (`47.4 ...`) ou classe (`47.41-5 ...`). | não testado | — | IBGE: **Classificação Nacional de Atividades Econômicas (CNAE 2.0)** | — |
+| `_arquivo_origem` | `varchar` | Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+| `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+
+<a id="ibge-cempre_municipio_cnae"></a>
+#### `ibge.cempre_municipio_cnae`
+
+CEMPRE (SIDRA, tabela 9528) por município (N6): unidades locais (706), pessoal ocupado total (707), pessoal ocupado assalariado (708) e salários e outras remunerações (662, mil reais), para cada classe CNAE e o Total (117897), num único ano. Baixado em fatias de no máximo 50.000 valores (`/f/c/h/n`).
+
+| Atributo | Valor |
+|---|---|
+| Grão (declarado, não testado) | Uma linha por município × variável × ano × categoria CNAE (`d1c`, `d2c`, `d3c`, `d4c`). |
+| Chave primária (testada) | não testada |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | — |
+| Lê de | IBGE: API SIDRA e geoftp (ingestão) |
+| Usada por | [`stg_ibge__cempre_municipio_classe`](#stg_ibge__cempre_municipio_classe), [`stg_ibge__cempre_municipio_total`](#stg_ibge__cempre_municipio_total) |
+| Materialização | Parquet raw (leitura direta, `external_location`) |
+| Localização | `raw/ibge/cempre_municipio_cnae/*.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 9 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `nc` | `varchar` | Código do nível territorial (`6` = município, `1` = Brasil). | não testado | — | IBGE: **Nível Territorial (Código)** | — |
+| `mc` | `varchar` | Código da unidade de medida do valor (ex.: `1020` unidades, `45` pessoas, `40` mil reais, `38` reais). | não testado | — | IBGE: **Unidade de Medida (Código)** | — |
+| `v` | `varchar` | Valor como publicado, em texto: número com ponto decimal ou símbolo do IBGE — `-` zero absoluto, `X` valor inibido por sigilo, `..` não se aplica, `...` não disponível. | não testado | — | IBGE: **Valor** | — |
+| `d1c` | `varchar` | Geocódigo IBGE do município (7 dígitos). | não testado | — | IBGE: **Município (Código)** | — |
+| `d2c` | `varchar` | Código da variável: `706` unidades locais, `707` pessoal ocupado total, `708` pessoal ocupado assalariado, `662` salários e outras remunerações (mil reais). | não testado | — | IBGE: **Variável (Código)** | — |
+| `d3c` | `varchar` | Ano de referência do CEMPRE. | não testado | — | IBGE: **Ano (Código)** | — |
+| `d4c` | `varchar` | Id da categoria na SIDRA (classe CNAE ou `117897` = Total); o nome está em `cempre_categorias_cnae.d4n`. | não testado | — | IBGE: **Classificação Nacional de Atividades Econômicas (CNAE 2.0) (Código)** | — |
+| `_arquivo_origem` | `varchar` | Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+| `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+
+<a id="ibge-regic_2018_atracao"></a>
+#### `ibge.regic_2018_atracao`
+
+REGIC 2018, aba `BD_MUN_QUEST` de `REGIC2018_Quest_Atracao_Municipios.xlsx` (mesmo zip das ligações): índice de atração de cada município que recebe deslocamentos, geral e por tema.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município (`codmun`). |
+| Chave primária (testada) | `codmun` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | — |
+| Lê de | IBGE: API SIDRA e geoftp (ingestão) |
+| Usada por | [`stg_ibge__regic_atracao`](#stg_ibge__regic_atracao) |
+| Materialização | Parquet raw (leitura direta, `external_location`) |
+| Localização | `raw/ibge/regic_2018_atracao/*.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 22 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `codmun` | `varchar` | Geocódigo do município (formato numérico). | não (`not_null`) | — | IBGE: **CODMUN** | — |
+| `nome_mun` | `varchar` | Nome do município. | não testado | — | IBGE: **NOME_MUN** | — |
+| `hierar_mun` | `varchar` | Hierarquia do município na REGIC 2018. | não testado | — | IBGE: **HIERAR_MUN** | — |
+| `int_arr` | `varchar` | `SIM` se o município integra arranjo populacional. | não testado | — | IBGE: **INT_ARR** | — |
+| `hierar_cid` | `varchar` | Código da hierarquia da cidade. | não testado | — | IBGE: **HIERAR_CID** | — |
+| `nome_hierar_cid` | `varchar` | Nome da hierarquia da cidade. | não testado | — | IBGE: **NOME_HIERAR_CID** | — |
+| `cod_arr` | `varchar` | Geocódigo do arranjo (quando integra). | não testado | — | IBGE: **COD_ARR** | — |
+| `nome_arr` | `varchar` | Nome do arranjo. | não testado | — | IBGE: **NOME_ARR** | — |
+| `pop2018` | `varchar` | População em 2018. | não testado | — | IBGE: **POP2018** | — |
+| `ia` | `varchar` | Índice de atração geral do município (soma sobre as origens). | não testado | — | IBGE: **IA** | — |
+| `ia_q1` | `varchar` | Índice de atração do município para compra de vestuário e calçados. | não testado | — | IBGE: **IA_Q1** | — |
+| `ia_q2` | `varchar` | Índice de atração do município para compra de móveis e eletroeletrônicos. | não testado | — | IBGE: **IA_Q2** | — |
+| `ia_q3` | `varchar` | Índice de atração do município para serviços de saúde de baixa e média complexidades. | não testado | — | IBGE: **IA_Q3** | — |
+| `ia_q4` | `varchar` | Índice de atração do município para serviços de saúde de alta complexidade. | não testado | — | IBGE: **IA_Q4** | — |
+| `ia_q5` | `varchar` | Índice de atração do município para ensino superior. | não testado | — | IBGE: **IA_Q5** | — |
+| `ia_q6` | `varchar` | Índice de atração do município para atividades culturais. | não testado | — | IBGE: **IA_Q6** | — |
+| `ia_q7` | `varchar` | Índice de atração do município para atividades esportivas. | não testado | — | IBGE: **IA_Q7** | — |
+| `ia_q8` | `varchar` | Índice de atração do município para aeroporto. | não testado | — | IBGE: **IA_Q8** | — |
+| `ia_q9` | `varchar` | Índice de atração do município para jornais (participação dos jornais editados no destino que circulam na origem). | não testado | — | IBGE: **IA_Q9** | — |
+| `ia_q10` | `varchar` | Índice de atração do município para transporte público coletivo (participação do destino entre os mais frequentes). | não testado | — | IBGE: **IA_Q10** | — |
+| `_arquivo_origem` | `varchar` | Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+| `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+
+<a id="ibge-regic_2018_hierarquia"></a>
+#### `ibge.regic_2018_hierarquia`
+
+REGIC 2018 (Regiões de Influência das Cidades), aba `Hierarquia e região` de `REGIC2018_Municipios_Hierarquia_e_regiao.xlsx`: hierarquia urbana e região de influência de cada um dos 5.570 municípios.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município (`codmun`). |
+| Chave primária (testada) | `codmun` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | — |
+| Lê de | IBGE: API SIDRA e geoftp (ingestão) |
+| Usada por | [`stg_ibge__regic_hierarquia`](#stg_ibge__regic_hierarquia) |
+| Materialização | Parquet raw (leitura direta, `external_location`) |
+| Localização | `raw/ibge/regic_2018_hierarquia/*.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 22 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `coduf` | `varchar` | Código IBGE da UF. | não testado | — | IBGE: **coduf** | — |
+| `siguf` | `varchar` | Sigla da UF. | não testado | — | IBGE: **siguf** | — |
+| `uf` | `varchar` | Nome da UF. | não testado | — | IBGE: **UF** | — |
+| `grande_regiao` | `varchar` | Grande região. | não testado | — | IBGE: **Grande Região** | — |
+| `codmun` | `varchar` | Geocódigo IBGE do município (7 dígitos). | não (`not_null`) | — | IBGE: **codmun** | — |
+| `municipio` | `varchar` | Nome do município. | não testado | — | IBGE: **Município** | — |
+| `categoria` | `varchar` | Recorte espacial da REGIC: `Município isolado` ou `Arranjo Populacional` (município integrante de arranjo). | não testado | — | IBGE: **Categoria** | — |
+| `codap` | `varchar` | Geocódigo do arranjo populacional (vazio para município isolado). | não testado | — | IBGE: **codap** | — |
+| `arranjo_populacional` | `varchar` | Nome do arranjo populacional. | não testado | — | IBGE: **Arranjo Populacional** | — |
+| `codcid` | `varchar` | Código da cidade da REGIC (o arranjo ou o próprio município isolado). | não testado | — | IBGE: **codcid** | — |
+| `hierarquia` | `varchar` | Hierarquia urbana da cidade, por extenso com o código (ex.: `Centro Local (5)`). | não testado | — | IBGE: **Hierarquia** | — |
+| `hierarquia_2` | `varchar` | Nome da hierarquia urbana (ex.: `Centro Local`). | não testado | — | IBGE: **Hierarquia 2** | — |
+| `hierarquia_3` | `varchar` | Código da hierarquia urbana: `1A`, `1B`, `1C`, `2A`... `5` (com sufixo para integrante de arranjo). | não testado | — | IBGE: **Hierarquia 3** | — |
+| `hierarquia_grupo` | `varchar` | Grupo da hierarquia (`1 - Metrópole` ... `5 - Centro Local`). | não testado | — | IBGE: **Hierarquia - grupo** | — |
+| `multiplas_subordinacoes` | `varchar` | Número de cidades a que o município se subordina diretamente. | não testado | — | IBGE: **Múltiplas Subordinações** | — |
+| `regiao_de_influencia_vinculacao_imediata_consolidada` | `varchar` | Cidade(s) de vinculação imediata, com a hierarquia de cada uma. | não testado | — | IBGE: **Região de influência - vínculação imediata consolidada** | — |
+| `regiao_de_influencia_1` | `varchar` | Primeira cidade de vinculação. | não testado | — | IBGE: **Região de influência 1** | — |
+| `regiao_de_influencia_2` | `varchar` | Segunda cidade de vinculação (se houver). | não testado | — | IBGE: **Região de influência 2** | — |
+| `regiao_de_influencia_3` | `varchar` | Terceira cidade de vinculação (se houver). | não testado | — | IBGE: **Região de influência 3** | — |
+| `regiao_de_influencia_4` | `varchar` | Quarta cidade de vinculação (se houver). | não testado | — | IBGE: **Região de influência 4** | — |
+| `_arquivo_origem` | `varchar` | Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+| `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+
+<a id="ibge-regic_2018_ligacoes"></a>
+#### `ibge.regic_2018_ligacoes`
+
+REGIC 2018, aba `BD_LIG_MUN_QUEST` de `REGIC2018_Quest_Ligacoes_entre_Municipios.xlsx` (zip `REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip`): ligações origem → destino dos questionários, com o percentual dos deslocamentos para cada tema (Q1 a Q10) e os índices de atração.
+
+| Atributo | Valor |
+|---|---|
+| Grão (declarado, não testado) | Uma linha por ligação origem → destino (`mun_origem`, `mun_destino`). |
+| Chave primária (testada) | não testada |
+| Outras chaves únicas | `id` |
+| Chaves estrangeiras | — |
+| Lê de | IBGE: API SIDRA e geoftp (ingestão) |
+| Usada por | [`stg_ibge__regic_ligacoes`](#stg_ibge__regic_ligacoes) |
+| Materialização | Parquet raw (leitura direta, `external_location`) |
+| Localização | `raw/ibge/regic_2018_ligacoes/*.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 49 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id` | `varchar` | Identificador da ligação: geocódigo de origem concatenado ao de destino. | não (`not_null`) | — | IBGE: **ID** | — |
+| `uf_origem` | `varchar` | UF do município de origem. | não testado | — | IBGE: **UF_ORIGEM** | — |
+| `mun_origem` | `varchar` | Geocódigo do município de origem (texto, 7 dígitos). | não testado | — | IBGE: **MUN_ORIGEM** | — |
+| `mun_or` | `varchar` | Geocódigo do município de origem (formato numérico). | não testado | — | IBGE: **MUN_OR** | — |
+| `nome_origem` | `varchar` | Nome do município de origem. | não testado | — | IBGE: **NOME_ORIGEM** | — |
+| `pop2018_o` | `varchar` | População do município de origem em 2018. | não testado | — | IBGE: **POP2018_O** | — |
+| `cod_arr_o` | `varchar` | Geocódigo do arranjo de origem (quando o município integra arranjo). | não testado | — | IBGE: **COD_ARR_O** | — |
+| `nome_arr_o` | `varchar` | Nome do arranjo de origem. | não testado | — | IBGE: **NOME_ARR_O** | — |
+| `hierar_mun_o` | `varchar` | Hierarquia do município de origem na REGIC 2018. | não testado | — | IBGE: **HIERAR_MUN_O** | — |
+| `hierar_cid` | `varchar` | Código da hierarquia da cidade de origem. | não testado | — | IBGE: **HIERAR_CID** | — |
+| `nome_hierar_cid` | `varchar` | Nome da hierarquia da cidade de origem. | não testado | — | IBGE: **NOME_HIERAR_CID** | — |
+| `uf_destino` | `varchar` | UF do município de destino. | não testado | — | IBGE: **UF_DESTINO** | — |
+| `mun_destino` | `varchar` | Geocódigo do município de destino (texto, 7 dígitos). | não testado | — | IBGE: **MUN_DESTINO** | — |
+| `mun_dest` | `varchar` | Geocódigo do município de destino (formato numérico). | não testado | — | IBGE: **MUN_DEST** | — |
+| `nome_destino` | `varchar` | Nome do município de destino. | não testado | — | IBGE: **NOME_DESTINO** | — |
+| `pop2018_d` | `varchar` | População do município de destino em 2018. | não testado | — | IBGE: **POP2018_D** | — |
+| `cod_arr_d` | `varchar` | Geocódigo do arranjo de destino (quando o município integra arranjo). | não testado | — | IBGE: **COD_ARR_D** | — |
+| `nome_arr_d` | `varchar` | Nome do arranjo de destino. | não testado | — | IBGE: **NOME_ARR_D** | — |
+| `hierar_mun_d` | `varchar` | Hierarquia do município de destino na REGIC 2018. | não testado | — | IBGE: **HIERAR_MUN_D** | — |
+| `hierar_cid_d` | `varchar` | Código da hierarquia da cidade de destino. | não testado | — | IBGE: **HIERAR_CID_D** | — |
+| `nome_hierar_cid_d` | `varchar` | Nome da hierarquia da cidade de destino. | não testado | — | IBGE: **NOME_HIERAR_CID_D** | — |
+| `q1` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para compra de vestuário e calçados. | não testado | — | IBGE: **Q1** | — |
+| `q2` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para compra de móveis e eletroeletrônicos. | não testado | — | IBGE: **Q2** | — |
+| `q3` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para serviços de saúde de baixa e média complexidades. | não testado | — | IBGE: **Q3** | — |
+| `q4` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para serviços de saúde de alta complexidade. | não testado | — | IBGE: **Q4** | — |
+| `q5` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para ensino superior. | não testado | — | IBGE: **Q5** | — |
+| `q6` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para atividades culturais. | não testado | — | IBGE: **Q6** | — |
+| `q7` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para atividades esportivas. | não testado | — | IBGE: **Q7** | — |
+| `q8` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para aeroporto. | não testado | — | IBGE: **Q8** | — |
+| `q9` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para jornais (participação dos jornais editados no destino que circulam na origem). | não testado | — | IBGE: **Q9** | — |
+| `q10` | `varchar` | Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para transporte público coletivo (participação do destino entre os mais frequentes). | não testado | — | IBGE: **Q10** | — |
+| `ia_q1` | `varchar` | Índice de atração do destino sobre a origem para compra de vestuário e calçados. | não testado | — | IBGE: **IA_Q1** | — |
+| `ia_q2` | `varchar` | Índice de atração do destino sobre a origem para compra de móveis e eletroeletrônicos. | não testado | — | IBGE: **IA_Q2** | — |
+| `ia_q3` | `varchar` | Índice de atração do destino sobre a origem para serviços de saúde de baixa e média complexidades. | não testado | — | IBGE: **IA_Q3** | — |
+| `ia_q4` | `varchar` | Índice de atração do destino sobre a origem para serviços de saúde de alta complexidade. | não testado | — | IBGE: **IA_Q4** | — |
+| `ia_q5` | `varchar` | Índice de atração do destino sobre a origem para ensino superior. | não testado | — | IBGE: **IA_Q5** | — |
+| `ia_q6` | `varchar` | Índice de atração do destino sobre a origem para atividades culturais. | não testado | — | IBGE: **IA_Q6** | — |
+| `ia_q7` | `varchar` | Índice de atração do destino sobre a origem para atividades esportivas. | não testado | — | IBGE: **IA_Q7** | — |
+| `ia_q8` | `varchar` | Índice de atração do destino sobre a origem para aeroporto. | não testado | — | IBGE: **IA_Q8** | — |
+| `ia_q9` | `varchar` | Índice de atração do destino sobre a origem para jornais (participação dos jornais editados no destino que circulam na origem). | não testado | — | IBGE: **IA_Q9** | — |
+| `ia_q10` | `varchar` | Índice de atração do destino sobre a origem para transporte público coletivo (participação do destino entre os mais frequentes). | não testado | — | IBGE: **IA_Q10** | — |
+| `perc_lig` | `varchar` | Percentual estimado de participação do destino no total de deslocamentos da origem para bens e serviços em outros municípios. | não testado | — | IBGE: **PERC_LIG** | — |
+| `ia` | `varchar` | Índice de atração geral do destino sobre a origem. | não testado | — | IBGE: **IA** | — |
+| `x_origem` | `varchar` | Longitude da sede municipal de origem. | não testado | — | IBGE: **X_ORIGEM** | — |
+| `y_origem` | `varchar` | Latitude da sede municipal de origem. | não testado | — | IBGE: **Y_ORIGEM** | — |
+| `x_destino` | `varchar` | Longitude da sede municipal de destino. | não testado | — | IBGE: **X_DESTINO** | — |
+| `y_destino` | `varchar` | Latitude da sede municipal de destino. | não testado | — | IBGE: **Y_DESTINO** | — |
+| `_arquivo_origem` | `varchar` | Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+| `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+
+<a id="ibge-renda_censo_2022_municipio"></a>
+#### `ibge.renda_censo_2022_municipio`
+
+Censo 2022 (SIDRA, tabela 10295) por município: moradores em domicílios particulares permanentes ocupados (13604) e rendimento nominal mensal domiciliar per capita médio (13431) e mediano (13534), em reais, nos totais das classificações 2 (sexo), 86 (cor ou raça) e 58 (grupo de idade).
+
+| Atributo | Valor |
+|---|---|
+| Grão (declarado, não testado) | Uma linha por município × variável (`d1c`, `d2c`). |
+| Chave primária (testada) | não testada |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | — |
+| Lê de | IBGE: API SIDRA e geoftp (ingestão) |
+| Usada por | [`stg_ibge__renda_municipio`](#stg_ibge__renda_municipio) |
+| Materialização | Parquet raw (leitura direta, `external_location`) |
+| Localização | `raw/ibge/renda_censo_2022_municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 11 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `nc` | `varchar` | Código do nível territorial (`6` = município, `1` = Brasil). | não testado | — | IBGE: **Nível Territorial (Código)** | — |
+| `mc` | `varchar` | Código da unidade de medida do valor (ex.: `1020` unidades, `45` pessoas, `40` mil reais, `38` reais). | não testado | — | IBGE: **Unidade de Medida (Código)** | — |
+| `v` | `varchar` | Valor como publicado, em texto: número com ponto decimal ou símbolo do IBGE — `-` zero absoluto, `X` valor inibido por sigilo, `..` não se aplica, `...` não disponível. | não testado | — | IBGE: **Valor** | — |
+| `d1c` | `varchar` | Geocódigo IBGE do município (7 dígitos). | não testado | — | IBGE: **Município (Código)** | — |
+| `d2c` | `varchar` | Código da variável: `13604` moradores, `13431` rendimento domiciliar per capita médio (R$), `13534` mediano (R$). | não testado | — | IBGE: **Variável (Código)** | — |
+| `d3c` | `varchar` | Ano do Censo (`2022`). | não testado | — | IBGE: **Ano (Código)** | — |
+| `d4c` | `varchar` | Categoria da classificação 2 (`6794` = Total). | não testado | — | IBGE: **Sexo (Código)** | — |
+| `d5c` | `varchar` | Categoria da classificação 86 (`95251` = Total). | não testado | — | IBGE: **Cor ou raça (Código)** | — |
+| `d6c` | `varchar` | Categoria da classificação 58 (`95253` = Total). | não testado | — | IBGE: **Grupo de idade (Código)** | — |
+| `_arquivo_origem` | `varchar` | Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+| `_ingerido_em` | `timestamp` | Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão. | não testado | — | coluna técnica da ingestão | — |
+
 ## Fontes — observabilidade
 
 <a id="observabilidade-dq_historico_testes"></a>
@@ -1192,6 +1482,210 @@ Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas
 | `ano` | `integer` | Ano da malha municipal do par. | não (`not_null`) | — | — | — |
 | `id_municipio_1` | `varchar` | Código IBGE de um município do par. | não (`not_null`) | — | — | — |
 | `id_municipio_2` | `varchar` | Código IBGE do município vizinho. | não (`not_null`) | — | — | — |
+
+<a id="stg_ibge__cempre_municipio_classe"></a>
+#### `stg_ibge__cempre_municipio_classe`
+
+CEMPRE (IBGE, SIDRA 9528) por município e classe CNAE 2.0 (nível 4): unidades locais, pessoal ocupado, pessoal assalariado e salários. Uma linha por município, classe e ano. Só entram as categorias cujo nome começa por um código de classe (`NN.NN-N`): o Total fica em `stg_ibge__cempre_municipio_total`, e grupos que a SIDRA marca como nível 4 (`20.5`) ficam de fora, para nunca somar em dobro. Símbolos do IBGE (`valor_ibge`): `-` vira 0; `X` (sigilo), `..` e `...` viram NULL, e `tem_sigilo` marca a linha com algum `X`.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município × classe CNAE × ano (`id_municipio`, `classe_cnae`, `ano`). |
+| Chave primária (testada) | `id_municipio` + `classe_cnae` + `ano` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
+| Lê de | [`ibge.cempre_categorias_cnae`](#ibge-cempre_categorias_cnae), [`ibge.cempre_municipio_cnae`](#ibge-cempre_municipio_cnae) |
+| Usada por | — |
+| Materialização | view dbt |
+| Localização | `warehouse.duckdb` (view, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 10 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio` | `varchar` | Geocódigo IBGE do município (7 dígitos, texto), o mesmo de `dim_municipio.id_municipio_ibge`. | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`); tamanho exato: 7 | — | — |
+| `ano` | `integer` | Ano de referência do CEMPRE. | não (`not_null`) | — | — | — |
+| `classe_cnae` | `varchar` | Classe CNAE 2.0 com 5 dígitos, sem pontuação (`47.41-5` -> `47415`): casa com os 5 primeiros dígitos da subclasse da RFB (`4741500`). | não (`not_null`) | tamanho exato: 5 | — | — |
+| `nome_classe_cnae` | `varchar` | Nome da classe CNAE, como publicado pelo IBGE (sem o código). | não testado | — | — | — |
+| `id_categoria_sidra` | `varchar` | Id da categoria na classificação 12762 da SIDRA (por exemplo `117453`). Linhagem: `ibge.cempre_municipio_cnae.d4c`. | não testado | — | linhagem: `ibge.cempre_municipio_cnae.d4c` | — |
+| `unidades_locais` | `bigint` | Número de unidades locais (variável 706). Não é sigiloso no CEMPRE: NULL só com `..`/`...`. | não testado | — | — | — |
+| `pessoal_ocupado` | `bigint` | Pessoal ocupado total (variável 707). NULL quando sigiloso (`X`) ou indisponível. | não testado | — | — | — |
+| `pessoal_assalariado` | `bigint` | Pessoal ocupado assalariado (variável 708). NULL quando sigiloso (`X`) ou indisponível. | não testado | — | — | — |
+| `salarios_mil_reais` | `decimal(18,3)` | Salários e outras remunerações, em **mil reais** (variável 662). NULL quando sigiloso (`X`) ou indisponível. | não testado | — | — | — |
+| `tem_sigilo` | `boolean` | Verdadeiro se alguma das variáveis veio como `X` (valor inibido para não identificar o informante; acontece quando há poucas unidades locais). | não (`not_null`) | — | — | — |
+
+<a id="stg_ibge__cempre_municipio_total"></a>
+#### `stg_ibge__cempre_municipio_total`
+
+CEMPRE (IBGE, SIDRA 9528) por município, todas as atividades (categoria Total, 117897). Separado das classes para nunca somar em dobro com `stg_ibge__cempre_municipio_classe`. Mesmo tratamento de símbolos (`valor_ibge`).
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município × ano (`id_municipio`, `ano`). |
+| Chave primária (testada) | `id_municipio` + `ano` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
+| Lê de | [`ibge.cempre_municipio_cnae`](#ibge-cempre_municipio_cnae) |
+| Usada por | — |
+| Materialização | view dbt |
+| Localização | `warehouse.duckdb` (view, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 7 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio` | `varchar` | Geocódigo IBGE do município (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`); tamanho exato: 7 | — | — |
+| `ano` | `integer` | Ano de referência do CEMPRE. | não (`not_null`) | — | — | — |
+| `unidades_locais` | `bigint` | Número de unidades locais de todas as atividades (variável 706). | não (`not_null`) | — | — | — |
+| `pessoal_ocupado` | `bigint` | Pessoal ocupado total (variável 707). NULL se sigiloso ou indisponível. | não testado | — | — | — |
+| `pessoal_assalariado` | `bigint` | Pessoal ocupado assalariado (variável 708). NULL se sigiloso ou indisponível. | não testado | — | — | — |
+| `salarios_mil_reais` | `decimal(18,3)` | Salários e outras remunerações, em mil reais (variável 662). NULL se sigiloso ou indisponível. | não testado | — | — | — |
+| `tem_sigilo` | `boolean` | Verdadeiro se alguma das variáveis veio como `X` (sigilo). | não (`not_null`) | — | — | — |
+
+<a id="stg_ibge__regic_atracao"></a>
+#### `stg_ibge__regic_atracao`
+
+REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamentos dos questionários, geral e por tema. Município que não atrai ninguém não aparece.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município de destino (`id_municipio`). |
+| Chave primária (testada) | `id_municipio` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
+| Lê de | [`ibge.regic_2018_atracao`](#ibge-regic_2018_atracao) |
+| Usada por | — |
+| Materialização | view dbt |
+| Localização | `warehouse.duckdb` (view, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 14 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio` | `varchar` | Geocódigo IBGE do município (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`) | — | — |
+| `nome_municipio` | `varchar` | Nome do município, como na REGIC. | não testado | — | — | — |
+| `populacao_2018` | `bigint` | População do município em 2018 (estimativa usada pela REGIC). | não testado | — | — | — |
+| `indice_atracao` | `double` | Índice de atração geral (`IA`). | não testado | — | — | — |
+| `indice_atracao_vestuario_calcados` | `double` | Índice de atração para compra de vestuário e calçados (`IA_Q1`). | não testado | — | — | — |
+| `indice_atracao_moveis_eletro` | `double` | Índice de atração para compra de móveis e eletroeletrônicos (`IA_Q2`). | não testado | — | — | — |
+| `indice_atracao_saude_baixa_media_complexidade` | `double` | Índice de atração para saúde de baixa e média complexidades (`IA_Q3`). | não testado | — | — | — |
+| `indice_atracao_saude_alta_complexidade` | `double` | Índice de atração para saúde de alta complexidade (`IA_Q4`). | não testado | — | — | — |
+| `indice_atracao_ensino_superior` | `double` | Índice de atração para ensino superior (`IA_Q5`). | não testado | — | — | — |
+| `indice_atracao_atividades_culturais` | `double` | Índice de atração para atividades culturais (`IA_Q6`). | não testado | — | — | — |
+| `indice_atracao_atividades_esportivas` | `double` | Índice de atração para atividades esportivas (`IA_Q7`). | não testado | — | — | — |
+| `indice_atracao_aeroporto` | `double` | Índice de atração para aeroporto (`IA_Q8`). | não testado | — | — | — |
+| `indice_atracao_jornais` | `double` | Índice de atração dos jornais editados no município (`IA_Q9`). | não testado | — | — | — |
+| `indice_atracao_transporte_coletivo` | `double` | Índice de atração para transporte público coletivo (`IA_Q10`). | não testado | — | — | — |
+
+<a id="stg_ibge__regic_hierarquia"></a>
+#### `stg_ibge__regic_hierarquia`
+
+REGIC 2018 (IBGE): hierarquia urbana da cidade a que o município pertence (o próprio município isolado ou o arranjo populacional) e a sua região de influência (cidades de vinculação).
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município (`id_municipio`). |
+| Chave primária (testada) | `id_municipio` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
+| Lê de | [`ibge.regic_2018_hierarquia`](#ibge-regic_2018_hierarquia) |
+| Usada por | — |
+| Materialização | view dbt |
+| Localização | `warehouse.duckdb` (view, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 16 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio` | `varchar` | Geocódigo IBGE do município (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`); tamanho exato: 7 | — | — |
+| `nome_municipio` | `varchar` | Nome do município, como na REGIC. | não testado | — | — | — |
+| `sigla_uf` | `varchar` | Sigla da UF. | não testado | — | — | — |
+| `id_cidade_regic` | `varchar` | Código da cidade da REGIC (o arranjo populacional, ou o próprio município isolado). | não testado | — | — | — |
+| `integra_arranjo_populacional` | `boolean` | Verdadeiro se o município integra um arranjo populacional (categoria `Arranjo Populacional`). | não testado | — | — | — |
+| `id_arranjo_populacional` | `varchar` | Geocódigo do arranjo populacional (NULL para município isolado). | não testado | — | — | — |
+| `nome_arranjo_populacional` | `varchar` | Nome do arranjo populacional (NULL para município isolado). | não testado | — | — | — |
+| `codigo_hierarquia` | `varchar` | Código da hierarquia urbana: `1A` Grande Metrópole Nacional, `1B` Metrópole Nacional, `1C` Metrópole, `2A`-`2C` Capital Regional, `3A`/`3B` Centro Sub-Regional, `4A`/`4B` Centro de Zona, `5` Centro Local. | não (`not_null`) | valores: `1A`, `1B`, `1C`, `2A`, `2B`, `2C`, `3A`, `3B`, `4A`, `4B`, `5` | — | — |
+| `nome_hierarquia` | `varchar` | Nome da hierarquia urbana (por exemplo `Metrópole`, `Centro Local`). | não testado | — | — | — |
+| `descricao_hierarquia` | `varchar` | Hierarquia como publicada, com o código e, se for o caso, o arranjo (`Hierarquia`). | não testado | — | — | — |
+| `quantidade_subordinacoes` | `integer` | Número de cidades a que o município se subordina diretamente (`Múltiplas Subordinações`). | não testado | — | — | — |
+| `regiao_influencia` | `varchar` | Cidade(s) de vinculação imediata, com a hierarquia de cada uma (por exemplo `Arranjo Populacional de Vitória/ES - Metrópole (1C)`). | não testado | — | — | — |
+| `cidade_influencia_1` | `varchar` | Primeira cidade de vinculação. | não testado | — | — | — |
+| `cidade_influencia_2` | `varchar` | Segunda cidade de vinculação (NULL se não houver). | não testado | — | — | — |
+| `cidade_influencia_3` | `varchar` | Terceira cidade de vinculação (NULL se não houver). | não testado | — | — | — |
+| `cidade_influencia_4` | `varchar` | Quarta cidade de vinculação (NULL se não houver). | não testado | — | — | — |
+
+<a id="stg_ibge__regic_ligacoes"></a>
+#### `stg_ibge__regic_ligacoes`
+
+REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*` é o percentual estimado dos deslocamentos dos moradores da origem que vão ao destino para o tema (Q1 a Q10 da planilha), de 0 a 100; NULL quando ausente. Município sem ligação de origem não aparece.
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por ligação origem → destino (`id_municipio_origem`, `id_municipio_destino`). |
+| Chave primária (testada) | `id_municipio_origem` + `id_municipio_destino` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `id_municipio_destino` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn))<br>`id_municipio_origem` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
+| Lê de | [`ibge.regic_2018_ligacoes`](#ibge-regic_2018_ligacoes) |
+| Usada por | — |
+| Materialização | view dbt |
+| Localização | `warehouse.duckdb` (view, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 14 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio_origem` | `varchar` | Geocódigo IBGE do município de origem (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`) | — | — |
+| `id_municipio_destino` | `varchar` | Geocódigo IBGE do município de destino (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`) | — | — |
+| `pct_vestuario_calcados` | `double` | % dos deslocamentos da origem ao destino para comprar vestuário e calçados (Q1). | não testado | `0` ≤ valor ≤ `100` | — | — |
+| `pct_moveis_eletro` | `double` | % dos deslocamentos da origem ao destino para comprar móveis e eletroeletrônicos (Q2). | não testado | `0` ≤ valor ≤ `100` | — | — |
+| `pct_saude_baixa_media_complexidade` | `double` | % dos deslocamentos para serviços de saúde de baixa e média complexidades (Q3). | não testado | — | — | — |
+| `pct_saude_alta_complexidade` | `double` | % dos deslocamentos para serviços de saúde de alta complexidade (Q4). | não testado | — | — | — |
+| `pct_ensino_superior` | `double` | % dos deslocamentos para ensino superior (Q5). | não testado | — | — | — |
+| `pct_atividades_culturais` | `double` | % dos deslocamentos para atividades culturais (Q6). | não testado | — | — | — |
+| `pct_atividades_esportivas` | `double` | % dos deslocamentos para atividades esportivas (Q7). | não testado | — | — | — |
+| `pct_aeroporto` | `double` | % dos deslocamentos para usar aeroporto (Q8). | não testado | — | — | — |
+| `pct_jornais` | `double` | % dos jornais que circulam na origem editados no destino (Q9). | não testado | — | — | — |
+| `pct_transporte_coletivo` | `double` | % do destino entre os destinos mais frequentes de transporte público coletivo da origem (Q10). | não testado | — | — | — |
+| `pct_bens_servicos` | `double` | % dos deslocamentos da origem ao destino para bens e serviços em outros municípios, todos os temas (`PERC_LIG`). | não testado | — | — | — |
+| `indice_atracao` | `double` | Índice de atração geral do destino sobre a origem (`IA`). | não testado | — | — | — |
+
+<a id="stg_ibge__renda_municipio"></a>
+#### `stg_ibge__renda_municipio`
+
+Censo 2022 (IBGE, SIDRA 10295) por município: moradores em domicílios particulares permanentes ocupados e rendimento nominal mensal domiciliar per capita médio e mediano, em reais, nos totais de sexo, cor ou raça e grupo de idade. Símbolos do IBGE viram NULL (`valor_ibge`).
+
+| Atributo | Valor |
+|---|---|
+| Grão | Uma linha por município (`id_municipio`). |
+| Chave primária (testada) | `id_municipio` |
+| Outras chaves únicas | — |
+| Chaves estrangeiras | `id_municipio` → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (testada (warn)) |
+| Lê de | [`ibge.renda_censo_2022_municipio`](#ibge-renda_censo_2022_municipio) |
+| Usada por | — |
+| Materialização | view dbt |
+| Localização | `warehouse.duckdb` (view, esquema `main`) |
+| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Incremento | `enriquecimento_ibge` |
+| Contrato aplicado | não |
+| Colunas | 5 |
+
+| Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
+|---|---|---|---|---|---|---|
+| `id_municipio` | `varchar` | Geocódigo IBGE do município (7 dígitos, texto). | não (`not_null`) | FK → [`stg_bd__municipios`](#stg_bd__municipios).`id_municipio` (`warn`); tamanho exato: 7 | — | — |
+| `ano` | `integer` | Ano do Censo (2022). | não testado | valores: `2022` | — | — |
+| `moradores` | `bigint` | Moradores em domicílios particulares permanentes ocupados (variável 13604). | não testado | — | — | — |
+| `renda_per_capita_media` | `decimal(12,2)` | Rendimento nominal mensal domiciliar per capita **médio**, em R$ (variável 13431). | não testado | — | — | — |
+| `renda_per_capita_mediana` | `decimal(12,2)` | Rendimento nominal mensal domiciliar per capita **mediano**, em R$ (variável 13534). | não testado | — | — | — |
 
 <a id="stg_rfb__cnaes"></a>
 #### `stg_rfb__cnaes`

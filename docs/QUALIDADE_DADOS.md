@@ -28,12 +28,12 @@
 
 | Etapa | Momento | O que valida |
 |---|---|---|
-| Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (35 testes) |
+| Fontes | Antes | Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original). (43 testes) |
 | Seeds | Antes | Domínios estáticos usados por staging e dimensões. (6 testes) |
-| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (79 testes) |
+| Staging | Depois | Tipagem, CNPJ, datas e ausência de colunas de contato. (115 testes) |
 | Intermediate | Depois | Joins sem descarte e explosão de CNAEs secundários. (7 testes) |
 | Original | Depois | `bh_empresas`/`agg_empresas`: reconciliação, domínios, paridade. (13 testes) |
-| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (73 testes) |
+| Core | Depois | Modelo estrela: chaves, relacionamentos, reconciliação da fato. (74 testes) |
 | Análises | Depois | Marts analíticos: invariantes numéricas. (56 testes) |
 | Observabilidade | Depois | Resumo do histórico de testes. (2 testes) |
 
@@ -41,6 +41,8 @@
 
 | Alvo | Check | Severidade | Escopo | Origem (notebook) |
 |---|---|---|---|---|
+| `cempre_categorias_cnae.d4c` | `not_null` | error | adicao | — |
+| `cempre_categorias_cnae.d4c` | `unique` | error | adicao | — |
 | `censo_2022_municipio.id_municipio` | `unique` | error | adicao | — |
 | `cnaes` | Reproduz o check do notebook 2.1.2 (qualidade dos domínios): CNAEs RFB sem par na Base dos Dados. | warn | original | 2.1.2 |
 | `cnaes` | `unique_combination_of_columns` {"combination_of_columns": ["codigo", "_mes_referencia"]} | error | original | 2.1.1 |
@@ -75,6 +77,12 @@
 | `pib` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
 | `populacao` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
 | `qualificacoes._data_referencia` | `not_null` | error | adicao | — |
+| `regic_2018_atracao.codmun` | `not_null` | error | adicao | — |
+| `regic_2018_atracao.codmun` | `unique` | error | adicao | — |
+| `regic_2018_hierarquia.codmun` | `not_null` | error | adicao | — |
+| `regic_2018_hierarquia.codmun` | `unique` | error | adicao | — |
+| `regic_2018_ligacoes.id` | `not_null` | error | adicao | — |
+| `regic_2018_ligacoes.id` | `unique` | error | adicao | — |
 | `simples._data_referencia` | `not_null` | error | adicao | — |
 
 ### Seeds (Antes)
@@ -123,6 +131,42 @@
 | `stg_bd__vizinhanca.ano` | `not_null` | error | adicao | — |
 | `stg_bd__vizinhanca.id_municipio_1` | `not_null` | error | adicao | — |
 | `stg_bd__vizinhanca.id_municipio_2` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "classe_cnae", "ano"]} | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe.ano` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe.classe_cnae` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe.classe_cnae` | `tamanho_exato` {"tamanho": 5} | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe.id_municipio` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe.id_municipio` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
+| `stg_ibge__cempre_municipio_classe.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe.tem_sigilo` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_total` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio", "ano"]} | error | adicao | — |
+| `stg_ibge__cempre_municipio_total.ano` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_total.id_municipio` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_total.id_municipio` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
+| `stg_ibge__cempre_municipio_total.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_ibge__cempre_municipio_total.tem_sigilo` | `not_null` | error | adicao | — |
+| `stg_ibge__cempre_municipio_total.unidades_locais` | `not_null` | error | adicao | — |
+| `stg_ibge__regic_atracao.id_municipio` | `not_null` | error | adicao | — |
+| `stg_ibge__regic_atracao.id_municipio` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
+| `stg_ibge__regic_atracao.id_municipio` | `unique` | error | adicao | — |
+| `stg_ibge__regic_hierarquia.codigo_hierarquia` | `accepted_values` {"values": ["1A", "1B", "1C", "2A", "2B", "2C", "3A", "3B", "4A", "4B", "5"]} | error | adicao | — |
+| `stg_ibge__regic_hierarquia.codigo_hierarquia` | `not_null` | error | adicao | — |
+| `stg_ibge__regic_hierarquia.id_municipio` | `not_null` | error | adicao | — |
+| `stg_ibge__regic_hierarquia.id_municipio` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
+| `stg_ibge__regic_hierarquia.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_ibge__regic_hierarquia.id_municipio` | `unique` | error | adicao | — |
+| `stg_ibge__regic_ligacoes` | `unique_combination_of_columns` {"combination_of_columns": ["id_municipio_origem", "id_municipio_destino"]} | error | adicao | — |
+| `stg_ibge__regic_ligacoes.id_municipio_destino` | `not_null` | error | adicao | — |
+| `stg_ibge__regic_ligacoes.id_municipio_destino` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
+| `stg_ibge__regic_ligacoes.id_municipio_origem` | `not_null` | error | adicao | — |
+| `stg_ibge__regic_ligacoes.id_municipio_origem` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
+| `stg_ibge__regic_ligacoes.pct_moveis_eletro` | `accepted_range` {"min_value": 0, "max_value": 100} | error | adicao | — |
+| `stg_ibge__regic_ligacoes.pct_vestuario_calcados` | `accepted_range` {"min_value": 0, "max_value": 100} | error | adicao | — |
+| `stg_ibge__renda_municipio.ano` | `accepted_values` {"values": [2022]} | error | adicao | — |
+| `stg_ibge__renda_municipio.id_municipio` | `not_null` | error | adicao | — |
+| `stg_ibge__renda_municipio.id_municipio` | `relationships` {"to": "ref('stg_bd__municipios')", "field": "id_municipio"} | warn | adicao | — |
+| `stg_ibge__renda_municipio.id_municipio` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
+| `stg_ibge__renda_municipio.id_municipio` | `unique` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `not_null` | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `tamanho_exato` {"tamanho": 7} | error | adicao | — |
 | `stg_rfb__cnaes.codigo` | `unique` | error | adicao | — |
@@ -278,6 +322,7 @@
 | `fct_resumo_mensal.sk_porte` | `not_null` | error | adicao | — |
 | `fct_resumo_mensal.sk_situacao_cadastral` | `not_null` | error | adicao | — |
 | `mart_concorrencia_municipio` | incremento: enriquecimento_bd. | error | adicao | — |
+| `stg_ibge__cempre_municipio_classe` | incremento: enriquecimento_ibge. | error | adicao | — |
 | `—` | ADR-0008, emenda R4-01: casos conhecidos da máscara `mascarar_cpf_no_nome` (CPFs sintéticos com DV válido). | error | adicao | — |
 
 ### Análises (Depois)
@@ -384,6 +429,11 @@
 | `stg_bd__municipios` | `test_stg_bd__municipios_lpad_id_municipio_rf` | adicao |
 | `stg_bd__municipios` | `test_stg_bd__municipios_parse_centroide` | adicao |
 | `stg_bd__regioes_metropolitanas` | `test_stg_bd__regioes_metropolitanas_uma_por_municipio` | adicao |
+| `stg_ibge__cempre_municipio_classe` | `test_stg_ibge__cempre_municipio_classe_simbolos` | adicao |
+| `stg_ibge__cempre_municipio_total` | `test_stg_ibge__cempre_municipio_total_so_categoria_total` | adicao |
+| `stg_ibge__regic_hierarquia` | `test_stg_ibge__regic_hierarquia_codigo` | adicao |
+| `stg_ibge__regic_ligacoes` | `test_stg_ibge__regic_ligacoes_temas` | adicao |
+| `stg_ibge__renda_municipio` | `test_stg_ibge__renda_municipio_pivo` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_e_texto_vazio` | adicao |
 | `stg_rfb__cnaes` | `test_stg_rfb__cnaes_lpad_nao_trunca_codigo_maior` | adicao |
 | `stg_rfb__empresas` | `test_stg_rfb__empresas_desempate_total_da_raiz_duplicada` | adicao |
