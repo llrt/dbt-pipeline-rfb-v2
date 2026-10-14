@@ -56,6 +56,24 @@ projeto os guarda nos seeds `dominio_situacao_cadastral`, `dominio_porte` e `dom
 Esses dados viram atributos de `dim_municipio` e `dim_cnae`. Na camada semântica, aparecem como dimensões
 (`municipio__sigla_uf`, `cnae__descricao_secao`…), nunca como métricas (ver [B7](#b7-limites-e-cuidados)).
 
+**IBGE, direto da origem (incremento `enriquecimento_ibge`,
+[ADR-0022](adr/0022-enriquecimento-fontes-gratuitas-ibge.md)).** Fontes gratuitas baixadas do próprio IBGE, sem
+conta nem serviço pago, para o perfil de mercado de quem pensa em abrir um negócio:
+
+- CEMPRE (Cadastro Central de Empresas) por município × classe CNAE: unidades locais, pessoal ocupado,
+  assalariados e salários (`stg_ibge__cempre_municipio_classe`; o total do município em
+  `stg_ibge__cempre_municipio_total`);
+- rendimento domiciliar per capita do Censo 2022 (`stg_ibge__renda_municipio`);
+- REGIC 2018, as Regiões de Influência das Cidades: hierarquia urbana (`stg_ibge__regic_hierarquia`), para onde os
+  moradores de cada município vão comprar (`stg_ibge__regic_ligacoes`) e o índice de atração
+  (`stg_ibge__regic_atracao`).
+
+Elas viram atributos de `dim_municipio` (renda, hierarquia, polo de compras, total do CEMPRE), a ponte
+`bridge_municipio_destino_compras` e o mart `mart_emprego_setor_municipio`, o único com métricas próprias
+([B3](#b3-métricas)). O valor adicionado por atividade vem do PIB dos Municípios da Base dos Dados (`stg_bd__pib`)
+e entrou no mesmo incremento. Para a pergunta de negócio que cada base responde, com consultas prontas e exemplos do
+dado real, veja os [cenários de uso](CENARIOS_DE_USO.md).
+
 ### A2. Conceitos
 
 #### CNPJ
@@ -343,6 +361,56 @@ Sem par, o estabelecimento fica no membro `-1` de `dim_municipio`. O código exi
 ([RN-19](REGRAS_NEGOCIO.md#rn-19)). Os casos conhecidos estão no seed
 `excecoes_conhecidas_municipio`: o código 9707 (EXTERIOR, UF `EX`) e municípios criados depois da base.
 
+#### CEMPRE: unidades locais e pessoal ocupado
+
+O CEMPRE do IBGE reúne as empresas e outras organizações formais ativas e os endereços onde atuam, as **unidades
+locais** [IBGE-CEMPRE]. Desde o ano-base 2022, uma organização entra se declarou o eSocial, se respondeu às
+pesquisas anuais do IBGE ou se tem "situação cadastral ativa em 31.12 na Receita Federal" sem indicativo de
+inatividade nessas pesquisas. Os **MEI ficam de fora**. Entram unidades sem empregado: 71,6 % das empresas de 2024
+não tinham assalariado em 31/12, e o pessoal ocupado inclui sócios e proprietários.
+
+**CEMPRE × RFB.** A RFB conta todo CNPJ em situação ATIVA, inclusive o MEI e quem não opera de fato; o CEMPRE conta
+o que tem sinal de atividade, sem MEI. A comparação justa é `ativos_rfb_sem_mei` × `unidades_locais_cempre`, em
+`mart_emprego_setor_municipio` ([RN-30](REGRAS_NEGOCIO.md#rn-30)). No dado real de 2026-09, nos pares em que as
+duas bases têm o setor, o CEMPRE 2024 conta 0,83 unidade local por ativo sem MEI. Nas classes do caso, a ordem de
+grandeza é a mesma: em Serra, 33 unidades de 47.41-5 no CEMPRE e 34 ativos sem MEI na RFB.
+
+**Sigilo.** Quando a célula identificaria um informante, o IBGE publica `X` no pessoal e nos salários. As unidades
+locais nunca são sigilosas. O projeto não imputa: o valor fica NULL e `tem_sigilo` vale true. Por isso, somar
+pessoal ocupado de vários municípios ou classes **subestima** o total. **Ano:** o CEMPRE é de 31/12 do `ano_cempre`
+(hoje 2024); a RFB é do mês do extrato.
+
+#### REGIC: hierarquia urbana e polo de compras
+
+A REGIC 2018 classifica as cidades numa hierarquia de cinco níveis (1 Metrópole, 2 Capital Regional, 3 Centro
+Sub-Regional, 4 Centro de Zona, 5 Centro Local, com subníveis A, B e C) e mede para onde a população de cada
+município vai em busca de bens e serviços [IBGE-REGIC]. Em 5.503 municípios, três informantes locais (a
+prefeitura e, na falta, os Correios, o cartório…) indicaram de 1 a 5 municípios procurados em cada tema e estimaram
+o percentual de cada um; o IBGE publica a média dos três. O próprio município não podia ser destino. Os 67
+municípios de maior centralidade não tiveram questionário, porque mais ofertam do que buscam: não têm ligação de
+origem nem polo (no ES, Vitória, Vila Velha e Serra).
+
+O **polo de compras** do projeto é o destino com o maior percentual no tema "móveis e eletroeletrônicos" (Q2), a
+melhor proxy de bem durável e material de construção (`id_municipio_polo_compras`, `pct_compras_no_polo`). O
+destino "Outros" (lugares não listados) nunca é polo; empate fica com o menor código. **Como ler o percentual:** ele
+divide os deslocamentos **entre os destinos de fora**; não diz quanto da demanda fica no município. "45 % em Serra"
+quer dizer 45 % de quem compra fora, não 45 % de toda a compra de Fundão. A ponte `bridge_municipio_destino_compras`
+traz todos os destinos de vestuário e calçados (Q1) e de móveis e eletroeletrônicos (Q2). A malha é a de 2018.
+
+#### Renda per capita (Censo 2022)
+
+Rendimento domiciliar per capita médio e mediano por município, do Censo Demográfico 2022 (tabela SIDRA 10295)
+[IBGE-SIDRA]. Valores em reais nominais de 2022, sem correção. A média é puxada pelas rendas altas; a mediana
+descreve o domicílio típico (Vitória: média de R$ 3.351,64 e mediana de R$ 1.750,00). O IBGE marca `...` (não
+disponível) a mediana de alguns municípios, que fica NULL.
+
+#### Valor adicionado por atividade
+
+O PIB dos Municípios do IBGE (pela Base dos Dados) abre o valor adicionado em agropecuária, indústria, serviços e
+administração pública. As aberturas saem depois do PIB total: hoje o PIB vai até 2023 (`ano_pib`), as aberturas até
+2021 (`ano_va`). As participações (`pct_va_servicos`…) somam 100, salvo quando o IBGE publica VA negativo (no dado
+real, a indústria de Cachoeira Dourada/GO em 2021).
+
 ### A3. Ciclo de vida
 
 A RFB não publica "eventos": publica a **situação atual** de cada estabelecimento, com a data e o motivo dela. O
@@ -450,9 +518,16 @@ classDiagram
     class GrupoCnae
     class DivisaoCnae
     class SecaoCnae
-    class Municipio
+    class Municipio {
+        hierarquia urbana (REGIC)
+        renda per capita (Censo 2022)
+    }
     class UnidadeFederativa
     class RegiaoGeografica
+    class SetorNoMunicipio {
+        unidades locais (CEMPRE)
+        pessoal ocupado
+    }
 
     Empresa "1" --> "1..*" Estabelecimento : possui
     Estabelecimento <|-- Matriz
@@ -472,10 +547,14 @@ classDiagram
     Estabelecimento --> "1" Municipio : localiza-se em
     Municipio --> "1" UnidadeFederativa : pertence a
     Municipio --> RegiaoGeografica : pertence a
+    Municipio --> "0..*" Municipio : compra em (tema, %)
+    SetorNoMunicipio --> "1" Municipio : no município
+    SetorNoMunicipio --> "1" ClasseCnae : na classe
 ```
 
 Os conceitos analíticos do projeto (fotografia mensal, abertura, encerramento, baixa e coorte) estão na ontologia,
-mas fora do diagrama: são regras do projeto, não conceitos da RFB. O teste também confere a **afinidade**: cada
+mas fora do diagrama: são regras do projeto, não conceitos da RFB. A hierarquia urbana, a relação "compra em" e o
+setor no município vêm do IBGE (incremento `enriquecimento_ibge`). O teste também confere a **afinidade**: cada
 métrica fica num conceito que anota o modelo semântico dela (pela entidade, pelo modelo, pela coluna ou pela
 dimensão).
 
@@ -504,6 +583,10 @@ dimensão).
 | Fotografia mensal | — | `fct_resumo_mensal` | `resumo_mensal` | `qtd_ativos_mes_anterior`, `variacao_mensal_ativos`, `variacao_mensal_ativos_pct` |
 | Abertura / encerramento / baixa | — | `mart_dinamica_mercado` | `estabelecimento` | `aberturas`, `encerramentos`, `baixas`, `saldo_aberturas_encerramentos` |
 | Coorte de abertura | — | `mart_sobrevivencia_coorte` | `coorte_sobrevivencia` | `elegiveis_3a`, `sobreviventes_3a`, `taxa_sobrevivencia_3a` (e 1a, 5a) |
+| Hierarquia urbana (REGIC) | `stg_ibge__regic_hierarquia.codigo_hierarquia` | `dim_municipio.regic_hierarquia` | `municipio__regic_hierarquia`, `municipio__regic_hierarquia_codigo` | todas, como recorte |
+| Compra em (destino de compras) | `stg_ibge__regic_ligacoes.pct_moveis_eletro` | `bridge_municipio_destino_compras`, `dim_municipio.id_municipio_polo_compras` | `municipio__nome_municipio_polo_compras` | — |
+| Renda per capita | `stg_ibge__renda_municipio.renda_per_capita_media` | `dim_municipio.renda_per_capita_media_2022` | `municipio__renda_per_capita_media_2022` | — |
+| Setor no município (CEMPRE) | `stg_ibge__cempre_municipio_classe.unidades_locais` | `mart_emprego_setor_municipio` | `emprego_setor_municipio` | `unidades_locais_cempre`, `pessoal_ocupado_cempre`, `ativos_rfb` |
 
 ### A5. Glossário rápido
 
@@ -527,6 +610,11 @@ dimensão).
 | CNAE | classificação de atividades da CONCLA/IBGE; seção → divisão → grupo → classe → subclasse |
 | Município RFB | código de 4 dígitos da RFB, diferente do código IBGE |
 | Membro `-1` | "NÃO INFORMADO": valor sem par na dimensão |
+| CEMPRE | cadastro de empresas e organizações formais ativas do IBGE, sem MEI, por unidade local |
+| Unidade local | endereço de atuação de uma organização no CEMPRE; nunca sigilosa |
+| Sigilo (`X`) | célula do IBGE que identificaria o informante; no projeto, NULL com `tem_sigilo` |
+| REGIC | Regiões de Influência das Cidades (IBGE, 2018): hierarquia urbana e deslocamentos para comprar e usar serviços |
+| Polo de compras | destino com o maior % dos deslocamentos para comprar móveis e eletroeletrônicos (Q2 da REGIC) |
 
 ### A6. Perguntas frequentes
 
@@ -647,9 +735,19 @@ uv run mf query --metrics qtd_ativos --group-by metric_time__month,cnae__descric
 
 O recorte é pelo CNAE **principal**. O membro `NÃO INFORMADO` reúne CNAEs sem par na Base dos Dados.
 
+**Quantas pessoas trabalham num setor, e quantos CNPJs ativos ele tem?**
+
+```bash
+uv run mf query --metrics unidades_locais_cempre,pessoal_ocupado_cempre,ativos_rfb --group-by emprego_setor_municipio__classe_cnae --where "{{ Dimension('municipio__nome_municipio') }} = 'Serra'"
+```
+
+As unidades e o pessoal são do CEMPRE (`ano_cempre`), os ativos da RFB (mês do gold). Sem MEI no CEMPRE, compare
+com `ativos_rfb_sem_mei` em `mart_emprego_setor_municipio`; com sigilo, o pessoal da célula fica fora da soma. Mais
+exemplos, com o dado real, nos [cenários de uso](CENARIOS_DE_USO.md).
+
 ### A7. Fontes
 
-Acessadas em **2026-10-10**.
+Acessadas em **2026-10-10** (as do IBGE, em **2026-10-14**).
 
 | Chave | Fonte | O que sustenta |
 |---|---|---|
@@ -669,6 +767,9 @@ Acessadas em **2026-10-10**.
 | Planalto-LCP | Presidência da República, [quadro das leis complementares](https://www.planalto.gov.br/ccivil_03/leis/lcp/quadro_lcp.htm) | nenhuma LC de 2026 (até a LC 237, de 15/09/2026) altera o MEI |
 | CONCLA-NJ | IBGE/CONCLA, [Tabela de Natureza Jurídica 2021](https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html) | grupos e códigos de natureza jurídica |
 | CONCLA-CNAE | IBGE/CONCLA, [busca online CNAE-Subclasses 2.3, subclasse 4741-5/00](https://concla.ibge.gov.br/busca-online-cnae.html?view=subclasse&tipo=cnae&versaosubclasse=10&subclasse=4741500) | hierarquia da CNAE e o exemplo de tintas |
+| IBGE-CEMPRE | IBGE, [Estatísticas do Cadastro Central de Empresas 2024](https://agenciadenoticias.ibge.gov.br/media/com_mediaibge/arquivos/e1be87301fe780c6ccf8aeab200e71ea.pdf) (apresentação, "Notas técnicas") | fontes do CEMPRE; critérios de unidade ativa; MEI excluídos; quebra de série em 2022; empresas sem assalariado |
+| IBGE-REGIC | IBGE, [Regiões de Influência das Cidades 2018](https://biblioteca.ibge.gov.br/visualizacao/livros/liv101728.pdf) (2020), "Notas técnicas" | hierarquia urbana; questionário em 5.503 municípios, três informantes, 1 a 5 destinos com percentual, média simples; 67 municípios sem questionário; índice de atração |
+| IBGE-SIDRA | IBGE, [API SIDRA](https://apisidra.ibge.gov.br/), tabelas 9528 (CEMPRE por município e CNAE 2.0) e 10295 (Censo 2022, rendimento domiciliar per capita) | variáveis, classificações e os símbolos `-`, `X`, `..` e `...` |
 
 ## Parte B — Estrutura técnica
 
@@ -680,7 +781,7 @@ As anotações ficam **junto do modelo**, no mesmo YAML que já documenta coluna
 | Arquivo | O que define |
 |---|---|
 | [`transform/models/marts/core/_core__models.yml`](../transform/models/marts/core/_core__models.yml) | modelos semânticos das dimensões e das duas fatos, métricas do resumo mensal e da fato detalhada, *time spine* (`dim_data`) |
-| [`transform/models/marts/analytics/_analytics__models.yml`](../transform/models/marts/analytics/_analytics__models.yml) | modelo semântico e métricas de `mart_sobrevivencia_coorte` |
+| [`transform/models/marts/analytics/_analytics__models.yml`](../transform/models/marts/analytics/_analytics__models.yml) | modelos semânticos e métricas de `mart_sobrevivencia_coorte` e de `mart_emprego_setor_municipio` (incremento `enriquecimento_ibge`) |
 | [`transform/models/marts/_marts__saved_queries.yml`](../transform/models/marts/_marts__saved_queries.yml) | consultas salvas (*saved queries*) |
 | [`docs/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) | ontologia: conceitos de negócio mapeados para entidades, dimensões e métricas ([A4](#a4-ontologia)) |
 
@@ -716,11 +817,12 @@ erDiagram
     estabelecimento }o--|| situacao_cadastral : sk_situacao_cadastral
     coorte_sobrevivencia }o--|| cnae : sk_cnae
     coorte_sobrevivencia }o--|| porte : sk_porte
+    emprego_setor_municipio }o--|| municipio : sk_municipio
 ```
 
 | Modelo semântico | Entidade principal | Dimensões |
 |---|---|---|
-| `dim_municipio` | `municipio` (`sk_municipio`) | `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, meso/microrregião, regiões intermediária e imediata, `id_municipio_ibge`, `nome_regiao_metropolitana` (incremento enriquecimento BD) |
+| `dim_municipio` | `municipio` (`sk_municipio`) | `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, meso/microrregião, regiões intermediária e imediata, `id_municipio_ibge`, `nome_regiao_metropolitana` (incremento enriquecimento BD); `renda_per_capita_media_2022`, `renda_per_capita_mediana_2022`, `regic_hierarquia`, `regic_hierarquia_codigo`, `regic_arranjo_populacional`, `regic_regiao_influencia`, `nome_municipio_polo_compras` (incremento enriquecimento IBGE) |
 | `dim_cnae` | `cnae` (`sk_cnae`) | códigos e descrições de seção, divisão, grupo, classe e subclasse |
 | `dim_natureza_juridica` | `natureza_juridica` | código e descrição |
 | `dim_porte` | `porte` | `codigo_porte`, `rotulo_porte` |
@@ -728,6 +830,7 @@ erDiagram
 | `fct_resumo_mensal` | `resumo_mensal` (grão composto) | tempo `mes` (mensal), `opcao_mei` |
 | `fct_estabelecimentos` | `estabelecimento` (`cnpj_completo`) | tempo `data_inicio_atividade` e `data_situacao` (diárias), `opcao_simples`, `opcao_mei`, `eh_matriz`, `eh_ativa` |
 | `mart_sobrevivencia_coorte` | `coorte_sobrevivencia` (grão composto) | tempo `coorte` (anual), `uf` |
+| `mart_emprego_setor_municipio` | `emprego_setor_municipio` (grão composto: município × classe CNAE) | tempo `mes_rfb` (mensal, o mês do gold), `classe_cnae`, `descricao_classe`, `ano_cempre`, `tem_sigilo`, `uf` |
 
 Nas consultas, a dimensão de outro modelo é acessada pela entidade: `municipio__sigla_uf`, `cnae__descricao_secao`,
 `porte__rotulo_porte`. O membro `-1` (NÃO INFORMADO) de cada dimensão aparece como um valor normal. Não existe
@@ -761,6 +864,9 @@ painel com o `mf`, filtre um mês nos dois.
 | `saldo_aberturas_encerramentos` | derived | `aberturas − encerramentos` (lado sem evento conta 0) | — (`saldo` de `mart_dinamica_mercado`) |
 | `elegiveis_{1,3,5}a`, `sobreviventes_{1,3,5}a` | simple (sum) | colunas de `mart_sobrevivencia_coorte` | — |
 | `taxa_sobrevivencia_{1,3,5}a` | ratio | `sobreviventes / elegíveis` (soma os estratos antes de dividir) | Taxa de Sobrevivência 3a |
+| `unidades_locais_cempre` | simple (sum) | unidades locais do CEMPRE (`ano_cempre`), por município × classe | — |
+| `pessoal_ocupado_cempre` | simple (sum) | pessoal ocupado do CEMPRE; células com sigilo ficam fora (subestima) | — |
+| `ativos_rfb` | simple (sum) | ativos da RFB (mês do gold) da classe, nos pares do mart CEMPRE × RFB | — |
 
 **Fotografia mensal (`non_additive_dimension`).** O resumo mensal é uma fotografia: somar `qtd_ativos` de vários
 meses contaria o mesmo estabelecimento várias vezes (é o cuidado "Não some meses" do guia Power BI). As métricas
@@ -786,6 +892,7 @@ de médias. Por isso a taxa de um estado ou de um ano é ponderada pelo número 
 | `estudo_caso_fundao_tintas` | pergunta-guia do MVP: lojas de tintas (CNAE 4741500) em Fundão/ES por mês e porte |
 | `dinamica_anual_por_secao_cnae` | aberturas, encerramentos e saldo por ano e seção CNAE. O último ano é parcial, e os encerramentos incluem inaptidões em lote (veja a [A3](#a3-ciclo-de-vida)) |
 | `sobrevivencia_por_coorte_e_porte` | taxas de sobrevivência a 1, 3 e 5 anos por coorte e porte |
+| `polo_compras_concorrencia_caso` | ativos de lojas de tintas por mês e município do ES, com o polo de compras, a hierarquia e a renda (incremento enriquecimento IBGE) |
 
 ### B5. Como usar
 
@@ -835,6 +942,8 @@ Outros consumidores:
   - `baixas` igual às baixadas com data válida, menor que os encerramentos;
   - elegíveis, sobreviventes e taxas a 1, 3 e 5 anos iguais ao mart, somando os estratos;
   - os números citados nesta doc iguais aos das fixtures.
+- `tests/integration/test_enriquecimento_ibge.py` (incremento `enriquecimento_ibge`): o mart CEMPRE × RFB, o polo de
+  compras e as analyses dos [cenários de uso](CENARIOS_DE_USO.md) nas fixtures, e o pipeline sem `ibge/`.
 - `tests/integration/test_escopo_meta.py`: modelos semânticos, métricas e *saved queries* com `meta.escopo`
   (e tag, nas *saved queries*).
 - `tests/integration/test_ontologia.py`: a ontologia parseia, tem rótulos em português, cobre a camada nos dois
@@ -860,8 +969,13 @@ Outros consumidores:
   população é atributo da dimensão e precisaria ser somada uma vez por município, o que o MetricFlow não faz numa
   métrica de outra tabela. Use `mart_concorrencia_area_mercado` (já calcula `ativos_por_mil_domicilios`) ou o DAX do
   guia Power BI.
-- **CNAEs secundários** (bridge muitos-para-muitos) e **vizinhança** ficam fora da camada semântica: o MetricFlow
-  não modela pontes muitos-para-muitos.
+- **CNAEs secundários** (bridge muitos-para-muitos), **vizinhança** e **destinos de compra**
+  (`bridge_municipio_destino_compras`) ficam fora da camada semântica: o MetricFlow não modela pontes
+  muitos-para-muitos. O polo de compras entra como atributo de `dim_municipio`.
+- **CEMPRE × RFB são de anos diferentes** e o CEMPRE não tem MEI nem os valores sigilosos: `pessoal_ocupado_cempre`
+  somado subestima, e `ativos_rfb` não é comparável a `unidades_locais_cempre` sem tirar o MEI
+  (`ativos_rfb_sem_mei`, coluna do mart). Renda (2022, nominal), REGIC (2018) e VA (`ano_va`) também têm anos
+  próprios ([cenários de uso](CENARIOS_DE_USO.md#limitações-comuns)).
 - `aberturas`, `encerramentos` e o saldo seguem a regra de `mart_dinamica_mercado`: abertura pela data de início;
   encerramento = estabelecimento **não ativo** (baixado, suspenso, inapto ou nulo, não só baixado) pela data da
   situação; data ausente ou inválida (`-1`/`-2`) não gera evento. Por ano, e por ano × qualquer dimensão do
