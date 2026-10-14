@@ -47,7 +47,7 @@ Se o tema for reaberto, o caminho técnico é **B**, com o texto RFB como atribu
 | Benefício esperado | O que o dado mostra |
 |---|---|
 | Concorrência por bairro no estudo de caso | Fundão tem 0 ativos no CNAE alvo: a concorrência local por bairro é zero em todo o município. O que restaria é a demanda (domicílios por bairro), que vem do IBGE e não precisa do pipeline da RFB |
-| Distância mais precisa em `mart_fornecedores_proximos` | O raio é de 100 km. Trocar o centroide do município pelo do bairro muda poucos km e não muda a lista de fornecedores |
+| Distância mais precisa em `mart_fornecedores_proximos` | O raio é de 100 km. Trocar o centroide do município pelo do bairro muda as distâncias em poucos km. Só os fornecedores perto da borda do raio podem entrar ou sair da lista, e o miolo dela não muda. Para uma escolha de fornecedor, isso pesa pouco |
 | Densidade por bairro no BI | 88 % dos pares têm < 5 ativos: a densidade é ruído, e a supressão de células pequenas que a privacidade exige esconderia a maior parte |
 | Concorrência dentro de cidades grandes | Benefício real, mas restrito a capitais e cidades grandes. Nenhuma pergunta atual do projeto pede isso |
 
