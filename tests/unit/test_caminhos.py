@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import re
+import sys
+from pathlib import Path
+
 import pytest
 
 from rfb_pipeline import caminhos
+
+sys.path.insert(0, str(caminhos.RAIZ_REPO / "scripts"))
 
 
 @pytest.mark.parametrize(
@@ -38,3 +44,30 @@ def test_relativo_e_link_de() -> None:
     origem = caminhos.DIR_DOCS / "a" / "b.md"
     assert caminhos.link_de(origem, caminhos.DIR_DOCS / "adr" / "x.md") == "../adr/x.md"
     assert caminhos.link_de(origem, caminhos.RAIZ_REPO / "README.md") == "../../README.md"
+
+
+def test_nenhum_python_monta_caminho_de_docs_fora_de_caminhos() -> None:
+    """Código, scripts e testes usam as constantes; só `caminhos.py` conhece a pasta `docs`."""
+    montagem = re.compile(r"""["']docs["']\s*/|/\s*["']docs["']|["']docs/""")
+    infratores = [
+        arquivo.relative_to(caminhos.RAIZ_REPO).as_posix()
+        for pasta in ("src", "scripts", "tests")
+        for arquivo in (caminhos.RAIZ_REPO / pasta).rglob("*.py")
+        if arquivo != Path(caminhos.__file__)
+        and arquivo != Path(__file__)
+        and montagem.search(arquivo.read_text(encoding="utf-8"))
+    ]
+    assert infratores == []
+
+
+def test_padroes_dos_scripts_e_da_cli_vem_das_constantes() -> None:
+    import gerar_catalogo_golden
+    import gerar_dicionario_dados
+    import gerar_qualidade_dados
+    import verificar_doc_semantica
+
+    assert gerar_dicionario_dados.SAIDA == caminhos.DICIONARIO_DADOS
+    assert gerar_qualidade_dados.SAIDA == caminhos.QUALIDADE_DADOS
+    assert gerar_catalogo_golden.GUIA == caminhos.GUIA_CONSULTA
+    assert gerar_catalogo_golden.CATALOGO == caminhos.GOLDEN_CATALOGO
+    assert verificar_doc_semantica.DOC == caminhos.CAMADA_SEMANTICA

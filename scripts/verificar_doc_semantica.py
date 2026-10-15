@@ -91,7 +91,7 @@ def _no_repositorio(texto: str) -> bool:
 def _caminho(texto: str) -> bool:
     """Caminho relativo à raiz, a `transform/` ou a `docs/`, ou nome de arquivo do repositório."""
     candidato = texto.rstrip("/")
-    if any((base / candidato).exists() for base in (RAIZ, RAIZ / "transform", RAIZ / "docs")):
+    if any((base / candidato).exists() for base in (RAIZ, RAIZ / "transform", DIR_DOCS)):
         return True
     arquivos = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
