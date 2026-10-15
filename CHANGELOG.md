@@ -15,6 +15,21 @@ histórico de como o projeto foi feito, em [docs/historico/](docs/historico/READ
   que os campos do catálogo citados existem.
 - `versao_projeto` no `catalogo.json` (a versão do pacote que o gerou), para casar o catálogo com a tag que
   construiu o banco. Só aditivo: nenhum campo existente mudou.
+- Funções de referência no guia de construção, extraídas e executadas pelo CI: `conectar_somente_leitura` e
+  `exigir_leitura` (conexão endurecida: só arquivos sob a raiz dos dados, sem rede, sem extensão, configuração
+  travada, uma consulta de leitura por vez), `comparar_resposta` (acerto exato com a normalização do catálogo, que
+  aprova as 93 golden queries) e `conferir_esquema` (falha fechada catálogo × banco, com as golden queries
+  bloqueadas).
+- `tabelas` também nas golden queries semânticas (as relações que o `sql` lê). Só aditivo.
+- Tamanhos do catálogo e do guia gerados pelo `make golden` no guia de construção e conferidos no CI.
+
+### Corrigido
+- Guia de construção: `read_only=True` mais um filtro de `SELECT` ainda deixavam o agente ler qualquer arquivo da
+  máquina e acessar a rede; a conexão endurecida passa a ser obrigatória (revisão RGA). A camada vira desempate na
+  recuperação, o manifesto da ingestão é descrito como tem `versao_pipeline` e o teste confere todo campo citado.
+- `checar_saida` (guia de consulta §7) deixava passar CNPJ como `DECIMAL`, `DOUBLE`, lista ou struct: agora
+  percorre valores aninhados e trata número inteiro em qualquer tipo numérico. O guia §3 descreve a conexão
+  endurecida que o agente recebe.
 
 ## [1.5.0] — 2026-10-15
 
