@@ -82,7 +82,10 @@ _NOMES_PERMITIDOS = re.compile(
     r"regiao_metropolitana|municipio_polo_compras|municipio_vizinho|municipio_origem|municipio_destino|"
     r"mes|classe_cnae)$|^dia_semana_numero$"
 )
-_COLUNAS_CNPJ = re.compile(r"(^|_)cnpj(_|$)")
+# CNPJ completo ou básico, pelo nome: `cnpj*` e `*_raiz` (a raiz é o CNPJ básico, ex. `maior_raiz`), RGQ-04.
+_COLUNAS_CNPJ = re.compile(r"(^|_)(cnpj|raiz)(_|$)")
+# Relações em que `nome` é nome de lugar (o município da Base dos Dados), não de pessoa: a linhagem as aceita.
+_RELACOES_DE_LUGAR = re.compile(r"munic|(^|_)uf(_|$)|regi")
 
 
 class CatalogoErro(Exception):
@@ -292,6 +295,96 @@ def colunas_proibidas(colunas: list[str], privacidade: str = "agregado") -> list
         elif _COLUNAS_CNPJ.search(nome) and privacidade != "identifica_estabelecimento":
             proibidas.append(coluna)
     return proibidas
+
+
+# CPF mascarado como a RFB e o staging o deixam no nome do empresário individual (`***.***.***-**`, ou com os
+# dígitos do meio): um valor com isso é nome de pessoa (ADR-0008).
+RE_CPF_MASCARADO = re.compile(r"\*{3}\.?[\d*]{3}\.?[\d*]{3}-?\*{2}")
+
+
+def _dv_valido(digitos: str, pesos: list[list[int]]) -> bool:
+    """Dígitos verificadores módulo 11 de CPF ou CNPJ (os dois últimos de `digitos`)."""
+    corpo = [int(d) for d in digitos]
+    for i, peso in enumerate(pesos):
+        n = len(digitos) - 2 + i
+        resto = sum(a * b for a, b in zip(corpo[:n], peso, strict=True)) % 11
+        if corpo[n] != (0 if resto < 2 else 11 - resto):
+            return False
+    return len(set(digitos)) > 1
+
+
+def numero_identificador(valor: int) -> bool:
+    """Se um inteiro é CPF (11 dígitos) ou CNPJ (14 dígitos, ou 13/10 sem o zero à esquerda) com DV válido."""
+    texto = str(abs(valor))
+    cnpj, cpf = texto.zfill(14), texto.zfill(11)
+    pesos_cnpj = [[5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2], [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]]
+    pesos_cpf = [list(range(10, 1, -1)), list(range(11, 1, -1))]
+    return (12 <= len(texto) <= 14 and _dv_valido(cnpj, pesos_cnpj)) or (
+        9 <= len(texto) <= 11 and _dv_valido(cpf, pesos_cpf)
+    )
+
+
+def _coluna_contada(coluna: object) -> bool:
+    """Se a referência à coluna está dentro de `count(...)`, de um teste `is [not] null` ou de um `filter (where ...)`:
+    o valor dela não sai, só a contagem ou o recorte."""
+    from sqlglot import exp
+
+    no = coluna.parent
+    while no is not None:
+        if isinstance(no, exp.Count | exp.Is | exp.Where):
+            return True
+        no = no.parent
+    return False
+
+
+def colunas_derivadas_proibidas(sql: str, privacidade: str = "agregado") -> list[str]:
+    """Colunas de saída do SQL que vêm de uma coluna proibida (ADR-0008), mesmo com alias, função ou CTE (RGQ-04).
+
+    Segue a linhagem de cada coluna da saída (sqlglot, dialeto DuckDB) até as relações de origem. A saída é
+    proibida se algum caminho chega a uma coluna proibida pelo nome (`colunas_proibidas`: `nome`, `cpf`, contato,
+    endereço e, sem `identifica_estabelecimento`, `cnpj*`/`*_raiz`) sem passar por `count(...)`, `is [not] null` ou
+    `filter (where ...)`.
+    Assim `min(nome) as titular` e `max(left(cnpj_completo, 8)::bigint) as maior_raiz` são recusados, e
+    `count(distinct cnpj_completo)` e o `CASE WHEN cnpj_completo IS NULL` do MetricFlow passam. SQL que o sqlglot
+    não analisa também é recusado.
+    """
+    import sqlglot
+    from sqlglot import exp
+    from sqlglot.lineage import lineage
+
+    try:
+        arvore = sqlglot.parse_one(sql, read="duckdb")
+        saidas = [p.alias_or_name for p in arvore.selects]
+    except Exception as exc:  # noqa: BLE001 — falha fechada: SQL não analisado é recusado
+        return [f"(SQL que a guarda de linhagem não analisa: {exc})"]
+    proibidas: list[str] = []
+    for saida in saidas:
+        try:
+            raiz = lineage(saida, arvore, dialect="duckdb")
+        except Exception as exc:  # noqa: BLE001 — falha fechada
+            proibidas.append(f"{saida} (linhagem não analisada: {exc})")
+            continue
+        pendentes = [(raiz, False)]
+        while pendentes:
+            no, contado = pendentes.pop()
+            if not no.downstream:
+                relacao = no.source.name if isinstance(no.source, exp.Table) else ""
+                coluna = no.name.rsplit(".", 1)[-1]
+                de_lugar = coluna == "nome" and _RELACOES_DE_LUGAR.search(relacao)
+                if not contado and not de_lugar and colunas_proibidas([coluna], privacidade):
+                    proibidas.append(f"{saida} (de {relacao}.{coluna})")
+                continue
+            for filho in no.downstream:
+                nome = (
+                    filho.name.rsplit(".", 1)[-1]
+                    if not filho.downstream
+                    else filho.expression.alias_or_name
+                )
+                refs = [c for c in no.expression.find_all(exp.Column) if c.name == nome]
+                pendentes.append(
+                    (filho, contado or (bool(refs) and all(_coluna_contada(c) for c in refs)))
+                )
+    return sorted(set(proibidas))
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -664,6 +757,15 @@ def gerar_catalogo(
     faltam = sorted({str(e.get("id")) for e in semantica} - set(semanticos))
     if faltam:
         problemas.append(f"sem SQL do MetricFlow: {', '.join(faltam)}")
+    privacidade = {n: c.get("privacidade", "agregado") for n, (c, _) in golden.items()} | {
+        str(e.get("id")): e.get("privacidade", "agregado") for e in semantica
+    }
+    for nome, sql in sorted({**compilados, **semanticos}.items()):
+        derivadas = colunas_derivadas_proibidas(sql, privacidade.get(nome, "agregado"))
+        if derivadas:
+            problemas.append(
+                f"{nome}: saída derivada de coluna proibida (ADR-0008): {', '.join(derivadas)}"
+            )
     if problemas:
         raise CatalogoErro("golden queries com problema:\n- " + "\n- ".join(problemas))
     consultas = []

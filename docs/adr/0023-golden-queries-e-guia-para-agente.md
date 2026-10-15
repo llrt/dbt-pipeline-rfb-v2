@@ -74,3 +74,11 @@ catálogo. As analyses de `golden/` ficam fora da compilação do relatório do 
   segundo bloco gerado com as métricas, as dimensões e as colunas do gold. Por isso o `make golden` roda
   `dbt docs generate` em vez de `dbt parse`. A natureza de cada métrica vem do modelo semântico da medida, numa tabela
   do gerador que falha com modelo novo. Um teste confere as dimensões contra `mf list dimensions`.
+- **Privacidade pela linhagem e pelo tipo (RGQ-04).** A guarda de nome de coluna e de valor de texto deixava passar
+  `min(nome) as titular` e o CNPJ básico como inteiro. Agora: (1) `*_raiz` entra nos nomes de CNPJ; (2) a linhagem
+  de cada coluna da saída, pelo sqlglot (dependência transitiva do MetricFlow, fixada no `uv.lock`), recusa a saída
+  que vem de coluna proibida fora de `count(...)`, `is [not] null` ou `filter (where ...)`, no SQL compilado e no da
+  semântica, no gerador e no teste; (3) os valores inteiros de 11 ou 14 dígitos com DV válido de CPF/CNPJ e o CPF
+  mascarado (`***.***.***-**`) num texto são recusados. O guia dá ao agente a mesma checagem como função Python
+  (`checar_saida`, seção 7), que o CI extrai e testa contra os vazamentos da RGQ e contra o veredito do gerador em
+  toda coluna do esquema.

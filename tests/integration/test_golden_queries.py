@@ -6,7 +6,10 @@ Roda depois do `make ci` (warehouse e gold de `RAIZ_DADOS`, meses 2026-08 e 2026
   e `${RAIZ_DADOS}`) executa no warehouse e devolve exatamente `resposta_esperada_fixtures`, na ordem;
 - o SQL que o MetricFlow gera para cada golden query de `docs/golden_queries/semantica.yml` (campo `sql` do
   catálogo) executa numa conexão somente leitura e devolve a resposta esperada (linhas ordenadas, RGQ-01);
-- nenhuma saída tem coluna de pessoa, contato ou endereço, nem valor que pareça CPF/CNPJ (ADR-0008);
+- nenhuma saída tem coluna de pessoa, contato ou endereço, nem coluna **derivada** de uma (linhagem do SQL compilado,
+  com alias, função ou CTE), nem valor que pareça CPF/CNPJ, em texto, mascarado ou como número (ADR-0008, RGQ-04);
+- a checagem pós-execução que o guia dá ao agente (bloco `python` da seção 7) recusa o que deve e aceita as
+  respostas de todas as golden queries;
 - os cabeçalhos são válidos e toda célula da matriz conceito × camada tem query ou motivo;
 - `docs/golden_queries/catalogo.json` e o índice do guia estão em dia (`make golden`).
 """
@@ -47,15 +50,21 @@ def _raiz() -> Path:
 
 
 @pytest.fixture(scope="module")
-def resultados() -> dict[str, dict]:
-    """Compila as golden queries e executa o SQL portável (o do catálogo) no warehouse, somente leitura."""
+def compilados() -> dict[str, str]:
+    """O SQL compilado de cada golden query SQL (`dbt compile`), na forma portável do catálogo."""
     raiz = _raiz()
-    compilados = g.compilar(raiz)
-    assert set(compilados) == set(GOLDEN), "toda golden query precisa compilar"
+    brutos = g.compilar(raiz)
+    assert set(brutos) == set(GOLDEN), "toda golden query precisa compilar"
+    return {nome: g.normalizar_sql(sql, raiz) for nome, sql in brutos.items()}
+
+
+@pytest.fixture(scope="module")
+def resultados(compilados: dict[str, str]) -> dict[str, dict]:
+    """Executa o SQL portável (o do catálogo) de cada golden query no warehouse, somente leitura."""
+    raiz = _raiz()
     saida: dict[str, dict] = {}
     with duckdb.connect(str(raiz / "warehouse.duckdb"), read_only=True) as con:
-        for nome, sql in compilados.items():
-            portavel = g.normalizar_sql(sql, raiz)
+        for nome, portavel in compilados.items():
             assert not g.caminho_absoluto_no_sql(portavel), f"{nome}: caminho da máquina no SQL"
             executavel = portavel.replace(g.MARCADOR_RAIZ, str(raiz))
             cursor = con.execute(executavel)
@@ -66,20 +75,29 @@ def resultados() -> dict[str, dict]:
 
 
 def _sem_identificador(nome: str, resultado: dict, privacidade: str) -> list[str]:
-    """Colunas proibidas e valores de texto que parecem CPF/CNPJ (guarda de `regras.py`)."""
+    """Colunas proibidas e valores que parecem CPF/CNPJ: texto (guarda de `regras.py`), CPF mascarado e número
+    de 11 ou 14 dígitos com dígito verificador válido (RGQ-04)."""
     problemas = [
         f"coluna proibida: {c}" for c in g.colunas_proibidas(resultado["colunas"], privacidade)
     ]
-    if privacidade == "identifica_estabelecimento":
-        return problemas
     for linha in resultado["linhas"]:
         for valor in linha:
+            if isinstance(valor, str) and g.RE_CPF_MASCARADO.search(valor):
+                problemas.append(f"valor com CPF mascarado (nome de pessoa): {valor!r}")
+            if privacidade == "identifica_estabelecimento":
+                continue
             if (
                 isinstance(valor, str)
                 and not _RE_DATA_ISO.match(valor)
                 and traz_identificador(valor)
             ):
                 problemas.append(f"valor com cara de identificador: {valor!r}")
+            if (
+                isinstance(valor, int)
+                and not isinstance(valor, bool)
+                and g.numero_identificador(valor)
+            ):
+                problemas.append(f"número com cara de CPF/CNPJ: {valor!r}")
     return [f"{nome}: {p}" for p in problemas]
 
 
@@ -97,11 +115,12 @@ def test_golden_query_sql_devolve_a_resposta_esperada(resultados, nome: str) -> 
 
 
 @pytest.mark.parametrize("nome", sorted(GOLDEN))
-def test_golden_query_sql_nao_expoe_pessoa(resultados, nome: str) -> None:
+def test_golden_query_sql_nao_expoe_pessoa(compilados, resultados, nome: str) -> None:
+    """Pelo resultado (nome de coluna e valor) e pela linhagem do SQL compilado (alias, função, CTE)."""
     cabecalho, _ = GOLDEN[nome]
-    assert (
-        _sem_identificador(nome, resultados[nome], cabecalho.get("privacidade", "agregado")) == []
-    )
+    privacidade = cabecalho.get("privacidade", "agregado")
+    assert _sem_identificador(nome, resultados[nome], privacidade) == []
+    assert g.colunas_derivadas_proibidas(compilados[nome], privacidade) == [], nome
 
 
 @pytest.mark.parametrize("entrada", SEMANTICA, ids=[e["id"] for e in SEMANTICA])
@@ -117,7 +136,9 @@ def test_golden_query_semantica_sql_devolve_a_resposta_esperada(entrada: dict) -
     assert obtido == entrada["resposta_esperada_fixtures"], (
         f"{entrada['id']}: a resposta nas fixtures mudou. Obtido:\n{obtido}"
     )
-    assert _sem_identificador(entrada["id"], obtido, entrada.get("privacidade", "agregado")) == []
+    privacidade = entrada.get("privacidade", "agregado")
+    assert _sem_identificador(entrada["id"], obtido, privacidade) == []
+    assert g.colunas_derivadas_proibidas(sql, privacidade) == [], entrada["id"]
 
 
 def test_catalogo_e_indice_do_guia_em_dia(manifesto_e_catalogo) -> None:
@@ -148,3 +169,52 @@ def test_dimensoes_do_catalogo_sao_as_que_o_mf_aceita(metrica: str) -> None:
         saida = mf(["list", "dimensions", "--metrics", metrica])
     listadas = {linha.split("•", 1)[1].strip() for linha in saida.splitlines() if "•" in linha}
     assert listadas == esperadas
+
+
+def _checagem_do_guia():
+    """A função `checar_saida` do bloco `python` marcado `# checagem: privacidade` da seção 7 do guia."""
+    texto = g.GUIA.read_text(encoding="utf-8")
+    (bloco,) = re.findall(r"```python\n(# checagem: privacidade\n.*?)```", texto, re.S)
+    espaco: dict = {}
+    exec(compile(bloco, "guia:checagem", "exec"), espaco)  # noqa: S102 — código versionado do próprio guia
+    return espaco["checar_saida"]
+
+
+@pytest.mark.parametrize(
+    ("colunas", "linhas"),
+    [
+        (["maior_raiz"], [[14141414]]),  # M1 da RGQ: CNPJ básico como inteiro, nome de coluna livre
+        (
+            ["titular"],
+            [["PINTE BEM ***.***.***-**"]],
+        ),  # M2 da RGQ: nome de empresário com outro alias
+        (["exemplo"], [["11.222.333/0001-81"]]),
+        (["exemplo"], [[11222333000181]]),
+        (["exemplo"], [[52998224725]]),
+        (["nome"], [["TINTAS"]]),
+        (["estabelecimento__nome_fantasia"], [["X"]]),
+        (["telefone1"], [["2799"]]),
+    ],
+)
+def test_checagem_do_guia_recusa_identificador(colunas: list[str], linhas: list[list]) -> None:
+    """RGQ-04: a checagem pós-execução que o guia manda o agente rodar pega os vazamentos que a RGQ achou."""
+    assert _checagem_do_guia()(colunas, linhas)
+
+
+def test_checagem_do_guia_concorda_com_o_ci_e_aceita_as_golden_queries(resultados) -> None:
+    """A checagem do guia dá o mesmo veredito de coluna que o CI em toda coluna do esquema e aceita toda resposta."""
+    checar = _checagem_do_guia()
+    catalogo = json.loads(g.CATALOGO.read_text(encoding="utf-8"))
+    colunas = {c["nome"] for r in catalogo["relacoes"] for c in r["colunas"]}
+    colunas |= {d["nome"] for d in catalogo["dimensoes"]}
+    divergentes = [
+        c for c in sorted(colunas) if bool(checar([c], [])) != bool(g.colunas_proibidas([c]))
+    ]
+    assert divergentes == []
+    for nome, (cabecalho, _) in GOLDEN.items():
+        identifica = cabecalho.get("privacidade") == "identifica_estabelecimento"
+        resultado = resultados[nome]
+        assert checar(resultado["colunas"], resultado["linhas"], identifica) == [], nome
+    for entrada in SEMANTICA:
+        resultado = entrada["resposta_esperada_fixtures"]
+        assert checar(resultado["colunas"], resultado["linhas"]) == [], entrada["id"]

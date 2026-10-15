@@ -256,7 +256,84 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
   de Fundão"). Nenhuma golden query devolve CNPJ (`privacidade: identifica_estabelecimento` é o marcador para quando
   uma precisar).
 - Recuse e reformule pedidos de dado pessoal, oferecendo o agregado equivalente (exemplo 5, abaixo).
-- O CI garante isso nas golden queries: nenhuma coluna proibida na saída e nenhum valor com cara de CPF ou CNPJ.
+- **Colunas proibidas na saída** (as em negrito na seção 12): `nome`, `razao_social`, `nome_fantasia`, `cpf*`,
+  `email`, `telefone*`, `ddd*`, `fax`, `logradouro`, `numero`, `complemento`, `bairro`, `cep`, `socio*` e, salvo
+  estabelecimento identificado, `cnpj*` e `*_raiz` (CNPJ completo e básico). `nome_municipio`, `nome_uf` e os outros
+  `nome_<lugar>` são permitidos.
+- **Derivada também é proibida.** A regra vale para qualquer expressão que saia de uma coluna proibida, com qualquer
+  alias: `min(nome) as titular`, `string_agg(nome, ', ')`, `left(cnpj_completo, 8) as raiz`,
+  `max(cnpj_completo::bigint)`. Uma coluna proibida só pode aparecer dentro de `count(...)` /
+  `count(distinct ...)`, num teste `is [not] null` ou em `where`/`join`.
+- O CI garante isso nas golden queries: nenhuma coluna proibida na saída, nenhuma saída derivada de uma (pela
+  linhagem do SQL), nenhum valor com cara de CPF ou CNPJ (em texto, mascarado ou como número).
+
+### Checagem obrigatória pós-execução
+
+Antes de responder, **DEVE** passar o resultado por esta função (ou por uma checagem equivalente): colunas da saída
+e linhas como vieram do banco. Se ela devolver qualquer problema, **não** mostre o resultado: refaça o SQL só com
+agregados ou recuse (exemplo 5). Ela não substitui a regra da derivada acima, porque um nome com alias e sem CPF
+mascarado não tem cara de nada; as duas valem juntas.
+
+```python
+# checagem: privacidade
+import re
+
+COLUNA_PROIBIDA = re.compile(
+    r"(^|_)(nome|razao_social|nome_fantasia|cpf|email|correio|telefone|tel|ddd|ddd_fax|fax|logradouro|"
+    r"tipo_logradouro|numero|complemento|bairro|cep|socio|socios)\d*(_|$)"
+)
+COLUNA_CNPJ = re.compile(r"(^|_)(cnpj|raiz)(_|$)")
+NOME_PERMITIDO = re.compile(
+    r"^nome_(municipio|uf|regiao|mesorregiao|microrregiao|regiao_intermediaria|regiao_imediata|"
+    r"regiao_metropolitana|municipio_polo_compras|municipio_vizinho|municipio_origem|municipio_destino|"
+    r"mes|classe_cnae)$|^dia_semana_numero$"
+)
+CPF_MASCARADO = re.compile(r"\*{3}\.?[\d*]{3}\.?[\d*]{3}-?\*{2}")
+OITO_DIGITOS = re.compile(r"\d{8,}")
+DATA_ISO = re.compile(r"^\d{4}-\d{2}(-\d{2})?$")
+
+
+def _dv_ok(digitos: str) -> bool:
+    """CPF (11) ou CNPJ (14) com dígitos verificadores válidos (módulo 11)."""
+    if len(set(digitos)) == 1:
+        return False
+    for posicao in (len(digitos) - 2, len(digitos) - 1):
+        if len(digitos) == 11:
+            pesos = range(posicao + 1, 1, -1)
+        else:
+            pesos = [*range(posicao - 7, 1, -1), *range(9, 1, -1)]
+        resto = sum(int(d) * p for d, p in zip(digitos, pesos)) % 11
+        if int(digitos[posicao]) != (0 if resto < 2 else 11 - resto):
+            return False
+    return True
+
+
+def checar_saida(colunas, linhas, identifica_estabelecimento=False):
+    """Problemas de privacidade (ADR-0008) num resultado; lista vazia = pode responder."""
+    problemas = []
+    for coluna in colunas:
+        nome = coluna.lower().rsplit("__", 1)[-1]
+        if COLUNA_PROIBIDA.search(nome) and not NOME_PERMITIDO.match(nome):
+            problemas.append(f"coluna proibida: {coluna}")
+        elif COLUNA_CNPJ.search(nome) and not identifica_estabelecimento:
+            problemas.append(f"coluna de CNPJ: {coluna}")
+    for linha in linhas:
+        for valor in linha:
+            if isinstance(valor, str) and CPF_MASCARADO.search(valor):
+                problemas.append(f"nome de pessoa (CPF mascarado): {valor!r}")
+            if identifica_estabelecimento:
+                continue
+            if isinstance(valor, str) and not DATA_ISO.match(valor):
+                if OITO_DIGITOS.search(re.sub(r"(?<=\d)[./-](?=\d)", "", valor)):
+                    problemas.append(f"texto com cara de CPF/CNPJ: {valor!r}")
+            if isinstance(valor, int) and not isinstance(valor, bool):
+                texto = str(abs(valor))
+                if (12 <= len(texto) <= 14 and _dv_ok(texto.zfill(14))) or (
+                    9 <= len(texto) <= 11 and _dv_ok(texto.zfill(11))
+                ):
+                    problemas.append(f"número com cara de CPF/CNPJ: {valor!r}")
+    return problemas
+```
 
 ## 8. Procedimento: da pergunta à resposta
 
@@ -278,7 +355,8 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
 5. **Valide o grão e os filtros:** o que uma linha representa? conta estabelecimentos ou empresas? filtrou o mês (no
    resumo)? município com UF? CNAE no nível certo (7 × 5 dígitos)? `distinct` depois de ponte?
 6. **Execute com `LIMIT`** (ex.: `LIMIT 50`) e faça as checagens: resultado vazio é zero ou filtro errado? totais
-   plausíveis (o Brasil tem ~73 milhões de estabelecimentos, ~28 milhões ativos em 2026-09)? Nenhuma coluna proibida.
+   plausíveis (o Brasil tem ~73 milhões de estabelecimentos, ~28 milhões ativos em 2026-09)? E **sempre** a
+   [checagem pós-execução](#checagem-obrigatória-pós-execução) da seção 7.
 7. **Responda** com o número e:
    - o **mês de referência** (e o ano de cada fonte não RFB);
    - a **fonte** (RFB, CEMPRE, Censo, REGIC) e a camada/golden query usada;

@@ -365,3 +365,43 @@ def test_esquema_recusa_modelo_semantico_sem_natureza() -> None:
     )
     with pytest.raises(g.CatalogoErro, match="sem natureza"):
         g.gerar_esquema(manifesto, catalogo, semantico)
+
+
+@pytest.mark.parametrize(
+    ("sql", "esperado"),
+    [
+        # M1 da RGQ: CNPJ básico como inteiro, com alias livre.
+        ("select max(left(cnpj_completo, 8)::bigint) as maior_raiz from main.fct_estabelecimentos", ["maior_raiz"]),
+        # M2 da RGQ: nome de empresário individual com outro alias.
+        ("select min(nome) as titular, count(*) as n from main.bh_empresas", ["titular"]),
+        # Pela CTE e por `string_agg`.
+        ("with a as (select nome as x from main.mart_fornecedores_proximos) select string_agg(x, ', ') as y from a", ["y"]),
+        # Contagens, `is null` (o CASE do MetricFlow) e filtro: permitidos.
+        ("select count(distinct left(cnpj_completo, 8)) as empresas, count(*) filter (where nome like 'A%') as n "
+         "from main.bh_empresas", []),
+        ("select sum(case when not cnpj_completo is null then 1 else 0 end) as aberturas from main.fct_estabelecimentos", []),
+        # `nome` de relação de lugar (município da Base dos Dados) não é de pessoa.
+        ("select nome as nome_municipio from main.stg_bd__municipios order by 1", []),
+    ],
+)  # fmt: skip
+def test_saida_derivada_de_coluna_proibida_e_recusada(sql: str, esperado: list[str]) -> None:
+    """RGQ-04: a guarda segue a linhagem da coluna de saída, não só o nome dela."""
+    assert [p.split(" ", 1)[0] for p in g.colunas_derivadas_proibidas(sql)] == esperado
+
+
+def test_cnpj_derivado_passa_com_identifica_estabelecimento() -> None:
+    sql = "select cnpj_completo, eh_ativa from main.fct_estabelecimentos"
+    assert g.colunas_derivadas_proibidas(sql)
+    assert g.colunas_derivadas_proibidas(sql, "identifica_estabelecimento") == []
+
+
+def test_raiz_e_cnpj_numerico_sao_identificador() -> None:
+    assert g.colunas_proibidas(["maior_raiz", "cnpj_raiz", "raiz"]) == [
+        "maior_raiz",
+        "cnpj_raiz",
+        "raiz",
+    ]
+    assert g.numero_identificador(11222333000181) and g.numero_identificador(52998224725)
+    assert not g.numero_identificador(20260912)  # `sk_data` AAAAMMDD
+    assert not g.numero_identificador(11111111111)
+    assert g.RE_CPF_MASCARADO.search("PINTE BEM ***.***.***-**")
