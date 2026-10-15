@@ -801,7 +801,10 @@ Elementos do padrão usados aqui:
 
 O detalhe dos campos de cada tabela (tipo, grão, chaves, domínio, origem, e as entidades, dimensões e métricas
 desta camada em cada modelo) está no [dicionário de dados](DICIONARIO_DADOS.md), gerado do manifesto do dbt
-(`make dicionario`, [ADR-0019](adr/0019-dicionario-de-dados.md)).
+(`make dicionario`, [ADR-0019](adr/0019-dicionario-de-dados.md)). Os comandos `mf query` testados de cada conceito,
+com a resposta nas fixtures, estão em [`golden_queries/semantica.yml`](golden_queries/semantica.yml), e o
+[guia de consulta em linguagem natural](GUIA_CONSULTA_LINGUAGEM_NATURAL.md) ensina um agente a escolher entre a
+semântica e o SQL ([ADR-0023](adr/0023-golden-queries-e-guia-para-agente.md)).
 
 ### B2. Entidades e junções
 

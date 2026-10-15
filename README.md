@@ -39,6 +39,7 @@ Censo 2022 e REGIC 2018).
 | [docs/CENARIOS_DE_USO.md](docs/CENARIOS_DE_USO.md) | cenários de uso das fontes do IBGE (renda, REGIC, CEMPRE, valor adicionado): a pergunta de negócio, a consulta pronta e como ler o resultado, com exemplos do dado real |
 | [docs/CAMADA_SEMANTICA.md](docs/CAMADA_SEMANTICA.md) | camada semântica (dbt/MetricFlow): conceitos de negócio do CNPJ (empresa × estabelecimento, porte, MEI, situação cadastral), ontologia, entidades, métricas e consultas salvas |
 | [docs/DICIONARIO_DADOS.md](docs/DICIONARIO_DADOS.md) | dicionário de dados: o detalhe dos campos de cada tabela (fontes, staging, gold...), com tipo, grão, chaves, valores dos domínios, origem e linhagem entre tabelas; gerado e conferido no CI |
+| [docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md](docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md) | guia para um agente que responde perguntas livres sobre a base: camadas, esquema físico, glossário, armadilhas, privacidade e exemplos, com as golden queries testadas de cada conceito |
 | [docs/REGRAS_NEGOCIO.md](docs/REGRAS_NEGOCIO.md) | catálogo das regras e invariantes de negócio do cadastro (RN-01 a RN-30), com fonte primária e leitura de cada violação |
 | [docs/RELATORIO_REGRAS_NEGOCIO.md](docs/RELATORIO_REGRAS_NEGOCIO.md) | inconsistências encontradas no dado real (2026-09), só com contagens, e a interpretação delas |
 | [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt |
@@ -53,9 +54,18 @@ make pipeline MES=2026-09  # dados reais: ingestão → freshness → dbt build 
 make atualizar             # processa o mês mais recente publicado pela RFB, se houver novidade
 make publicar              # opcional: publica o gold no MotherDuck (requer MOTHERDUCK_TOKEN e MOTHERDUCK_BANCO)
 make semantica             # valida a camada semântica (MetricFlow) e lista as métricas; consultas com `mf query`
+make golden                # regenera o catálogo das golden queries (depois do make ci)
 make regras                # confere as regras de negócio e gera docs/RELATORIO_REGRAS_NEGOCIO.md (não falha por violação)
 make docs                  # dbt docs
 ```
+
+### Consultar em linguagem natural
+
+Para um agente (LLM) responder perguntas livres como *"quantas lojas de tinta tem em Fundão?"*, entregue a ele o
+[guia de consulta](docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md), o catálogo
+[`docs/golden_queries/catalogo.json`](docs/golden_queries/catalogo.json) (golden queries por conceito e camada, com o
+SQL compilado) e acesso somente leitura ao `warehouse.duckdb` ou ao MotherDuck. `make golden` regenera o catálogo
+depois do `make ci` ([ADR-0023](docs/adr/0023-golden-queries-e-guia-para-agente.md)).
 
 ### Primeira execução
 
