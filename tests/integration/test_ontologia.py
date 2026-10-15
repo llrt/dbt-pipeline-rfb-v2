@@ -22,8 +22,10 @@ from pathlib import Path
 import pytest
 from rdflib import OWL, RDF, RDFS, Graph, Namespace, URIRef
 
+from rfb_pipeline.caminhos import ONTOLOGIA
+
 RAIZ = Path(__file__).resolve().parents[2]
-ONTOLOGIA = RAIZ / "docs" / "ontologia" / "rfb_cnpj.ttl"
+
 TARGET = RAIZ / "transform" / "target"
 RFBO = Namespace("https://github.com/llrt/dbt-pipeline-rfb-v2/ontologia/rfb_cnpj#")
 

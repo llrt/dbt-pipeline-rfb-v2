@@ -1,4 +1,6 @@
-"""Confere `docs/CAMADA_SEMANTICA.md` contra o projeto: identificadores, links e exemplos `mf`.
+"""Confere a doc da camada semântica (`caminhos.CAMADA_SEMANTICA`) contra o projeto.
+
+Verifica identificadores, links e exemplos `mf`.
 
 Uso, depois de `dbt parse` (os exemplos precisam do gold do `make ci` em `RAIZ_DADOS`):
 
@@ -31,10 +33,12 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
-DOC = RAIZ / "docs" / "CAMADA_SEMANTICA.md"
+from rfb_pipeline.caminhos import CAMADA_SEMANTICA, DIR_DOCS, RAIZ_REPO, relativo
+
+RAIZ = RAIZ_REPO
+DOC = CAMADA_SEMANTICA
 TARGET = RAIZ / "transform" / "target"
-EXCLUIDOS_DA_BUSCA = ("docs/CAMADA_SEMANTICA.md",)
+EXCLUIDOS_DA_BUSCA = (relativo(DOC),)
 IDENTIFICADOR = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 PALAVRA = re.compile(r"[^\W\d]\w*")
 GRANULARIDADES = ("day", "week", "month", "quarter", "year")
@@ -153,9 +157,9 @@ def verificar_links(texto: str) -> list[str]:
             pendencias.append(f"link para arquivo inexistente: {alvo}")
         elif not arquivo and ancora not in ancoras:
             pendencias.append(f"âncora inexistente: #{ancora}")
-    for outro in RAIZ.joinpath("docs").rglob("*.md"):
+    for outro in DIR_DOCS.rglob("*.md"):
         conteudo = outro.read_text(encoding="utf-8")
-        for ancora in re.findall(r"CAMADA_SEMANTICA\.md#([^)\s]+)", conteudo):
+        for ancora in re.findall(re.escape(DOC.name) + r"#([^)\s]+)", conteudo):
             if ancora not in ancoras:
                 pendencias.append(f"{outro.relative_to(RAIZ)}: âncora inexistente #{ancora}")
     return pendencias

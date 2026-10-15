@@ -37,15 +37,24 @@ from pathlib import Path
 
 import yaml
 
-RAIZ = Path(__file__).resolve().parents[1]
+from rfb_pipeline.caminhos import (
+    GOLDEN_CATALOGO,
+    GOLDEN_MATRIZ,
+    GOLDEN_SEMANTICA,
+    GUIA_CONSULTA,
+    RAIZ_REPO,
+    link_de,
+    relativo,
+)
+
+RAIZ = RAIZ_REPO
 DIR_TRANSFORM = RAIZ / "transform"
 SUBPASTA = "golden"
 DIR_GOLDEN = DIR_TRANSFORM / "analyses" / SUBPASTA
-DIR_DOCS = RAIZ / "docs" / "golden_queries"
-MATRIZ = DIR_DOCS / "matriz.yml"
-SEMANTICA = DIR_DOCS / "semantica.yml"
-CATALOGO = DIR_DOCS / "catalogo.json"
-GUIA = RAIZ / "docs" / "GUIA_CONSULTA_LINGUAGEM_NATURAL.md"
+MATRIZ = GOLDEN_MATRIZ
+SEMANTICA = GOLDEN_SEMANTICA
+CATALOGO = GOLDEN_CATALOGO
+GUIA = GUIA_CONSULTA
 PADRAO_ARQUIVO = "gq_*.sql"
 
 CAMADAS = ("raw", "staging", "intermediate", "core", "analytics", "original", "semantica")
@@ -145,9 +154,7 @@ def validar_comum(cab: dict, conceitos: set[str]) -> list[str]:
     if cab.get("camada") not in CAMADAS:
         problemas.append(f"camada inválida {cab.get('camada')!r} (válidas: {', '.join(CAMADAS)})")
     if cab.get("conceito") not in conceitos:
-        problemas.append(
-            f"conceito {cab.get('conceito')!r} fora da matriz (docs/golden_queries/matriz.yml)"
-        )
+        problemas.append(f"conceito {cab.get('conceito')!r} fora da matriz ({relativo(MATRIZ)})")
     perguntas = cab.get("perguntas")
     if not _lista_de_textos(perguntas) or not 2 <= len(perguntas) <= 4:
         problemas.append("`perguntas` deve ter de 2 a 4 formulações")
@@ -177,9 +184,7 @@ def validar_cabecalho(cab: dict, nome: str, sql: str, conceitos: set[str]) -> li
         if partes.group(1) != cab.get("camada") or partes.group(2) != cab.get("conceito"):
             problemas.append("camada ou conceito do nome do arquivo diferem do cabeçalho")
     if cab.get("camada") == "semantica":
-        problemas.append(
-            "a camada `semantica` fica em docs/golden_queries/semantica.yml, não em SQL"
-        )
+        problemas.append(f"a camada `semantica` fica em {relativo(SEMANTICA)}, não em SQL")
     for campo in ("tabelas", "colunas_chave"):
         if not _lista_de_textos(cab.get(campo)):
             problemas.append(f"`{campo}` deve ser uma lista não vazia de nomes")
@@ -931,7 +936,7 @@ def gerar_catalogo(
             {
                 **_entrada_comum(entrada),
                 **extra,
-                "arquivo": "docs/golden_queries/semantica.yml",
+                "arquivo": relativo(SEMANTICA),
                 "sql": semanticos[entrada["id"]],
                 "comando": comando_mf(entrada),
                 "resposta_esperada_fixtures": entrada["resposta_esperada_fixtures"],
@@ -947,7 +952,7 @@ def gerar_catalogo(
             "edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o "
             "MetricFlow gera (`mf query --explain`), que roda sem o repositório e só lê. Relações em `main.<nome>` "
             "(o schema do warehouse local e do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes "
-            "raw. Guia de uso: docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md."
+            f"raw. Guia de uso: {relativo(GUIA)}."
         ),
         "marcador_raiz_dados": MARCADOR_RAIZ,
         "camadas": matriz["camadas"],
@@ -961,8 +966,8 @@ def gerar_catalogo(
 
 def _link(consulta: dict) -> str:
     if consulta["camada"] == "semantica":
-        return f"[`{consulta['id']}`](golden_queries/semantica.yml)"
-    return f"[`{consulta['id']}`](../{consulta['arquivo']})"
+        return f"[`{consulta['id']}`]({link_de(GUIA, SEMANTICA)})"
+    return f"[`{consulta['id']}`]({link_de(GUIA, RAIZ / consulta['arquivo'])})"
 
 
 def renderizar_indice(catalogo: dict) -> str:

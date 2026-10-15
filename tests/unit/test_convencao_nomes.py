@@ -42,6 +42,7 @@ MODULOS_ESPERADOS = {
     "__init__",
     "armazenamento",
     "basedosdados",
+    "caminhos",  # caminhos de docs/ lidos e gravados pelo código (um lugar só)
     "cli",
     "cliente_rfb",
     "configuracao",

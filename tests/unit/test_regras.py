@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from rfb_pipeline import regras
+from rfb_pipeline.caminhos import CATALOGO_REGRAS
 from rfb_pipeline.regras import (
-    CATALOGO_PADRAO,
     SEM_INTERPRETACAO,
     Interpretacao,
     Linha,
@@ -43,7 +43,7 @@ def test_catalogo_e_analyses_correspondem_um_para_um() -> None:
 
 
 def test_catalogo_tem_fonte_e_leitura_em_toda_regra() -> None:
-    secoes = CATALOGO_PADRAO.read_text(encoding="utf-8").split("\n### RN-")[1:]
+    secoes = CATALOGO_REGRAS.read_text(encoding="utf-8").split("\n### RN-")[1:]
     assert len(secoes) == len(ler_catalogo())
     for secao in secoes:
         for campo in ("**Enunciado:**", "**Fonte:**", "**Dados:**", "**Conceito:**", "**Leitura"):

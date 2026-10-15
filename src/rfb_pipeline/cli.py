@@ -20,6 +20,7 @@ import httpx
 
 from rfb_pipeline.armazenamento import sincronizar
 from rfb_pipeline.basedosdados import baixar_tabelas_bd
+from rfb_pipeline.caminhos import RELATORIO_ESTUDO_CASO, RELATORIO_REGRAS_NEGOCIO, relativo
 from rfb_pipeline.cliente_rfb import ArquivoRemoto, ClienteRFB
 from rfb_pipeline.configuracao import Configuracao, carregar_configuracao
 from rfb_pipeline.conversao import converter_entidade_rfb, converter_tabela_bd
@@ -49,9 +50,8 @@ from rfb_pipeline.orquestracao import (
     verificar_gold_consistente,
 )
 from rfb_pipeline.publicacao import publicar_motherduck
-from rfb_pipeline.regras import SAIDA_PADRAO as SAIDA_REGRAS
 from rfb_pipeline.regras import gerar_relatorio_regras
-from rfb_pipeline.relatorio import SAIDA_PADRAO, gerar_relatorio
+from rfb_pipeline.relatorio import gerar_relatorio
 
 _RE_MES = re.compile(r"^\d{4}-\d{2}$")
 
@@ -499,8 +499,8 @@ def _argumentos_orquestracao(analisador: argparse.ArgumentParser) -> None:
         "--saida-relatorio",
         dest="saida_relatorio",
         type=Path,
-        default=SAIDA_PADRAO,
-        help="Arquivo Markdown do relatório (padrão: docs/RELATORIO_ESTUDO_CASO.md).",
+        default=RELATORIO_ESTUDO_CASO,
+        help=f"Arquivo Markdown do relatório (padrão: {relativo(RELATORIO_ESTUDO_CASO)}).",
     )
     analisador.add_argument(
         "--sem-relatorio", dest="sem_relatorio", action="store_true", help="Não gera o relatório."
@@ -600,10 +600,11 @@ def _construir_analisador() -> argparse.ArgumentParser:
     p_atualizar.set_defaults(func=_cmd_atualizar)
 
     p_relatorio = sub.add_parser(
-        "relatorio", help="Gera o relatório do estudo de caso (docs/RELATORIO_ESTUDO_CASO.md)."
+        "relatorio",
+        help=f"Gera o relatório do estudo de caso ({relativo(RELATORIO_ESTUDO_CASO)}).",
     )
     p_relatorio.add_argument(
-        "--saida", type=Path, default=SAIDA_PADRAO, help="Arquivo Markdown de saída."
+        "--saida", type=Path, default=RELATORIO_ESTUDO_CASO, help="Arquivo Markdown de saída."
     )
     p_relatorio.add_argument(
         "--target", default=None, help="Target dbt das analyses (padrão: o do profile)."
@@ -612,7 +613,9 @@ def _construir_analisador() -> argparse.ArgumentParser:
 
     p_regras = sub.add_parser(
         "regras",
-        help="Verifica as regras de negócio e gera docs/RELATORIO_REGRAS_NEGOCIO.md (ADR-0020).",
+        help=(
+            f"Verifica as regras de negócio e gera {relativo(RELATORIO_REGRAS_NEGOCIO)} (ADR-0020)."
+        ),
         description=(
             "Compila as analyses de transform/analyses/regras_negocio, executa-as no warehouse de "
             "RAIZ_DADOS (somente leitura) e escreve o relatório só com contagens. Sai com 0 mesmo "
@@ -620,7 +623,7 @@ def _construir_analisador() -> argparse.ArgumentParser:
         ),
     )
     p_regras.add_argument(
-        "--saida", type=Path, default=SAIDA_REGRAS, help="Arquivo Markdown de saída."
+        "--saida", type=Path, default=RELATORIO_REGRAS_NEGOCIO, help="Arquivo Markdown de saída."
     )
     p_regras.add_argument(
         "--target", default=None, help="Target dbt das analyses (padrão: o do profile)."

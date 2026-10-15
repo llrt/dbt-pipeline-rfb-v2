@@ -14,6 +14,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from rfb_pipeline.caminhos import CAMADA_SEMANTICA
+
 TRANSFORM = Path(__file__).resolve().parents[2] / "transform"
 RAIZ = Path(os.environ.get("RAIZ_DADOS", TRANSFORM.parent / "dados"))
 GOLD = RAIZ / "gold"
@@ -420,7 +422,7 @@ def test_saved_query_serie_mensal_ativos_por_uf(tmp_path: Path) -> None:
             assert _iguais(obtido[chave][metrica], valor), (chave, metrica)
 
 
-DOC = TRANSFORM.parent / "docs" / "CAMADA_SEMANTICA.md"
+DOC = CAMADA_SEMANTICA
 
 
 def test_numeros_citados_na_doc_batem_com_as_fixtures(tmp_path: Path) -> None:
