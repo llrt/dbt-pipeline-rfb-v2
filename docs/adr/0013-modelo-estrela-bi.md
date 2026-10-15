@@ -28,7 +28,7 @@ no mês corrente.
 
 ## Emenda R3 (2026-10-01)
 
-A revisão R3 ([R3.md](../historico/revisoes/R3.md), decisões em [R3-triagem.md](../historico/revisoes/R3-triagem.md), AD-020)
+A revisão R3 ([R3.md](../historico/revisoes/R3.md), decisões em [triagem da R3](../historico/revisoes/R3.md#triagem-do-líder), AD-020)
 corrigiu três pontos da decisão acima. O restante segue valendo.
 
 - **Grão do resumo mensal (R3-02).** `fct_resumo_mensal` **perde `ano_inicio_atividade` e

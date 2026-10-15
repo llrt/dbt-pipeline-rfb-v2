@@ -57,7 +57,7 @@ catálogo. As analyses de `golden/` ficam fora da compilação do relatório do 
 É só aditivo: nenhum modelo, coluna, grão, comando ou métrica existente mudou (versão 1.4.1).
 
 **Revisão (RGQ, 2026-10-15).** A revisão independente ([RGQ](../historico/revisoes/RGQ.md),
-[triagem](../historico/revisoes/RGQ-triagem.md)) mudou o seguinte, ainda na v1.4.1:
+[triagem](../historico/revisoes/RGQ.md#triagem-do-líder)) mudou o seguinte, ainda na v1.4.1:
 
 - **SQL da semântica no catálogo (RGQ-01).** O `mf query` exige o repositório e abre o warehouse em modo de escrita,
   o que o agente não pode fazer. Cada golden query semântica ganha o campo `sql`: o que o MetricFlow gera
