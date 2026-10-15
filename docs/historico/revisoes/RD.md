@@ -375,14 +375,48 @@ D2), que também faz o commit da versão 1.5.0.
 
 | Achado | Decisão | Lote | Resolvido em |
 |---|---|---|---|
-| **RD-01** `conceitos.md` com 1.012 linhas diz cada conceito três vezes | **Definição uma vez, no lugar onde se lê.** Cada conceito da §2 abre com a definição do doc block, **inserida pelo gerador** no próprio lugar (bloco gerado por conceito), seguida só do complemento escrito à mão ("na prática", exemplos, armadilhas), **sem repetir** a definição. Some o bloco "Definições" do topo. A §5 (glossário) vira um índice curto, gerado: termo → link para a âncora da §2. O FAQ de `mf query` e a ontologia saem para a referência (`docs/referencia/camada-semantica.md` e `docs/referencia/ontologia/README.md`, novo). Meta: o caminho de leitura de `conceitos.md` fica abaixo de ~550 linhas, sem perder conteúdo | FD | |
-| **RD-02** a prosa da §2 pode divergir do doc block (M4) | Com o RD-01, a definição só existe no doc block. Teste: o complemento escrito à mão de um conceito **não pode repetir** valores do doc block (números com 3 ou mais dígitos, valores em R$, artigos de lei). M4 tem de morrer | FD | |
-| **RD-03** `operacao.md` abre com nota de upgrade e migração da v1.0 | A primeira tela traz o que é, os comandos do dia a dia e um sumário. As notas de upgrade (v1.5.0, ADR-0014) vão para uma seção final "Notas de upgrade", com link para o CHANGELOG | FD | |
-| **RD-04** falta um roteiro "fonte, modelo ou conceito novo" | Seção nova no `ARCHITECTURE.md`: "Como estender", em forma de checklist (doc block, `make conceitos`/`golden`/`dicionario`, cabeçalho "Para quem", escopo/§11, fontes, matriz, ontologia, testes), sem arquivo novo | FD | |
-| **RD-05** itens da proposta não entregues nem registrados | Os cenários linkam o estudo de caso: uma seção curta "Estudo de caso de Fundão" em `uso/cenarios.md`, apontando para `relatorios/estudo-caso.md`, sem copiar o relatório gerado. O enxugamento do guia do agente fica **registrado como não feito de propósito** (autossuficiência, ADR-0023) em `historico/reorganizacao-v1.5.0.md`, junto com a medida de linhas corrigida | FD | |
-| **RD-06** a ponte `docs/CAMADA_SEMANTICA.md` aponta só para a parte técnica | A ponte aponta para os dois lugares: conceitos e referência técnica | FD | |
-| **RD-07** a guarda de caminho deixa passar f-string e `os.path.join` | Guarda por AST: qualquer literal `"docs"` usado para montar caminho fora de `caminhos.py`. M2 e M3 têm de morrer | FD | |
-| **RD-08** o verificador aceita caixa errada no macOS | O verificador compara o nome exato pelo `os.listdir`, sem depender do sistema de arquivos. M1 tem de morrer | FD | |
-| **RD-09** a tabela da reorganização tem rótulo errado e duas microperdas não registradas | Corrigir o rótulo e registrar ou recuperar as duas microperdas ("nem perde linhas"; hierarquia intermediária → imediata) | FD | |
-| **RD-10** o glossário não diz que "MICRO" está em `rotulo_porte` | Corrigir o glossário do guia. Também o doc block do MEI: "um empregado" é do art. 18-C, não do 18-A | FD | |
-| Mutações M5 e M6 | Teste: as 6 pontes existem até a v1.6.0; toda revisão que tinha triagem tem a seção "Triagem do líder" | FD | |
+| **RD-01** `conceitos.md` com 1.012 linhas diz cada conceito três vezes | **Definição uma vez, no lugar onde se lê.** Cada conceito da §2 abre com a definição do doc block, **inserida pelo gerador** no próprio lugar (bloco gerado por conceito), seguida só do complemento escrito à mão ("na prática", exemplos, armadilhas), **sem repetir** a definição. Some o bloco "Definições" do topo. A §5 (glossário) vira um índice curto, gerado: termo → link para a âncora da §2. O FAQ de `mf query` e a ontologia saem para a referência (`docs/referencia/camada-semantica.md` e `docs/referencia/ontologia/README.md`, novo). Meta: o caminho de leitura de `conceitos.md` fica abaixo de ~550 linhas, sem perder conteúdo | FD | `dcc0cad`, `1794dd7` |
+| **RD-02** a prosa da §2 pode divergir do doc block (M4) | Com o RD-01, a definição só existe no doc block. Teste: o complemento escrito à mão de um conceito **não pode repetir** valores do doc block (números com 3 ou mais dígitos, valores em R$, artigos de lei). M4 tem de morrer | FD | `dcc0cad` |
+| **RD-03** `operacao.md` abre com nota de upgrade e migração da v1.0 | A primeira tela traz o que é, os comandos do dia a dia e um sumário. As notas de upgrade (v1.5.0, ADR-0014) vão para uma seção final "Notas de upgrade", com link para o CHANGELOG | FD | `e0adb29` |
+| **RD-04** falta um roteiro "fonte, modelo ou conceito novo" | Seção nova no `ARCHITECTURE.md`: "Como estender", em forma de checklist (doc block, `make conceitos`/`golden`/`dicionario`, cabeçalho "Para quem", escopo/§11, fontes, matriz, ontologia, testes), sem arquivo novo | FD | `795cc49` |
+| **RD-05** itens da proposta não entregues nem registrados | Os cenários linkam o estudo de caso: uma seção curta "Estudo de caso de Fundão" em `uso/cenarios.md`, apontando para `relatorios/estudo-caso.md`, sem copiar o relatório gerado. O enxugamento do guia do agente fica **registrado como não feito de propósito** (autossuficiência, ADR-0023) em `historico/reorganizacao-v1.5.0.md`, junto com a medida de linhas corrigida | FD | `6674f1b` |
+| **RD-06** a ponte `docs/CAMADA_SEMANTICA.md` aponta só para a parte técnica | A ponte aponta para os dois lugares: conceitos e referência técnica | FD | `6311a56` |
+| **RD-07** a guarda de caminho deixa passar f-string e `os.path.join` | Guarda por AST: qualquer literal `"docs"` usado para montar caminho fora de `caminhos.py`. M2 e M3 têm de morrer | FD | `6edec0a` |
+| **RD-08** o verificador aceita caixa errada no macOS | O verificador compara o nome exato pelo `os.listdir`, sem depender do sistema de arquivos. M1 tem de morrer | FD | `ea32ee1`, `8670691` |
+| **RD-09** a tabela da reorganização tem rótulo errado e duas microperdas não registradas | Corrigir o rótulo e registrar ou recuperar as duas microperdas ("nem perde linhas"; hierarquia intermediária → imediata) | FD | `793a84e`, `6674f1b` |
+| **RD-10** o glossário não diz que "MICRO" está em `rotulo_porte` | Corrigir o glossário do guia. Também o doc block do MEI: "um empregado" é do art. 18-C, não do 18-A | FD | `72b870c`, `dcc0cad` |
+| Mutações M5 e M6 | Teste: as 6 pontes existem até a v1.6.0; toda revisão que tinha triagem tem a seção "Triagem do líder" | FD | `50bb8d4` |
+
+## Reteste (FD)
+
+Lote FD, 2026-10-15, em `docs/reorganizacao` depois dos commits da tabela acima. Mesmo critério dos percursos: o
+caminho a partir do README, antes (D2, `d5bfa48`) e depois.
+
+| Leitor | D2 (`d5bfa48`) | FD | Resultado |
+|---|---|---|---|
+| **(a) Consultor** | `conceitos.md` com 1.012 linhas, 230 de definições geradas no topo, com ids à mostra; empresa × estabelecimento 3 vezes; relatório do caso só na linha "Também:" | `conceitos.md` com 687 linhas (637 sem os 50 marcadores invisíveis): intro de 17 linhas, sumário, §1 As bases e, na linha 103, Empresa × estabelecimento. Cada conceito abre com a definição em destaque, sem id à mostra, e segue com o complemento; "81 mil" aparece uma vez no corpo (eram 8 no arquivo). A ontologia e o FAQ de `mf query` saíram do caminho. O pitch do consultor e o topo dos cenários linkam o relatório do caso | **Melhor.** Cada conceito é dito uma vez. Ainda sobra volume: a base legal do Simples e do MEI (CGSN 190, PLP 186) e as linhas "No projeto" com colunas, que são de quem escreve SQL |
+| **(b) Analista de BI** | Power BI com 324 linhas, autocontido; o diagrama no dicionário; duas microperdas | igual, com "nem perde linhas" e a hierarquia intermediária → imediata de volta | **Equivalente.** O pitch "Analista de BI" do README continua sem link para o guia (baixa, fora da triagem) |
+| **(c) Operador** | a primeira tela era a nota de upgrade e a migração do ADR-0014; Agendamento na linha 273 de 354; sem sumário | a primeira tela é a tabela dos 4 comandos do dia a dia e o sumário; as notas de upgrade estão no fim; Agendamento na linha 208 de 374, depois de Requisitos e tempos e antes de Fontes do IBGE | **Melhor** (RD-03 resolvido) |
+| **(d) Dev** | sem roteiro de "fonte nova"; obrigações descobertas pelo CI | README → Arquitetura ("como estender") → ARCHITECTURE §12, um checklist com fonte, modelo, conceito e documento novos, cada item com o arquivo, o comando e o teste | **Melhor** (RD-04 resolvido) |
+
+**Linhas de leitura** (conceitos + cenários + guia + Power BI): 2.354 (v1.4.1) → 2.350 (D2) → **2.037** (FD).
+`conceitos.md`: 1.012 → **687**, acima da meta de ~550 da triagem. A diferença está nas definições, que agora fazem
+parte do caminho (≈ 170 linhas, que a proposta de cortes da RD punha num apêndice fora da conta), e nos 50 marcadores.
+
+**Mutações:** M1 a M6 da RD, mais duas do FD, morrem todas:
+
+| # | Mutação | Mensagem |
+|---|---|---|
+| M1 | `(docs/OPERACAO.md)` no README | `README.md:53: link com caixa diferente do arquivo: docs/OPERACAO.md` |
+| M2 | `ANTIGO = f"{RAIZ}/docs/QUALIDADE_DADOS.md"` num script | `test_nenhum_python_monta_caminho_de_docs_fora_de_caminhos`: `['scripts/gerar_qualidade_dados.py:244']` |
+| M3 | `ANTIGO = os.path.join(str(RAIZ), "docs", "QUALIDADE_DADOS.md")` | o mesmo teste, a mesma linha |
+| M4 | o limite do MEI na §2 trocado para R$ 91 mil (agora o limite da §2 é a definição gerada) | `conceitos.md desatualizado em relação aos doc blocks: rode make conceitos` e `test_conceitos_md_em_dia` |
+| M5 | `git rm docs/CAMADA_SEMANTICA.md` | `test_docs_preservados.py`: `docs/CAMADA_SEMANTICA.md: a ponte só sai na v1.6.0` |
+| M6 | apagar a `## Triagem do líder` de `R1.md` | `revisão sem a seção ## Triagem do líder: ['R1.md']` |
+| Mi | o complemento do MEI ganha "receita de até R$ 81.000,00" | `Simples Nacional e MEI: o complemento repete 81000 do doc block mei` |
+| Mii | o lugar da definição de `porte` apagado | `doc block porte sem lugar em docs/conceitos.md` |
+
+
+Limite conhecido: um valor **diferente** escrito à mão no complemento (por exemplo, "R$ 91.000,00" ao lado da
+definição com R$ 81 mil) não é repetição e passa. O teste garante que a definição exista num lugar só, não que o
+complemento esteja certo.
