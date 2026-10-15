@@ -1,6 +1,7 @@
 # Matriz conceito × camada das golden queries (ADR-0023). Fonte de verdade da cobertura:
 # - `camadas`: as camadas consultáveis, na ordem da matriz;
-# - `conceitos`: os conceitos do modelo, com as classes da ontologia (`docs/referencia/ontologia/rfb_cnpj.ttl`) quando houver;
+# - `conceitos`: os conceitos do modelo, com as classes da ontologia (`docs/referencia/ontologia/rfb_cnpj.ttl`) quando houver
+#   e os doc blocks do dbt com a definição curta (`definicoes`, de `transform/models/docs/conceitos.md`; o catálogo embute o texto);
 # - `sem_query`: o motivo de cada célula conceito × camada que não tem golden query.
 # Toda célula tem golden query (em `transform/analyses/golden/` ou em `semantica.yml`) OU motivo, nunca os dois:
 # o teste `test_golden_queries.py` falha se uma célula ficar sem nenhum dos dois ou com os dois.
@@ -33,72 +34,95 @@ conceitos:
   - id: empresa_estabelecimento
     nome: Empresa × estabelecimento (CNPJ básico × completo)
     classes_ontologia: [Empresa, Estabelecimento]
+    definicoes: [empresa, estabelecimento]
   - id: matriz_filial
     nome: Matriz × filial
     classes_ontologia: [Matriz, Filial]
+    definicoes: [matriz_filial]
   - id: situacao_cadastral
     nome: Situação cadastral (ativa × em operação; baixa × inaptidão)
     classes_ontologia: [SituacaoCadastral, MotivoSituacaoCadastral]
+    definicoes: [situacao_cadastral, ativa_em_operacao, baixa_inaptidao]
   - id: porte
     nome: Porte
     classes_ontologia: [Porte]
+    definicoes: [porte]
   - id: natureza_juridica
     nome: Natureza jurídica
     classes_ontologia: [NaturezaJuridica]
+    definicoes: [natureza_juridica]
   - id: cnae_principal
     nome: CNAE principal e hierarquia
     classes_ontologia: [AtividadeEconomica, SecaoCnae, DivisaoCnae, GrupoCnae, ClasseCnae, SubclasseCnae]
+    definicoes: [cnae_principal]
   - id: cnae_secundario
     nome: CNAE secundário
     classes_ontologia: [SubclasseCnae]
+    definicoes: [cnae_secundario]
   - id: simples_mei
     nome: Simples Nacional e MEI
     classes_ontologia: [OpcaoSimplesNacional, OpcaoMEI]
+    definicoes: [simples_nacional, mei]
   - id: capital_social
     nome: Capital social
     classes_ontologia: [Empresa]
+    definicoes: [capital_social]
   - id: municipio_geografia
     nome: Município e hierarquia geográfica
     classes_ontologia: [Municipio, UnidadeFederativa, RegiaoGeografica]
+    definicoes: [municipio]
   - id: perfil_municipio
     nome: Perfil do município (população, PIB, Censo 2022)
     classes_ontologia: [Municipio]
+    definicoes: [municipio]
   - id: data_calendario
     nome: Data, calendário, fotografia mensal e data de referência
     classes_ontologia: [FotografiaMensal]
+    definicoes: [data_referencia, fotografia_mensal]
   - id: dinamica_mercado
     nome: Abertura, encerramento e saldo (dinâmica)
     classes_ontologia: [Abertura, Encerramento, Baixa]
+    definicoes: [abertura_encerramento, baixa_inaptidao]
   - id: sobrevivencia_coorte
     nome: Sobrevivência por coorte de abertura
     classes_ontologia: [CoorteDeAbertura]
+    definicoes: [sobrevivencia]
   - id: concorrencia_densidade
     nome: Concorrência e densidade
     classes_ontologia: []
+    definicoes: [concorrencia_densidade]
   - id: area_mercado_vizinhanca
     nome: Área de mercado e vizinhança
     classes_ontologia: []
+    definicoes: [area_mercado]
   - id: fornecedores_proximos
     nome: Fornecedores próximos
     classes_ontologia: []
+    definicoes: []
   - id: cempre_setor
     nome: CEMPRE (tamanho real do setor)
     classes_ontologia: [SetorNoMunicipio]
+    definicoes: [cempre]
   - id: renda
     nome: Renda per capita (Censo 2022)
     classes_ontologia: [Municipio]
+    definicoes: [renda_censo]
   - id: regic_polo_compras
     nome: REGIC, hierarquia urbana e polo de compras
     classes_ontologia: [HierarquiaUrbana]
+    definicoes: [regic_polo_compras]
   - id: valor_adicionado
     nome: Valor adicionado (VA) por atividade
     classes_ontologia: [Municipio]
+    definicoes: [valor_adicionado]
   - id: regras_qualidade
     nome: Regras de negócio e qualidade
     classes_ontologia: []
+    definicoes: []
   - id: modelos_originais
     nome: Modelos originais do MVP (bh_empresas, agg_empresas)
     classes_ontologia: []
+    definicoes: []
 
 sem_query:
   empresa_estabelecimento:
@@ -127,7 +151,7 @@ sem_query:
     intermediate: "int_cnaes_secundarios__explodidos é a mesma lista que bridge_estabelecimento_cnae_secundario, sem `sk_cnae`; use gq_core__cnae_secundario__01"
     analytics: "o secundário só entra em mart_fornecedores_proximos (`via` = 'secundario'); ver gq_analytics__fornecedores_proximos__01"
     original: "bh_empresas guarda a string `cnaes_secundarios` como no MVP; para pergunta nova use a ponte (gq_core__cnae_secundario__01)"
-    semantica: "a ponte muitos-para-muitos fica fora da camada semântica (camada-semantica.md, B7)"
+    semantica: "a ponte muitos-para-muitos fica fora da camada semântica (camada-semantica.md, seção 7)"
   simples_mei:
     intermediate: "int_estabelecimentos__enriquecidos só aplica `coalesce(..., false)` às flags; use gq_core__simples_mei__01"
     analytics: "o MEI só aparece em `ativos_rfb_sem_mei` de mart_emprego_setor_municipio; ver gq_analytics__cempre_setor__01"
@@ -172,7 +196,7 @@ sem_query:
     staging: "stg_bd__vizinhanca tem todos os anos e um só sentido; use gq_core__area_mercado_vizinhanca__01"
     intermediate: "nenhum intermediate de vizinhança; use gq_core__area_mercado_vizinhanca__01"
     original: "o MVP não usou vizinhança"
-    semantica: "a ponte de vizinhança fica fora da camada semântica (camada-semantica.md, B7)"
+    semantica: "a ponte de vizinhança fica fora da camada semântica (camada-semantica.md, seção 7)"
   fornecedores_proximos:
     raw: "a busca por raio é regra do projeto (haversine entre centroides), calculada no gold"
     staging: "a busca por raio é regra do projeto, calculada no gold"

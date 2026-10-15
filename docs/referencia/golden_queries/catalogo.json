@@ -1,6 +1,6 @@
 {
   "formato": 1,
-  "descricao": "Golden queries por conceito e camada (ADR-0023). Gerado por scripts/gerar_catalogo_golden.py; não edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o MetricFlow gera (`mf query --explain`), que roda sem o repositório e só lê. Relações em `main.<nome>` (o schema do warehouse local e do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes raw. Guia de uso: docs/uso/consulta-agente.md.",
+  "descricao": "Golden queries por conceito e camada (ADR-0023). Gerado por scripts/gerar_catalogo_golden.py; não edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o MetricFlow gera (`mf query --explain`), que roda sem o repositório e só lê. Relações em `main.<nome>` (o schema do warehouse local e do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes raw. Guia de uso: docs/uso/consulta-agente.md. Cada conceito traz em `definicoes` a definição curta (doc blocks do dbt, a mesma das descrições dos modelos).",
   "marcador_raiz_dados": "${RAIZ_DADOS}",
   "camadas": [
     {
@@ -47,6 +47,18 @@
         "Empresa",
         "Estabelecimento"
       ],
+      "definicoes": [
+        {
+          "id": "empresa",
+          "titulo": "Empresa",
+          "texto": "**Empresa** é a entidade inscrita no CNPJ (sociedade, empresário individual, órgão público, associação…),\nidentificada pelo **CNPJ básico** (os 8 primeiros caracteres) e com uma linha no arquivo Empresas da RFB. Natureza\njurídica, porte, capital social e opção pelo Simples/MEI são atributos da empresa.\n\nO projeto não tem uma tabela de empresas no gold: os atributos da empresa são copiados para cada estabelecimento\ndela. Para contar empresas, conte as **matrizes** (uma por CNPJ básico)."
+        },
+        {
+          "id": "estabelecimento",
+          "titulo": "Estabelecimento",
+          "texto": "**Estabelecimento** é o local onde a empresa exerce suas atividades (IN RFB 2.119/2022, art. 5º): a matriz ou uma\nfilial, cada um com um **CNPJ completo** de 14 posições e uma linha no arquivo Estabelecimentos. Uma empresa tem um\nou mais estabelecimentos. Situação cadastral, CNAE, endereço, município e data de início de atividade são\natributos do estabelecimento.\n\nO estabelecimento é o grão das fatos do projeto: as contagens padrão (estabelecimentos, ativos, MEI ativos) contam\nestabelecimentos, não empresas."
+        }
+      ],
       "sem_query": {
         "analytics": "os marts contam estabelecimentos por CNAE × município, sem separar empresa; ver gq_analytics__concorrencia_densidade__01 e, para empresas, gq_core__empresa_estabelecimento__01"
       }
@@ -57,6 +69,13 @@
       "classes_ontologia": [
         "Matriz",
         "Filial"
+      ],
+      "definicoes": [
+        {
+          "id": "matriz_filial",
+          "titulo": "Matriz e filial",
+          "texto": "**Matriz e filial**: o identificador matriz/filial do leiaute vale 1 (matriz) ou 2 (filial). O projeto lê a\ninscrição da entidade como a da matriz, com as filiais em inscrição própria; a baixa da matriz implica a baixa de\ntodas as filiais (IN RFB 2.119/2022, art. 24, § 2º).\n\nO que diz se é matriz é esse identificador, não a ordem \"0001\" do CNPJ (o CNPJ alfanumérico existe desde julho de\n2026). Contar matrizes é contar empresas: no dado real, todo CNPJ básico tem matriz, e quase sempre uma só."
+        }
       ],
       "sem_query": {
         "intermediate": "int_estabelecimentos__enriquecidos só copia `matriz_filial_codigo` do staging; use gq_staging__matriz_filial__01 (auditoria) ou gq_core__matriz_filial__01",
@@ -71,6 +90,23 @@
         "SituacaoCadastral",
         "MotivoSituacaoCadastral"
       ],
+      "definicoes": [
+        {
+          "id": "situacao_cadastral",
+          "titulo": "Situação cadastral",
+          "texto": "**Situação cadastral** é o estado da inscrição de cada estabelecimento no CNPJ (IN RFB 2.119/2022, art. 9º): 2\nATIVA, 3 SUSPENSA, 4 INAPTA, 8 BAIXADA ou 1 NULA, com a data e o motivo do último evento. Os dados abertos trazem só\na situação atual, não o histórico de eventos.\n\nA situação \"da empresa\" é lida como a da matriz: uma empresa ATIVA pode ter filiais baixadas."
+        },
+        {
+          "id": "ativa_em_operacao",
+          "titulo": "Ativa × em operação",
+          "texto": "**Ativa não quer dizer em operação.** As situações cadastrais \"não se confundem com a condição de atividade ou\ninatividade para fins tributários\" (IN RFB 2.119/2022, art. 9º, parágrafo único). Um estabelecimento parado segue\nATIVO até ser suspenso, declarado inapto ou baixado.\n\n\"Ativo\" no projeto é a situação ATIVA no extrato do mês. Nos marts e nos modelos originais, \"inativo\" é toda\nsituação diferente de ATIVA (inclui suspensa e inapta)."
+        },
+        {
+          "id": "baixa_inaptidao",
+          "titulo": "Baixa × inaptidão",
+          "texto": "**Baixa** é o encerramento definitivo da inscrição, a pedido (extinção da entidade) ou de ofício. **Inaptidão** é\ndeclarada pela RFB, por exemplo por omissão de declarações por 90 dias ou mais, e é reversível com a\nregularização. A inaptidão por omissão sai em lotes, por ato declaratório com uma lista de inscrições, e põe a\nmesma data da situação em milhões de estabelecimentos.\n\nPor isso \"encerramento\" (todo não ativo) não é \"fechamento definitivo\": para este, use as baixas."
+        }
+      ],
       "sem_query": {
         "intermediate": "int_estabelecimentos__enriquecidos só copia `situacao_codigo` do staging; use gq_staging__situacao_cadastral__01 ou gq_core__situacao_cadastral__01",
         "analytics": "os marts usam ativo × inativo (regra do original, `eh_ativa`), sem a situação; ver gq_analytics__concorrencia_densidade__01 e gq_core__situacao_cadastral__02"
@@ -81,6 +117,13 @@
       "nome": "Porte",
       "classes_ontologia": [
         "Porte"
+      ],
+      "definicoes": [
+        {
+          "id": "porte",
+          "titulo": "Porte",
+          "texto": "**Porte** é o código do porte da empresa no leiaute: 00 não informado, 01 microempresa (ME, receita bruta anual\naté R$ 360 mil), 03 empresa de pequeno porte (EPP, até R$ 4,8 milhões) e 05 demais (LC 123/2006, art. 3º).\n\nO porte é **declarado** no registro, não medido: os dados abertos não trazem a receita. MEI não é porte, é uma\nopção de tributação. \"Não informado\" aparece de dois jeitos: o código 00 da RFB (rótulo N/A) e o membro -1 (NÃO\nINFORMADO) do modelo estrela."
+        }
       ],
       "sem_query": {
         "staging": "o staging só tipa o código (`porte_codigo`); o que a RFB publicou está em gq_raw__porte__01 e o rótulo em gq_core__porte__01",
@@ -93,6 +136,13 @@
       "nome": "Natureza jurídica",
       "classes_ontologia": [
         "NaturezaJuridica"
+      ],
+      "definicoes": [
+        {
+          "id": "natureza_juridica",
+          "titulo": "Natureza jurídica",
+          "texto": "**Natureza jurídica** é a forma jurídica da empresa, com código de 4 dígitos da tabela CONCLA/IBGE, em cinco\ngrupos: administração pública, entidades empresariais (como LTDA, S/A e empresário individual), entidades sem fins\nlucrativos, pessoas físicas e organizações internacionais.\n\n**MEI não é natureza jurídica**: quase todo MEI tem a natureza 2135 (Empresário Individual), mas para achar MEI use\na opção pelo MEI, não a natureza."
+        }
       ],
       "sem_query": {
         "staging": "stg_rfb__naturezas é o domínio do raw tipado; use gq_raw__natureza_juridica__01 (o publicado) ou gq_core__natureza_juridica__01",
@@ -111,6 +161,13 @@
         "ClasseCnae",
         "SubclasseCnae"
       ],
+      "definicoes": [
+        {
+          "id": "cnae_principal",
+          "titulo": "CNAE principal",
+          "texto": "**CNAE** é a Classificação Nacional de Atividades Econômicas (CONCLA/IBGE, CNAE-Subclasses 2.3), em cinco níveis:\nseção, divisão, grupo, classe (5 dígitos) e subclasse (7 dígitos). Cada estabelecimento tem **um CNAE fiscal\nprincipal**.\n\nAs contagens, os marts e as métricas do projeto recortam pelo CNAE principal, na subclasse de 7 dígitos (lojas de\ntintas = 4741500). O CEMPRE do IBGE usa a classe de 5 dígitos (47415)."
+        }
+      ],
       "sem_query": {
         "staging": "a hierarquia da CNAE (stg_bd__cnaes) chega inteira em dim_cnae; use gq_core__cnae_principal__02 para achar o código pela descrição",
         "analytics": "os marts recortam por CNAE principal; ver gq_analytics__concorrencia_densidade__01",
@@ -123,12 +180,19 @@
       "classes_ontologia": [
         "SubclasseCnae"
       ],
+      "definicoes": [
+        {
+          "id": "cnae_secundario",
+          "titulo": "CNAEs secundários",
+          "texto": "**CNAEs secundários** são as outras atividades do estabelecimento, zero ou mais, separadas por vírgula no arquivo\nda RFB. O projeto as guarda numa ponte muitos-para-muitos, fora das métricas: um estabelecimento que tem a\natividade só como secundária não entra num recorte pelo CNAE principal. Depois de juntar a ponte, conte\nestabelecimentos distintos."
+        }
+      ],
       "sem_query": {
         "staging": "a lista `cnaes_secundarios_lista` vira a ponte do core; use gq_core__cnae_secundario__01",
         "intermediate": "int_cnaes_secundarios__explodidos é a mesma lista que bridge_estabelecimento_cnae_secundario, sem `sk_cnae`; use gq_core__cnae_secundario__01",
         "analytics": "o secundário só entra em mart_fornecedores_proximos (`via` = 'secundario'); ver gq_analytics__fornecedores_proximos__01",
         "original": "bh_empresas guarda a string `cnaes_secundarios` como no MVP; para pergunta nova use a ponte (gq_core__cnae_secundario__01)",
-        "semantica": "a ponte muitos-para-muitos fica fora da camada semântica (camada-semantica.md, B7)"
+        "semantica": "a ponte muitos-para-muitos fica fora da camada semântica (camada-semantica.md, seção 7)"
       }
     },
     {
@@ -137,6 +201,18 @@
       "classes_ontologia": [
         "OpcaoSimplesNacional",
         "OpcaoMEI"
+      ],
+      "definicoes": [
+        {
+          "id": "simples_nacional",
+          "titulo": "Simples Nacional",
+          "texto": "**Simples Nacional** é o regime unificado de arrecadação de tributos das microempresas e empresas de pequeno\nporte (LC 123/2006, art. 12). A opção é anual e o arquivo Simples da RFB traz, por CNPJ básico, a opção e as datas\nde opção e de exclusão.\n\nNo projeto, a flag é a situação **no extrato** do mês; empresa sem registro no arquivo Simples vira falso."
+        },
+        {
+          "id": "mei",
+          "titulo": "MEI",
+          "texto": "**MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o\nSIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo\num empregado. Todo MEI é optante pelo Simples; o contrário não vale.\n\nMEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI,\npor isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI."
+        }
       ],
       "sem_query": {
         "intermediate": "int_estabelecimentos__enriquecidos só aplica `coalesce(..., false)` às flags; use gq_core__simples_mei__01",
@@ -149,6 +225,13 @@
       "nome": "Capital social",
       "classes_ontologia": [
         "Empresa"
+      ],
+      "definicoes": [
+        {
+          "id": "capital_social",
+          "titulo": "Capital social",
+          "texto": "**Capital social** é o capital declarado da **empresa**, no arquivo Empresas. Como o projeto copia os atributos da\nempresa para cada estabelecimento, o capital se repete nas filiais: some ou tire a média **só nas matrizes**.\nCapital social não é faturamento."
+        }
       ],
       "sem_query": {
         "staging": "o staging só converte a vírgula decimal (`capital_social`); o publicado está em gq_raw__capital_social__01",
@@ -165,6 +248,13 @@
         "UnidadeFederativa",
         "RegiaoGeografica"
       ],
+      "definicoes": [
+        {
+          "id": "municipio",
+          "titulo": "Município (código RFB × IBGE)",
+          "texto": "**Município**: o arquivo Estabelecimentos traz o código do município da **tabela da RFB** (4 dígitos), que não é o\ncódigo IBGE (7 dígitos). O projeto converte um no outro pelo diretório de municípios da Base dos Dados e usa o\ncódigo IBGE como chave. Sem par, o estabelecimento fica no membro -1 (NÃO INFORMADO).\n\nPara achar um município pelo nome, use sempre a UF: há homônimos (Água Branca existe em AL, PB e PI)."
+        }
+      ],
       "sem_query": {
         "intermediate": "int_municipios__conformados chega inteiro a dim_municipio; use gq_core__municipio_geografia__01",
         "analytics": "os marts trazem município e UF como recorte; ver gq_analytics__concorrencia_densidade__01",
@@ -176,6 +266,13 @@
       "nome": "Perfil do município (população, PIB, Censo 2022)",
       "classes_ontologia": [
         "Municipio"
+      ],
+      "definicoes": [
+        {
+          "id": "municipio",
+          "titulo": "Município (código RFB × IBGE)",
+          "texto": "**Município**: o arquivo Estabelecimentos traz o código do município da **tabela da RFB** (4 dígitos), que não é o\ncódigo IBGE (7 dígitos). O projeto converte um no outro pelo diretório de municípios da Base dos Dados e usa o\ncódigo IBGE como chave. Sem par, o estabelecimento fica no membro -1 (NÃO INFORMADO).\n\nPara achar um município pelo nome, use sempre a UF: há homônimos (Água Branca existe em AL, PB e PI)."
+        }
       ],
       "sem_query": {
         "raw": "o raw da Base dos Dados (`populacao`, `pib`, `censo_2022`) chega tipado e sem regra ao staging; para auditoria use gq_staging__perfil_municipio__01",
@@ -191,6 +288,18 @@
       "classes_ontologia": [
         "FotografiaMensal"
       ],
+      "definicoes": [
+        {
+          "id": "data_referencia",
+          "titulo": "Data de referência",
+          "texto": "**Data de referência** é a data do extrato mensal da RFB (por exemplo, 12/09/2026 no extrato de 2026-09). Idade,\nprazos e \"ano corrente\" são relativos a ela, nunca à data de hoje. O último mês e o último ano do extrato são\nparciais: o extrato vai só até a data de referência."
+        },
+        {
+          "id": "fotografia_mensal",
+          "titulo": "Fotografia mensal",
+          "texto": "**Fotografia mensal**: cada mês da RFB é um extrato completo do cadastro, não um registro de eventos. O mesmo\nestabelecimento ativo aparece em todos os meses em que segue ativo, então **não se somam meses**. Num período maior\nque o mês, vale o último mês do período (nas métricas, o último mês em que o recorte filtrado tem linhas).\n\nComparando dois extratos se vê a variação líquida do estoque, não quem entrou e quem saiu. Só o resumo mensal\nguarda a série de meses; as outras tabelas do gold são do mês corrente."
+        }
+      ],
       "sem_query": {
         "intermediate": "o intermediate guarda `_mes_referencia` e `_data_referencia` do staging; use gq_staging__data_calendario__01",
         "analytics": "os marts são do mês corrente do gold, sem série; a série está em gq_core__data_calendario__01",
@@ -205,6 +314,18 @@
         "Encerramento",
         "Baixa"
       ],
+      "definicoes": [
+        {
+          "id": "abertura_encerramento",
+          "titulo": "Abertura e encerramento",
+          "texto": "**Abertura** e **encerramento** são eventos derivados pelo projeto, não publicados pela RFB. Abertura: o\nestabelecimento contado na data de início de atividade. Encerramento: todo estabelecimento **não ativo** (nulo,\nsuspenso, inapto ou baixado) contado na data da situação. Baixa: só os BAIXADOS, na data da situação. Saldo =\naberturas − encerramentos. Data ausente ou anterior a 1900 não gera evento.\n\nComo só existe a situação atual, um inativo reativado deixa de contar como encerramento. Lotes de inaptidão e o ano\nparcial do extrato distorcem os encerramentos e o saldo de um ano."
+        },
+        {
+          "id": "baixa_inaptidao",
+          "titulo": "Baixa × inaptidão",
+          "texto": "**Baixa** é o encerramento definitivo da inscrição, a pedido (extinção da entidade) ou de ofício. **Inaptidão** é\ndeclarada pela RFB, por exemplo por omissão de declarações por 90 dias ou mais, e é reversível com a\nregularização. A inaptidão por omissão sai em lotes, por ato declaratório com uma lista de inscrições, e põe a\nmesma data da situação em milhões de estabelecimentos.\n\nPor isso \"encerramento\" (todo não ativo) não é \"fechamento definitivo\": para este, use as baixas."
+        }
+      ],
       "sem_query": {
         "raw": "a RFB não publica eventos, só a situação atual; abertura e encerramento são derivados pelo projeto no gold",
         "staging": "idem raw: os eventos são derivados no gold (fct_estabelecimentos × dim_data); use gq_core__dinamica_mercado__01",
@@ -218,6 +339,13 @@
       "classes_ontologia": [
         "CoorteDeAbertura"
       ],
+      "definicoes": [
+        {
+          "id": "sobrevivencia",
+          "titulo": "Sobrevivência por coorte",
+          "texto": "**Sobrevivência a N anos** (1, 3 ou 5) é a fração dos elegíveis de uma coorte de abertura (o ano de início de\natividade) que seguiam ativos N anos depois da abertura: **ativos hoje ou encerrados a partir do aniversário de N\nanos**. Não é \"ainda ativo\": um estabelecimento aberto em 2015 e baixado em 2024 sobrevive aos 3 e aos 5 anos.\n\nA coorte só é elegível quando inteira já completou N anos (31/12 do ano de abertura + N até a data de\nreferência). A taxa soma elegíveis e sobreviventes dos estratos antes de dividir."
+        }
+      ],
       "sem_query": {
         "raw": "a coorte é regra do projeto, calculada no gold",
         "staging": "a coorte é regra do projeto, calculada no gold",
@@ -230,6 +358,13 @@
       "id": "concorrencia_densidade",
       "nome": "Concorrência e densidade",
       "classes_ontologia": [],
+      "definicoes": [
+        {
+          "id": "concorrencia_densidade",
+          "titulo": "Concorrência e densidade",
+          "texto": "**Concorrência** no projeto é o número de estabelecimentos **ativos** de um CNAE principal num município.\n**Densidade** é essa contagem relativa ao tamanho do mercado: ativos por 10 mil habitantes (população estimada) ou\npor mil domicílios (Censo 2022). \"Muita concorrência\" exige um critério explícito: ranking na UF, vizinhos ou área\nde mercado."
+        }
+      ],
       "sem_query": {
         "raw": "densidade é regra do projeto, calculada no gold",
         "staging": "densidade é regra do projeto, calculada no gold",
@@ -241,18 +376,26 @@
       "id": "area_mercado_vizinhanca",
       "nome": "Área de mercado e vizinhança",
       "classes_ontologia": [],
+      "definicoes": [
+        {
+          "id": "area_mercado",
+          "titulo": "Área de mercado",
+          "texto": "**Área de mercado** é o município somado aos seus vizinhos de fronteira. O projeto conta os ativos do CNAE no\nmunicípio, nos vizinhos e na região metropolitana, com a densidade da área por mil domicílios e por km², e marca os\n**vazios de mercado**: municípios sem estabelecimento local do CNAE, mas com ativos nos vizinhos ou na região\nmetropolitana. Fronteira não é raio em km nem fluxo de compra: para o fluxo, veja o polo de compras da REGIC."
+        }
+      ],
       "sem_query": {
         "raw": "a vizinhança do raw é a da Base dos Dados com todos os anos; o gold usa o ano mais recente, simétrico (bridge_municipio_vizinho)",
         "staging": "stg_bd__vizinhanca tem todos os anos e um só sentido; use gq_core__area_mercado_vizinhanca__01",
         "intermediate": "nenhum intermediate de vizinhança; use gq_core__area_mercado_vizinhanca__01",
         "original": "o MVP não usou vizinhança",
-        "semantica": "a ponte de vizinhança fica fora da camada semântica (camada-semantica.md, B7)"
+        "semantica": "a ponte de vizinhança fica fora da camada semântica (camada-semantica.md, seção 7)"
       }
     },
     {
       "id": "fornecedores_proximos",
       "nome": "Fornecedores próximos",
       "classes_ontologia": [],
+      "definicoes": [],
       "sem_query": {
         "raw": "a busca por raio é regra do projeto (haversine entre centroides), calculada no gold",
         "staging": "a busca por raio é regra do projeto, calculada no gold",
@@ -267,6 +410,13 @@
       "classes_ontologia": [
         "SetorNoMunicipio"
       ],
+      "definicoes": [
+        {
+          "id": "cempre",
+          "titulo": "CEMPRE",
+          "texto": "**CEMPRE** é o Cadastro Central de Empresas do IBGE: empresas e organizações formais ativas e suas **unidades\nlocais** (endereços de atuação), com pessoal ocupado, assalariados e salários, por município × classe CNAE, em\n31/12 do ano do CEMPRE (hoje 2024). Não inclui MEI e conta o que tem sinal de atividade.\n\nA comparação justa com a RFB é de unidades locais com ativos sem MEI. Células que identificariam o informante vêm\ncom sigilo: o pessoal e os salários ficam nulos, e somá-los dá um piso, não o total."
+        }
+      ],
       "sem_query": {
         "staging": "stg_ibge__cempre_municipio_classe só pivota as variáveis e marca o sigilo; o publicado está em gq_raw__cempre_setor__01 e o tratado em gq_analytics__cempre_setor__01",
         "intermediate": "int_municipios__perfil_ibge só leva o total do CEMPRE a dim_municipio; use gq_core__cempre_setor__01",
@@ -278,6 +428,13 @@
       "nome": "Renda per capita (Censo 2022)",
       "classes_ontologia": [
         "Municipio"
+      ],
+      "definicoes": [
+        {
+          "id": "renda_censo",
+          "titulo": "Renda per capita (Censo 2022)",
+          "texto": "**Renda per capita** é o rendimento domiciliar per capita médio e mediano do município no Censo Demográfico 2022\n(IBGE, tabela SIDRA 10295), em reais nominais de 2022, sem correção. A média é puxada pelas rendas altas; a mediana\ndescreve o domicílio típico. É renda do morador, não salário de quem trabalha no setor."
+        }
       ],
       "sem_query": {
         "raw": "o raw da SIDRA é longo (variável × município); o staging trata os símbolos (`...`); use gq_core__renda__01",
@@ -292,6 +449,13 @@
       "classes_ontologia": [
         "HierarquiaUrbana"
       ],
+      "definicoes": [
+        {
+          "id": "regic_polo_compras",
+          "titulo": "REGIC e polo de compras",
+          "texto": "**REGIC** (Regiões de Influência das Cidades, IBGE, 2018) classifica as cidades numa hierarquia urbana (Metrópole,\nCapital Regional, Centro Sub-Regional, Centro de Zona, Centro Local) e mede para onde os moradores de cada município\nvão comprar bens e usar serviços.\n\nO **polo de compras** do projeto é o destino com o maior percentual no tema móveis e eletroeletrônicos. O\npercentual divide os deslocamentos **entre os destinos de fora**: \"45 % em Serra\" é 45 % de quem compra fora, não de\ntoda a compra. Os 67 municípios mais centrais não têm polo."
+        }
+      ],
       "sem_query": {
         "raw": "o raw da REGIC tem os dez temas e códigos de 6 dígitos; use gq_core__regic_polo_compras__01 (temas de compra, código IBGE)",
         "staging": "o staging só converte os códigos e os percentuais; use gq_core__regic_polo_compras__01",
@@ -305,6 +469,13 @@
       "classes_ontologia": [
         "Municipio"
       ],
+      "definicoes": [
+        {
+          "id": "valor_adicionado",
+          "titulo": "Valor adicionado",
+          "texto": "**Valor adicionado (VA)** é a abertura do PIB dos Municípios (IBGE, pela Base dos Dados) em agropecuária,\nindústria, serviços e administração pública. As aberturas saem depois do PIB total: hoje o PIB vai até 2023 e o VA\naté 2021. As participações somam 100, salvo quando o IBGE publica VA negativo."
+        }
+      ],
       "sem_query": {
         "raw": "o raw do PIB tem os mesmos valores do staging, em texto; use gq_staging__valor_adicionado__01",
         "intermediate": "int_municipios__perfil_ibge escolhe o `ano_va` e calcula as participações, que chegam a dim_municipio; use gq_core__valor_adicionado__01",
@@ -317,6 +488,7 @@
       "id": "regras_qualidade",
       "nome": "Regras de negócio e qualidade",
       "classes_ontologia": [],
+      "definicoes": [],
       "sem_query": {
         "raw": "as regras rodam sobre o staging e o intermediate (analyses `rn_*`); o raw é o que a fonte publicou, sem regra",
         "analytics": "a qualidade de cada execução fica em dq_resumo_execucao (observabilidade): os números mudam a cada build; veja docs/referencia/qualidade-dados.md e `rfb regras`",
@@ -328,6 +500,7 @@
       "id": "modelos_originais",
       "nome": "Modelos originais do MVP (bh_empresas, agg_empresas)",
       "classes_ontologia": [],
+      "definicoes": [],
       "sem_query": {
         "raw": "os modelos originais são do gold; a linhagem deles está no dicionário (docs/referencia/dicionario-dados.md)",
         "staging": "os modelos originais são do gold; a linhagem deles está no dicionário",
@@ -5025,7 +5198,7 @@
       "intencao": "Consulta salva `estudo_caso_fundao_tintas`: estabelecimentos, ativos e idade média de lojas de tintas em Fundão/ES por mês e porte.",
       "privacidade": "agregado",
       "armadilhas": [
-        "Sem densidade por habitante: população não é métrica (camada-semantica.md, B7); use mart_concorrencia_municipio."
+        "Sem densidade por habitante: população não é métrica (camada-semantica.md, seção 7); use mart_concorrencia_municipio."
       ],
       "variacoes": [
         "Outro caso: `--metrics qtd_estabelecimentos,qtd_ativos,idade_media_anos --group-by metric_time__month,porte__rotulo_porte --where ...`."
@@ -6976,7 +7149,7 @@
       "grao": null,
       "relacao": "fct_estabelecimentos",
       "coluna": "eh_ativa",
-      "descricao": "Verdadeiro para situação cadastral ativa (código 2)."
+      "descricao": "Verdadeiro para situação cadastral ativa (código 2). **Ativa não quer dizer em operação.** As situações cadastrais \"não se confundem com a condição de atividade ou inatividade para fins tributários\" (IN RFB 2.119/2022, art. 9º, parágrafo único). Um estabelecimento parado segue ATIVO até ser suspenso, declarado inapto ou baixado. \"Ativo\" no projeto é a situação ATIVA no extrato do mês. Nos marts e nos modelos originais, \"inativo\" é toda situação diferente de ATIVA (inclui suspensa e inapta)."
     },
     {
       "nome": "estabelecimento__eh_matriz",
@@ -6985,7 +7158,7 @@
       "grao": null,
       "relacao": "fct_estabelecimentos",
       "coluna": "eh_matriz",
-      "descricao": "Verdadeiro para matriz (`ind_matriz_filial = 1`)."
+      "descricao": "Verdadeiro para matriz (`ind_matriz_filial = 1`). **Matriz e filial**: o identificador matriz/filial do leiaute vale 1 (matriz) ou 2 (filial). O projeto lê a inscrição da entidade como a da matriz, com as filiais em inscrição própria; a baixa da matriz implica a baixa de todas as filiais (IN RFB 2.119/2022, art. 24, § 2º). O que diz se é matriz é esse identificador, não a ordem \"0001\" do CNPJ (o CNPJ alfanumérico existe desde julho de 2026). Contar matrizes é contar empresas: no dado real, todo CNPJ básico tem matriz, e quase sempre uma só."
     },
     {
       "nome": "estabelecimento__opcao_mei",
@@ -6994,7 +7167,7 @@
       "grao": null,
       "relacao": "fct_estabelecimentos",
       "coluna": "opcao_mei",
-      "descricao": "Optante pelo MEI na empresa (false quando não há registro)."
+      "descricao": "Optante pelo MEI na empresa (false quando não há registro). **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado. Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI."
     },
     {
       "nome": "estabelecimento__opcao_simples",
@@ -7003,7 +7176,7 @@
       "grao": null,
       "relacao": "fct_estabelecimentos",
       "coluna": "opcao_simples",
-      "descricao": "Optante pelo Simples Nacional na empresa (false quando não há registro)."
+      "descricao": "Optante pelo Simples Nacional na empresa (false quando não há registro). **Simples Nacional** é o regime unificado de arrecadação de tributos das microempresas e empresas de pequeno porte (LC 123/2006, art. 12). A opção é anual e o arquivo Simples da RFB traz, por CNPJ básico, a opção e as datas de opção e de exclusão. No projeto, a flag é a situação **no extrato** do mês; empresa sem registro no arquivo Simples vira falso."
     },
     {
       "nome": "municipio__id_municipio_ibge",
@@ -7120,7 +7293,7 @@
       "grao": null,
       "relacao": "dim_municipio",
       "coluna": "regic_hierarquia",
-      "descricao": "Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`)."
+      "descricao": "Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`). **REGIC** (Regiões de Influência das Cidades, IBGE, 2018) classifica as cidades numa hierarquia urbana (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local) e mede para onde os moradores de cada município vão comprar bens e usar serviços. O **polo de compras** do projeto é o destino com o maior percentual no tema móveis e eletroeletrônicos. O percentual divide os deslocamentos **entre os destinos de fora**: \"45 % em Serra\" é 45 % de quem compra fora, não de toda a compra. Os 67 municípios mais centrais não têm polo."
     },
     {
       "nome": "municipio__regic_hierarquia_codigo",
@@ -7147,7 +7320,7 @@
       "grao": null,
       "relacao": "dim_municipio",
       "coluna": "renda_per_capita_media_2022",
-      "descricao": "Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1."
+      "descricao": "Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1. **Renda per capita** é o rendimento domiciliar per capita médio e mediano do município no Censo Demográfico 2022 (IBGE, tabela SIDRA 10295), em reais nominais de 2022, sem correção. A média é puxada pelas rendas altas; a mediana descreve o domicílio típico. É renda do morador, não salário de quem trabalha no setor."
     },
     {
       "nome": "municipio__renda_per_capita_mediana_2022",
@@ -8143,7 +8316,7 @@
       "nome": "main.stg_rfb__empresas",
       "camada": "staging",
       "grao": "empresa (`cnpj_raiz`) do mês selecionado",
-      "descricao": "Empresas (CNPJ raiz) da RFB, tipadas e limpas, do mês de referência selecionado (`filtro_mes_referencia`): códigos com zeros à esquerda (`lpad_codigo`), capital social em DECIMAL (`decimal_rfb`), porte inteiro e textos vazios convertidos em NULL. Uma linha por `cnpj_raiz` (adaptado, B8): uma raiz duplicada no extrato (2026-09: 08314885, com uma linha sem razão social e natureza 0000) é reduzida à linha mais informativa (`empresa_preferida_por_raiz`).",
+      "descricao": "Empresas (CNPJ raiz) da RFB, tipadas e limpas, do mês de referência selecionado (`filtro_mes_referencia`): códigos com zeros à esquerda (`lpad_codigo`), capital social em DECIMAL (`decimal_rfb`), porte inteiro e textos vazios convertidos em NULL. Uma linha por `cnpj_raiz` (adaptado, B8): uma raiz duplicada no extrato (2026-09: 08314885, com uma linha sem razão social e natureza 0000) é reduzida à linha mais informativa (`empresa_preferida_por_raiz`). **Empresa** é a entidade inscrita no CNPJ (sociedade, empresário individual, órgão público, associação…), identificada pelo **CNPJ básico** (os 8 primeiros caracteres) e com uma linha no arquivo Empresas da RFB. Natureza jurídica, porte, capital social e opção pelo Simples/MEI são atributos da empresa. O projeto não tem uma tabela de empresas no gold: os atributos da empresa são copiados para cada estabelecimento dela. Para contar empresas, conte as **matrizes** (uma por CNPJ básico).",
       "colunas": [
         {
           "nome": "cnpj_raiz",
@@ -8160,7 +8333,7 @@
         {
           "nome": "natureza_juridica_codigo",
           "tipo": "VARCHAR",
-          "descricao": "Código da natureza jurídica, 4 dígitos (FK lógica para `stg_rfb__naturezas.codigo`).",
+          "descricao": "Código da natureza jurídica, 4 dígitos (FK lógica para `stg_rfb__naturezas.codigo`). **Natureza jurídica** é a forma jurídica da empresa, com código de 4 dígitos da tabela CONCLA/IBGE, em cinco grupos: administração pública, entidades empresariais (como LTDA, S/A e empresário individual), entidades sem fins lucrativos, pessoas físicas e organizações internacionais. **MEI não é natureza jurídica**: quase todo MEI tem a natureza 2135 (Empresário Individual), mas para achar MEI use a opção pelo MEI, não a natureza.",
           "proibida_na_saida": false
         },
         {
@@ -8178,7 +8351,7 @@
         {
           "nome": "porte_codigo",
           "tipo": "INTEGER",
-          "descricao": "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio.",
+          "descricao": "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio. **Porte** é o código do porte da empresa no leiaute: 00 não informado, 01 microempresa (ME, receita bruta anual até R$ 360 mil), 03 empresa de pequeno porte (EPP, até R$ 4,8 milhões) e 05 demais (LC 123/2006, art. 3º). O porte é **declarado** no registro, não medido: os dados abertos não trazem a receita. MEI não é porte, é uma opção de tributação. \"Não informado\" aparece de dois jeitos: o código 00 da RFB (rótulo N/A) e o membro -1 (NÃO INFORMADO) do modelo estrela.",
           "proibida_na_saida": false
         },
         {
@@ -8205,7 +8378,7 @@
       "nome": "main.stg_rfb__estabelecimentos",
       "camada": "staging",
       "grao": "estabelecimento (`cnpj_completo`) do mês selecionado",
-      "descricao": "Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referência selecionado: `cnpj_completo` com 14 dígitos, datas `YYYYMMDD` -> DATE (`0`, `00000000` e inválidas -> NULL), códigos com zeros à esquerda, CNAEs secundários como texto original e como lista. **Sem** colunas de contato (`email`, `ddd*`, `tel*`, `fax`) — ADR-0008.",
+      "descricao": "Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referência selecionado: `cnpj_completo` com 14 dígitos, datas `YYYYMMDD` -> DATE (`0`, `00000000` e inválidas -> NULL), códigos com zeros à esquerda, CNAEs secundários como texto original e como lista. **Sem** colunas de contato (`email`, `ddd*`, `tel*`, `fax`) — ADR-0008. **Estabelecimento** é o local onde a empresa exerce suas atividades (IN RFB 2.119/2022, art. 5º): a matriz ou uma filial, cada um com um **CNPJ completo** de 14 posições e uma linha no arquivo Estabelecimentos. Uma empresa tem um ou mais estabelecimentos. Situação cadastral, CNAE, endereço, município e data de início de atividade são atributos do estabelecimento. O estabelecimento é o grão das fatos do projeto: as contagens padrão (estabelecimentos, ativos, MEI ativos) contam estabelecimentos, não empresas.",
       "colunas": [
         {
           "nome": "cnpj_raiz",
@@ -8246,7 +8419,7 @@
         {
           "nome": "situacao_codigo",
           "tipo": "INTEGER",
-          "descricao": "Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada.",
+          "descricao": "Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada. **Situação cadastral** é o estado da inscrição de cada estabelecimento no CNPJ (IN RFB 2.119/2022, art. 9º): 2 ATIVA, 3 SUSPENSA, 4 INAPTA, 8 BAIXADA ou 1 NULA, com a data e o motivo do último evento. Os dados abertos trazem só a situação atual, não o histórico de eventos. A situação \"da empresa\" é lida como a da matriz: uma empresa ATIVA pode ter filiais baixadas.",
           "proibida_na_saida": false
         },
         {
@@ -8282,7 +8455,7 @@
         {
           "nome": "cnae_principal",
           "tipo": "VARCHAR",
-          "descricao": "Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).",
+          "descricao": "Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`). **CNAE** é a Classificação Nacional de Atividades Econômicas (CONCLA/IBGE, CNAE-Subclasses 2.3), em cinco níveis: seção, divisão, grupo, classe (5 dígitos) e subclasse (7 dígitos). Cada estabelecimento tem **um CNAE fiscal principal**. As contagens, os marts e as métricas do projeto recortam pelo CNAE principal, na subclasse de 7 dígitos (lojas de tintas = 4741500). O CEMPRE do IBGE usa a classe de 5 dígitos (47415).",
           "proibida_na_saida": false
         },
         {
@@ -8294,7 +8467,7 @@
         {
           "nome": "cnaes_secundarios_lista",
           "tipo": "VARCHAR[]",
-          "descricao": "CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver.",
+          "descricao": "CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver. **CNAEs secundários** são as outras atividades do estabelecimento, zero ou mais, separadas por vírgula no arquivo da RFB. O projeto as guarda numa ponte muitos-para-muitos, fora das métricas: um estabelecimento que tem a atividade só como secundária não entra num recorte pelo CNAE principal. Depois de juntar a ponte, conte estabelecimentos distintos.",
           "proibida_na_saida": false
         },
         {
@@ -8366,7 +8539,7 @@
         {
           "nome": "_data_referencia",
           "tipo": "DATE",
-          "descricao": "Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto, de `idade_atual`; não pode ser nula (teste `not_null`, `error`).",
+          "descricao": "Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto, de `idade_atual`; não pode ser nula (teste `not_null`, `error`). **Data de referência** é a data do extrato mensal da RFB (por exemplo, 12/09/2026 no extrato de 2026-09). Idade, prazos e \"ano corrente\" são relativos a ela, nunca à data de hoje. O último mês e o último ano do extrato são parciais: o extrato vai só até a data de referência.",
           "proibida_na_saida": false
         }
       ]
@@ -8435,7 +8608,7 @@
       "nome": "main.stg_rfb__simples",
       "camada": "staging",
       "grao": "empresa (`cnpj_raiz`) do mês selecionado",
-      "descricao": "Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opcao_simples` e `opcao_mei` viram booleanos (`S`/`N`); datas `00000000` viram NULL.",
+      "descricao": "Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opcao_simples` e `opcao_mei` viram booleanos (`S`/`N`); datas `00000000` viram NULL. **Simples Nacional** é o regime unificado de arrecadação de tributos das microempresas e empresas de pequeno porte (LC 123/2006, art. 12). A opção é anual e o arquivo Simples da RFB traz, por CNPJ básico, a opção e as datas de opção e de exclusão. No projeto, a flag é a situação **no extrato** do mês; empresa sem registro no arquivo Simples vira falso. **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado. Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI.",
       "colunas": [
         {
           "nome": "cnpj_raiz",
@@ -8969,7 +9142,7 @@
       "nome": "main.bridge_estabelecimento_cnae_secundario",
       "camada": "core",
       "grao": "estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`)",
-      "descricao": "Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos entre `fct_estabelecimentos` e `dim_cnae`). Lista vazia não gera linhas. Opcional no BI.",
+      "descricao": "Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos entre `fct_estabelecimentos` e `dim_cnae`). Lista vazia não gera linhas. Opcional no BI. **CNAEs secundários** são as outras atividades do estabelecimento, zero ou mais, separadas por vírgula no arquivo da RFB. O projeto as guarda numa ponte muitos-para-muitos, fora das métricas: um estabelecimento que tem a atividade só como secundária não entra num recorte pelo CNAE principal. Depois de juntar a ponte, conte estabelecimentos distintos.",
       "colunas": [
         {
           "nome": "cnpj_completo",
@@ -8995,7 +9168,7 @@
       "nome": "main.bridge_municipio_destino_compras",
       "camada": "core",
       "grao": "origem × destino × tema (`sk_municipio_origem`, `sk_municipio_destino`, `tema`)",
-      "descricao": "Para onde os moradores de cada município vão comprar (incremento `enriquecimento_ibge`, ADR-0022), da REGIC 2018, em tabela longa: grão = origem × destino × tema, nos temas de compra `vestuario_calcados` (Q1) e `moveis_eletro` (Q2), só ligações com % > 0. `posto` 1 é o principal destino listado da origem no tema. O destino \"Outros\" (lugares não listados) é a linha com `sk_municipio_destino` = -1 e `eh_outros`, sem posto: com ela a soma de `pct` por origem e tema bate ~100 (teste `destino_compras_soma_100`, warn). A REGIC é de 2018: municípios criados depois não aparecem como origem. Parquet em `gold/bridge_municipio_destino_compras.parquet`; opcional no BI.",
+      "descricao": "Para onde os moradores de cada município vão comprar (incremento `enriquecimento_ibge`, ADR-0022), da REGIC 2018, em tabela longa: grão = origem × destino × tema, nos temas de compra `vestuario_calcados` (Q1) e `moveis_eletro` (Q2), só ligações com % > 0. `posto` 1 é o principal destino listado da origem no tema. O destino \"Outros\" (lugares não listados) é a linha com `sk_municipio_destino` = -1 e `eh_outros`, sem posto: com ela a soma de `pct` por origem e tema bate ~100 (teste `destino_compras_soma_100`, warn). A REGIC é de 2018: municípios criados depois não aparecem como origem. Parquet em `gold/bridge_municipio_destino_compras.parquet`; opcional no BI. **REGIC** (Regiões de Influência das Cidades, IBGE, 2018) classifica as cidades numa hierarquia urbana (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local) e mede para onde os moradores de cada município vão comprar bens e usar serviços. O **polo de compras** do projeto é o destino com o maior percentual no tema móveis e eletroeletrônicos. O percentual divide os deslocamentos **entre os destinos de fora**: \"45 % em Serra\" é 45 % de quem compra fora, não de toda a compra. Os 67 municípios mais centrais não têm polo.",
       "colunas": [
         {
           "nome": "sk_municipio_origem",
@@ -9059,7 +9232,7 @@
       "nome": "main.dim_cnae",
       "camada": "core",
       "grao": "subclasse CNAE (`sk_cnae`), mais o membro `-1`",
-      "descricao": "Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo → classe → subclasse (Base dos Dados), código e descrição em colunas separadas. Membro `-1` para CNAE sem par no BD.",
+      "descricao": "Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo → classe → subclasse (Base dos Dados), código e descrição em colunas separadas. Membro `-1` para CNAE sem par no BD. **CNAE** é a Classificação Nacional de Atividades Econômicas (CONCLA/IBGE, CNAE-Subclasses 2.3), em cinco níveis: seção, divisão, grupo, classe (5 dígitos) e subclasse (7 dígitos). Cada estabelecimento tem **um CNAE fiscal principal**. As contagens, os marts e as métricas do projeto recortam pelo CNAE principal, na subclasse de 7 dígitos (lojas de tintas = 4741500). O CEMPRE do IBGE usa a classe de 5 dígitos (47415).",
       "colunas": [
         {
           "nome": "sk_cnae",
@@ -9207,7 +9380,7 @@
       "nome": "main.dim_municipio",
       "camada": "core",
       "grao": "município (`sk_municipio`), mais o membro `-1`",
-      "descricao": "Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias geográficas em colunas, centroide, população e PIB. Membro `-1` \"NÃO INFORMADO\" para estabelecimentos sem município na Base dos Dados (exterior, município criado após a base). Incremento `enriquecimento_bd`: Censo 2022 e região metropolitana. Incremento `enriquecimento_ibge` (ADR-0022): renda per capita do Censo 2022, valor adicionado por atividade (`ano_va`, que pode diferir de `ano_pib`), hierarquia urbana, índice de atração e polo de compras da REGIC 2018 e o total do CEMPRE (`ano_cempre`); NULL sem a fonte.",
+      "descricao": "Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias geográficas em colunas, centroide, população e PIB. Membro `-1` \"NÃO INFORMADO\" para estabelecimentos sem município na Base dos Dados (exterior, município criado após a base). Incremento `enriquecimento_bd`: Censo 2022 e região metropolitana. Incremento `enriquecimento_ibge` (ADR-0022): renda per capita do Censo 2022, valor adicionado por atividade (`ano_va`, que pode diferir de `ano_pib`), hierarquia urbana, índice de atração e polo de compras da REGIC 2018 e o total do CEMPRE (`ano_cempre`); NULL sem a fonte. **Município**: o arquivo Estabelecimentos traz o código do município da **tabela da RFB** (4 dígitos), que não é o código IBGE (7 dígitos). O projeto converte um no outro pelo diretório de municípios da Base dos Dados e usa o código IBGE como chave. Sem par, o estabelecimento fica no membro -1 (NÃO INFORMADO). Para achar um município pelo nome, use sempre a UF: há homônimos (Água Branca existe em AL, PB e PI).",
       "colunas": [
         {
           "nome": "sk_municipio",
@@ -9392,7 +9565,7 @@
         {
           "nome": "renda_per_capita_media_2022",
           "tipo": "DECIMAL(12,2)",
-          "descricao": "Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1.",
+          "descricao": "Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1. **Renda per capita** é o rendimento domiciliar per capita médio e mediano do município no Censo Demográfico 2022 (IBGE, tabela SIDRA 10295), em reais nominais de 2022, sem correção. A média é puxada pelas rendas altas; a mediana descreve o domicílio típico. É renda do morador, não salário de quem trabalha no setor.",
           "proibida_na_saida": false
         },
         {
@@ -9452,7 +9625,7 @@
         {
           "nome": "pct_va_servicos",
           "tipo": "DOUBLE",
-          "descricao": "Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).",
+          "descricao": "Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`). **Valor adicionado (VA)** é a abertura do PIB dos Municípios (IBGE, pela Base dos Dados) em agropecuária, indústria, serviços e administração pública. As aberturas saem depois do PIB total: hoje o PIB vai até 2023 e o VA até 2021. As participações somam 100, salvo quando o IBGE publica VA negativo.",
           "proibida_na_saida": false
         },
         {
@@ -9470,7 +9643,7 @@
         {
           "nome": "regic_hierarquia",
           "tipo": "VARCHAR",
-          "descricao": "Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`).",
+          "descricao": "Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`). **REGIC** (Regiões de Influência das Cidades, IBGE, 2018) classifica as cidades numa hierarquia urbana (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local) e mede para onde os moradores de cada município vão comprar bens e usar serviços. O **polo de compras** do projeto é o destino com o maior percentual no tema móveis e eletroeletrônicos. O percentual divide os deslocamentos **entre os destinos de fora**: \"45 % em Serra\" é 45 % de quem compra fora, não de toda a compra. Os 67 municípios mais centrais não têm polo.",
           "proibida_na_saida": false
         },
         {
@@ -9494,7 +9667,7 @@
         {
           "nome": "id_municipio_polo_compras",
           "tipo": "VARCHAR",
-          "descricao": "Código IBGE do polo de compras: o destino listado na REGIC 2018 com o maior % dos deslocamentos para comprar móveis e eletroeletrônicos (Q2, a melhor proxy de bem durável e material de construção). O destino \"Outros\" nunca é polo; empate fica com o menor código; NULL sem ligação com Q2 > 0 (incremento `enriquecimento_ibge`).",
+          "descricao": "Código IBGE do polo de compras: o destino listado na REGIC 2018 com o maior % dos deslocamentos para comprar móveis e eletroeletrônicos (Q2, a melhor proxy de bem durável e material de construção). O destino \"Outros\" nunca é polo; empate fica com o menor código; NULL sem ligação com Q2 > 0 (incremento `enriquecimento_ibge`). **REGIC** (Regiões de Influência das Cidades, IBGE, 2018) classifica as cidades numa hierarquia urbana (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local) e mede para onde os moradores de cada município vão comprar bens e usar serviços. O **polo de compras** do projeto é o destino com o maior percentual no tema móveis e eletroeletrônicos. O percentual divide os deslocamentos **entre os destinos de fora**: \"45 % em Serra\" é 45 % de quem compra fora, não de toda a compra. Os 67 municípios mais centrais não têm polo.",
           "proibida_na_saida": false
         },
         {
@@ -9533,7 +9706,7 @@
       "nome": "main.dim_natureza_juridica",
       "camada": "core",
       "grao": "natureza jurídica (`sk_natureza_juridica`), mais o membro `-1`",
-      "descricao": "Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio.",
+      "descricao": "Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio. **Natureza jurídica** é a forma jurídica da empresa, com código de 4 dígitos da tabela CONCLA/IBGE, em cinco grupos: administração pública, entidades empresariais (como LTDA, S/A e empresário individual), entidades sem fins lucrativos, pessoas físicas e organizações internacionais. **MEI não é natureza jurídica**: quase todo MEI tem a natureza 2135 (Empresário Individual), mas para achar MEI use a opção pelo MEI, não a natureza.",
       "colunas": [
         {
           "nome": "sk_natureza_juridica",
@@ -9559,7 +9732,7 @@
       "nome": "main.dim_porte",
       "camada": "core",
       "grao": "porte da empresa (`sk_porte`), mais o membro `-1`",
-      "descricao": "Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio.",
+      "descricao": "Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio. **Porte** é o código do porte da empresa no leiaute: 00 não informado, 01 microempresa (ME, receita bruta anual até R$ 360 mil), 03 empresa de pequeno porte (EPP, até R$ 4,8 milhões) e 05 demais (LC 123/2006, art. 3º). O porte é **declarado** no registro, não medido: os dados abertos não trazem a receita. MEI não é porte, é uma opção de tributação. \"Não informado\" aparece de dois jeitos: o código 00 da RFB (rótulo N/A) e o membro -1 (NÃO INFORMADO) do modelo estrela.",
       "colunas": [
         {
           "nome": "sk_porte",
@@ -9591,7 +9764,7 @@
       "nome": "main.dim_situacao_cadastral",
       "camada": "core",
       "grao": "situação cadastral (`sk_situacao_cadastral`), mais o membro `-1`",
-      "descricao": "Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-1` para código fora do domínio.",
+      "descricao": "Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-1` para código fora do domínio. **Situação cadastral** é o estado da inscrição de cada estabelecimento no CNPJ (IN RFB 2.119/2022, art. 9º): 2 ATIVA, 3 SUSPENSA, 4 INAPTA, 8 BAIXADA ou 1 NULA, com a data e o motivo do último evento. Os dados abertos trazem só a situação atual, não o histórico de eventos. A situação \"da empresa\" é lida como a da matriz: uma empresa ATIVA pode ter filiais baixadas. **Ativa não quer dizer em operação.** As situações cadastrais \"não se confundem com a condição de atividade ou inatividade para fins tributários\" (IN RFB 2.119/2022, art. 9º, parágrafo único). Um estabelecimento parado segue ATIVO até ser suspenso, declarado inapto ou baixado. \"Ativo\" no projeto é a situação ATIVA no extrato do mês. Nos marts e nos modelos originais, \"inativo\" é toda situação diferente de ATIVA (inclui suspensa e inapta). **Baixa** é o encerramento definitivo da inscrição, a pedido (extinção da entidade) ou de ofício. **Inaptidão** é declarada pela RFB, por exemplo por omissão de declarações por 90 dias ou mais, e é reversível com a regularização. A inaptidão por omissão sai em lotes, por ato declaratório com uma lista de inscrições, e põe a mesma data da situação em milhões de estabelecimentos. Por isso \"encerramento\" (todo não ativo) não é \"fechamento definitivo\": para este, use as baixas.",
       "colunas": [
         {
           "nome": "sk_situacao_cadastral",
@@ -9623,7 +9796,7 @@
       "nome": "main.fct_estabelecimentos",
       "camada": "core",
       "grao": "estabelecimento (`cnpj_completo`)",
-      "descricao": "Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimensão degenerada), só com chaves inteiras para as dimensões, flags e medidas. Sem descartes silenciosos: estabelecimento sem par numa dimensão fica com a chave `-1`. Parquet em `gold/fct_estabelecimentos.parquet`; para o Power BI use `fct_resumo_mensal` (modo Import).",
+      "descricao": "Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimensão degenerada), só com chaves inteiras para as dimensões, flags e medidas. Sem descartes silenciosos: estabelecimento sem par numa dimensão fica com a chave `-1`. Parquet em `gold/fct_estabelecimentos.parquet`; para o Power BI use `fct_resumo_mensal` (modo Import). **Estabelecimento** é o local onde a empresa exerce suas atividades (IN RFB 2.119/2022, art. 5º): a matriz ou uma filial, cada um com um **CNPJ completo** de 14 posições e uma linha no arquivo Estabelecimentos. Uma empresa tem um ou mais estabelecimentos. Situação cadastral, CNAE, endereço, município e data de início de atividade são atributos do estabelecimento. O estabelecimento é o grão das fatos do projeto: as contagens padrão (estabelecimentos, ativos, MEI ativos) contam estabelecimentos, não empresas.",
       "colunas": [
         {
           "nome": "cnpj_completo",
@@ -9682,31 +9855,31 @@
         {
           "nome": "opcao_simples",
           "tipo": "BOOLEAN",
-          "descricao": "Optante pelo Simples Nacional na empresa (false quando não há registro).",
+          "descricao": "Optante pelo Simples Nacional na empresa (false quando não há registro). **Simples Nacional** é o regime unificado de arrecadação de tributos das microempresas e empresas de pequeno porte (LC 123/2006, art. 12). A opção é anual e o arquivo Simples da RFB traz, por CNPJ básico, a opção e as datas de opção e de exclusão. No projeto, a flag é a situação **no extrato** do mês; empresa sem registro no arquivo Simples vira falso.",
           "proibida_na_saida": false
         },
         {
           "nome": "opcao_mei",
           "tipo": "BOOLEAN",
-          "descricao": "Optante pelo MEI na empresa (false quando não há registro).",
+          "descricao": "Optante pelo MEI na empresa (false quando não há registro). **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado. Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI.",
           "proibida_na_saida": false
         },
         {
           "nome": "capital_social",
           "tipo": "DECIMAL(18,2)",
-          "descricao": "Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por estabelecimento (some só a matriz, `eh_matriz`). NULL quando não há empresa.",
+          "descricao": "Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por estabelecimento (some só a matriz, `eh_matriz`). NULL quando não há empresa. **Capital social** é o capital declarado da **empresa**, no arquivo Empresas. Como o projeto copia os atributos da empresa para cada estabelecimento, o capital se repete nas filiais: some ou tire a média **só nas matrizes**. Capital social não é faturamento.",
           "proibida_na_saida": false
         },
         {
           "nome": "eh_matriz",
           "tipo": "BOOLEAN",
-          "descricao": "Verdadeiro para matriz (`ind_matriz_filial = 1`).",
+          "descricao": "Verdadeiro para matriz (`ind_matriz_filial = 1`). **Matriz e filial**: o identificador matriz/filial do leiaute vale 1 (matriz) ou 2 (filial). O projeto lê a inscrição da entidade como a da matriz, com as filiais em inscrição própria; a baixa da matriz implica a baixa de todas as filiais (IN RFB 2.119/2022, art. 24, § 2º). O que diz se é matriz é esse identificador, não a ordem \"0001\" do CNPJ (o CNPJ alfanumérico existe desde julho de 2026). Contar matrizes é contar empresas: no dado real, todo CNPJ básico tem matriz, e quase sempre uma só.",
           "proibida_na_saida": false
         },
         {
           "nome": "eh_ativa",
           "tipo": "BOOLEAN",
-          "descricao": "Verdadeiro para situação cadastral ativa (código 2).",
+          "descricao": "Verdadeiro para situação cadastral ativa (código 2). **Ativa não quer dizer em operação.** As situações cadastrais \"não se confundem com a condição de atividade ou inatividade para fins tributários\" (IN RFB 2.119/2022, art. 9º, parágrafo único). Um estabelecimento parado segue ATIVO até ser suspenso, declarado inapto ou baixado. \"Ativo\" no projeto é a situação ATIVA no extrato do mês. Nos marts e nos modelos originais, \"inativo\" é toda situação diferente de ATIVA (inclui suspensa e inapta).",
           "proibida_na_saida": false
         }
       ]
@@ -9715,7 +9888,7 @@
       "nome": "main.fct_resumo_mensal",
       "camada": "core",
       "grao": "mês × município × CNAE × porte × situação cadastral × opção MEI (`mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`)",
-      "descricao": "Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE × porte × situação × MEI (sem ano de início nem natureza, que explodiriam o resumo; ADR-0013). Medidas aditivas (idade média = `soma_idade_anos / qtd_ativos`; capital médio = `soma_capital_social_matrizes / qtd_matrizes`). Gravada como uma partição Parquet por mês em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: reprocessar um mês substitui só a partição dele e o histórico sobrevive à remoção do `warehouse.duckdb`. Esta relação lê TODAS as partições existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)` do staging.",
+      "descricao": "Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE × porte × situação × MEI (sem ano de início nem natureza, que explodiriam o resumo; ADR-0013). Medidas aditivas (idade média = `soma_idade_anos / qtd_ativos`; capital médio = `soma_capital_social_matrizes / qtd_matrizes`). Gravada como uma partição Parquet por mês em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: reprocessar um mês substitui só a partição dele e o histórico sobrevive à remoção do `warehouse.duckdb`. Esta relação lê TODAS as partições existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)` do staging. **Fotografia mensal**: cada mês da RFB é um extrato completo do cadastro, não um registro de eventos. O mesmo estabelecimento ativo aparece em todos os meses em que segue ativo, então **não se somam meses**. Num período maior que o mês, vale o último mês do período (nas métricas, o último mês em que o recorte filtrado tem linhas). Comparando dois extratos se vê a variação líquida do estoque, não quem entrou e quem saiu. Só o resumo mensal guarda a série de meses; as outras tabelas do gold são do mês corrente.",
       "colunas": [
         {
           "nome": "sk_mes_referencia",
@@ -9795,7 +9968,7 @@
       "nome": "main.mart_concorrencia_area_mercado",
       "camada": "analytics",
       "grao": "CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado",
-      "descricao": "Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por CNAE principal × município: os pares com estabelecimento no município (como `mart_concorrencia_municipio`) e os vazios de mercado, isto é, municípios sem o CNAE cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` = false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta o denominador (município ou algum vizinho sem Censo), nunca zero. Colunas aditivas do incremento `enriquecimento_ibge` (ADR-0022): o polo de compras do município (REGIC 2018) e os ativos do CNAE nele (`ativos_no_polo`). Parquet em `gold/mart_concorrencia_area_mercado.parquet`.",
+      "descricao": "Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por CNAE principal × município: os pares com estabelecimento no município (como `mart_concorrencia_municipio`) e os vazios de mercado, isto é, municípios sem o CNAE cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` = false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta o denominador (município ou algum vizinho sem Censo), nunca zero. Colunas aditivas do incremento `enriquecimento_ibge` (ADR-0022): o polo de compras do município (REGIC 2018) e os ativos do CNAE nele (`ativos_no_polo`). Parquet em `gold/mart_concorrencia_area_mercado.parquet`. **Área de mercado** é o município somado aos seus vizinhos de fronteira. O projeto conta os ativos do CNAE no município, nos vizinhos e na região metropolitana, com a densidade da área por mil domicílios e por km², e marca os **vazios de mercado**: municípios sem estabelecimento local do CNAE, mas com ativos nos vizinhos ou na região metropolitana. Fronteira não é raio em km nem fluxo de compra: para o fluxo, veja o polo de compras da REGIC.",
       "colunas": [
         {
           "nome": "sk_cnae",
@@ -9953,7 +10126,7 @@
       "nome": "main.mart_concorrencia_municipio",
       "camada": "analytics",
       "grao": "CNAE principal × município (`cnae_principal`, `sk_municipio`)",
-      "descricao": "Densidade de concorrência por CNAE principal × município. `ativos` e `inativos` pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 / população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.",
+      "descricao": "Densidade de concorrência por CNAE principal × município. `ativos` e `inativos` pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 / população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`. **Concorrência** no projeto é o número de estabelecimentos **ativos** de um CNAE principal num município. **Densidade** é essa contagem relativa ao tamanho do mercado: ativos por 10 mil habitantes (população estimada) ou por mil domicílios (Censo 2022). \"Muita concorrência\" exige um critério explícito: ranking na UF, vizinhos ou área de mercado.",
       "colunas": [
         {
           "nome": "sk_cnae",
@@ -10027,7 +10200,7 @@
       "nome": "main.mart_dinamica_mercado",
       "camada": "analytics",
       "grao": "ano × CNAE principal × município (`ano`, `sk_cnae`, `sk_municipio`)",
-      "descricao": "Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal × município. Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`). Datas nulas não geram evento.",
+      "descricao": "Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal × município. Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`). Datas nulas não geram evento. **Abertura** e **encerramento** são eventos derivados pelo projeto, não publicados pela RFB. Abertura: o estabelecimento contado na data de início de atividade. Encerramento: todo estabelecimento **não ativo** (nulo, suspenso, inapto ou baixado) contado na data da situação. Baixa: só os BAIXADOS, na data da situação. Saldo = aberturas − encerramentos. Data ausente ou anterior a 1900 não gera evento. Como só existe a situação atual, um inativo reativado deixa de contar como encerramento. Lotes de inaptidão e o ano parcial do extrato distorcem os encerramentos e o saldo de um ano.",
       "colunas": [
         {
           "nome": "ano",
@@ -10095,7 +10268,7 @@
       "nome": "main.mart_emprego_setor_municipio",
       "camada": "analytics",
       "grao": "município × classe CNAE de 5 dígitos (`sk_municipio`, `classe_cnae`)",
-      "descricao": "Tamanho real do setor no município (incremento `enriquecimento_ibge`, ADR-0022): o CEMPRE do IBGE (unidades locais, pessoal ocupado, assalariados e salários) ao lado dos CNPJs ativos da RFB, por município × classe CNAE (5 dígitos). Só os pares em que o CEMPRE tem unidade local ou a RFB tem ativo da classe. Os anos são diferentes: o CEMPRE é do `ano_cempre` (hoje 2024) e a RFB do mês do gold (`mes_referencia_rfb`). Sigilo do IBGE (`X`) nunca é imputado: o valor fica NULL e `tem_sigilo` true; por isso somas de pessoal ocupado e salários sobre classes ou municípios **subestimam** o total (as unidades locais nunca são sigilosas). Um CNPJ ativo não é uma unidade com gente trabalhando: o CEMPRE conta organizações formais com CNPJ ativo no ano e, para empresas, com atividade (RAIS/eSocial ou pesquisas do IBGE), e a RFB conta todo cadastro ativo, inclusive MEI e inativos de fato. Parquet em `gold/mart_emprego_setor_municipio.parquet`.",
+      "descricao": "Tamanho real do setor no município (incremento `enriquecimento_ibge`, ADR-0022): o CEMPRE do IBGE (unidades locais, pessoal ocupado, assalariados e salários) ao lado dos CNPJs ativos da RFB, por município × classe CNAE (5 dígitos). Só os pares em que o CEMPRE tem unidade local ou a RFB tem ativo da classe. Os anos são diferentes: o CEMPRE é do `ano_cempre` (hoje 2024) e a RFB do mês do gold (`mes_referencia_rfb`). Sigilo do IBGE (`X`) nunca é imputado: o valor fica NULL e `tem_sigilo` true; por isso somas de pessoal ocupado e salários sobre classes ou municípios **subestimam** o total (as unidades locais nunca são sigilosas). Um CNPJ ativo não é uma unidade com gente trabalhando: o CEMPRE conta organizações formais com CNPJ ativo no ano e, para empresas, com atividade (RAIS/eSocial ou pesquisas do IBGE), e a RFB conta todo cadastro ativo, inclusive MEI e inativos de fato. Parquet em `gold/mart_emprego_setor_municipio.parquet`. **CEMPRE** é o Cadastro Central de Empresas do IBGE: empresas e organizações formais ativas e suas **unidades locais** (endereços de atuação), com pessoal ocupado, assalariados e salários, por município × classe CNAE, em 31/12 do ano do CEMPRE (hoje 2024). Não inclui MEI e conta o que tem sinal de atividade. A comparação justa com a RFB é de unidades locais com ativos sem MEI. Células que identificariam o informante vêm com sigilo: o pessoal e os salários ficam nulos, e somá-los dá um piso, não o total.",
       "colunas": [
         {
           "nome": "sk_municipio",
@@ -10267,7 +10440,7 @@
       "nome": "main.mart_sobrevivencia_coorte",
       "camada": "analytics",
       "grao": "coorte × CNAE principal × porte × UF (`ano_coorte`, `sk_cnae`, `sk_porte`, `uf`)",
-      "descricao": "Sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF, a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`); sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis. Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`.",
+      "descricao": "Sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF, a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`); sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis. Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`. **Sobrevivência a N anos** (1, 3 ou 5) é a fração dos elegíveis de uma coorte de abertura (o ano de início de atividade) que seguiam ativos N anos depois da abertura: **ativos hoje ou encerrados a partir do aniversário de N anos**. Não é \"ainda ativo\": um estabelecimento aberto em 2015 e baixado em 2024 sobrevive aos 3 e aos 5 anos. A coorte só é elegível quando inteira já completou N anos (31/12 do ano de abertura + N até a data de referência). A taxa soma elegíveis e sobreviventes dos estratos antes de dividir.",
       "colunas": [
         {
           "nome": "ano_coorte",

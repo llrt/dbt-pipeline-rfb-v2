@@ -13,7 +13,9 @@ Fontes:
   raw) vira o marcador `${RAIZ_DADOS}`;
 - `docs/referencia/golden_queries/semantica.yml`, as golden queries da camada semântica (comandos `mf query`), com o SQL que
   o MetricFlow gera para cada uma (`mf query --explain` sobre uma cópia do warehouse, normalizado como o compilado);
-- `docs/referencia/golden_queries/matriz.yml`, a matriz conceito × camada com o motivo de cada célula sem query.
+- `docs/referencia/golden_queries/matriz.yml`, a matriz conceito × camada com o motivo de cada célula sem query;
+- os doc blocks do dbt (`transform/models/docs/conceitos.md`, lidos por `gerar_conceitos.py`): a definição curta de
+  cada conceito, embutida em `conceitos[].definicoes` para o agente, que só recebe o guia e o catálogo.
 
 As funções de validação (cabeçalho, cobertura da matriz, colunas proibidas) também são usadas pelos testes.
 """
@@ -36,6 +38,8 @@ from decimal import Decimal
 from pathlib import Path
 
 import yaml
+from gerar_conceitos import Definicao
+from gerar_conceitos import carregar as carregar_definicoes
 
 from rfb_pipeline.caminhos import (
     GOLDEN_CATALOGO,
@@ -883,13 +887,16 @@ def _entrada_comum(cab: dict) -> dict:
 def gerar_catalogo(
     matriz: dict, golden: dict[str, tuple[dict, str]], compilados: dict[str, str], semantica: list[dict],
     raiz_dados: str | Path | None, semanticos: dict[str, str], esquema: dict | None = None,
+    definicoes: list[Definicao] | None = None,
 ) -> dict:  # fmt: skip
     """O catálogo legível por máquina (dicionário pronto para `json.dumps`).
 
     `semanticos` é o SQL gerado pelo MetricFlow para cada golden query semântica (`sql_semantico`); `esquema`, as
-    métricas, dimensões e relações consultáveis (`gerar_esquema`).
+    métricas, dimensões e relações consultáveis (`gerar_esquema`); `definicoes`, os doc blocks dos conceitos.
     """
-    problemas = problemas_gerais(matriz, golden, semantica)
+    problemas = problemas_gerais(matriz, golden, semantica) + problemas_de_definicoes(
+        matriz, definicoes or []
+    )
     faltam = sorted(set(golden) - set(compilados))
     if faltam:
         problemas.append(f"sem SQL compilado: {', '.join(faltam)}")
@@ -952,16 +959,45 @@ def gerar_catalogo(
             "edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o "
             "MetricFlow gera (`mf query --explain`), que roda sem o repositório e só lê. Relações em `main.<nome>` "
             "(o schema do warehouse local e do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes "
-            f"raw. Guia de uso: {relativo(GUIA)}."
+            f"raw. Guia de uso: {relativo(GUIA)}. Cada conceito traz em `definicoes` a definição curta (doc blocks "
+            "do dbt, a mesma das descrições dos modelos)."
         ),
         "marcador_raiz_dados": MARCADOR_RAIZ,
         "camadas": matriz["camadas"],
         "conceitos": [
-            {**c, "sem_query": dict(motivos.get(c["id"]) or {})} for c in matriz["conceitos"]
+            {
+                **c,
+                "definicoes": [
+                    {"id": d.nome, "titulo": d.titulo, "texto": d.texto}
+                    for nome in c.get("definicoes") or []
+                    for d in definicoes or []
+                    if d.nome == nome
+                ],
+                "sem_query": dict(motivos.get(c["id"]) or {}),
+            }
+            for c in matriz["conceitos"]
         ],
         "golden_queries": consultas,
         **(esquema or {}),
     }
+
+
+def problemas_de_definicoes(matriz: dict, definicoes: list[Definicao]) -> list[str]:
+    """Todo nome em `conceitos[].definicoes` é um doc block, e todo doc block está em algum conceito."""
+    nomes = {d.nome for d in definicoes}
+    citados = {n for c in matriz["conceitos"] for n in c.get("definicoes") or []}
+    problemas = [
+        f"conceito {c['id']}: definição {n!r} não é doc block de transform/models/docs/conceitos.md"
+        for c in matriz["conceitos"]
+        for n in c.get("definicoes") or []
+        if n not in nomes
+    ]
+    if definicoes:
+        problemas += [
+            f"doc block {n!r} sem conceito na matriz (`definicoes`)"
+            for n in sorted(nomes - citados)
+        ]
+    return problemas
 
 
 def _link(consulta: dict) -> str:
@@ -1146,6 +1182,7 @@ def main(argv: list[str] | None = None) -> int:
         catalogo = gerar_catalogo(
             carregar_matriz(), carregar_golden(), compilados, semantica, args.raiz_dados,
             sql_semantico(semantica, args.raiz_dados), carregar_esquema(args.alvo_dbt),
+            carregar_definicoes(),
         )  # fmt: skip
         texto_catalogo = serializar(catalogo)
         texto_guia = renderizar_guia(args.guia.read_text(encoding="utf-8"), catalogo)

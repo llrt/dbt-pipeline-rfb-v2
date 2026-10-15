@@ -28,6 +28,9 @@ from rfb_pipeline.caminhos import (
     CAMADA_SEMANTICA as DOC_SEMANTICA,
 )
 from rfb_pipeline.caminhos import (
+    CONCEITOS as DOC_CONCEITOS,
+)
+from rfb_pipeline.caminhos import (
     DICIONARIO_DADOS,
     DIR_ADR,
     QUALIDADE_DADOS,
@@ -657,14 +660,17 @@ def gerar(manifesto: dict, catalogo: dict | None = None) -> str:
     linhas = [
         "# Dicionário de dados",
         "",
+        "> **Para quem:** quem escreve SQL, monta um painel ou mantém os modelos · **Quando ler:** para saber o",
+        "> que uma tabela ou coluna guarda, em que grão, com que chaves e de onde vem.",
+        "",
         "> Gerado por `scripts/gerar_dicionario_dados.py` a partir do manifesto e do catálogo do dbt; não edite à",
         f"> mão ({_adr('0019', '0019-dicionario-de-dados.md')}). Para regenerar: `make dicionario` (depois do",
         "> `make ci` ou de um `dbt build`).",
         "",
         "Detalhe de todas as tabelas disponíveis na base, com os campos de cada uma: o que são, em que",
         "grão, quais as chaves, onde ficam e o que cada coluna guarda. Conceitos de negócio (CNPJ, porte,",
-        f"situação cadastral, CNAE...) estão em {CAMADA_SEMANTICA} (Parte A); as",
-        f"dimensões e métricas do MetricFlow, na Parte B; os testes, em {_doc(QUALIDADE_DADOS)}.",
+        f"situação cadastral, CNAE...) estão em {_doc(DOC_CONCEITOS)}; as dimensões e métricas do MetricFlow,",
+        f"em {CAMADA_SEMANTICA}; os testes, em {_doc(QUALIDADE_DADOS)}.",
         "",
         "## Como ler",
         "",

@@ -1,11 +1,15 @@
 # Guia de consulta em linguagem natural
 
+> **Para quem:** um agente (LLM) que responde perguntas livres sobre a base, e quem o configura · **Quando ler:**
+> é o prompt de trabalho do agente, junto com o catálogo; pessoas leem os [conceitos](../conceitos.md) primeiro.
+
 > **Adição** ([ADR-0023](../adr/0023-golden-queries-e-guia-para-agente.md)). Este guia é para um **agente** (LLM) que
 > responde perguntas livres em português sobre a base de CNPJ do projeto. O agente recebe só três coisas:
 > este guia, o catálogo [`golden_queries/catalogo.json`](../referencia/golden_queries/catalogo.json) e acesso **somente leitura**
 > ao DuckDB local ou ao MotherDuck. Tudo o que ele precisa para escolher a tabela, montar o SQL, evitar as
-> armadilhas do cadastro e respeitar a privacidade está aqui. Pessoas também podem usá-lo; o detalhe de negócio
-> está na [camada semântica](../referencia/camada-semantica.md) e o de cada coluna no [dicionário](../referencia/dicionario-dados.md).
+> armadilhas do cadastro e respeitar a privacidade está aqui ou no catálogo. Pessoas também podem usá-lo; a
+> explicação de negócio está em [conceitos](../conceitos.md), a das métricas na
+> [camada semântica](../referencia/camada-semantica.md) e a de cada coluna no [dicionário](../referencia/dicionario-dados.md).
 
 Convenções deste guia:
 
@@ -16,6 +20,10 @@ Convenções deste guia:
   confere que todo `gq_*` citado neste guia existe no catálogo.
 - Os números de exemplo vêm das **fixtures do CI** (cenário sintético: 18 estabelecimentos, meses 2026-08 e
   2026-09), salvo onde está escrito **dado real**.
+- **O que cada conceito significa** (empresa, estabelecimento, situação cadastral, porte, MEI, CNAE, fotografia
+  mensal, abertura e encerramento, sobrevivência, CEMPRE, REGIC…) está no catálogo, em `conceitos[].definicoes`:
+  a definição curta de cada conceito, a mesma das descrições dos modelos. Este guia não a repete; ele diz como
+  traduzir a pergunta em tabela, coluna e SQL.
 
 ## 1. O que há na base
 
@@ -176,6 +184,9 @@ Regras de join:
 - `cnpj_raiz` não está na fato: é `left(cnpj_completo, 8)`.
 
 ## 5. Glossário: do vocabulário do usuário às colunas
+
+Este glossário é a fonte única do mapeamento vocabulário → coluna. A definição de cada conceito está no catálogo
+(`conceitos[].definicoes`); a explicação completa, para pessoas, em [conceitos](../conceitos.md).
 
 | Termo do usuário | Tradução | Ambiguidade a resolver (pergunte ou declare a escolha) |
 |---|---|---|
@@ -368,7 +379,8 @@ def checar_saida(colunas, linhas, identifica_estabelecimento=False):
 1. **Classifique a pergunta:** métrica padrão (contagem, taxa, série) · ad hoc (cruzamento, filtro livre, ponte) ·
    auditoria ("o que a RFB publicou") · paridade com o MVP · fora da base (sócios, contatos, faturamento) · pedido de
    dado pessoal.
-2. **Ache cada termo no glossário (seção 5).** Resolva as ambiguidades: se a escolha muda a resposta (empresa ×
+2. **Ache cada termo no glossário (seção 5)** e, se precisar do significado, a definição do conceito no catálogo
+   (`conceitos[].definicoes`). Resolva as ambiguidades: se a escolha muda a resposta (empresa ×
    estabelecimento, baixa × inaptidão, município homônimo), **pergunte**; se não muda muito, escolha o padrão e
    **declare** a escolha na resposta.
 3. **Escolha a camada (seção 2).**
@@ -557,7 +569,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 - `cnae_secundario` × `intermediate`: int_cnaes_secundarios__explodidos é a mesma lista que bridge_estabelecimento_cnae_secundario, sem `sk_cnae`; use gq_core__cnae_secundario__01
 - `cnae_secundario` × `analytics`: o secundário só entra em mart_fornecedores_proximos (`via` = 'secundario'); ver gq_analytics__fornecedores_proximos__01
 - `cnae_secundario` × `original`: bh_empresas guarda a string `cnaes_secundarios` como no MVP; para pergunta nova use a ponte (gq_core__cnae_secundario__01)
-- `cnae_secundario` × `semantica`: a ponte muitos-para-muitos fica fora da camada semântica (camada-semantica.md, B7)
+- `cnae_secundario` × `semantica`: a ponte muitos-para-muitos fica fora da camada semântica (camada-semantica.md, seção 7)
 - `simples_mei` × `intermediate`: int_estabelecimentos__enriquecidos só aplica `coalesce(..., false)` às flags; use gq_core__simples_mei__01
 - `simples_mei` × `analytics`: o MEI só aparece em `ativos_rfb_sem_mei` de mart_emprego_setor_municipio; ver gq_analytics__cempre_setor__01
 - `simples_mei` × `original`: o MVP não usou o arquivo Simples: bh_empresas e agg_empresas não têm Simples nem MEI
@@ -593,7 +605,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 - `area_mercado_vizinhanca` × `staging`: stg_bd__vizinhanca tem todos os anos e um só sentido; use gq_core__area_mercado_vizinhanca__01
 - `area_mercado_vizinhanca` × `intermediate`: nenhum intermediate de vizinhança; use gq_core__area_mercado_vizinhanca__01
 - `area_mercado_vizinhanca` × `original`: o MVP não usou vizinhança
-- `area_mercado_vizinhanca` × `semantica`: a ponte de vizinhança fica fora da camada semântica (camada-semantica.md, B7)
+- `area_mercado_vizinhanca` × `semantica`: a ponte de vizinhança fica fora da camada semântica (camada-semantica.md, seção 7)
 - `fornecedores_proximos` × `raw`: a busca por raio é regra do projeto (haversine entre centroides), calculada no gold
 - `fornecedores_proximos` × `staging`: a busca por raio é regra do projeto, calculada no gold
 - `fornecedores_proximos` × `intermediate`: a busca por raio é regra do projeto, calculada no gold
