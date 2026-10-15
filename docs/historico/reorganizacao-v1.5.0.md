@@ -157,6 +157,7 @@ o complemento, que um teste impede de repetir os valores da definição (RD-02).
 | §5 Glossário (tabela de 23 termos) | índice gerado, termo → definição | ver a linha A5 acima |
 | §6 Perguntas frequentes (129 linhas) | [camada-semantica.md, §5](../referencia/camada-semantica.md#perguntas-frequentes) | movida inteira |
 | §7 Fontes | §6 Fontes | só a numeração |
+| §2, Simples Nacional e MEI: "Mudança já publicada: Resolução CGSN nº 190/2026" (com a CGSN 194) e "Mudança em discussão: PLP nº 186/2026" (com a contradição do MEMP) | [referencia/regras-negocio.md, Mudanças na lei do Simples e do MEI](../referencia/regras-negocio.md#mudanças-na-lei-do-simples-e-do-mei) | movidas depois do reteste, por decisão do líder; em `conceitos.md` ficou uma frase com o link para cada uma, e a vigência do regime (art. 88 e LC 128) ficou. Lá o texto diz de novo "R$ 81 mil" e "R$ 81.000,00", que em `conceitos.md` tinham virado "o limite atual" |
 
 Fora de `conceitos.md`, o FD também mudou:
 

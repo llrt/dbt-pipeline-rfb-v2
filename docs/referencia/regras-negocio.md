@@ -605,6 +605,34 @@ testes ao build.
   a 70.10-7 no real), e a de Serra seria violação.
 - **Analysis:** `transform/analyses/regras_negocio/rn_30_cempre_coerente_com_rfb.sql`.
 
+## Mudanças na lei do Simples e do MEI
+
+O prazo da opção pelo Simples e o teto do MEI estão mudando em 2026 e 2027. As regras acima seguem o texto vigente;
+o que mudou ou está em discussão fica aqui, para quem precisa interpretar uma data de opção ou citar o limite do MEI
+num relatório. Os conceitos de Simples e MEI estão em [conceitos](../conceitos.md#simples-nacional-e-mei); as
+chaves entre colchetes são as das [fontes dos conceitos](../conceitos.md#6-fontes). Situação conferida em
+2026-10-10.
+
+**Mudança já publicada: Resolução CGSN nº 190/2026.** Com efeitos a partir de 1º de janeiro de 2027, ela muda o
+art. 6º, § 1º: a opção passa a ser formalizada de 1º a 30 de setembro e vale a partir do ano-calendário
+seguinte; um novo § 1º-B permite cancelá-la até 30 de novembro [CGSN 190, arts. 1º e 9º]. Para o ano-calendário
+de 2027, a janela é de 1º de setembro a 15 de outubro de 2026 [CGSN 194, art. 1º, que dá nova redação ao art. 1º
+da Resolução CGSN nº 186/2026]. Ou seja, quem opta pelo Simples para 2027 o faz ainda em 2026, e a data de opção
+do arquivo Simples pode ser anterior ao início dos efeitos. No extrato de 2026-09, 10 opções têm data de
+1º/1/2027: o campo guarda a data de efeito, e a [RN-13](#rn-13) aceita a opção até 1º de janeiro seguinte.
+
+**Mudança em discussão: PLP nº 186/2026.** O projeto, do Poder Executivo, foi apresentado em 29/06/2026. Ele
+propõe subir o teto do MEI para R$ 110 mil em 2027 e R$ 140 mil em 2028 e permitir até **dois empregados**
+[Câmara-Notícia]. Em 2026-10-10, **não está aprovado**:
+
+- na Câmara, a situação é "Aguardando Despacho do Presidente da Câmara dos Deputados" [Câmara-PLP 186];
+- o MEMP diz que os valores "ainda não estão em vigor" e que vale o limite de R$ 81 mil [MEMP-Teto];
+- nenhuma lei complementar de 2026 publicada até então trata do MEI [Planalto-LCP], e o texto compilado da LC 123
+  segue com R$ 81.000,00 e um empregado [LC 123].
+
+A mesma página do MEMP diz, em outra resposta, que o MEI "agora" pode contratar dois funcionários, o que contradiz
+a lei vigente. Valem a LC 123 e a tramitação.
+
 ## Fontes
 
 Conferidas em **2026-10-13** (texto lido na fonte, não só citado). As linhas LC 128, CONCLA e CGSN 190/194 e os

@@ -262,15 +262,9 @@ Empresas de Pequeno Porte". A opção é irretratável no ano-calendário [LC 12
 2026-10-10, formalizada até o último dia útil de janeiro, com efeito desde 1º de janeiro [CGSN 140, art. 6º, § 1º].
 No arquivo Simples, a opção vem como S, N ou em branco ("outros") [RFB-Leiaute].
 
-**Mudança já publicada: Resolução CGSN nº 190/2026.** Com efeitos a partir de 1º de janeiro de 2027, ela muda o
-art. 6º, § 1º: a opção passa a ser formalizada de 1º a 30 de setembro e vale a partir do ano-calendário
-seguinte; um novo § 1º-B permite cancelá-la até 30 de novembro [CGSN 190, arts. 1º e 9º]. Para o ano-calendário
-de 2027, a janela é de 1º de setembro a 15 de outubro de 2026 [CGSN 194, art. 1º, que dá nova redação ao art. 1º
-da Resolução CGSN nº 186/2026]. Ou seja, quem opta pelo Simples para 2027 o faz ainda em 2026, e a data de opção
-do arquivo Simples pode ser anterior ao início dos efeitos. No extrato de 2026-09, 10 opções têm data de
-1º/1/2027: o campo guarda a data de efeito, e a [RN-13](referencia/regras-negocio.md#rn-13) aceita a opção até 1º de
-janeiro seguinte. O regime vale desde 1º de julho de 2007 [LC 123, art. 88] e o SIMEI, desde 1º de julho de 2009
-[LC 128, art. 14, III] ([RN-25](referencia/regras-negocio.md#rn-25), [RN-26](referencia/regras-negocio.md#rn-26)).
+O regime vale desde 1º de julho de 2007 [LC 123, art. 88] e o SIMEI, desde 1º de julho de 2009 [LC 128, art. 14, III]
+([RN-25](referencia/regras-negocio.md#rn-25), [RN-26](referencia/regras-negocio.md#rn-26)). O prazo da opção muda
+em 2027 (CGSN 190 e 194): veja [mudanças na lei do Simples e do MEI](referencia/regras-negocio.md#mudanças-na-lei-do-simples-e-do-mei).
 
 <!-- definição: mei (gerada do doc block por `make conceitos`; não edite à mão) --><a id="def-mei"></a>
 > **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o
@@ -299,17 +293,8 @@ empresa do Simples Nacional [CGSN 140, art. 115, § 1º].
 Os limites foram conferidos em 2026-10-10 na LC 123, na CGSN 140 e no Portal do Empreendedor. Eles mudam por lei;
 confira antes de citá-los num relatório.
 
-**Mudança em discussão: PLP nº 186/2026.** O projeto, do Poder Executivo, foi apresentado em 29/06/2026. Ele
-propõe subir o teto do MEI para R$ 110 mil em 2027 e R$ 140 mil em 2028 e permitir até **dois empregados**
-[Câmara-Notícia]. Em 2026-10-10, **não está aprovado**:
-
-- na Câmara, a situação é "Aguardando Despacho do Presidente da Câmara dos Deputados" [Câmara-PLP 186];
-- o MEMP diz que os valores "ainda não estão em vigor" e que vale o limite atual [MEMP-Teto];
-- nenhuma lei complementar de 2026 publicada até então trata do MEI [Planalto-LCP], e o texto compilado da LC 123
-  segue com o limite e o empregado da definição [LC 123].
-
-A mesma página do MEMP diz, em outra resposta, que o MEI "agora" pode contratar dois funcionários, o que contradiz
-a lei vigente. Valem a LC 123 e a tramitação.
+O PLP 186/2026, que muda o teto e o número de empregados, ainda não está aprovado: veja
+[mudanças na lei do Simples e do MEI](referencia/regras-negocio.md#mudanças-na-lei-do-simples-e-do-mei).
 
 No projeto:
 
