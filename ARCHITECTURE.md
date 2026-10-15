@@ -1,7 +1,11 @@
 # ARCHITECTURE — Pipeline RFB/CNPJ (dbt + DuckDB + Parquet)
 
+> **Para quem:** quem mantém, revisa ou estende o pipeline · **Quando ler:** para entender as camadas, os contratos,
+> a estratégia de qualidade e o que veio do MVP original.
+
 > Documento vivo. Decisões não triviais estão em [docs/adr/](docs/adr/README.md). Escopo original × adições:
-> [docs/ESCOPO.md](docs/ESCOPO.md). Produto e personas: [PRODUCT.md](PRODUCT.md).
+> [§11](#11-escopo-original--adaptado--adição). Produto e personas: [PRODUCT.md](PRODUCT.md). Como rodar:
+> [docs/operacao.md](docs/operacao.md). Conceitos de negócio: [docs/conceitos.md](docs/conceitos.md).
 
 ## 1. Visão geral
 
@@ -73,7 +77,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 
 ```
 .
-├── PRODUCT.md  ARCHITECTURE.md  README.md  docs/historico/retro.md (final)
+├── PRODUCT.md  ARCHITECTURE.md  README.md  CHANGELOG.md
 ├── pyproject.toml  uv.lock  Makefile  .env.example  .sqlfluff  .pre-commit-config.yaml
 ├── src/rfb_pipeline/           # EL em Python (pacote instalável, CLI `rfb`)
 │   ├── configuracao.py               # RAIZ_DADOS, mês de referência, URLs, limiares
@@ -98,7 +102,8 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   │   ├── marts/core/         # dims, fato, bridge            (adição)
 │   │   ├── marts/analytics/     # marts analíticos              (adição)
 │   │   ├── observability/    # histórico e resumo de DQ      (adição)
-│   │   └── audit/            # tradução literal do SQL original (paridade; efêmero)
+│   │   ├── audit/            # tradução literal do SQL original (paridade; efêmero)
+│   │   └── docs/             # doc blocks: definições curtas dos conceitos (docs/conceitos.md)
 │   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso, cenários de uso, regras de negócio e
 │   │                                                     golden/: golden queries, ADR-0023)
 ├── dados/ (gitignored)          # RAIZ_DADOS padrão
@@ -108,7 +113,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   ├── raw/_rejeitos/  _manifestos/  _baixados/ (cache de zips)
 │   ├── gold/<modelo>.parquet
 │   └── warehouse.duckdb
-└── docs/  adr/  guia-dbt/  uso/  referencia/  relatorios/  historico/  ESCOPO.md  operacao.md
+└── docs/  adr/  guia-dbt/  uso/  referencia/  relatorios/  historico/  conceitos.md  operacao.md
 ```
 
 ## 4. EL — Ingestão (Python)
@@ -206,7 +211,7 @@ flowchart LR
 | Observabilidade (adição) | `models/observability/` | `table`/`incremental` | `dq_*` | execução × teste |
 
 - Colunas em `snake_case` minúsculo (o original usava `CNAE_principal`, `UF`; DuckDB é case-insensitive,
-  mas padronizamos). Mapeamento de nomes em [docs/ESCOPO.md](docs/ESCOPO.md).
+  mas padronizamos). Mapeamento de nomes na [§11](#mapeamento-de-nomes-de-colunas-original--port).
 - Todo modelo declara `meta: {escopo: original | adicao | adaptado}` e a tag correspondente
   (`escopo_original`, `escopo_adicao`, `escopo_adaptado`) — [ADR-0006](docs/adr/0006-marcacao-escopo.md).
 - Marts `original` e `core` têm **contrato** (`contract: enforced: true`) com tipos declarados.
@@ -226,100 +231,23 @@ flowchart LR
 
 ### 5.3 Modelos
 
-**Staging** (tipagem e limpeza; sem joins):
-- `stg_rfb__empresas`: `cnpj_raiz` lpad 8; `natureza_juridica_codigo`; `porte_codigo` int (null se vazio);
-  `capital_social` decimal (vírgula → ponto); strings vazias → NULL.
-- `stg_rfb__estabelecimentos`: `cnpj_completo` = lpad(raiz,8)||lpad(ordem,4)||lpad(dv,2); datas `YYYYMMDD`
-  → `DATE` (`0`, `00000000` e inválidas → NULL); `situacao_codigo` int; `cnae_principal` lpad 7;
-  `cnaes_secundarios` texto original + `cnaes_secundarios_lista` (lista); `municipio_rfb_codigo`;
-  **descarta** `email`, `ddd*`, `tel*`, `fax` ([ADR-0008](docs/adr/0008-minimizacao-dados-pessoais.md)).
-- `stg_rfb__simples`, `stg_rfb__cnaes`, `stg_rfb__municipios`, `stg_rfb__naturezas`, `stg_rfb__motivos`.
-- `stg_bd__municipios` (ids como texto, `centroide` → `latitude`/`longitude`), `stg_bd__cnaes`
-  (subclasse lpad 7), `stg_bd__populacao`, `stg_bd__pib`; **incremento enriquecimento BD (ADR-0015):**
-  `stg_bd__censo_2022_municipio`, `stg_bd__regioes_metropolitanas` (uma região por município; descarta a
-  `geometria`), `stg_bd__vizinhanca`.
-- **Incremento enriquecimento IBGE (ADR-0022):** `stg_ibge__cempre_municipio_classe` (município × classe CNAE de
-  5 dígitos × ano; `X` → NULL com `tem_sigilo`), `stg_ibge__cempre_municipio_total`, `stg_ibge__renda_municipio`,
-  `stg_ibge__regic_hierarquia`, `stg_ibge__regic_ligacoes` (destino "Outros" com `destino_outros`),
-  `stg_ibge__regic_atracao`.
+O detalhe de cada modelo e de cada coluna (descrição, grão, chaves, testes, origem, linhagem) está no
+[dicionário de dados](docs/referencia/dicionario-dados.md), gerado dos YAMLs do dbt, com o diagrama do
+[modelo estrela](docs/referencia/dicionario-dados.md#modelo-estrela). Os YAMLs são a fonte; este resumo só diz o
+papel de cada camada.
 
-**Intermediate:**
-- `int_municipios__conformados`: RFB ↔ IBGE (via BD) + região imediata/intermediária, micro/meso, população do ano, PIB.
-- `int_estabelecimentos__enriquecidos`: estabelecimento × empresa × domínios, com **left joins** e flags de
-  correspondência (`tem_cnae_bd`, `tem_municipio_bd`, ...). Base de `bh_empresas` e do core.
-- `int_cnaes_secundarios__explodidos`: uma linha por (estabelecimento, CNAE secundário).
-- **Incremento enriquecimento IBGE:** `int_regic__destinos_compras` (REGIC em formato longo nos temas de compra Q1 e
-  Q2, com o posto de cada destino) e `int_municipios__perfil_ibge` (renda, VA com `ano_va` próprio, hierarquia,
-  atração, polo de compras e total do CEMPRE por município).
+| Camada | Modelos | Papel |
+|---|---|---|
+| Staging | `stg_rfb__*` (empresas, estabelecimentos, simples e os domínios cnaes, municípios, naturezas, motivos); `stg_bd__*` (municípios, cnaes, população, PIB; **incremento enriquecimento BD:** Censo 2022, regiões metropolitanas, vizinhança); `stg_ibge__*` (**incremento enriquecimento IBGE:** CEMPRE por classe e total, renda, REGIC hierarquia, ligações e atração) | tipagem e limpeza, sem joins; `cnpj_completo` montado das três partes; datas `YYYYMMDD` → `DATE`; **descarta** `email`, `ddd*`, `tel*`, `fax` ([ADR-0008](docs/adr/0008-minimizacao-dados-pessoais.md)) |
+| Intermediate | `int_municipios__conformados`, `int_estabelecimentos__enriquecidos`, `int_cnaes_secundarios__explodidos`; **incremento IBGE:** `int_regic__destinos_compras`, `int_municipios__perfil_ibge` | junções e conformação: RFB ↔ IBGE (via BD), estabelecimento × empresa × domínios com **left joins** e flags de correspondência (base do original e do core) |
+| Original ([ADR-0005](docs/adr/0005-paridade-modelos-originais.md)) | `bh_empresas`, `agg_empresas`; `audit__bh_empresas_sql_original` (efêmero) | paridade com o notebook 3 (inner joins, mesmas colunas e regras). Única diferença intencional: idade relativa a `data_referencia` em vez de `now()` (`escopo: adaptado`). Um teste singular exige diferença zero entre `bh_empresas` e o SQL original traduzido |
+| Core ([ADR-0013](docs/adr/0013-modelo-estrela-bi.md)) | `dim_municipio`, `dim_cnae`, `dim_natureza_juridica`, `dim_porte`, `dim_situacao_cadastral`, `dim_data`; `fct_estabelecimentos`, `fct_resumo_mensal`; `bridge_estabelecimento_cnae_secundario`, `bridge_municipio_vizinho` (incremento BD), `bridge_municipio_destino_compras` (incremento IBGE) | modelo estrela para BI: chaves `sk_*` inteiras, membro `-1` NÃO INFORMADO (e `-2` DATA INVÁLIDA em `dim_data`), hierarquias em colunas. `fct_resumo_mensal` é a série mensal particionada para o modo Import do Power BI ([guia](docs/uso/power-bi.md)) |
+| Análises | `mart_concorrencia_municipio`, `mart_concorrencia_area_mercado` (incremento BD), `mart_dinamica_mercado`, `mart_sobrevivencia_coorte`, `mart_fornecedores_proximos`, `mart_emprego_setor_municipio` (incremento IBGE) | uma regra pronta por pergunta (concorrência, área de mercado, dinâmica, sobrevivência, fornecedores, CEMPRE × RFB) |
+| Observabilidade | `dq_historico_testes` (tabela dos hooks), `dq_resumo_execucao` | `on-run-end` grava os `run_results` dos testes (nome, status, falhas, severidade, escopo); `store_failures` nos testes de conteúdo |
+| Golden queries ([ADR-0023](docs/adr/0023-golden-queries-e-guia-para-agente.md)) | `transform/analyses/golden/gq_<camada>__<conceito>__<nn>.sql` e `docs/referencia/golden_queries/semantica.yml` | uma consulta testada por conceito × camada, com a resposta exata nas fixtures; `make golden` gera o catálogo para o [agente de consulta](docs/uso/consulta-agente.md) |
 
-**Original (paridade — [ADR-0005](docs/adr/0005-paridade-modelos-originais.md)):**
-- `bh_empresas`: mesmas 15 colunas e regras do notebook 3 (inner joins, `porte` N/A/MICRO/PEQUENA/DEMAIS,
-  `situacao` ATIVA/INATIVA, `idade_atual` em anos com 1 casa, só para ATIVA). Diferença intencional única:
-  idade relativa a `data_referencia` em vez de `now()` (marcada `escopo: adaptado`).
-- `agg_empresas`: `group by` das 10 dimensões; `qtd_empresas`, `media_idade`.
-- `audit__bh_empresas_sql_original` (modelo efêmero de teste): o SQL do notebook 3 traduzido literalmente
-  para DuckDB; um teste singular exige diferença zero contra `bh_empresas`.
-
-**Core — modelo estrela otimizado para BI (adição/melhoria, [ADR-0013](docs/adr/0013-modelo-estrela-bi.md)):**
-
-```mermaid
-erDiagram
-  dim_municipio ||--o{ fct_estabelecimentos : sk_municipio
-  dim_cnae ||--o{ fct_estabelecimentos : sk_cnae
-  dim_natureza_juridica ||--o{ fct_estabelecimentos : sk_natureza_juridica
-  dim_porte ||--o{ fct_estabelecimentos : sk_porte
-  dim_situacao_cadastral ||--o{ fct_estabelecimentos : sk_situacao_cadastral
-  dim_data ||--o{ fct_estabelecimentos : "sk_data_inicio_atividade / sk_data_situacao"
-  fct_estabelecimentos ||--o{ bridge_estabelecimento_cnae_secundario : cnpj_completo
-  dim_cnae ||--o{ bridge_estabelecimento_cnae_secundario : sk_cnae
-  dim_municipio ||--o{ fct_resumo_mensal : sk_municipio
-  dim_cnae ||--o{ fct_resumo_mensal : sk_cnae
-  dim_porte ||--o{ fct_resumo_mensal : sk_porte
-  dim_situacao_cadastral ||--o{ fct_resumo_mensal : sk_situacao_cadastral
-  dim_data ||--o{ fct_resumo_mensal : sk_mes_referencia
-```
-
-- Dimensões com chave substituta **inteira** `sk_*` e membro `-1` "NÃO INFORMADO"; hierarquias em colunas
-  (`dim_municipio`: região → UF → meso → micro → município; intermediária → imediata. `dim_cnae`: seção → divisão →
-  grupo → classe → subclasse). `dim_data` (calendário de 1900-01-01 em diante, `sk_data = yyyymmdd`; membros `-1` NÃO INFORMADO e `-2` DATA INVÁLIDA, com datas contíguas ao calendário).
-- `fct_estabelecimentos` (grão CNPJ, só chaves inteiras + flags + medidas; `cnpj_completo` degenerado) — detalhe/DuckDB.
-- `fct_resumo_mensal` (agregada, aditiva, histórico por partição mensal; grão mês × município × CNAE × porte × situação × MEI; capital só das matrizes) — **modo Import do Power BI**.
-- `bridge_estabelecimento_cnae_secundario` (opcional no BI, muitos-para-muitos). Guia: `docs/uso/power-bi.md`.
-- **Incremento enriquecimento BD (ADR-0015):** `dim_municipio` ganha `populacao_censo_2022`, `domicilios_2022`,
-  `area_km2`, `densidade_hab_km2`, `taxa_alfabetizacao`, `idade_mediana`, `indice_envelhecimento`, `razao_sexo` e
-  `nome_regiao_metropolitana` (`NÃO PERTENCE` fora de RM); `bridge_municipio_vizinho` (pares simétricos, ano mais
-  recente, sem autopares; opcional no BI).
-- **Incremento enriquecimento IBGE (ADR-0022):** `dim_municipio` ganha a renda per capita do Censo 2022, o VA por
-  atividade (`ano_va`, independente de `ano_pib`), a hierarquia e o índice de atração da REGIC 2018, o polo de
-  compras (`id_municipio_polo_compras`, maior % em móveis e eletroeletrônicos) e o total do CEMPRE;
-  `bridge_municipio_destino_compras` (origem × destino × tema; "Outros" = `-1`; opcional no BI).
-
-**Análises (adição):**
-- `mart_concorrencia_municipio`: CNAE × município → ativos, inativos, ativos por 10 mil hab., ranking na UF.
-- `mart_concorrencia_area_mercado` (**incremento enriquecimento BD**): CNAE × município (pares com estabelecimento local **e** vazios de
-  mercado: vizinhos ou RM com ≥ 1 ativo do CNAE e `tem_estabelecimento_local` = false, local 0) → ativos/inativos no
-  município, nos vizinhos e na região metropolitana, e ativos por mil domicílios e por km² (município e área =
-  município + vizinhos; NULL sem denominador). **Incremento enriquecimento IBGE:** o polo de compras do município e
-  `ativos_no_polo`, sem mudar grão nem colunas.
-- `mart_emprego_setor_municipio` (**incremento enriquecimento IBGE**): município × classe CNAE → CEMPRE (unidades,
-  pessoal, assalariados, salários, `tem_sigilo`) ao lado dos ativos RFB com e sem MEI; anos diferentes
-  (`ano_cempre` × `mes_referencia_rfb`). Linhagem: `stg_ibge__cempre_municipio_classe` + `fct_estabelecimentos` +
-  `dim_cnae` + `dim_municipio`.
-- `mart_sobrevivencia_coorte`: coorte (ano de início) × CNAE × porte × UF → n, sobreviventes a 1/3/5 anos, taxas.
-  Sobrevivência a N anos: início ≤ `data_referencia − N anos` e (ativa **ou** data de baixa ≥ início + N anos).
-- `mart_dinamica_mercado`: ano × CNAE × município → aberturas, encerramentos (situação 08 com `dat_situacao`), saldo.
-- `mart_fornecedores_proximos`: para (município alvo, CNAEs de fornecedor) → fornecedores ativos por município
-  com distância haversine entre centroides, considerando CNAE principal **e** secundário.
-
-**Observabilidade (adição):** `on-run-end` grava `run_results` (testes: nome, status, falhas, severidade,
-escopo) em `dq_historico_testes` (incremental) e `dq_resumo_execucao`; `store_failures` ligado para testes de conteúdo.
-
-**Golden queries (adição, [ADR-0023](docs/adr/0023-golden-queries-e-guia-para-agente.md)):** uma analysis por
-conceito × camada em `transform/analyses/golden/` (`gq_<camada>__<conceito>__<nn>.sql`, com cabeçalho YAML e a
-resposta exata nas fixtures) e os comandos `mf query` de `docs/referencia/golden_queries/semantica.yml`, executados e conferidos
-no CI. `scripts/gerar_catalogo_golden.py` (`make golden`) gera o catálogo `docs/referencia/golden_queries/catalogo.json` com o
-SQL compilado e portável, para o agente de consulta em linguagem natural descrito em
-[docs/uso/consulta-agente.md](docs/uso/consulta-agente.md).
+As definições curtas dos conceitos de negócio usadas nas descrições dos modelos são doc blocks do dbt
+(`transform/models/docs/conceitos.md`), as mesmas de [docs/conceitos.md](docs/conceitos.md#definições).
 
 ### 5.4 Seeds
 
@@ -346,24 +274,8 @@ Severidade: estrutura (PK, contratos, relacionamentos no core, paridade) = `erro
 
 ## 7. Execução
 
-| Comando | Faz |
-|---|---|
-| `make setup` | `uv sync` + `dbt deps` |
-| `make fixtures` | gera fixtures sintéticas em `tests/fixtures/` |
-| `make ci` | fixtures → `rfb ingerir --origem-local tests/fixtures` → `dbt build --target ci` → pytest integração (tudo em `RAIZ_DADOS` temporário) |
-| `make pipeline MES=2026-09` | dados reais: ingest → `dbt source freshness` → `dbt build` → relatórios |
-| `make docs` | `dbt docs generate` (+ `serve`) |
-| `make lint` | ruff + sqlfluff |
-| `make sincronizar` | envia `raw/` e `gold/` para `s3://` (Tigris) |
-| `make publicar` | `rfb publicar --destino motherduck [--tabelas a,b]`: recria no MotherDuck as tabelas do `gold/`; só com `MOTHERDUCK_TOKEN` e `MOTHERDUCK_BANCO` (sem eles, "nada publicado", saída 0; ADR-0016) |
-| `make atualizar` | `rfb atualizar`: processa o mês novo mais recente, se houver (ADR-0012) |
-
-Perfis dbt (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local),
-`s3` (`RAIZ_DADOS=s3://...`; fontes e `gold/` no bucket, mas o `warehouse.duckdb` e os temporários ficam em
-`RAIZ_DADOS_LOCAL`; secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente, sem padrão).
-
-**Fluxo S3 (ADR-0007):** `rfb ingerir` (local, `RAIZ_DADOS_LOCAL`) → `rfb sincronizar` (`raw/` e `gold/`, comparação por
-tamanho + sha256) → `dbt build --target s3`. Variáveis vazias equivalem a ausentes; ver `.env.example`.
+Comandos, perfis do dbt (`ci`, `dev`, `s3`), fluxo S3, atualização mensal, agendamento e requisitos de máquina:
+[docs/operacao.md](docs/operacao.md). O início rápido está no [README](README.md#início-rápido).
 
 **Consumo por BI e publicação opcional (adição, [ADR-0016](docs/adr/0016-publicacao-motherduck.md)):** o `gold/` em
 Parquet é o contrato; o Power BI o acessa por (1) Parquet direto, (2) `warehouse.duckdb` via ODBC (views sobre o gold;
@@ -392,3 +304,84 @@ ambiente e nunca entra em SQL/log). Com `RAIZ_DADOS=s3://` a publicação recusa
 ## 10. Índice de decisões
 
 Ver [docs/adr/README.md](docs/adr/README.md).
+
+## 11. Escopo: original × adaptado × adição
+
+Marcação no código: `meta.escopo` + tag `escopo_<valor>` em cada nó dbt ([ADR-0006](docs/adr/0006-marcacao-escopo.md)).
+Fonte do original: [docs/historico/referencia-original/](docs/historico/referencia-original/README.md). Mantenha a
+tabela ao acrescentar ou mudar um artefato. Para listar pelo dbt:
+
+```bash
+cd transform
+uv run dbt ls --select tag:escopo_original                    # ou escopo_adicao, escopo_adaptado
+uv run dbt ls --select tag:incremento_enriquecimento_bd       # incremento enriquecimento BD (ADR-0015)
+uv run dbt ls --select tag:incremento_enriquecimento_ibge     # incremento enriquecimento IBGE (ADR-0022)
+```
+
+Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudança intencional documentada;
+**adição** = novo neste port.
+
+### Artefatos
+
+| Artefato no port | Escopo | Origem no MVP / justificativa |
+|---|---|---|
+| Download dos zips RFB | adaptado | `baixar_dados_QSA-*.sh` (wget + unzip) → cliente WebDAV com retry/verificação (URL mudou, ADR-0003) |
+| Conversão CSV (latin-1, `;`, escape `"`, multilinha) | original | notebook 1 (opções do `spark.read.csv`) |
+| Raw em Parquet all-VARCHAR particionado por mês | adaptado | notebook 1 salvava tabela Spark com `inferSchema` (ADR-0002) |
+| Tabelas BD `municipio`, `cnae_2` | original | notebook 1, seção 2 |
+| Tabelas BD `populacao`, `pib`; RFB `simples`, `paises`, `qualificacoes` | adição | enriquecimento (densidade, MEI) |
+| Manifesto, idempotência, limiar de rejeitos | adição | — |
+| Upload para Tigris (`rfb sincronizar`) | adaptado | `subir_arquivos_tigris.py` |
+| Fontes dbt com testes de unicidade/completude/integridade/domínio | original | notebooks 2.1.1, 2.1.2, 2.2, 2.3 |
+| Freshness das fontes (`dbt source freshness` no `make ci`) e teste `extrato_desatualizado` (idade do extrato, `warn` fora do target `ci`) | adição | — |
+| `relationships` das fontes (natureza/CNAE/município) avaliados por mês (`relacionamentos_fontes_por_mes`) | adaptado | original tinha um único mês; com meses retidos o `relationships` genérico cruzaria todos (R1-22) |
+| Staging tipado | adição | original não tinha camada explícita |
+| `bh_empresas` | original | notebook 3 |
+| `bh_empresas.idade_atual` relativa a `data_referencia` | adaptado | notebook 3 usava `now()` (ADR-0004) |
+| CPF mascarado nos nomes do gold (`bh_empresas.nome`, `mart_fornecedores_proximos.nome`): todo trecho de exatamente 11 dígitos vira `***.***.***-**` (`mascarar_cpf_no_nome`); a paridade aplica a mesma máscara no alinhamento final; teste `sem_cpf_no_nome` (error) | adaptado | a razão social do empresário individual/MEI termina com o CPF do titular (12,5 M nomes em 2026-09); o original o expunha. Decisão do usuário (ADR-0008, emenda R4-01) |
+| Uma linha por `cnpj_raiz` nas Empresas (`empresa_preferida_por_raiz` no staging e na leitura da paridade) | adaptado | o extrato real de 2026-09 traz a raiz 08314885 duas vezes (uma linha "fantasma" sem razão social, natureza 0000); o SQL original duplicaria os 51 estabelecimentos dela. O teste de unicidade da fonte vira `warn` com `store_failures` (B8, `docs/historico/execucao-real-2026-10.md`) |
+| Conversão de CSV com bytes 0x80–0x9F (transcodificação latin-1 → UTF-8 em Python antes do DuckDB) | adaptado | o leitor latin-1 do DuckDB recusa esses bytes, que o extrato real 2026-09 traz em 5 campos; o Spark do original os lia como latin-1 (B8) |
+| `agg_empresas` | original | notebook 3 |
+| Teste de paridade com SQL original | adição | — |
+| Star schema (`dim_*`, `fct_estabelecimentos`, bridge) | adição | "trabalhos futuros" do notebook 5 |
+| `mart_concorrencia_municipio`, `mart_sobrevivencia_coorte`, `mart_dinamica_mercado`, `mart_fornecedores_proximos` | adição | aprofundam as perguntas do notebook 0/4 |
+| Análises do estudo de caso Fundão/ES (`analyses/estudo_caso_q1..q3*`, `q4_fornecedores_secundarios_uf`) | original | notebook 4 (perguntas 1–4, parametrizadas por `caso_*`) |
+| Análise `estudo_caso_q4_fornecedores_resumo` (buscas por micro e mesorregião com `upper()` dos dois lados) | adaptado | o notebook 4 comparava MAIÚSCULAS (`agg_empresas`) com a grafia mista da BD e por isso sempre retornava 0 nessas buscas; a comparação corrigida muda a resposta (R3-04) |
+| Análises das adições no estudo de caso (`analyses/estudo_caso_adicao_*`, `estudo_caso_parametros`) | adição | usam os 4 marts novos |
+| Relatório gerado do estudo de caso (`rfb relatorio`, `src/rfb_pipeline/relatorio.py`) | adição | — |
+| Testes genéricos `cnpj_dv_valido` e `data_nao_futura`, `store_failures` nos testes warn, guarda de escopo (`test_escopo_meta.py`) | adição | — |
+| Endurecimento da revisão RBP: teste genérico `taxa_conversao_tipada`, checks de volume (`dbt_expectations`), contratos nos marts de analytics, `selectors.yml`, guardas de cobertura de descrições, `make ci` com unit + lint e workflow `.github/workflows/ci.yml` (não executado até o repositório ser publicado) | adição | docs/historico/revisoes/RBP.md (triagem do líder) |
+| Histórico de testes (`dq_historico_testes`, `dq_resumo_execucao`) e catálogo `docs/referencia/qualidade-dados.md` | adição | — |
+| Atualização mensal (`rfb atualizar`, completude do mês, retenção, estado) | adição (pedido do usuário) | original era carga estática única (notebook 0, "Observações") — ADR-0012 |
+| Pipeline ponta a ponta (`rfb pipeline`/`make pipeline`), backfill de mês antigo só do resumo (P22), teste `fct_resumo_mensal_gold_corrente`, publicação no fim quando o MotherDuck está configurado, `docs/operacao.md` | adição (pedido do usuário) | ADR-0012/0016; original rodava os notebooks à mão |
+| Histórico de DQ exportado para `gold/dq_historico_testes/` (Parquet por execução) | adição | RBP-12: sobrevive ao descarte do `warehouse.duckdb` |
+| Série histórica `fct_resumo_mensal` particionada por mês | adição (pedido do usuário) | ADR-0012/0013 |
+| Camada semântica dbt/MetricFlow: modelos semânticos, 29 métricas, *time spine* em `dim_data`, 5 *saved queries*, `make semantica`, `docs/referencia/camada-semantica.md` | adição (pedido do usuário) | ADR-0018; as medidas DAX do guia Power BI definidas uma vez, fora da ferramenta de BI |
+| Dicionário de dados gerado (`docs/referencia/dicionario-dados.md`, `make dicionario`): campos de cada tabela com tipo, grão, chaves e origem; `meta.campo_leiaute` nas fontes RFB; descrição em 100 % das colunas de fontes e gold | adição (pedido do usuário 2026-10-13) | ADR-0019 |
+| Regras de negócio: catálogo `docs/referencia/regras-negocio.md` (RN-01 a RN-30), checks em `analyses/regras_negocio/`, `rfb regras`/`make regras` e `docs/relatorios/regras-negocio.md`, fora do `dbt build` | adição (pedido do usuário 2026-10-13) | ADR-0020; inclui os grãos declarados sem teste (RDIC-09) |
+| Modelo estrela otimizado para Power BI (`sk_*` inteiras, `dim_data`, hierarquias, fato agregada, guia + exposure) | adição (pedido do usuário) | "modelo estrela/snowflake para self-service" citado como trabalho futuro no notebook 5 — ADR-0013 |
+| Grafia dos municípios: `bh_empresas`/`agg_empresas` em MAIÚSCULAS (herdada do SQL original); `dim_municipio` e os marts de analytics na grafia da Base dos Dados ("Fundão"). Para cruzar use `upper(nome_municipio)` + `sigla_uf` (ou `sk_municipio`) | adaptado | P18: a paridade com o original exige as MAIÚSCULAS; a dimensão de BI mantém o texto acentuado da fonte |
+| Download da Base dos Dados pela API atual (`downloadTable`); população até 2025 e PIB até 2023 | adição · **incremento: enriquecimento BD** | pedido do usuário 2026-10-01 — ADR-0015 |
+| Censo 2022 por município, regiões metropolitanas e vizinhança (raw, staging, `dim_municipio`, vizinhança conformada) | adição · **incremento: enriquecimento BD** | ADR-0015 |
+| `mart_concorrencia_area_mercado` e área de mercado no relatório do estudo de caso | adição · **incremento: enriquecimento BD** | ADR-0015 |
+| Fontes do IBGE direto da origem: CEMPRE (SIDRA 9528), renda do Censo 2022 (SIDRA 10295) e REGIC 2018 (geoftp); raw `raw/ibge/`, staging `stg_ibge__*`, `--renovar-ibge`; modo offline sem `ibge/` com raw vazio e aviso | adição · **Incremento: enriquecimento IBGE** | pedido do usuário 2026-10-13/14 — ADR-0022 |
+| `dim_municipio`: renda per capita, valor adicionado por atividade (`ano_va`), hierarquia e índice de atração da REGIC, polo de compras e total do CEMPRE; `bridge_municipio_destino_compras` | adição · **Incremento: enriquecimento IBGE** | ADR-0022 |
+| `mart_emprego_setor_municipio` (CEMPRE × RFB) e polo de compras em `mart_concorrencia_area_mercado` | adição · **Incremento: enriquecimento IBGE** | ADR-0022 |
+| RN-30 (CEMPRE × RFB), métricas e consulta salva da camada semântica, conceitos da ontologia | adição · **Incremento: enriquecimento IBGE** | ADR-0022, ADR-0018, ADR-0020 |
+| Seção do IBGE no relatório do caso, analyses `cenario_*` e `docs/uso/cenarios.md` | adição · **Incremento: enriquecimento IBGE** | pedido do usuário 2026-10-14 — ADR-0022 |
+| Publicação opcional do gold no MotherDuck (`rfb publicar`) | adição (pedido do usuário 2026-10-01) | ADR-0016 |
+| Guia de acesso do Power BI aos dados (Parquet, DuckDB local, MotherDuck) | adição (pedido do usuário) | ADR-0016 |
+| Workaround Hive Metastore (`## Reconstruir tabelas Spark`) | removido | desnecessário: Parquet + DuckDB não têm metastore volátil |
+| Script Pig `grep.pig` | removido | exploração manual; substituída por rejeitos do parser e fixtures com os quirks |
+
+### Mapeamento de nomes de colunas (original → port)
+
+| Original | Port |
+|---|---|
+| `CNAE_principal` | `cnae_principal` |
+| `desc_CNAE_principal` | `desc_cnae_principal` |
+| `grupo_CNAE_principal` | `grupo_cnae_principal` |
+| `CNAEs_secundarios` | `cnaes_secundarios` |
+| `UF` | `uf` |
+| `CEP` | `cep` (só no staging) |
+| demais | iguais |

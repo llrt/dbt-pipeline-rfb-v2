@@ -90,6 +90,6 @@ Este guia é parte integrante da documentação de engenharia deste projeto e se
   - [ADR-0013](../adr/0013-modelo-estrela-bi.md): Desenho do modelo estrela dimensional para BI.
   - [ADR-0014](../adr/0014-convencao-idioma.md): Política de nomenclatura bilíngue do repositório.
 - [**docs/referencia/qualidade-dados.md**](../referencia/qualidade-dados.md): Catálogo completo e exaustivo de todos os testes de dados do projeto, gerado automaticamente a partir do manifesto dbt.
-- [**docs/ESCOPO.md**](../ESCOPO.md): Mapeamento transparente de equivalência entre o código original dos notebooks Databricks e a implementação moderna em dbt.
+- [**ARCHITECTURE.md, §11 (escopo)**](../../ARCHITECTURE.md#11-escopo-original--adaptado--adição): Mapeamento transparente de equivalência entre o código original dos notebooks Databricks e a implementação moderna em dbt.
 - [**docs/uso/power-bi.md**](../uso/power-bi.md): Guia detalhado de modelagem dimensional, relacionamentos de cardinalidade e fórmulas DAX para conectar ferramentas de BI à camada Gold.
 - [**PRODUCT.md**](../../PRODUCT.md): Visão de produto, proposta de valor, dores do usuário e personas atendidas por esta solução analítica.
