@@ -294,12 +294,19 @@ def test_checagem_do_guia_recusa_identificador(colunas: list[str], linhas: list[
         ("select map([11222333000181], [1]) as x", True),
         ("select [map(['a'], [1]), map(['11222333000181'], [2])] as x", True),
         ("select {'k': map([11222333000181], [1])} as x", True),
+        # ARRAY de tamanho fixo chega como tupla no Python
+        ("select [11222333000181]::bigint[1] as x", True),
+        ("select ['11222333000181']::varchar[1] as x", True),
+        ("select [map(['11222333000181'], [1])]::map(varchar, integer)[1] as x", True),
+        ("select [{'k': 11222333000181}]::struct(k bigint)[1] as x", True),
         ("select map(['ES', 'MG'], [3, 1]) as x", False),
+        ("select ['ES', 'MG']::varchar[2] as x", False),
     ],
 )
 def test_checagem_do_guia_e_guarda_do_ci_conferem_chaves_de_map(sql: str, vaza: bool) -> None:
-    """Greptile PR #11 (consulta-agente.md:365): um CNPJ na chave de um `map`, como o DuckDB o devolve, é recusado
-    pela checagem do guia e pela guarda do CI (que vê o `map` como texto); um `map` sem identificador passa."""
+    """Greptile PR #11 (consulta-agente.md:365): um CNPJ na chave de um `map` ou num ARRAY de tamanho fixo (tupla no
+    Python), como o DuckDB os devolve, é recusado pela checagem do guia e pela guarda do CI (que vê o aninhado como
+    texto); sem identificador, passa."""
     with duckdb.connect(":memory:") as con:
         cursor = con.execute(sql)
         colunas, linhas = [d[0] for d in cursor.description], cursor.fetchall()
