@@ -431,4 +431,26 @@ Não medi tokens com um tokenizador real. A divisão por 4 está declarada como 
 
 ## Triagem do líder
 
-Pendente: o líder anexa aqui a triagem dos achados RGA-01 a RGA-10.
+Data: 2026-10-15. Veredito da RGA: **aprovável como patch, com ressalvas.**
+- São 1 achado alto, 4 médios e 5 baixos.
+- O protótipo que seguiu o documento montou o índice e executou em modo somente leitura. Mas a comparação de
+  respostas e a conferência de esquema, do jeito que o documento manda, não funcionaram, e a ordenação por camada
+  rebaixou a golden query certa.
+- Das 8 mutações, 5 sobreviveram.
+
+Como o documento existe para o usuário construir o agente noutro projeto, **todos os achados entram antes da release**.
+As correções ficam com o lote **FGA**, um agente novo (Opus, esforço médio). O lote é de nível acima do GA porque o
+RGA-01 é de segurança.
+
+| Achado | Decisão | Lote | Resolvido em |
+|---|---|---|---|
+| **RGA-01** `read_only` e o filtro de SELECT ainda leem qualquer arquivo e acessam a rede | O endurecimento testado pela RGA (`allowed_directories` na raiz dos dados, `enable_external_access=false`, `autoinstall_known_extensions=false`, `lock_configuration=true`) entra como **receita obrigatória** da ferramenta de execução, em `construcao-agente.md` e no guia §3. Teste: as golden queries rodam todas com essa conexão (no raw, depois de trocar `${RAIZ_DADOS}`), e leitura de arquivo fora da raiz, URL `https://`, `COPY ... TO` e `INSTALL` falham. No MotherDuck, dizer o que se aplica e o que não, sem afirmar o que não foi testado | FGA | |
+| **RGA-02** a comparação exata reprova o próprio `sql` do catálogo | O documento traz a função de comparação (`comparar_resposta`) num bloco marcado, com a normalização que o CI usa (decimais, datas ISO, meia-noite → data, ordem das linhas na semântica). Teste: ela é extraída do documento e aprova as 93 golden queries contra `resposta_esperada_fixtures` | FGA | |
+| **RGA-03** ordenar por camada rebaixa a golden query certa | A camada vira **desempate** entre candidatos de relevância próxima, não a ordem principal, como no guia §2. Ajustar o texto e o exemplo | FGA | |
+| **RGA-04** a conferência de esquema com falha fechada não casa nada sem normalizar | O documento traz a função `conferir_esquema` num bloco marcado, com a normalização: tira o `main.`; trata as fontes raw (`rfb.*`, `ibge.*`) como fora do banco; nas semânticas, as tabelas vêm do `sql` ou de um campo novo `tabelas` gerado no catálogo, o que for mais simples e testável. Teste: aprova o warehouse das fixtures e reprova um esquema mutado (coluna removida de uma relação usada) | FGA | |
+| **RGA-05** `checar_saida` (guia §7) deixa passar CNPJ como Decimal, double ou lista | Corrigir a função no guia: normaliza números inteiros em qualquer tipo numérico e percorre listas e structs. Teste com os vazamentos da RGA | FGA | |
+| **RGA-06** o teste só olha a 1ª coluna do §3 | Ampliar a guarda para todo nome de campo do catálogo citado no documento (prosa, §5, §6), com uma convenção explícita de marcação, se for preciso. M2, M3, M4 e M5 têm de morrer | FGA | |
+| **RGA-07** o §6 diz que o manifesto não tem versão | Corrigir: `_manifestos/AAAA-MM.json` tem `versao_pipeline` (versão da ingestão, fora do banco; o manifesto antigo herda a atual). A conclusão (conferência por esquema) fica | FGA | |
+| **RGA-08** MotherDuck: `table_schema='main'` pode trazer outros bancos | Acrescentar `table_catalog = current_database()` na conferência, com a ressalva de que não foi testado sem token | FGA | |
+| **RGA-09** quem liga `identifica_estabelecimento` | Dizer que é política do construtor, desligada por padrão. Hoje nenhuma golden query a usa | FGA | |
+| **RGA-10** tamanhos datados e inconsistências menores | Os tamanhos passam a ser **gerados** (bloco marcado em `construcao-agente.md`, atualizado pelo `make golden` e conferido no CI), o que mata a M6. Também: `checar_saida` dentro da ferramenta de execução, e não como ferramenta do modelo; a origem do mês da base no prompt; o filtro que recusava `FROM tabela`; a pergunta repetida entre core e semântica | FGA | |
