@@ -6,6 +6,7 @@ import json
 import re
 import sys
 
+import pytest
 from rfb_pipeline import __version__, caminhos
 
 sys.path.insert(0, str(caminhos.RAIZ_REPO / "scripts"))
@@ -13,46 +14,83 @@ sys.path.insert(0, str(caminhos.RAIZ_REPO / "scripts"))
 import gerar_catalogo_golden as g  # noqa: E402
 
 DOC = caminhos.GUIA_CONSTRUCAO_AGENTE
-# Primeira coluna de tabela com um campo entre crases, só na seção "O que indexar".
-_CAMPO_EM_TABELA = re.compile(r"^\|\s*`([a-z_][a-z0-9_\[\].]*)`\s*\|", re.M)
+# Seções em que todo identificador entre crases fora de bloco de código é campo do catálogo (RGA-06).
+SECOES = (("## 3. O que indexar", "## 4."), ("## 5. Ferramentas", "## 7."))
+_BLOCO_DE_CODIGO = re.compile(r"```.*?```", re.S)
+_IDENTIFICADOR = re.compile(r"`([a-z_][a-z0-9_]*(?:\[\])?(?:\.[a-z_][a-z0-9_]*(?:\[\])?)*)`")
+# Identificadores dessas seções que não são campo do catálogo: ferramentas e funções do agente, nomes do DuckDB e do
+# sistema de arquivos, valores de campo e o campo do manifesto da ingestão. Campo novo do catálogo não entra aqui.
+NAO_SAO_CAMPOS = {
+    "agregado", "identifica_estabelecimento",  # valores de `privacidade`
+    "buscar_golden", "descrever_relacao", "executar_sql_leitura", "checar_saida", "filtros",
+    "conectar_somente_leitura", "exigir_leitura", "conferir_esquema", "comparar_resposta", "bloqueadas",
+    "allowed_directories", "lock_configuration", "enable_external_access", "information_schema",
+    "information_schema.columns", "main", "read_csv", "read_parquet", "read_text", "json.dumps", "mf", "python",
+    "catalogo.json", "warehouse.duckdb", "rfb.empresas", "dq_resumo_execucao", "versao_pipeline",
+}  # fmt: skip
 
 
 def _catalogo() -> dict:
     return json.loads(caminhos.GOLDEN_CATALOGO.read_text(encoding="utf-8"))
 
 
-def _secao_indexar(texto: str) -> str:
-    inicio = texto.index("## 3. O que indexar")
-    return texto[inicio : texto.index("## 4.", inicio)]
+def _filhos(catalogo: dict) -> dict:
+    """`{campo: subcampos}` de todo campo do catálogo, em qualquer nível; `None` = os campos do topo."""
+    filhos: dict = {None: set(catalogo)}
+
+    def andar(no: object, pai: str | None) -> None:
+        if isinstance(no, dict):
+            for chave, valor in no.items():
+                filhos.setdefault(chave, set())
+                if pai is not None:
+                    filhos[pai].add(chave)
+                andar(valor, chave)
+        elif isinstance(no, list):
+            for item in no:
+                andar(item, pai)
+
+    andar(catalogo, None)
+    return filhos
+
+
+def identificadores(texto: str) -> list[str]:
+    """Os identificadores entre crases das seções conferidas, fora dos blocos de código."""
+    trechos = [texto[texto.index(a) : texto.index(b, texto.index(a))] for a, b in SECOES]
+    return _IDENTIFICADOR.findall(_BLOCO_DE_CODIGO.sub("", "\n".join(trechos)))
 
 
 def campos_inexistentes(texto: str, catalogo: dict) -> list[str]:
-    """Campos citados na primeira coluna das tabelas de "O que indexar" que o catálogo não tem."""
-    golden = {campo for g in catalogo["golden_queries"] for campo in g}
+    """Identificadores das seções conferidas que nem são campo do catálogo (`campo`, `campo[].sub`) nem exceção."""
+    filhos = _filhos(catalogo)
     ausentes = []
-    for citado in _CAMPO_EM_TABELA.findall(_secao_indexar(texto)):
+    for citado in identificadores(texto):
+        if citado in NAO_SAO_CAMPOS:
+            continue
         raiz, *resto = citado.replace("[]", "").split(".")
-        if raiz not in catalogo and raiz not in golden:
+        pai = raiz
+        if raiz not in filhos:
             ausentes.append(citado)
             continue
-        if not resto:
-            continue
-        itens = catalogo.get(raiz) or []
-        subcampos = {c for item in itens for c in item}
-        if resto[0] not in subcampos:
-            ausentes.append(citado)
+        for sub in resto:
+            if sub not in filhos[pai]:
+                ausentes.append(citado)
+                break
+            pai = sub
     return ausentes
 
 
 def test_campos_citados_existem_no_catalogo() -> None:
     texto = DOC.read_text(encoding="utf-8")
-    assert len(_CAMPO_EM_TABELA.findall(_secao_indexar(texto))) >= 10
+    assert len(identificadores(texto)) >= 60
     assert campos_inexistentes(texto, _catalogo()) == []
 
 
-def test_guarda_detecta_campo_inexistente() -> None:
-    texto = "## 3. O que indexar\n| `campo_que_nao_existe` | x |\n| `sql` | y |\n## 4. Prompt\n"
-    assert campos_inexistentes(texto, _catalogo()) == ["campo_que_nao_existe"]
+@pytest.mark.parametrize(
+    "citado", ["`campo_que_nao_existe`", "`conceitos[].definicao`", "`relacoes[].colunas[].tipos`"]
+)
+def test_guarda_detecta_campo_inexistente(citado: str) -> None:
+    texto = f"## 3. O que indexar\n| `sql` | {citado} |\n## 4. Prompt\n## 5. Ferramentas\n## 7.\n"
+    assert campos_inexistentes(texto, _catalogo()) == [citado.strip("`")]
 
 
 def test_catalogo_traz_a_versao_do_projeto() -> None:

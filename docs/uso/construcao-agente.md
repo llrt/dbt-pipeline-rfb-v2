@@ -51,7 +51,9 @@ no modelo.
 
 ## 3. O que indexar
 
-Os nomes de campo abaixo são os do `catalogo.json`; o teste do repositório confere que existem.
+Os nomes de campo abaixo são os do `catalogo.json`. Convenção: nas seções 3, 5 e 6, todo identificador entre crases
+fora de bloco de código é campo do catálogo, ou está na lista de exceções do teste
+(`tests/unit/test_construcao_agente.py`, nomes de ferramenta, de função e do DuckDB); o teste confere que existe.
 
 ### Índice principal: uma entrada por golden query (93)
 
