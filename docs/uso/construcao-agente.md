@@ -75,9 +75,13 @@ a intenção e `Conceito: <nome>. <definição>`. Recupere de **3 a 5**, mostre 
 deixe-o adaptar pelas `variacoes`. Na semântica, `comando` e `group_by` são do `mf` e **não** vão ao modelo (o guia §2
 explica por quê).
 
-**Prioridade de camada.** Ordene o resultado por `camada`: `semantica`, depois `core` e `analytics`; `raw`, `staging`
-e `intermediate` só para auditoria; `original` só se a pergunta pedir paridade com o MVP (guia §2). Com MotherDuck,
-filtre fora `raw`, `staging` e `intermediate`.
+**Camada: relevância primeiro, camada como desempate.** Ordene pela relevância da busca. A camada só desempata
+candidatas de relevância próxima (do mesmo conceito, por exemplo), na ordem do guia §2: `semantica`, depois `core` e
+`analytics`. Não reordene o top k inteiro por camada: a pergunta de auditoria ("o que a RFB publica") tem como
+golden query certa uma de `raw` ou `staging`, e a de paridade com o MVP, uma de `original`; uma ordenação por camada
+as rebaixa para baixo das irmãs semânticas. Se quiser filtrar, classifique a pergunta antes (auditoria, paridade ou
+negócio) e só nas de negócio tire `raw`, `staging`, `intermediate` e `original`. Com MotherDuck, filtre sempre fora
+`raw`, `staging` e `intermediate`, que não existem lá.
 
 ### Conceitos, métricas, dimensões e relações
 
@@ -130,13 +134,14 @@ Modelo, com os blocos (preencha `<…>`; **não copie o guia aqui, ele vai no bl
 ```text
 # 1. Papel
 Você responde perguntas sobre empresas brasileiras (CNPJ) usando a base descrita abaixo. Só tem as ferramentas
-buscar_golden, descrever_relacao, executar_sql_leitura e checar_saida. A base é do mês <AAAA-MM>.
+buscar_golden, descrever_relacao e executar_sql_leitura. A base é do mês <AAAA-MM>.
 
 # 2. Regras duras
 - Somente leitura. Nunca DDL/DML, nunca dbt, nunca mf query.
 - Nunca devolva nome de pessoa, CPF, contato, endereço, nem CNPJ em massa. Recuse e ofereça o agregado.
 - Nunca adivinhe nome de coluna: confira com descrever_relacao. Sempre use LIMIT.
-- Toda execução passa por checar_saida; com problema, refaça só com agregados ou recuse.
+- executar_sql_leitura passa toda saída pela checagem de privacidade; se ela devolver um problema no lugar das
+  linhas, refaça só com agregados ou recuse.
 
 # 3. Guia
 <conteúdo integral de docs/uso/consulta-agente.md>
@@ -149,6 +154,9 @@ armadilhas · valide grão e filtros (§4) · execute com LIMIT e checagem (§7)
 O número pedido; o mês de referência (e o ano de cada fonte não RFB); a fonte e a golden query ou camada usada;
 as ressalvas que mudam a leitura. Pedido ambíguo: pergunte antes (guia §9, exemplo 3).
 ```
+
+O `<AAAA-MM>` é o mês mais recente do banco, lido na partida: `select max(mes_referencia) from main.fct_resumo_mensal`.
+A checagem de privacidade não é ferramenta do modelo: roda dentro de `executar_sql_leitura` (seção 5).
 
 ## 5. Ferramentas sugeridas
 
