@@ -7,6 +7,34 @@ Formato do [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 [Versionamento Semântico](https://semver.org/lang/pt-BR/). O detalhe completo está na release de cada versão; o
 histórico de como o projeto foi feito, em [docs/historico/](docs/historico/README.md).
 
+## [1.5.1] — 2026-10-15
+
+### Adicionado
+- [Construção do agente de consulta](docs/uso/construcao-agente.md): guia para quem programa o agente (o que
+  indexar, prompt de sistema, ferramentas, versão do catálogo × banco, avaliação, modelo e segurança). Teste confere
+  que os campos do catálogo citados existem.
+- `versao_projeto` no `catalogo.json` (a versão do pacote que o gerou), para casar o catálogo com a tag que
+  construiu o banco. Só aditivo: nenhum campo existente mudou.
+- Funções de referência no guia de construção, extraídas e executadas pelo CI: `conectar_somente_leitura` e
+  `exigir_leitura` (conexão endurecida: só arquivos sob a raiz dos dados, sem rede, sem extensão, configuração
+  travada, uma consulta de leitura por vez), `comparar_resposta` (acerto exato com a normalização do catálogo, que
+  aprova as 93 golden queries) e `conferir_esquema` (falha fechada catálogo × banco, com as golden queries
+  bloqueadas).
+- `tabelas` também nas golden queries semânticas (as relações que o `sql` lê). Só aditivo.
+- Tamanhos do catálogo e do guia gerados pelo `make golden` no guia de construção e conferidos no CI.
+
+### Corrigido
+- Guia de construção: `read_only=True` mais um filtro de `SELECT` ainda deixavam o agente ler qualquer arquivo da
+  máquina e acessar a rede; a conexão endurecida passa a ser obrigatória (revisão RGA). A camada vira desempate na
+  recuperação, o manifesto da ingestão é descrito como tem `versao_pipeline` e o teste confere todo campo citado.
+- `checar_saida` (guia de consulta §7) deixava passar CNPJ como `DECIMAL`, `DOUBLE`, lista ou struct: agora
+  percorre valores aninhados, inclusive as chaves de `map`, e trata número inteiro em qualquer tipo numérico. O
+  guia §3 descreve a conexão endurecida que o agente recebe.
+- `comparar_resposta` (guia de construção §7) convertia texto com cara de número em número em todas as camadas e
+  aprovava o código `'5'` contra `'05'`: agora só a semântica passa pelo texto do CSV do `mf`, como no gerador.
+
+Release: [v1.5.1](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.5.1)
+
 ## [1.5.0] — 2026-10-15
 
 ### Adicionado

@@ -3,6 +3,8 @@
 > **Para quem:** um agente (LLM) que responde perguntas livres sobre a base, e quem o configura · **Quando ler:**
 > é o prompt de trabalho do agente, junto com o catálogo; pessoas leem os [conceitos](../conceitos.md) primeiro.
 
+> Quem **constrói** o agente (índice, prompt, ferramentas, avaliação) lê [construcao-agente.md](construcao-agente.md); este guia é o que o agente lê.
+
 > **Adição** ([ADR-0023](../adr/0023-golden-queries-e-guia-para-agente.md)). Este guia é para um **agente** (LLM) que
 > responde perguntas livres em português sobre a base de CNPJ do projeto. O agente recebe só três coisas:
 > este guia, o catálogo [`golden_queries/catalogo.json`](../referencia/golden_queries/catalogo.json) e acesso **somente leitura**
@@ -88,6 +90,11 @@ que o MetricFlow gera para aquela consulta (`mf query --explain`), testado no CI
 - Conexão **somente leitura**: em Python, `duckdb.connect("<RAIZ_DADOS>/warehouse.duckdb", read_only=True)`; na CLI,
   `duckdb -readonly <RAIZ_DADOS>/warehouse.duckdb`. **NUNCA** abra em modo de escrita, nem rode `dbt`, `CREATE`,
   `INSERT`, `UPDATE`, `DELETE`, `COPY ... TO` ou `ATTACH` de escrita.
+- A conexão que você recebe é **endurecida** (função `conectar_somente_leitura` de
+  [construção do agente](construcao-agente.md#conexão-somente-leitura-obrigatória-no-local)): só lê arquivos sob
+  `<RAIZ_DADOS>`, não acessa a rede, não instala nem carrega extensão e não aceita `SET`. Um `Permission Error` ao ler
+  um caminho fora da raiz ou uma URL é a regra funcionando: não tente contornar. Só uma consulta de leitura por
+  execução (`SELECT`, `WITH` ou `FROM tabela`).
 - O gold (`dim_*`, `fct_*`, `bridge_*`, `mart_*`, `bh_empresas`, `agg_empresas`) são **views sobre Parquet** em
   `<RAIZ_DADOS>/gold/`. `fct_resumo_mensal` é uma view sobre **todas as partições** `gold/fct_resumo_mensal/
   mes_referencia=AAAA-MM/`: é a única relação com a série de meses.
@@ -309,13 +316,16 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
 ### Checagem obrigatória pós-execução
 
 Antes de responder, **DEVE** passar o resultado por esta função (ou por uma checagem equivalente): colunas da saída
-e linhas como vieram do banco. Se ela devolver qualquer problema, **não** mostre o resultado: refaça o SQL só com
+e linhas como vieram do banco (listas, structs e mapas são percorridos, chaves de mapa inclusive; número inteiro em `DECIMAL` ou `DOUBLE` conta
+como inteiro). Se ela devolver qualquer problema, **não** mostre o resultado: refaça o SQL só com
 agregados ou recuse (exemplo 5). Ela não substitui a regra da derivada acima, porque um nome com alias e sem CPF
 mascarado não tem cara de nada; as duas valem juntas.
 
 ```python
 # checagem: privacidade
+import math
 import re
+from decimal import Decimal
 
 COLUNA_PROIBIDA = re.compile(
     r"(^|_)(nome|razao_social|nome_fantasia|cpf|email|correio|telefone|tel|ddd|ddd_fax|fax|logradouro|"
@@ -347,6 +357,23 @@ def _dv_ok(digitos: str) -> bool:
     return True
 
 
+def _valores(valor):
+    """Os valores simples de uma célula: percorre listas, structs e mapas, com as chaves (um CNPJ pode ser a chave de
+    um `map`; struct e map chegam como dict, então o nome de campo de struct também é conferido); número inteiro em
+    Decimal ou float vira int (um CNPJ em `DECIMAL(18,0)`, `DOUBLE` ou `array_agg` é o mesmo CNPJ)."""
+    if isinstance(valor, dict):
+        for chave, item in valor.items():
+            yield from _valores(chave)
+            yield from _valores(item)
+    elif isinstance(valor, (list, tuple)):
+        for item in valor:
+            yield from _valores(item)
+    elif isinstance(valor, (Decimal, float)) and math.isfinite(valor) and valor == int(valor):
+        yield int(valor)
+    else:
+        yield valor
+
+
 def checar_saida(colunas, linhas, identifica_estabelecimento=False):
     """Problemas de privacidade (ADR-0008) num resultado; lista vazia = pode responder."""
     problemas = []
@@ -357,7 +384,7 @@ def checar_saida(colunas, linhas, identifica_estabelecimento=False):
         elif COLUNA_CNPJ.search(nome) and not identifica_estabelecimento:
             problemas.append(f"coluna de CNPJ: {coluna}")
     for linha in linhas:
-        for valor in linha:
+        for valor in (simples for celula in linha for simples in _valores(celula)):
             if isinstance(valor, str) and CPF_MASCARADO.search(valor):
                 problemas.append(f"nome de pessoa (CPF mascarado): {valor!r}")
             if identifica_estabelecimento:

@@ -23,7 +23,7 @@ Censo 2022 e REGIC 2018).
 - **Analista de mercado / BI:** pipeline mensal, idempotente e testado; agende `make atualizar` e, a cada mês novo
   da RFB, receba um **modelo estrela pronto para o Power BI** (Parquet) com série histórica e relatório de qualidade
   ([guia Power BI](docs/uso/power-bi.md)).
-- **Quem quer perguntar em linguagem natural:** entregue a um agente (LLM) o [guia de consulta](docs/uso/consulta-agente.md),
+- **Quem quer perguntar em linguagem natural:** entregue a um agente (LLM) o [guia de consulta](docs/uso/consulta-agente.md) (quem **constrói** o agente lê [construcao-agente.md](docs/uso/construcao-agente.md)),
   o catálogo de golden queries e acesso somente leitura à base, e pergunte *"quantas lojas de tinta tem em Fundão?"*.
 - **Quem está aprendendo dbt:** um projeto real, em português, com fontes, staging, marts, testes genéricos,
   singulares e unitários, contratos, freshness e um [guia de dbt](docs/guia-dbt/README.md) — tudo no laptop, custo zero.
@@ -52,7 +52,7 @@ Antes da primeira execução real (máquina, disco, tempo, agendamento, S3, Moth
 | [Conceitos](docs/conceitos.md) | o que os dados significam: empresa × estabelecimento, situação cadastral, porte, MEI, CNAE, ciclo de vida, fontes IBGE, glossário |
 | [Arquitetura](ARCHITECTURE.md) | camadas, contratos, qualidade de dados, riscos, o escopo original × adaptado × adição e [como estender](ARCHITECTURE.md#12-como-estender) (fonte, modelo, conceito ou documento novo) |
 | [Operação](docs/operacao.md) | rodar com dados reais, atualização mensal, requisitos e tempos medidos, agendamento, publicação |
-| Uso | [cenários](docs/uso/cenarios.md) · [Power BI](docs/uso/power-bi.md) · [consulta por agente](docs/uso/consulta-agente.md) |
+| Uso | [cenários](docs/uso/cenarios.md) · [Power BI](docs/uso/power-bi.md) · [consulta por agente](docs/uso/consulta-agente.md) · [construir o agente](docs/uso/construcao-agente.md) |
 | Referência | [dicionário de dados](docs/referencia/dicionario-dados.md) · [camada semântica](docs/referencia/camada-semantica.md) · [regras de negócio](docs/referencia/regras-negocio.md) · [qualidade](docs/referencia/qualidade-dados.md) · [golden queries](docs/referencia/golden_queries/catalogo.json) |
 | [Decisões](docs/adr/README.md) | os ADRs, com contexto, alternativas e consequências |
 

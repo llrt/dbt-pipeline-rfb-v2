@@ -3,8 +3,8 @@
 
 Uso: `make golden` (compila as analyses de `transform/analyses/golden/` sobre o warehouse do `make ci` e roda este
 script) ou `uv run python scripts/gerar_catalogo_golden.py`. Com `--verificar` não escreve nada: gera em memória e
-falha (código 1) se o catálogo ou o bloco gerado de `docs/uso/consulta-agente.md` estiverem
-desatualizados.
+falha (código 1) se o catálogo, o bloco gerado de `docs/uso/consulta-agente.md` ou o de tamanhos de
+`docs/uso/construcao-agente.md` estiverem desatualizados.
 
 Fontes:
 - o cabeçalho YAML de cada golden query SQL, num comentário Jinja `{# --- ... --- #}` no início do arquivo;
@@ -41,11 +41,13 @@ import yaml
 from gerar_conceitos import Definicao
 from gerar_conceitos import carregar as carregar_definicoes
 
+from rfb_pipeline import __version__
 from rfb_pipeline.caminhos import (
     DOC_BLOCKS_CONCEITOS,
     GOLDEN_CATALOGO,
     GOLDEN_MATRIZ,
     GOLDEN_SEMANTICA,
+    GUIA_CONSTRUCAO_AGENTE,
     GUIA_CONSULTA,
     RAIZ_REPO,
     link_de,
@@ -60,6 +62,7 @@ MATRIZ = GOLDEN_MATRIZ
 SEMANTICA = GOLDEN_SEMANTICA
 CATALOGO = GOLDEN_CATALOGO
 GUIA = GUIA_CONSULTA
+CONSTRUCAO = GUIA_CONSTRUCAO_AGENTE
 PADRAO_ARQUIVO = "gq_*.sql"
 
 CAMADAS = ("raw", "staging", "intermediate", "core", "analytics", "original", "semantica")
@@ -74,12 +77,15 @@ INICIO_BLOCO = "<!-- INÍCIO do bloco gerado por scripts/gerar_catalogo_golden.p
 FIM_BLOCO = "<!-- FIM do bloco gerado -->"
 INICIO_ESQUEMA = "<!-- INÍCIO do bloco gerado do esquema por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->"
 FIM_ESQUEMA = "<!-- FIM do bloco gerado do esquema -->"
+INICIO_TAMANHOS = "<!-- INÍCIO do bloco gerado dos tamanhos por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->"
+FIM_TAMANHOS = "<!-- FIM do bloco gerado dos tamanhos -->"
 
 _RE_CABECALHO = re.compile(r"\A\{#\s*---\n(.*?)\n---\s*#\}", re.S)
 _RE_NOME = re.compile(r"^gq_([a-z]+)__([a-z_]+?)__(\d{2})$")
 _RE_REF = re.compile(r"ref\(\s*'([^']+)'\s*\)")
 _RE_SOURCE = re.compile(r"source\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)")
 _RE_RELACAO_LOCAL = re.compile(r'"[^"]+"\."(main)"\."([A-Za-z0-9_]+)"')
+_RE_RELACAO_PORTAVEL = re.compile(r"\bmain\.([a-z_][a-z0-9_]*)\b")
 _RE_ID_CITADO = re.compile(r"\bgq_[a-z]+__[a-z_]+?__\d{2}\b")
 
 # ADR-0008: nenhuma golden query devolve nome, CPF, contato ou endereço (o endereço fica só no staging). O CNPJ
@@ -121,6 +127,11 @@ def ler_cabecalho(texto: str, origem: str = "") -> dict:
     if not isinstance(dados, dict):
         raise CatalogoErro(f"{origem}: o cabeçalho não é um mapa YAML")
     return dados
+
+
+def relacoes_do_sql_portavel(sql: str) -> list[str]:
+    """Relações `main.<x>` lidas pelo SQL portável (o do catálogo), sem o `main.`: as `tabelas` da semântica."""
+    return sorted(set(_RE_RELACAO_PORTAVEL.findall(sql)))
 
 
 def tabelas_do_sql(sql: str) -> set[str]:
@@ -944,6 +955,7 @@ def gerar_catalogo(
             {
                 **_entrada_comum(entrada),
                 **extra,
+                "tabelas": relacoes_do_sql_portavel(semanticos[entrada["id"]]),
                 "arquivo": relativo(SEMANTICA),
                 "sql": semanticos[entrada["id"]],
                 "comando": comando_mf(entrada),
@@ -955,6 +967,7 @@ def gerar_catalogo(
     motivos = matriz.get("sem_query") or {}
     return {
         "formato": 1,
+        "versao_projeto": __version__,
         "descricao": (
             "Golden queries por conceito e camada (ADR-0023). Gerado por scripts/gerar_catalogo_golden.py; não "
             "edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o "
@@ -1137,7 +1150,7 @@ def substituir_bloco(
     inicio = texto.find(inicio_marca)
     fim = texto.find(fim_marca, max(inicio, 0))
     if inicio < 0 or fim < inicio:
-        raise CatalogoErro(f"{GUIA.name}: faltam os marcadores {inicio_marca[:40]}…")
+        raise CatalogoErro(f"faltam os marcadores {inicio_marca[:60]}…")
     return texto[:inicio] + bloco + texto[fim + len(fim_marca) :]
 
 
@@ -1145,6 +1158,52 @@ def renderizar_guia(texto: str, catalogo: dict) -> str:
     """O guia com os dois blocos gerados atualizados: o esquema e o índice."""
     texto = substituir_bloco(texto, renderizar_esquema(catalogo), INICIO_ESQUEMA, FIM_ESQUEMA)
     return substituir_bloco(texto, renderizar_indice(catalogo))
+
+
+def _milhar(numero: int) -> str:
+    return f"{numero:,}".replace(",", ".")
+
+
+def renderizar_tamanhos(catalogo: dict, texto_catalogo: str, texto_guia: str) -> str:
+    """Bloco de tamanhos de `construcao-agente.md`: bytes em UTF-8 e tokens estimados (bytes ÷ 4).
+
+    O catálogo inteiro é o arquivo versionado (`texto_catalogo`); cada bloco, o `json.dumps` compacto (separadores
+    padrão, sem escapar acento); o guia, o texto gerado com as linhas.
+    """
+
+    def linha(rotulo: str, texto: str) -> str:
+        tamanho = len(texto.encode("utf-8"))
+        return f"| {rotulo} | {_milhar(tamanho)} | ~{_milhar(round(tamanho / 400) * 100)} |"
+
+    blocos = [
+        linha(
+            f"`{chave}` ({len(catalogo[chave])})", json.dumps(catalogo[chave], ensure_ascii=False)
+        )
+        for chave in ("golden_queries", "relacoes", "dimensoes", "metricas", "conceitos")
+    ]
+    referencia = texto_guia[texto_guia.index("## 11. ") :]
+    return "\n".join(
+        [
+            INICIO_TAMANHOS,
+            "",
+            f"Medido na versão {catalogo['versao_projeto']} (`versao_projeto` do catálogo).",
+            "",
+            "| Bloco | Bytes | Tokens (est.) |",
+            "|---|---|---|",
+            linha("`catalogo.json` inteiro (o arquivo)", texto_catalogo),
+            *blocos,
+            linha(f"Guia `consulta-agente.md` ({texto_guia.count(chr(10))} linhas)", texto_guia),
+            linha(f"Guia, seções 11 e 12 ({referencia.count(chr(10))} linhas)", referencia),
+            "",
+            FIM_TAMANHOS,
+        ]
+    )
+
+
+def renderizar_construcao(texto: str, catalogo: dict, texto_catalogo: str, texto_guia: str) -> str:
+    """`construcao-agente.md` com o bloco de tamanhos atualizado."""
+    bloco = renderizar_tamanhos(catalogo, texto_catalogo, texto_guia)
+    return substituir_bloco(texto, bloco, INICIO_TAMANHOS, FIM_TAMANHOS)
 
 
 def serializar(catalogo: dict) -> str:
@@ -1172,6 +1231,7 @@ def main(argv: list[str] | None = None) -> int:
     )  # fmt: skip
     analisador.add_argument("--catalogo", type=Path, default=CATALOGO)
     analisador.add_argument("--guia", type=Path, default=GUIA)
+    analisador.add_argument("--construcao", type=Path, default=CONSTRUCAO)
     analisador.add_argument(
         "--alvo-dbt", type=Path, default=DIR_TRANSFORM / "target",
         help="diretório com manifest.json, catalog.json e semantic_manifest.json (`dbt docs generate`)",
@@ -1187,6 +1247,9 @@ def main(argv: list[str] | None = None) -> int:
         )  # fmt: skip
         texto_catalogo = serializar(catalogo)
         texto_guia = renderizar_guia(args.guia.read_text(encoding="utf-8"), catalogo)
+        texto_construcao = renderizar_construcao(
+            args.construcao.read_text(encoding="utf-8"), catalogo, texto_catalogo, texto_guia
+        )
         problemas = problemas_do_guia(texto_guia, [q["id"] for q in catalogo["golden_queries"]])
         exemplos_sql_do_guia(texto_guia)  # todo bloco SQL marcado
         if problemas:
@@ -1201,6 +1264,7 @@ def main(argv: list[str] | None = None) -> int:
             for caminho, novo, velho in (
                 (args.catalogo, texto_catalogo, atual),
                 (args.guia, texto_guia, args.guia.read_text(encoding="utf-8")),
+                (args.construcao, texto_construcao, args.construcao.read_text(encoding="utf-8")),
             )
             if novo != velho
         ]
@@ -1215,6 +1279,7 @@ def main(argv: list[str] | None = None) -> int:
     args.catalogo.parent.mkdir(parents=True, exist_ok=True)
     args.catalogo.write_text(texto_catalogo, encoding="utf-8")
     args.guia.write_text(texto_guia, encoding="utf-8")
+    args.construcao.write_text(texto_construcao, encoding="utf-8")
     print(
         f"{args.catalogo.relative_to(RAIZ)}: {len(catalogo['golden_queries'])} golden queries; índice do guia atualizado"
     )
