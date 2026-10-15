@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -269,6 +270,12 @@ def _checagem_do_guia():
         (["nome"], [["TINTAS"]]),
         (["estabelecimento__nome_fantasia"], [["X"]]),
         (["telefone1"], [["2799"]]),
+        # RGA-05: CNPJ em DECIMAL(18,0), DOUBLE, lista (`array_agg`) e struct, com a coluna renomeada
+        (["x"], [[Decimal("11222333000181")]]),
+        (["x"], [[11222333000181.0]]),
+        (["x"], [[["11222333000181"]]]),
+        (["x"], [[[Decimal("52998224725")]]]),
+        (["x"], [[{"a": {"b": 11222333000181}}]]),
     ],
 )
 def test_checagem_do_guia_recusa_identificador(colunas: list[str], linhas: list[list]) -> None:

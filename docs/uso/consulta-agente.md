@@ -311,13 +311,16 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
 ### Checagem obrigatória pós-execução
 
 Antes de responder, **DEVE** passar o resultado por esta função (ou por uma checagem equivalente): colunas da saída
-e linhas como vieram do banco. Se ela devolver qualquer problema, **não** mostre o resultado: refaça o SQL só com
+e linhas como vieram do banco (listas, structs e mapas são percorridos; número inteiro em `DECIMAL` ou `DOUBLE` conta
+como inteiro). Se ela devolver qualquer problema, **não** mostre o resultado: refaça o SQL só com
 agregados ou recuse (exemplo 5). Ela não substitui a regra da derivada acima, porque um nome com alias e sem CPF
 mascarado não tem cara de nada; as duas valem juntas.
 
 ```python
 # checagem: privacidade
+import math
 import re
+from decimal import Decimal
 
 COLUNA_PROIBIDA = re.compile(
     r"(^|_)(nome|razao_social|nome_fantasia|cpf|email|correio|telefone|tel|ddd|ddd_fax|fax|logradouro|"
@@ -349,6 +352,21 @@ def _dv_ok(digitos: str) -> bool:
     return True
 
 
+def _valores(valor):
+    """Os valores simples de uma célula: percorre listas, structs e mapas; número inteiro em Decimal ou float vira
+    int (um CNPJ em `DECIMAL(18,0)`, `DOUBLE` ou `array_agg` é o mesmo CNPJ)."""
+    if isinstance(valor, dict):
+        for item in valor.values():
+            yield from _valores(item)
+    elif isinstance(valor, (list, tuple)):
+        for item in valor:
+            yield from _valores(item)
+    elif isinstance(valor, (Decimal, float)) and math.isfinite(valor) and valor == int(valor):
+        yield int(valor)
+    else:
+        yield valor
+
+
 def checar_saida(colunas, linhas, identifica_estabelecimento=False):
     """Problemas de privacidade (ADR-0008) num resultado; lista vazia = pode responder."""
     problemas = []
@@ -359,7 +377,7 @@ def checar_saida(colunas, linhas, identifica_estabelecimento=False):
         elif COLUNA_CNPJ.search(nome) and not identifica_estabelecimento:
             problemas.append(f"coluna de CNPJ: {coluna}")
     for linha in linhas:
-        for valor in linha:
+        for valor in (simples for celula in linha for simples in _valores(celula)):
             if isinstance(valor, str) and CPF_MASCARADO.search(valor):
                 problemas.append(f"nome de pessoa (CPF mascarado): {valor!r}")
             if identifica_estabelecimento:
