@@ -41,6 +41,7 @@ import yaml
 from gerar_conceitos import Definicao
 from gerar_conceitos import carregar as carregar_definicoes
 
+from rfb_pipeline import __version__
 from rfb_pipeline.caminhos import (
     DOC_BLOCKS_CONCEITOS,
     GOLDEN_CATALOGO,
@@ -955,6 +956,7 @@ def gerar_catalogo(
     motivos = matriz.get("sem_query") or {}
     return {
         "formato": 1,
+        "versao_projeto": __version__,
         "descricao": (
             "Golden queries por conceito e camada (ADR-0023). Gerado por scripts/gerar_catalogo_golden.py; não "
             "edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o "
