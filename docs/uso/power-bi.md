@@ -141,9 +141,9 @@ Aqui ficam só as tabelas que entram no Power BI e o papel de cada uma:
 cópias (referência no Power Query) criadas no modelo, pelos motivos da seção Relacionamentos abaixo. A natureza
 jurídica **não** está no resumo mensal (emenda R3 do ADR-0013): use `fct_estabelecimentos` (via DuckDB) para essa
 quebra, e `mart_sobrevivencia_coorte` para o ano de início. As chaves `sk_*` são inteiras e determinísticas, e
-toda dimensão tem o membro `-1`: a fato nunca tem chave nula. Para as hierarquias de `dim_municipio` (região → UF
-→ meso → micro → município) e de `dim_cnae` (seção → … → subclasse), arraste uma coluna sobre a outra no painel de
-Campos.
+toda dimensão tem o membro `-1`: a fato nunca tem chave nula nem perde linhas. Para as hierarquias de
+`dim_municipio` (região → UF → meso → micro → município; e intermediária → imediata) e de `dim_cnae` (seção → … →
+subclasse), arraste uma coluna sobre a outra no painel de Campos.
 
 ### Relacionamentos
 

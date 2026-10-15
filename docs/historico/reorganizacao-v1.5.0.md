@@ -14,7 +14,7 @@ Legenda do destino:
 
 Mudanças de lugar sem reescrita (lote D1) não estão aqui: `git log --follow` mostra o histórico de cada arquivo.
 
-## `docs/CAMADA_SEMANTICA.md` (v1.4.1: `docs/referencia/camada-semantica.md`, inteiro)
+## `docs/CAMADA_SEMANTICA.md` (caminho na v1.5.0: `docs/referencia/camada-semantica.md`, inteiro)
 
 | Seção antiga | Destino | Lugar novo |
 |---|---|---|
@@ -39,7 +39,7 @@ Mudanças de lugar sem reescrita (lote D1) não estão aqui: `git log --follow` 
 | `### B7. Limites e cuidados` | mantida | [§7](../referencia/camada-semantica.md#7-limites-e-cuidados) |
 | `### B8. Como estender` | mantida | [§8](../referencia/camada-semantica.md#8-como-estender) |
 
-## `docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md` (v1.4.1: `docs/uso/consulta-agente.md`)
+## `docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md` (caminho na v1.5.0: `docs/uso/consulta-agente.md`)
 
 O guia continua autossuficiente para o agente, que recebe só o guia e o catálogo (ADR-0023). Nenhuma seção saiu.
 
@@ -59,7 +59,7 @@ O guia continua autossuficiente para o agente, que recebe só o guia e o catálo
 | `## 11. Índice do catálogo` (bloco gerado) | mantida | §11 |
 | `## 12. Métricas, dimensões e relações` (bloco gerado) | mantida | §12 (as descrições das colunas ganharam o texto dos doc blocks) |
 
-## `docs/POWER_BI.md` (v1.4.1: `docs/uso/power-bi.md`)
+## `docs/POWER_BI.md` (caminho na v1.5.0: `docs/uso/power-bi.md`)
 
 | Seção antiga | Destino | Lugar novo |
 |---|---|---|
@@ -67,10 +67,10 @@ O guia continua autossuficiente para o agente, que recebe só o guia e o catálo
 | `## Como o Power BI acessa os dados` e `### 1. Parquet`, `### 2. Arquivo DuckDB local`, `### 3. MotherDuck`, `### Qual escolher`, `### Fontes oficiais` | mantida | [Como o Power BI acessa os dados](../uso/power-bi.md#como-o-power-bi-acessa-os-dados) |
 | `## 1. O modelo estrela`: diagrama `erDiagram` | duplicada → fonte | [dicionário, Modelo estrela](../referencia/dicionario-dados.md#modelo-estrela) (gerado das chaves) e a tabela de [Relacionamentos](../uso/power-bi.md#relacionamentos), que continua no guia |
 | `## 1. O modelo estrela`: `dim_mes` e `dim_cnae_secundario` são cópias; natureza jurídica fora do resumo | mantida | [§1](../uso/power-bi.md#1-o-modelo-estrela), texto abaixo da tabela |
-| `## 1. O modelo estrela`: convenções (`sk_*` inteiras, membro `-1`) | mantida (resumida) | §1, texto abaixo da tabela; detalhe no [dicionário](../referencia/dicionario-dados.md) |
+| `## 1. O modelo estrela`: convenções (`sk_*` inteiras, membro `-1`: "a fato nunca tem chave nula nem perde linhas") | mantida (resumida) | §1, texto abaixo da tabela; detalhe no [dicionário](../referencia/dicionario-dados.md). O "nem perde linhas" tinha saído no D2 e voltou no FD (RD-09) |
 | `## 1. O modelo estrela`: `dim_data` de 1900-01-01 até a data de referência, `sk_data = yyyymmdd`, `sk_mes_referencia = yyyymm01` | duplicada → fonte | `dim_data` e `fct_resumo_mensal` no [dicionário](../referencia/dicionario-dados.md); o `yyyymm01` ficou na tabela da §1 |
 | `## 1. O modelo estrela`: membros `-1` (1899-12-31) e `-2` (1899-12-30, ex.: 1194-08-15), só a fato detalhada aponta para `-2` | mantida (movida dentro do guia) | bullet "Tabela de datas" de [Relacionamentos](../uso/power-bi.md#relacionamentos) e a linha de `dim_data` da tabela da §1; o exemplo 1194-08-15 está no dicionário |
-| `## 1. O modelo estrela`: hierarquias em colunas | mantida (resumida) | §1, última frase; as colunas no [dicionário](../referencia/dicionario-dados.md) |
+| `## 1. O modelo estrela`: hierarquias em colunas | mantida (resumida) | §1, última frase, com as duas hierarquias de `dim_municipio` (região → … → município e intermediária → imediata; a segunda tinha saído no D2 e voltou no FD, RD-09); as colunas no [dicionário](../referencia/dicionario-dados.md) |
 | `### Relacionamentos` | mantida | [Relacionamentos](../uso/power-bi.md#relacionamentos) (inclui a ressalva da linha toda NULL num Parquet vazio) |
 | `## 2. Atualização incremental por mês` | mantida | §2 |
 | `## 3. Medidas DAX sugeridas` | mantida | §3 (o link da camada semântica aponta para `#3-métricas`) |
@@ -86,7 +86,7 @@ O guia continua autossuficiente para o agente, que recebe só o guia e o catálo
 | `## 4. EL — Ingestão` e `### 4.1` a `### 4.5` | mantida | §4 |
 | `### 5.1 Camadas, materializações e convenções` | mantida | §5.1 (o mapeamento de nomes aponta para a §11) |
 | `### 5.2 Variáveis` | mantida | §5.2 |
-| `### 5.3 Modelos`: bullets por modelo (staging, intermediate, original, core, análises, observabilidade, golden queries) e o `erDiagram` do core | duplicada → fonte | tabela-resumo por camada na [§5.3](../../ARCHITECTURE.md#53-modelos); a descrição de cada modelo e coluna está no [dicionário](../referencia/dicionario-dados.md), gerado dos YAMLs, e o diagrama em [Modelo estrela](../referencia/dicionario-dados.md#modelo-estrela). A frase de `mart_dinamica_mercado` ("encerramentos (situação 08 com `dat_situacao`)") estava desatualizada: a regra vigente (todo não ativo) está na descrição do modelo e no doc block `abertura_encerramento` |
+| `### 5.3 Modelos`: bullets por modelo (staging, intermediate, original, core, análises, observabilidade, golden queries) e o `erDiagram` do core | duplicada → fonte | tabela-resumo por camada na [§5.3](../../ARCHITECTURE.md#53-modelos), que no FD recuperou duas microperdas do D2 (RD-09): as hierarquias de `dim_municipio` no Core e o "incremental" de `dq_historico_testes`; a descrição de cada modelo e coluna está no [dicionário](../referencia/dicionario-dados.md), gerado dos YAMLs, e o diagrama em [Modelo estrela](../referencia/dicionario-dados.md#modelo-estrela). A frase de `mart_dinamica_mercado` ("encerramentos (situação 08 com `dat_situacao`)") estava desatualizada: a regra vigente (todo não ativo) está na descrição do modelo e no doc block `abertura_encerramento` |
 | `### 5.4 Seeds` | mantida | §5.4 |
 | `## 6. Qualidade de dados — estratégia` | mantida | §6 |
 | `## 7. Execução`: tabela de comandos | duplicada → fonte | [operação, Comandos](../operacao.md#comandos) (tabela de `pipeline`/`atualizar`/`regras` e a nova "Outros alvos", com `setup`, `fixtures`, `ci`, `docs`, `lint`, `sincronizar`, `publicar`…) |
@@ -107,7 +107,7 @@ O guia continua autossuficiente para o agente, que recebe só o guia e o catálo
 | `## Artefatos` | movida | §11, `### Artefatos` (a mesma tabela; links ajustados para a raiz) |
 | `## Mapeamento de nomes de colunas (original → port)` | movida | §11, `### Mapeamento de nomes de colunas (original → port)` |
 
-## `docs/OPERACAO.md` (v1.4.1: `docs/operacao.md`)
+## `docs/OPERACAO.md` (caminho na v1.5.0: `docs/operacao.md`)
 
 | Seção antiga | Destino | Lugar novo |
 |---|---|---|
