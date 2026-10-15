@@ -403,7 +403,8 @@
       "armadilhas": [
         "Camada de auditoria: os valores tratados (NULL e `tem_sigilo` no lugar do X) estão em gq_analytics__cempre_setor__01.",
         "Formato longo da SIDRA: d1c município IBGE, d2c variável (706 unidades locais, 707 pessoal ocupado, 708 assalariados, 662 salários), d3c ano, d4c categoria CNAE.",
-        "X é sigilo: nunca imputar (nem zero, nem média)."
+        "X é sigilo: nunca imputar (nem zero, nem média).",
+        "`-` é zero absoluto (o IBGE publica `-` em vez de 0) e vira 0 no staging; `..` (não se aplica) e `...` (não disponível) viram NULL sem `tem_sigilo`. Só `X` é sigilo."
       ],
       "variacoes": [
         "Outra classe: troque o prefixo do `d4n` ('47.41-5').",
@@ -2074,7 +2075,7 @@
         "Quantos estabelecimentos abriram em cada mês desde 2022?",
         "Em que dia da semana mais se abre empresa?"
       ],
-      "intencao": "Aberturas por mês do ano corrente do extrato, usando dim_data no papel de data de início de atividade.",
+      "intencao": "Aberturas por mês a partir de 2022 (até o mês do extrato, que é parcial), usando dim_data no papel de data de início de atividade.",
       "privacidade": "agregado",
       "armadilhas": [
         "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta.",
@@ -3002,7 +3003,7 @@
       "intencao": "Cobertura do gold: estabelecimentos nos membros -1 (sem par) e -2 (data inválida) de cada chave da fato.",
       "privacidade": "agregado",
       "armadilhas": [
-        "-1 = NÃO INFORMADO (sem par na dimensão); -2 = DATA INVÁLIDA (antes de 1900). Eles aparecem como valores normais nos agrupamentos.",
+        "-1 = NÃO INFORMADO (sem par na dimensão); -2 = DATA INVÁLIDA (antes de 1900), nas duas datas da fato (início e situação). Eles aparecem como valores normais nos agrupamentos.",
         "Sem município inclui o exterior (UF 'EX' na RFB)."
       ],
       "variacoes": [
@@ -3021,7 +3022,7 @@
         "sk_data_situacao"
       ],
       "arquivo": "transform/analyses/golden/gq_core__regras_qualidade__01.sql",
-      "sql": "select\n  count(*) as estabelecimentos,\n  count(*) filter (where sk_municipio = -1) as sem_municipio,\n  count(*) filter (where sk_cnae = -1) as sem_cnae,\n  count(*) filter (where sk_natureza_juridica = -1) as sem_natureza,\n  count(*) filter (where sk_porte = -1) as sem_porte,\n  count(*) filter (where sk_situacao_cadastral = -1) as sem_situacao,\n  count(*) filter (where sk_data_inicio_atividade = -1) as inicio_sem_data,\n  count(*) filter (where sk_data_inicio_atividade = -2) as inicio_data_invalida,\n  count(*) filter (where sk_data_situacao = -1) as situacao_sem_data\nfrom main.fct_estabelecimentos\norder by estabelecimentos\n",
+      "sql": "select\n  count(*) as estabelecimentos,\n  count(*) filter (where sk_municipio = -1) as sem_municipio,\n  count(*) filter (where sk_cnae = -1) as sem_cnae,\n  count(*) filter (where sk_natureza_juridica = -1) as sem_natureza,\n  count(*) filter (where sk_porte = -1) as sem_porte,\n  count(*) filter (where sk_situacao_cadastral = -1) as sem_situacao,\n  count(*) filter (where sk_data_inicio_atividade = -1) as inicio_sem_data,\n  count(*) filter (where sk_data_inicio_atividade = -2) as inicio_data_invalida,\n  count(*) filter (where sk_data_situacao = -1) as situacao_sem_data,\n  count(*) filter (where sk_data_situacao = -2) as situacao_data_invalida\nfrom main.fct_estabelecimentos\norder by estabelecimentos\n",
       "resposta_esperada_fixtures": {
         "colunas": [
           "estabelecimentos",
@@ -3032,7 +3033,8 @@
           "sem_situacao",
           "inicio_sem_data",
           "inicio_data_invalida",
-          "situacao_sem_data"
+          "situacao_sem_data",
+          "situacao_data_invalida"
         ],
         "linhas": [
           [
@@ -3044,7 +3046,8 @@
             0,
             1,
             0,
-            2
+            2,
+            0
           ]
         ]
       }
@@ -4803,7 +4806,7 @@
         "Só para paridade; para pergunta nova use gq_core__situacao_cadastral__01."
       ],
       "variacoes": [
-        "Um CNAE e município: filtre `cnae_principal` e `municipio` (em MAIÚSCULAS, sem acento: 'FUNDAO')."
+        "Um CNAE e município: filtre `cnae_principal` e `municipio` (em MAIÚSCULAS, com acento: 'FUNDÃO')."
       ],
       "tabelas": [
         "agg_empresas"

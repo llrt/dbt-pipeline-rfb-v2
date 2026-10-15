@@ -5,7 +5,7 @@ camada: core
 perguntas:
   - "Quantos estabelecimentos abriram em cada mês desde 2022?"
   - "Em que dia da semana mais se abre empresa?"
-intencao: "Aberturas por mês do ano corrente do extrato, usando dim_data no papel de data de início de atividade."
+intencao: "Aberturas por mês a partir de 2022 (até o mês do extrato, que é parcial), usando dim_data no papel de data de início de atividade."
 tabelas: [fct_estabelecimentos, dim_data]
 colunas_chave: [sk_data_inicio_atividade, sk_data, ano, mes, ano_mes]
 armadilhas:

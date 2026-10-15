@@ -12,6 +12,7 @@ armadilhas:
   - "Camada de auditoria: os valores tratados (NULL e `tem_sigilo` no lugar do X) estão em gq_analytics__cempre_setor__01."
   - "Formato longo da SIDRA: d1c município IBGE, d2c variável (706 unidades locais, 707 pessoal ocupado, 708 assalariados, 662 salários), d3c ano, d4c categoria CNAE."
   - "X é sigilo: nunca imputar (nem zero, nem média)."
+  - "`-` é zero absoluto (o IBGE publica `-` em vez de 0) e vira 0 no staging; `..` (não se aplica) e `...` (não disponível) viram NULL sem `tem_sigilo`. Só `X` é sigilo."
 variacoes:
   - "Outra classe: troque o prefixo do `d4n` ('47.41-5')."
   - "Outro município: filtre `d1c` pelo código IBGE (7 dígitos)."

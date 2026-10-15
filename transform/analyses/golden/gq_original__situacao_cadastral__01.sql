@@ -13,7 +13,7 @@ armadilhas:
   - "INATIVA junta nula, suspensa, inapta e baixada."
   - "Só para paridade; para pergunta nova use gq_core__situacao_cadastral__01."
 variacoes:
-  - "Um CNAE e município: filtre `cnae_principal` e `municipio` (em MAIÚSCULAS, sem acento: 'FUNDAO')."
+  - "Um CNAE e município: filtre `cnae_principal` e `municipio` (em MAIÚSCULAS, com acento: 'FUNDÃO')."
 resposta_esperada_fixtures:
   colunas: [situacao, qtd_empresas]
   linhas:

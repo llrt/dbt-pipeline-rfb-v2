@@ -9,14 +9,14 @@ intencao: "Cobertura do gold: estabelecimentos nos membros -1 (sem par) e -2 (da
 tabelas: [fct_estabelecimentos]
 colunas_chave: [sk_municipio, sk_cnae, sk_natureza_juridica, sk_porte, sk_situacao_cadastral, sk_data_inicio_atividade, sk_data_situacao]
 armadilhas:
-  - "-1 = NÃO INFORMADO (sem par na dimensão); -2 = DATA INVÁLIDA (antes de 1900). Eles aparecem como valores normais nos agrupamentos."
+  - "-1 = NÃO INFORMADO (sem par na dimensão); -2 = DATA INVÁLIDA (antes de 1900), nas duas datas da fato (início e situação). Eles aparecem como valores normais nos agrupamentos."
   - "Sem município inclui o exterior (UF 'EX' na RFB)."
 variacoes:
   - "Só ativos: `where eh_ativa`."
 resposta_esperada_fixtures:
-  colunas: [estabelecimentos, sem_municipio, sem_cnae, sem_natureza, sem_porte, sem_situacao, inicio_sem_data, inicio_data_invalida, situacao_sem_data]
+  colunas: [estabelecimentos, sem_municipio, sem_cnae, sem_natureza, sem_porte, sem_situacao, inicio_sem_data, inicio_data_invalida, situacao_sem_data, situacao_data_invalida]
   linhas:
-    - [18, 2, 1, 0, 1, 0, 1, 0, 2]
+    - [18, 2, 1, 0, 1, 0, 1, 0, 2, 0]
 --- #}
 {{ config(tags=['escopo_adicao', 'golden_query'], meta={'escopo': 'adicao'}) }}
 
@@ -29,6 +29,7 @@ select
   count(*) filter (where sk_situacao_cadastral = -1) as sem_situacao,
   count(*) filter (where sk_data_inicio_atividade = -1) as inicio_sem_data,
   count(*) filter (where sk_data_inicio_atividade = -2) as inicio_data_invalida,
-  count(*) filter (where sk_data_situacao = -1) as situacao_sem_data
+  count(*) filter (where sk_data_situacao = -1) as situacao_sem_data,
+  count(*) filter (where sk_data_situacao = -2) as situacao_data_invalida
 from {{ ref('fct_estabelecimentos') }}
 order by estabelecimentos
