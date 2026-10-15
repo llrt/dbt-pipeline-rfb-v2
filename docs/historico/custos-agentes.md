@@ -1,4 +1,4 @@
-# Custo por agente — v1 e pós-v1 (v1.1.0 a v1.4.0)
+# Custo por agente — v1 e pós-v1 (v1.1.0 a v1.5.0)
 
 > Gerado pelo líder em 2026-10-01 a partir dos transcripts do Claude Code (`~/.claude/projects/*dbt-pipeline-rfb-v2*`, deduplicados por mensagem) e do banco do opencode (`~/.local/share/opencode/opencode.db`, sessões do OpenRouter). A tentativa anterior do projeto (24/09, outra sessão: `fase-0-design`, `guia-g1-guia-dbt`, `fase-1-b1a-fundacao`) está fora.
 
@@ -174,6 +174,67 @@
 - A estimativa da avaliação de fontes era de US$ 40 a 70 para o pacote 1. O custo real dos agentes foi de US$ 70,03, no teto. A estimativa não previa o adendo dos cenários nem as duas rodadas de correção de compatibilidade.
 - **Reproduzir:** `uv run python scripts/custos_agentes_pos_v1.py`. Rodar de novo dá US$ 47,26 para a fase "orquestração delegada v1.1.0 a v1.3.0", e não os 46,47 da tabela anterior: a fase agora vai até o fim da geração anterior. Os US$ 0,79 de diferença estão somados aqui na primeira fase do líder.
 
+## v1.4.1 e v1.5.0 (golden queries e reorganização das docs)
+
+> Gerado pelo líder em 2026-10-15 com `scripts/custos_agentes_pos_v1.py`, estendido com os 9 agentes dos PRs #8 e #9 e com as fases novas do líder. A metodologia, os preços e o câmbio (US$ 1 = R$ 5,021) são os das seções anteriores. O período começa no fim da geração anterior (15/10/2026, 02:17 UTC) e vai até esta geração. A última fase do líder, este relatório, ainda está em curso.
+
+| | US$ | R$ | % |
+|---|---:|---:|---:|
+| Líder | 23,40 | 117,49 | 24 % |
+| Implementação (GQ, D1, D2) | 32,84 | 164,89 | 33 % |
+| Revisão (RGQ, RD) | 11,08 | 55,63 | 11 % |
+| Correção (FGQ, FGQ2, FD, FD2) | 32,24 | 161,88 | 32 % |
+| **Total do período** | **99,56** | **499,89** | 100 % |
+
+Por modelo: Claude Opus 5.5, US$ 94,93; Claude Sonnet 5.5 (D1, FD2), US$ 4,63.
+
+**Por versão, com o líder**
+
+| Versão | Entrega | Agentes US$ | Líder US$ | Total US$ |
+|---|---|---:|---:|---:|
+| v1.4.1 | golden queries, guia e catálogo para o agente de consulta | 38,76 | 5,46 | 44,22 |
+| v1.5.0 | reorganização da documentação por público | 37,40 | 8,43 | 45,83 |
+| — | fechamento da v1.4.0, avaliação das docs e este relatório | — | 9,51 | 9,51 |
+
+**Líder por fase**
+
+| Fase | Horas ativas | US$ | R$ |
+|---|---:|---:|---:|
+| Fechamento da v1.4.0: resto da fase anterior depois da geração, PR #7 sem o último commit, PR #8 de reenvio, release | 0,04 | 2,32 | 11,65 |
+| Orquestração da v1.4.1, parte 1: golden queries (brief, verificação, RGQ despachada) | 0,43 | 1,85 | 9,26 |
+| Avaliação crítica das docs (proposta) | 0,05 | 1,40 | 7,03 |
+| Orquestração da v1.4.1, parte 2: triagem da RGQ, FGQ, FGQ2, Greptile, release | 0,75 | 3,61 | 18,11 |
+| Orquestração da v1.5.0: D1, D2, RD, FD, FD2, Greptile, release | 2,33 | 8,43 | 42,32 |
+| RETRO e custos da v1.4.1 e v1.5.0 (em curso) | 0,01 | 5,79 | 29,07 |
+| **Total do líder** | **3,61** | **23,40** | **117,49** |
+
+**Por agente (ordem de início)**
+
+| Agente | Papel | Versão | Modelo | Saída (tokens) | Leitura de cache | Entrada + escrita de cache | Horas ativas | US$ | R$ |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|
+| GQ, golden queries e guia do agente | implementação | v1.4.1 | Claude Opus 5.5 | 182.465 | 38.712.909 | 470.942 | 0,86 | 15,16 | 76,11 |
+| RGQ, revisão independente | revisão | v1.4.1 | Claude Opus 5.5 | 62.218 | 12.199.873 | 229.848 | 0,23 | 5,52 | 27,73 |
+| FGQ, correções da RGQ | correção | v1.4.1 | Claude Opus 5.5 | 157.659 | 38.313.021 | 359.288 | 1,15 | 13,69 | 68,73 |
+| FGQ2, comentários do Greptile (PR #8) | correção | v1.4.1 | Claude Opus 5.5 | 48.585 | 10.963.699 | 153.465 | 0,38 | 4,39 | 22,05 |
+| D1, links, caminhos e mudança de lugar | implementação | v1.5.0 | Claude Sonnet 5.5 | 56.972 | 11.646.803 | 203.917 | 0,45 | 3,71 | 18,65 |
+| D2, consolidação e doc blocks | implementação | v1.5.0 | Claude Opus 5.5 | 121.024 | 42.455.462 | 382.849 | 0,76 | 13,97 | 70,16 |
+| RD, revisão independente | revisão | v1.5.0 | Claude Opus 5.5 | 62.191 | 13.061.560 | 213.547 | 0,27 | 5,56 | 27,94 |
+| FD, correções da RD e versão 1.5.0 | correção | v1.5.0 | Claude Opus 5.5 | 148.264 | 37.519.282 | 346.514 | 0,98 | 13,24 | 66,48 |
+| FD2, CI no Ubuntu e Greptile (PR #9) | correção | v1.5.0 | Claude Sonnet 5.5 | 13.690 | 1.964.944 | 97.889 | 0,54 | 0,92 | 4,63 |
+| **Agentes da v1.4.1 e v1.5.0** | | | | | | | **5,62** | **76,16** | **382,48** |
+
+**Observações**
+- **A correção custou quase o mesmo que a implementação** (US$ 32,24 × 32,84). Nas duas versões, a revisão independente achou um problema central que o autor tinha dado como pronto:
+  - na v1.4.1, a semântica não rodava no ambiente do agente;
+  - na v1.5.0, o texto continuava dizendo cada conceito três vezes.
+
+  Também houve o Greptile depois do CI verde: média de médias numa golden query e um teste que só passava no macOS.
+- **A fatia do líder caiu para 24 %** (49 % no pós-v1 e 28 % na v1.4.0). As fases de orquestração ficaram baratas:
+  - o contexto do líder tinha sido resumido pouco antes, no início da sessão `07fdca18`;
+  - briefs e triagens foram escritos em arquivo.
+- **Sonnet no lote mecânico (D1) deu certo:** US$ 3,71 para 50 renomeações, verificador e caminhos. O D2, de julgamento de conteúdo, ficou com Opus.
+- **Reproduzir:** `uv run python scripts/custos_agentes_pos_v1.py`. Rodar de novo dá US$ 19,06 para a fase "orquestração delegada v1.4.0", e não os 17,98 da seção anterior: a fase agora vai até o fim da geração anterior. Os US$ 1,08 de diferença estão somados aqui, na primeira fase do líder.
+
 ## Total acumulado
 
 | Período | US$ | R$ |
@@ -181,7 +242,8 @@
 | v1 (até 01/10/2026; câmbio 5,2353) | 247,38 | 1.295,11 |
 | Pós-v1 (v1.1.0 a v1.3.0; câmbio 5,021) | 156,77 | 787,14 |
 | Pós-v1.3 (avaliações e v1.4.0; câmbio 5,021) | 97,27 | 488,39 |
-| **Total** | **501,42** | **2.570,64** |
+| v1.4.1 e v1.5.0 (câmbio 5,021) | 99,56 | 499,89 |
+| **Total** | **600,98** | **3.070,53** |
 
 Do total, **US$ 10,55 foram desembolso real** (OpenRouter, todo na v1). O resto é equivalente de API da assinatura Claude.
 

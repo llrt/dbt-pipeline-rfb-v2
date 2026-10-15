@@ -1,5 +1,5 @@
 # ruff: noqa: E501  (tabelas de preço e listas de agentes)
-"""Custo por agente dos lotes pós-v1 (v1.1.0 a v1.4.0), mesma metodologia de docs/historico/custos-agentes.md (v1).
+"""Custo por agente dos lotes pós-v1 (v1.1.0 a v1.5.0), mesma metodologia de docs/historico/custos-agentes.md (v1).
 
 Fonte: transcripts do Claude Code (~/.claude/projects), deduplicados por (message.id, requestId).
 Preços (US$/M tokens): Opus 5.5 4/20, leitura de cache 0,20; Sonnet 5/5.5 2/10, leitura 0,20; escrita de
@@ -70,6 +70,30 @@ AGENTES = [  # (nome, papel, versão, arquivo)
         "v1.4.0",
         "feat-enriquecimento-ibge/c07f76f3",
     ),
+    (
+        "GQ, golden queries e guia do agente",
+        "implementação",
+        "v1.4.1",
+        "docs-retro-custos-v1-4-0/57591abb",
+    ),
+    ("RGQ, revisão independente", "revisão", "v1.4.1", "docs-retro-custos-v1-4-0/5a3a6dac"),
+    ("FGQ, correções da RGQ", "correção", "v1.4.1", "docs-retro-custos-v1-4-0/26a2cf9b"),
+    (
+        "FGQ2, comentários do Greptile (PR #8)",
+        "correção",
+        "v1.4.1",
+        "docs-retro-custos-v1-4-0/e573b0f7",
+    ),
+    (
+        "D1, links, caminhos e mudança de lugar",
+        "implementação",
+        "v1.5.0",
+        "docs-reorganizacao/5fee6abf",
+    ),
+    ("D2, consolidação e doc blocks", "implementação", "v1.5.0", "docs-reorganizacao/403249fa"),
+    ("RD, revisão independente", "revisão", "v1.5.0", "docs-reorganizacao/841cffe2"),
+    ("FD, correções da RD e versão 1.5.0", "correção", "v1.5.0", "docs-reorganizacao/2e6a60b7"),
+    ("FD2, CI no Ubuntu e Greptile (PR #9)", "correção", "v1.5.0", "docs-reorganizacao/0aac8298"),
 ]
 
 DIR_LIDER = P / "-Users-llrt-dev-workspaces-code-to-learn-vibe-traycer-dbt-pipeline-rfb-v2"
@@ -216,6 +240,15 @@ FASES = [
     ("orquestração delegada v1.1.0 a v1.3.0", "2026-10-10T02:07:51+00:00"),
     ("PR #5, housekeeping e avaliações (bairro, fontes gratuitas)", "2026-10-13T19:24:06+00:00"),
     ("orquestração delegada v1.4.0", "2026-10-14T11:18:49+00:00"),
+    ("fechamento da v1.4.0 (PR #7 sem o último commit, release)", "2026-10-15T02:17:22+00:00"),
+    ("orquestração delegada v1.4.1, parte 1 (golden queries)", "2026-10-15T02:23:55+00:00"),
+    ("avaliação crítica das docs (proposta)", "2026-10-15T03:29:51+00:00"),
+    (
+        "orquestração delegada v1.4.1, parte 2 (RGQ, FGQ, Greptile, release)",
+        "2026-10-15T03:36:22+00:00",
+    ),
+    ("orquestração delegada v1.5.0 (D1, D2, RD, FD, FD2, release)", "2026-10-15T05:33:00+00:00"),
+    ("RETRO e custos da v1.4.1 e v1.5.0", "2026-10-15T11:44:48+00:00"),
 ]
 lim = [datetime.fromisoformat(t) for _, t in FASES] + [
     datetime.fromisoformat("2099-01-01T00:00:00+00:00")

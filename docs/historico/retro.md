@@ -1,12 +1,13 @@
-# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1 e pós-v1 até a v1.4.0)
+# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1 e pós-v1 até a v1.5.0)
 
 > Retrospectiva do líder (agente Traycer "Migração dbt DuckDB MVP v2", Claude Opus 5.5).
 > - Seções 1–7: v1, de 28/09 a 01/10/2026.
 > - Seção 8: pós-v1, de 01/10 a 13/10/2026 (v1.0.0 a v1.3.0).
 > - Seção 9: pós-v1.3, de 13/10 a 14/10/2026 (avaliações e v1.4.0).
+> - Seção 10: v1.4.1 e v1.5.0, em 15/10/2026 (golden queries e reorganização das docs).
 >
-> Custos por agente: [docs/CUSTOS_AGENTES.md](custos-agentes.md). Decisões: `.specs/STATE.md` (AD-001..AD-043)
-> e `docs/adr/` (0001–0022). Revisões: `docs/revisoes/`.
+> Custos por agente: [docs/CUSTOS_AGENTES.md](custos-agentes.md). Decisões: `.specs/STATE.md` (AD-001..AD-048)
+> e `docs/adr/` (0001–0023). Revisões: `docs/revisoes/`.
 
 ## 1. O que foi entregue
 
@@ -258,3 +259,53 @@ Período: **US$ 97,27 ≈ R$ 488**, todo no Claude Opus 5.5 (equivalente de API 
 | Revisão independente (RIBG) | 8,82 | 9 % |
 
 Detalhe em [docs/CUSTOS_AGENTES.md](custos-agentes.md#pós-v13-avaliações-e-v140).
+
+## 10. v1.4.1 e v1.5.0: golden queries e reorganização das docs (15/10/2026)
+
+### 10.1 O que foi entregue
+
+| Versão | PR | Entrega |
+|---|---|---|
+| [v1.4.1](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.4.1) | [#8](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/8) | 93 golden queries em 23 conceitos × 7 camadas, testadas nas fixtures. O SQL da semântica roda só leitura. Catálogo gerado (`make golden`) e guia para um agente de consulta em linguagem natural, com glossário, armadilhas, privacidade (nome, valor e linhagem) e exemplos testados (ADR-0023). Também a RETRO e os custos da v1.4.0, que tinham ficado fora do merge do PR #7 |
+| [v1.5.0](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.5.0) | [#9](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/9) | Documentação por público (conceitos, operação, uso, referência, relatórios, histórico). 24 doc blocks do dbt como fonte única das definições. `caminhos.py`. Verificador de links no CI. CHANGELOG. README com 6 entradas; `conceitos.md` de 1.012 para 643 linhas; nada perdido |
+
+### 10.2 Processo
+- **A revisão independente mediu o objetivo do usuário, não só o código:**
+  - **RGQ:** respondeu 10 perguntas livres usando só o guia e o catálogo. Deu 8 certas; achou que a semântica, a camada que o guia mandava preferir, não rodava no ambiente do agente. Depois das correções, 10/10.
+  - **RD:** percorreu a documentação como 4 leitores (consultor, BI, operador, dev), antes e depois. Achou que o objetivo tinha sido atingido pela metade: as portas de entrada melhoraram, mas cada conceito ainda era dito três vezes.
+- **O Greptile pegou o que os testes não pegavam:**
+  - duas golden queries com resposta errada (média de médias, dado ausente virando categoria), em que a resposta esperada tinha sido tirada da própria query;
+  - um teste do verificador de links que só passava no macOS e deixou o CI do Ubuntu vermelho.
+- **Merge antes do último commit:** o usuário integrou o PR #7 enquanto o líder enviava a RETRO e os custos. O commit ficou fora e voltou num PR próprio (#8).
+- **O líder decidiu sem escalar**, dentro do escopo aprovado:
+  - os dois cortes extras do `conceitos.md`;
+  - manter o `estudo_caso_q2_q3` com média simples, pela paridade com o MVP;
+  - corrigir todos os achados das revisões antes da release.
+
+### 10.3 O que custou caro
+
+| Problema | Efeito | Lição |
+|---|---|---|
+| Resposta esperada tirada da própria query | 2 golden queries erradas passaram no CI | Toda golden query nova precisa de uma conferência independente (outra consulta, caso injetado) além da resposta fixada. Agora há regras estáticas para média de médias e para falta de dado virar categoria |
+| "Ambiente do agente" não testado | a semântica só funcionava com o repositório e abria o banco para escrita | Testar o artefato no ambiente de quem vai usá-lo: o SQL do catálogo executado com `read_only` |
+| Teste dependente do sistema de arquivos | CI vermelho no Ubuntu, invisível no `make ci` do Mac | Verificação local não substitui o CI na plataforma de destino; teste de caminho simula as duas plataformas |
+| Reorganização que mede portas, não volume | a primeira entrega da v1.5.0 manteve a triplicação | A meta de leitura (linhas por público) entra no brief e no reteste, não só a estrutura |
+| Envio depois do pedido de merge | commit fora do `main` e um PR extra | Avisar "PR pronto" só depois do último envio e do Greptile da última rodada |
+
+### 10.4 Lições
+1. **Revisão orientada ao uso real** (perguntas livres, percursos de leitor) acha o que a revisão de código não acha.
+2. **Fonte única com geração e teste de divergência** é o que impede documentação de envelhecer: doc blocks inseridos por gerador, e o texto escrito à mão proibido de repetir valores.
+3. **CI na plataforma de destino** é parte da verificação do líder: o `make ci` local é necessário, mas não basta.
+
+### 10.5 Custo (resumo)
+Período: **US$ 99,56 ≈ R$ 500**, quase todo em Opus 5.5 (Sonnet US$ 4,63, nos lotes D1 e FD2), equivalente de API da assinatura. Acumulado do projeto: **US$ 600,98 ≈ R$ 3.071**, dos quais US$ 10,55 foram desembolso real.
+
+| Papel | US$ | % |
+|---|---:|---:|
+| Implementação (GQ, D1, D2) | 32,84 | 33 % |
+| Correções (FGQ, FGQ2, FD, FD2) | 32,24 | 32 % |
+| Líder (3,6 h ativas) | 23,40 | 24 % |
+| Revisões independentes (RGQ, RD) | 11,08 | 11 % |
+
+Por versão, com o líder: v1.4.1 US$ 44,22; v1.5.0 US$ 45,83. Detalhe em
+[custos-agentes.md](custos-agentes.md#v141-e-v150-golden-queries-e-reorganização-das-docs).
