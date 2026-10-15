@@ -21,7 +21,6 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import textwrap
 import unicodedata
 from dataclasses import dataclass
 from decimal import Decimal
@@ -124,7 +123,14 @@ def renderizar_indice(definicoes: list[Definicao]) -> str:
         f"[{d.titulo}](#{ancora(d.nome)})"
         for d in sorted(definicoes, key=lambda d: _chave_alfabetica(d.titulo))
     ]
-    linhas = textwrap.wrap(" · ".join(termos), width=118, break_on_hyphens=False)
+    linhas = [""]
+    for (
+        termo
+    ) in termos:  # quebra só entre termos: um link partido em duas linhas escapa aos verificadores
+        if linhas[-1] and len(linhas[-1]) + len(termo) + 3 > 118:
+            linhas[-1] += " ·"
+            linhas.append("")
+        linhas[-1] += f" · {termo}" if linhas[-1] else termo
     return "\n".join([INICIO_INDICE, "", *linhas, "", FIM_INDICE])
 
 

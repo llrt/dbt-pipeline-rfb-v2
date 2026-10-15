@@ -642,16 +642,16 @@ Os termos com definição, em ordem alfabética:
 
 <!-- INÍCIO do índice gerado por scripts/gerar_conceitos.py (make conceitos) a partir de transform/models/docs/conceitos.md: não edite à mão -->
 
-[Abertura e encerramento](#def-abertura-encerramento) · [Área de mercado](#def-area-mercado) · [Ativa × em
-operação](#def-ativa-em-operacao) · [Baixa × inaptidão](#def-baixa-inaptidao) · [Capital social](#def-capital-social)
-· [CEMPRE](#def-cempre) · [CNAE principal](#def-cnae-principal) · [CNAEs secundários](#def-cnae-secundario) ·
-[Concorrência e densidade](#def-concorrencia-densidade) · [Data de referência](#def-data-referencia) ·
-[Empresa](#def-empresa) · [Estabelecimento](#def-estabelecimento) · [Fotografia mensal](#def-fotografia-mensal) ·
-[Matriz e filial](#def-matriz-filial) · [MEI](#def-mei) · [Município (código RFB × IBGE)](#def-municipio) · [Natureza
-jurídica](#def-natureza-juridica) · [Porte](#def-porte) · [REGIC e polo de compras](#def-regic-polo-compras) · [Renda
-per capita (Censo 2022)](#def-renda-censo) · [Simples Nacional](#def-simples-nacional) · [Situação
-cadastral](#def-situacao-cadastral) · [Sobrevivência por coorte](#def-sobrevivencia) · [Valor
-adicionado](#def-valor-adicionado)
+[Abertura e encerramento](#def-abertura-encerramento) · [Área de mercado](#def-area-mercado) ·
+[Ativa × em operação](#def-ativa-em-operacao) · [Baixa × inaptidão](#def-baixa-inaptidao) ·
+[Capital social](#def-capital-social) · [CEMPRE](#def-cempre) · [CNAE principal](#def-cnae-principal) ·
+[CNAEs secundários](#def-cnae-secundario) · [Concorrência e densidade](#def-concorrencia-densidade) ·
+[Data de referência](#def-data-referencia) · [Empresa](#def-empresa) · [Estabelecimento](#def-estabelecimento) ·
+[Fotografia mensal](#def-fotografia-mensal) · [Matriz e filial](#def-matriz-filial) · [MEI](#def-mei) ·
+[Município (código RFB × IBGE)](#def-municipio) · [Natureza jurídica](#def-natureza-juridica) · [Porte](#def-porte) ·
+[REGIC e polo de compras](#def-regic-polo-compras) · [Renda per capita (Censo 2022)](#def-renda-censo) ·
+[Simples Nacional](#def-simples-nacional) · [Situação cadastral](#def-situacao-cadastral) ·
+[Sobrevivência por coorte](#def-sobrevivencia) · [Valor adicionado](#def-valor-adicionado)
 
 <!-- FIM do índice gerado -->
 
