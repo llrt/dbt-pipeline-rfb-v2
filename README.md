@@ -48,7 +48,7 @@ Antes da primeira execução real (máquina, disco, tempo, agendamento, S3, Moth
 | Entrada | Para quê |
 |---|---|
 | [Conceitos](docs/conceitos.md) | o que os dados significam: empresa × estabelecimento, situação cadastral, porte, MEI, CNAE, ciclo de vida, fontes IBGE, glossário |
-| [Arquitetura](ARCHITECTURE.md) | camadas, contratos, qualidade de dados, riscos e o escopo original × adaptado × adição |
+| [Arquitetura](ARCHITECTURE.md) | camadas, contratos, qualidade de dados, riscos, o escopo original × adaptado × adição e [como estender](ARCHITECTURE.md#12-como-estender) (fonte, modelo, conceito ou documento novo) |
 | [Operação](docs/operacao.md) | rodar com dados reais, atualização mensal, requisitos e tempos medidos, agendamento, publicação |
 | Uso | [cenários](docs/uso/cenarios.md) · [Power BI](docs/uso/power-bi.md) · [consulta por agente](docs/uso/consulta-agente.md) |
 | Referência | [dicionário de dados](docs/referencia/dicionario-dados.md) · [camada semântica](docs/referencia/camada-semantica.md) · [regras de negócio](docs/referencia/regras-negocio.md) · [qualidade](docs/referencia/qualidade-dados.md) · [golden queries](docs/referencia/golden_queries/catalogo.json) |

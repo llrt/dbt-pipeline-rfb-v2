@@ -385,3 +385,50 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | `UF` | `uf` |
 | `CEP` | `cep` (só no staging) |
 | demais | iguais |
+
+## 12. Como estender
+
+O que acrescentar ao criar algo novo. Cada item tem um teste ou um `--verificar` no `make ci`, mas é mais barato
+seguir a lista do que descobrir cada obrigação pelo CI quebrando.
+
+**Fonte nova** (arquivo da RFB, tabela da Base dos Dados ou série do IBGE):
+
+- [ ] ingestão em `src/rfb_pipeline/` gravando o raw em Parquet ([ADR-0002](docs/adr/0002-ingestao-python-raw-varchar.md)) e
+  entrando no manifesto; a fixture sintética em `scripts/gerar_fixtures.py`, porque o `make ci` roda sem rede;
+- [ ] `source` em `transform/models/staging/<fonte>/` com descrição em 100 % das colunas
+  (`test_cobertura_descricoes.py`) e o staging `stg_<fonte>__<tabela>` (`test_convencao_nomes.py`);
+- [ ] `meta.escopo` e a tag `escopo_*` (`test_escopo_meta.py`) e uma linha na tabela da [§11](#artefatos);
+- [ ] se a fonte sustenta um conceito, a fonte com link e data de acesso em
+  [conceitos, Fontes](docs/conceitos.md#6-fontes) e uma linha em [As bases](docs/conceitos.md#1-as-bases).
+
+**Modelo novo** (staging, intermediate ou mart):
+
+- [ ] prefixo e pasta da convenção ([ADR-0014](docs/adr/0014-convencao-idioma.md), `test_convencao_nomes.py`),
+  descrições (100 % no gold), `meta.escopo` e a linha da §11;
+- [ ] se entra na camada semântica: o roteiro de
+  [camada-semantica.md §8](docs/referencia/camada-semantica.md#8-como-estender), com a ontologia
+  ([ontologia/README.md](docs/referencia/ontologia/README.md), `test_ontologia.py`);
+- [ ] cada célula conceito × camada que o modelo cobre ganha uma golden query em `transform/analyses/golden/` ou um
+  motivo em `sem_query` de [`matriz.yml`](docs/referencia/golden_queries/matriz.yml) (`test_golden_queries.py`);
+- [ ] `make golden` e `make dicionario`, e o resultado versionado (o `make ci` confere os dois).
+
+**Conceito novo:**
+
+- [ ] doc block em [`transform/models/docs/conceitos.md`](transform/models/docs/conceitos.md) (título no comentário
+  Jinja, 1 a 3 parágrafos, sem lista nem tabela), usado por um `{{ doc('<nome>') }}` num YAML e citado em
+  `definicoes` de um conceito da `matriz.yml` (`test_gerar_conceitos.py`);
+- [ ] o lugar da definição em `docs/conceitos.md`: o par de marcadores `<!-- definição: <nome> … -->` e
+  `<!-- fim da definição: <nome> -->` na subseção do conceito, seguido do complemento escrito à mão, que não repete
+  os valores do doc block (`make conceitos` preenche e reprova a repetição);
+- [ ] `make conceitos`, `make golden` e `make dicionario`; a classe na ontologia, se for conceito do domínio.
+
+**Documento novo** (`.md`):
+
+- [ ] o cabeçalho `> **Para quem:** … · **Quando ler:** …` logo depois do título; num gerado, também
+  `> Gerado por … — não edite à mão` (`test_cabecalho_docs.py`);
+- [ ] se o código lê ou grava o arquivo, a constante em `src/rfb_pipeline/caminhos.py`: nenhum outro `.py` monta
+  caminho de `docs/` (`test_caminhos.py`);
+- [ ] links e âncoras conferidos pelo `make lint` (`scripts/verificar_links_docs.py`, inclusive a caixa do nome);
+- [ ] uma linha no índice do [README](README.md#documentação) se for porta de entrada. Para mover um documento:
+  `git mv`, um arquivo-ponte de 3 linhas no caminho antigo até a minor seguinte (`test_docs_preservados.py`) e a
+  linha "seção antiga → lugar novo" em `docs/historico/`.
