@@ -114,6 +114,51 @@ def test_golden_query_sql_devolve_a_resposta_esperada(resultados, nome: str) -> 
     )
 
 
+def _executar_com_linhas_injetadas(sql: str, relacao: str, extra: str) -> list[tuple]:
+    """Executa o SQL portável numa base em memória onde `main.<relacao>` é a do warehouse (anexado somente leitura,
+    como `wh`) mais as linhas do `select` `extra`: casos que as fixtures não têm, com a resposta escrita à mão."""
+    with duckdb.connect(":memory:") as con:
+        con.execute(f"attach '{_raiz() / 'warehouse.duckdb'}' as wh (read_only)")
+        con.execute(
+            f"create table main.{relacao} as select * from wh.main.{relacao} union all {extra}"
+        )
+        return con.execute(sql).fetchall()
+
+
+def test_porte_original_e_a_media_de_bh_empresas(resultados) -> None:
+    """Greptile PR #8 (gq_original__porte__01:31): a idade média por porte e situação é a de `bh_empresas`
+    (`avg(idade_atual)` sobre os estabelecimentos), por consulta independente, não a média das médias dos estratos."""
+    with duckdb.connect(str(_raiz() / "warehouse.duckdb"), read_only=True) as con:
+        cursor = con.execute(
+            "select porte, situacao, count(cnpj_completo) as qtd_empresas, round(avg(idade_atual), 1) as media_idade "
+            "from main.bh_empresas where cnae_principal = '4741500' and municipio = 'FUNDÃO' and uf = 'ES' "
+            "group by porte, situacao order by situacao, porte"
+        )
+        independente = g.normalizar_resultado([d[0] for d in cursor.description], cursor.fetchall())
+    assert resultados["gq_original__porte__01"] == independente
+
+
+def test_porte_original_pondera_estratos_de_tamanhos_diferentes(compilados) -> None:
+    """Greptile PR #8: três estratos de PEQUENA × ATIVA (naturezas diferentes) injetados em `agg_empresas`, com 3
+    estabelecimentos de 2,0 anos, 1 de 10,0 e 2 sem média: a idade é (3 × 2,0 + 1 × 10,0) / 4 = 4,0 e os
+    estabelecimentos são 6. A média simples das médias daria 6,0; sem o `filter`, o denominador 6 daria 2,7."""
+    estrato = (
+        "select * replace ('PEQUENA' as porte, '{nat}' as natureza_juridica, {qtd}::bigint as qtd_empresas, "
+        "{media}::double as media_idade) from wh.main.agg_empresas where cnae_principal = '4741500' "
+        "and municipio = 'FUNDÃO' and uf = 'ES' and porte = 'MICRO' and situacao = 'ATIVA'"
+    )
+    extra = " union all ".join(
+        estrato.format(nat=nat, qtd=qtd, media=media)
+        for nat, qtd, media in (("N1", 3, 2.0), ("N2", 1, 10.0), ("N3", 2, "null"))
+    )
+    linhas = _executar_com_linhas_injetadas(
+        compilados["gq_original__porte__01"], "agg_empresas", extra
+    )
+    por_estrato = {(porte, situacao): (qtd, idade) for porte, situacao, qtd, idade in linhas}
+    assert por_estrato[("PEQUENA", "ATIVA")] == (6, 4.0)
+    assert por_estrato[("MICRO", "ATIVA")] == (1, 3.9)
+
+
 @pytest.mark.parametrize("nome", sorted(GOLDEN))
 def test_golden_query_sql_nao_expoe_pessoa(compilados, resultados, nome: str) -> None:
     """Pelo resultado (nome de coluna e valor) e pela linhagem do SQL compilado (alias, função, CTE)."""
