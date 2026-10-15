@@ -360,3 +360,29 @@ e o critério é coerente entre as entradas. A nota de upgrade da v1.5.0 está c
 As mutações do D1 e do D2 (link quebrado, âncora inexistente, caminho antigo num script, doc block sem regenerar,
 doc sem cabeçalho, `doc('inexistente')` e link para `-triagem.md`) foram relatadas como mortas pelos lotes, e não as
 repeti.
+
+## Triagem do líder (2026-10-15)
+
+Veredito da RD: **aprovável como minor, com o objetivo do usuário atingido pela metade.** As portas de entrada e a
+separação por público melhoraram. O volume e a clareza dentro de `conceitos.md` não mudaram.
+- São 1 achado alto, 4 médios e 5 baixos.
+- Das 7 mutações da RD, 6 sobreviveram.
+- Nada se perdeu, e o guia do agente segue autossuficiente (3/3).
+
+Como o pedido do usuário era "menos cheio e confuso", **todos os achados entram antes da release**, inclusive o RD-01,
+que é o centro do pedido. As correções ficam com o lote **FD**, um agente novo (Opus, esforço médio, o mesmo nível do
+D2), que também faz o commit da versão 1.5.0.
+
+| Achado | Decisão | Lote | Resolvido em |
+|---|---|---|---|
+| **RD-01** `conceitos.md` com 1.012 linhas diz cada conceito três vezes | **Definição uma vez, no lugar onde se lê.** Cada conceito da §2 abre com a definição do doc block, **inserida pelo gerador** no próprio lugar (bloco gerado por conceito), seguida só do complemento escrito à mão ("na prática", exemplos, armadilhas), **sem repetir** a definição. Some o bloco "Definições" do topo. A §5 (glossário) vira um índice curto, gerado: termo → link para a âncora da §2. O FAQ de `mf query` e a ontologia saem para a referência (`docs/referencia/camada-semantica.md` e `docs/referencia/ontologia/README.md`, novo). Meta: o caminho de leitura de `conceitos.md` fica abaixo de ~550 linhas, sem perder conteúdo | FD | |
+| **RD-02** a prosa da §2 pode divergir do doc block (M4) | Com o RD-01, a definição só existe no doc block. Teste: o complemento escrito à mão de um conceito **não pode repetir** valores do doc block (números com 3 ou mais dígitos, valores em R$, artigos de lei). M4 tem de morrer | FD | |
+| **RD-03** `operacao.md` abre com nota de upgrade e migração da v1.0 | A primeira tela traz o que é, os comandos do dia a dia e um sumário. As notas de upgrade (v1.5.0, ADR-0014) vão para uma seção final "Notas de upgrade", com link para o CHANGELOG | FD | |
+| **RD-04** falta um roteiro "fonte, modelo ou conceito novo" | Seção nova no `ARCHITECTURE.md`: "Como estender", em forma de checklist (doc block, `make conceitos`/`golden`/`dicionario`, cabeçalho "Para quem", escopo/§11, fontes, matriz, ontologia, testes), sem arquivo novo | FD | |
+| **RD-05** itens da proposta não entregues nem registrados | Os cenários linkam o estudo de caso: uma seção curta "Estudo de caso de Fundão" em `uso/cenarios.md`, apontando para `relatorios/estudo-caso.md`, sem copiar o relatório gerado. O enxugamento do guia do agente fica **registrado como não feito de propósito** (autossuficiência, ADR-0023) em `historico/reorganizacao-v1.5.0.md`, junto com a medida de linhas corrigida | FD | |
+| **RD-06** a ponte `docs/CAMADA_SEMANTICA.md` aponta só para a parte técnica | A ponte aponta para os dois lugares: conceitos e referência técnica | FD | |
+| **RD-07** a guarda de caminho deixa passar f-string e `os.path.join` | Guarda por AST: qualquer literal `"docs"` usado para montar caminho fora de `caminhos.py`. M2 e M3 têm de morrer | FD | |
+| **RD-08** o verificador aceita caixa errada no macOS | O verificador compara o nome exato pelo `os.listdir`, sem depender do sistema de arquivos. M1 tem de morrer | FD | |
+| **RD-09** a tabela da reorganização tem rótulo errado e duas microperdas não registradas | Corrigir o rótulo e registrar ou recuperar as duas microperdas ("nem perde linhas"; hierarquia intermediária → imediata) | FD | |
+| **RD-10** o glossário não diz que "MICRO" está em `rotulo_porte` | Corrigir o glossário do guia. Também o doc block do MEI: "um empregado" é do art. 18-C, não do 18-A | FD | |
+| Mutações M5 e M6 | Teste: as 6 pontes existem até a v1.6.0; toda revisão que tinha triagem tem a seção "Triagem do líder" | FD | |
