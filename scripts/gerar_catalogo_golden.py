@@ -21,12 +21,17 @@ As funções de validação (cabeçalho, cobertura da matriz, colunas proibidas)
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import json
 import os
 import re
 import shlex
+import shutil
+import subprocess
 import sys
+import tempfile
+from collections.abc import Callable, Iterator
 from decimal import Decimal
 from pathlib import Path
 
@@ -53,6 +58,8 @@ PRIVACIDADES = ("agregado", "identifica_estabelecimento")
 MARCADOR_RAIZ = "${RAIZ_DADOS}"
 INICIO_BLOCO = "<!-- INÍCIO do bloco gerado por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->"
 FIM_BLOCO = "<!-- FIM do bloco gerado -->"
+INICIO_ESQUEMA = "<!-- INÍCIO do bloco gerado do esquema por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->"
+FIM_ESQUEMA = "<!-- FIM do bloco gerado do esquema -->"
 
 _RE_CABECALHO = re.compile(r"\A\{#\s*---\n(.*?)\n---\s*#\}", re.S)
 _RE_NOME = re.compile(r"^gq_([a-z]+)__([a-z_]+?)__(\d{2})$")
@@ -68,11 +75,12 @@ _COLUNAS_PROIBIDAS = re.compile(
     r"(^|_)(nome|razao_social|nome_fantasia|cpf|email|correio|telefone|tel|ddd|ddd_fax|fax|"
     r"logradouro|tipo_logradouro|numero|complemento|bairro|cep|socio|socios)\d*(_|$)"
 )
-# Colunas de nome de lugar ou de categoria, que não são de pessoa: permitidas apesar do prefixo `nome`.
+# Colunas de nome de lugar ou de categoria, que não são de pessoa: permitidas apesar do prefixo `nome` (e o número do
+# dia da semana, que não é o número do endereço).
 _NOMES_PERMITIDOS = re.compile(
     r"^nome_(municipio|uf|regiao|mesorregiao|microrregiao|regiao_intermediaria|regiao_imediata|"
     r"regiao_metropolitana|municipio_polo_compras|municipio_vizinho|municipio_origem|municipio_destino|"
-    r"mes|classe_cnae)$"
+    r"mes|classe_cnae)$|^dia_semana_numero$"
 )
 _COLUNAS_CNPJ = re.compile(r"(^|_)cnpj(_|$)")
 
@@ -346,17 +354,13 @@ def resultado_sql_semantico(colunas: list[str], linhas: list[tuple]) -> dict:
     return resultado_mf(colunas, textos)
 
 
-def sql_semantico(semantica: list[dict], raiz_dados: Path) -> dict[str, str]:
-    """`{id: SQL}` que o MetricFlow gera (`mf query --explain`) para cada golden query semântica, normalizado.
+@contextlib.contextmanager
+def mf_sobre_copia(raiz_dados: Path) -> Iterator[Callable[[list[str]], str]]:
+    """Função que roda `mf <args>` (em `transform/`) sobre uma **cópia** do `warehouse.duckdb` e devolve o stdout.
 
-    O `mf` abre o warehouse pelo perfil do dbt, em modo de **escrita** (RGQ-01): roda sobre uma **cópia** do
-    `warehouse.duckdb` de `raiz_dados` (`CAMINHO_DUCKDB`), nunca sobre o original. O SQL gerado só lê `main.<relação>`.
+    O `mf` abre o warehouse pelo perfil do dbt, em modo de **escrita** (RGQ-01): a cópia (`CAMINHO_DUCKDB`) garante
+    que o original de `raiz_dados` nunca é aberto para escrita nem bloqueado.
     """
-    import shutil
-    import subprocess
-    import tempfile
-
-    resultado: dict[str, str] = {}
     with tempfile.TemporaryDirectory(prefix="rfb-golden-mf-") as temporario:
         # Mesmo nome do arquivo: o catálogo do DuckDB continua "warehouse" e a normalização vale igual.
         copia = Path(temporario) / "warehouse.duckdb"
@@ -364,15 +368,32 @@ def sql_semantico(semantica: list[dict], raiz_dados: Path) -> dict[str, str]:
         env = os.environ | {
             "RAIZ_DADOS": str(raiz_dados), "DBT_PROFILES_DIR": str(DIR_TRANSFORM), "CAMINHO_DUCKDB": str(copia),
         }  # fmt: skip
-        for entrada in semantica:
+
+        def rodar(args: list[str]) -> str:
             feito = subprocess.run(
-                ["uv", "run", "mf", "query", "--quiet", "--explain", *argumentos_mf(entrada)],
-                cwd=DIR_TRANSFORM, env=env, capture_output=True, text=True, check=False,
+                ["uv", "run", "mf", *args], cwd=DIR_TRANSFORM, env=env, capture_output=True, text=True, check=False
             )  # fmt: skip
-            sql = feito.stdout.strip()
-            if feito.returncode != 0 or not re.match(r"(?i)(select|with)\b", sql):
+            if feito.returncode != 0:
                 raise CatalogoErro(
-                    f"{entrada['id']}: `mf query --explain` falhou:\n{feito.stdout[-1500:]}{feito.stderr[-1500:]}"
+                    f"`mf {' '.join(args)}` falhou:\n{feito.stdout[-1500:]}{feito.stderr[-1500:]}"
+                )
+            return feito.stdout
+
+        yield rodar
+
+
+def sql_semantico(semantica: list[dict], raiz_dados: Path) -> dict[str, str]:
+    """`{id: SQL}` que o MetricFlow gera (`mf query --explain`) para cada golden query semântica, normalizado.
+
+    Roda sobre uma cópia do warehouse (`mf_sobre_copia`). O SQL gerado só lê `main.<relação>`.
+    """
+    resultado: dict[str, str] = {}
+    with mf_sobre_copia(raiz_dados) as mf:
+        for entrada in semantica:
+            sql = mf(["query", "--quiet", "--explain", *argumentos_mf(entrada)]).strip()
+            if not re.match(r"(?i)(select|with)\b", sql):
+                raise CatalogoErro(
+                    f"{entrada['id']}: `mf query --explain` não devolveu SQL:\n{sql[-1500:]}"
                 )
             resultado[entrada["id"]] = normalizar_sql(sql, raiz_dados)
     return resultado
@@ -392,6 +413,174 @@ def normalizar_sql(sql: str, raiz_dados: str | Path | None) -> str:
 def caminho_absoluto_no_sql(sql: str) -> bool:
     """Se sobrou caminho absoluto da máquina (`/Users/...`, `/home/...`, `C:\\...`) no SQL."""
     return bool(re.search(r"'(/(Users|home|tmp|private|var)/|[A-Za-z]:\\)", sql))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Esquema consultável (RGQ-02): métricas e dimensões do `semantic_manifest.json`, relações do `catalog.json` do dbt
+
+# A natureza de cada métrica vem do modelo semântico da sua medida: muda a forma de agregar no tempo.
+NATUREZA_MODELO = {
+    "fct_resumo_mensal": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+    "fct_estabelecimentos": "evento do extrato corrente, pela data de início ou da situação; soma entre anos",
+    "mart_sobrevivencia_coorte": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+    "mart_emprego_setor_municipio": "CEMPRE: 31/12 do `ano_cempre`, por classe CNAE; sigilo vira NULL",
+}
+# Camada de cada relação, pelo caminho do modelo; as de observabilidade (`dq_*`) e os testes ficam fora.
+CAMADA_DO_CAMINHO = (
+    ("models/staging/", "staging"),
+    ("models/intermediate/", "intermediate"),
+    ("models/marts/core/", "core"),
+    ("models/marts/analytics/", "analytics"),
+    ("models/marts/original/", "original"),
+    ("seeds/", "seed"),
+)
+CAMADAS_GOLD = ("core", "analytics", "original")
+
+
+def _texto_curto(texto: str | None) -> str:
+    return " ".join((texto or "").split())
+
+
+def _entidade_primaria(modelo: dict) -> str | None:
+    if modelo.get("primary_entity"):
+        return modelo["primary_entity"]
+    return next((e["name"] for e in modelo["entities"] if e["type"] == "primary"), None)
+
+
+def _entidades_alcancaveis(modelo: dict, primarias: set[str]) -> set[str]:
+    """A entidade primária do modelo e as estrangeiras que têm modelo próprio (um salto de join, como o `mf`)."""
+    proprias = {_entidade_primaria(modelo)} - {None}
+    return proprias | {e["name"] for e in modelo["entities"] if e["name"] in primarias}
+
+
+def gerar_esquema(manifesto: dict, catalogo_dbt: dict, semantico: dict) -> dict:
+    """`metricas`, `dimensoes` (por entidade, com o nome qualificado do MetricFlow) e `relacoes` (colunas e tipos)."""
+    modelos = {m["name"]: m for m in semantico["semantic_models"]}
+    primarias = {_entidade_primaria(m) for m in modelos.values()} - {None}
+
+    dimensoes = []
+    for nome_modelo in sorted(modelos):
+        modelo = modelos[nome_modelo]
+        entidade = _entidade_primaria(modelo)
+        if entidade is None:
+            continue
+        for dim in modelo["dimensions"]:
+            grao = (dim.get("type_params") or {}).get("time_granularity")
+            dimensoes.append(
+                {
+                    "nome": f"{entidade}__{dim['name']}",
+                    "entidade": entidade,
+                    "tipo": "tempo" if dim["type"] == "time" else "categórica",
+                    "grao": grao,
+                    "relacao": modelo["node_relation"]["alias"],
+                    "coluna": dim.get("expr") or dim["name"],
+                    "descricao": _texto_curto(dim.get("description")),
+                }
+            )
+    dimensoes.sort(key=lambda d: (d["entidade"], d["nome"]))
+
+    por_nome = {m["name"]: m for m in semantico["metrics"]}
+
+    def _base(nome: str) -> set[str]:
+        """Modelos semânticos das medidas de uma métrica (recursivo em ratio e derived)."""
+        metrica = por_nome[nome]
+        params = metrica["type_params"]
+        agregacao = params.get("metric_aggregation_params") or {}
+        if agregacao.get("semantic_model"):
+            return {agregacao["semantic_model"]}
+        entradas = [
+            params.get("numerator"),
+            params.get("denominator"),
+            *(params.get("metrics") or []),
+        ]
+        return set().union(*(_base(e["name"]) for e in entradas if e))
+
+    metricas = []
+    for nome in sorted(por_nome):
+        metrica = por_nome[nome]
+        params = metrica["type_params"]
+        agregacao = params.get("metric_aggregation_params") or {}
+        bases = sorted(_base(nome))
+        desconhecidos = [b for b in bases if b not in NATUREZA_MODELO]
+        if desconhecidos:
+            raise CatalogoErro(
+                f"métrica {nome}: modelo semântico sem natureza em NATUREZA_MODELO: {', '.join(desconhecidos)}"
+            )
+        if metrica["type"] == "simple":
+            medida = f"{agregacao['agg']}({params['expr']}) em {agregacao['semantic_model']}"
+        elif metrica["type"] == "ratio":
+            medida = f"{params['numerator']['name']} / {params['denominator']['name']}"
+        else:
+            entradas = ", ".join(sorted({e["name"] for e in params.get("metrics") or []}))
+            medida = f"{params.get('expr')} (de {entradas})"
+        filtros = [
+            f["where_sql_template"]
+            for f in ((metrica.get("filter") or {}).get("where_filters") or [])
+        ]
+        entidades = set.intersection(
+            *(_entidades_alcancaveis(modelos[b], primarias) for b in bases)
+        )
+        metricas.append(
+            {
+                "nome": nome,
+                "rotulo": metrica.get("label"),
+                "tipo": metrica["type"],
+                "natureza": "; ".join(NATUREZA_MODELO[b] for b in bases),
+                "medida": medida,
+                "filtro": filtros,
+                "entidades": sorted(entidades),
+                "descricao": _texto_curto(metrica.get("description")),
+            }
+        )
+
+    relacoes = []
+    for uid, no_catalogo in catalogo_dbt["nodes"].items():
+        no = manifesto["nodes"].get(uid) or {}
+        caminho = no.get("original_file_path", "")
+        camada = next((c for prefixo, c in CAMADA_DO_CAMINHO if caminho.startswith(prefixo)), None)
+        if (
+            camada is None
+            or no.get("package_name") != "rfb"
+            or uid.split(".")[0] not in ("model", "seed")
+        ):
+            continue
+        declaradas = no.get("columns") or {}
+        colunas = []
+        for coluna in sorted(no_catalogo["columns"].values(), key=lambda c: c["index"]):
+            nome_coluna = coluna["name"]
+            colunas.append(
+                {
+                    "nome": nome_coluna,
+                    "tipo": coluna["type"],
+                    "descricao": _texto_curto(
+                        (declaradas.get(nome_coluna) or {}).get("description")
+                    ),
+                    "proibida_na_saida": bool(colunas_proibidas([nome_coluna])),
+                }
+            )
+        meta = no.get("meta") or (no.get("config") or {}).get("meta") or {}
+        relacoes.append(
+            {
+                "nome": f"main.{no['alias'] or no['name']}",
+                "camada": camada,
+                "grao": _texto_curto(meta.get("grao")) or None,
+                "descricao": _texto_curto(no.get("description")),
+                "colunas": colunas,
+            }
+        )
+    ordem = {c: i for i, (_, c) in enumerate(CAMADA_DO_CAMINHO)}
+    relacoes.sort(key=lambda r: (ordem[r["camada"]], r["nome"]))
+    return {"metricas": metricas, "dimensoes": dimensoes, "relacoes": relacoes}
+
+
+def carregar_esquema(alvo_dbt: Path) -> dict:
+    """O esquema a partir do `manifest.json`, do `catalog.json` e do `semantic_manifest.json` de `alvo_dbt`."""
+    arquivos = {n: alvo_dbt / f"{n}.json" for n in ("manifest", "catalog", "semantic_manifest")}
+    faltam = [str(c) for c in arquivos.values() if not c.is_file()]
+    if faltam:
+        raise CatalogoErro(f"faltam {', '.join(faltam)}: rode `make golden` (dbt docs generate)")
+    lidos = {n: json.loads(c.read_text(encoding="utf-8")) for n, c in arquivos.items()}
+    return gerar_esquema(lidos["manifest"], lidos["catalog"], lidos["semantic_manifest"])
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -461,11 +650,12 @@ def _entrada_comum(cab: dict) -> dict:
 
 def gerar_catalogo(
     matriz: dict, golden: dict[str, tuple[dict, str]], compilados: dict[str, str], semantica: list[dict],
-    raiz_dados: str | Path | None, semanticos: dict[str, str],
+    raiz_dados: str | Path | None, semanticos: dict[str, str], esquema: dict | None = None,
 ) -> dict:  # fmt: skip
     """O catálogo legível por máquina (dicionário pronto para `json.dumps`).
 
-    `semanticos` é o SQL gerado pelo MetricFlow para cada golden query semântica (`sql_semantico`).
+    `semanticos` é o SQL gerado pelo MetricFlow para cada golden query semântica (`sql_semantico`); `esquema`, as
+    métricas, dimensões e relações consultáveis (`gerar_esquema`).
     """
     problemas = problemas_gerais(matriz, golden, semantica)
     faltam = sorted(set(golden) - set(compilados))
@@ -529,6 +719,7 @@ def gerar_catalogo(
             {**c, "sem_query": dict(motivos.get(c["id"]) or {})} for c in matriz["conceitos"]
         ],
         "golden_queries": consultas,
+        **(esquema or {}),
     }
 
 
@@ -589,12 +780,93 @@ def renderizar_indice(catalogo: dict) -> str:
     return "\n".join(linhas)
 
 
-def substituir_bloco(texto: str, bloco: str) -> str:
+def _codigo(texto: str) -> str:
+    return f"`{_celula(texto)}`" if texto else "—"
+
+
+def _celula(texto: str) -> str:
+    """Texto seguro numa célula de tabela Markdown (o `|` escapado)."""
+    return texto.replace("|", "\\|")
+
+
+def renderizar_esquema(catalogo: dict) -> str:
+    """O bloco gerado do esquema no guia: métricas, dimensões por entidade e colunas das relações do gold."""
+    linhas = [
+        INICIO_ESQUEMA,
+        "",
+        f"#### Métricas ({len(catalogo['metricas'])})",
+        "",
+        "Toda métrica aceita `metric_time` (`metric_time__day`, `__week`, `__month`, `__quarter`, `__year`) e as "
+        "dimensões das entidades listadas. A medida diz o que somar no gold quando o `sql` da semântica não basta.",
+        "",
+        "| Métrica | Tipo | Natureza | Medida | Filtro | Entidades | Descrição |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for m in catalogo["metricas"]:
+        filtro = "<br/>".join(_codigo(f) for f in m["filtro"]) or "—"
+        linhas.append(
+            f"| `{m['nome']}` | {m['tipo']} | {m['natureza']} | {_codigo(m['medida'])} | {filtro} | "
+            f"{', '.join(m['entidades'])} | {_celula(m['descricao'])} |"
+        )
+    linhas += [
+        "",
+        f"#### Dimensões por entidade ({len(catalogo['dimensoes'])})",
+        "",
+        "Nome qualificado `<entidade>__<dimensão>`, como no `--group-by` e no `Dimension(...)` do `mf` e como coluna "
+        "no `sql` gerado. Dimensão de tempo leva o grão (`resumo_mensal__mes__month`).",
+        "",
+        "| Entidade | Relação | Dimensões |",
+        "|---|---|---|",
+    ]
+    por_entidade: dict[tuple[str, str], list[dict]] = {}
+    for d in catalogo["dimensoes"]:
+        por_entidade.setdefault((d["entidade"], d["relacao"]), []).append(d)
+    for (entidade, relacao), dims in por_entidade.items():
+        nomes = ", ".join(
+            f"`{d['nome']}`" + (f" (tempo, {d['grao']})" if d["tipo"] == "tempo" else "")
+            for d in dims
+        )
+        linhas.append(f"| `{entidade}` | `main.{relacao}` | {nomes} |")
+    gold = [r for r in catalogo["relacoes"] if r["camada"] in CAMADAS_GOLD]
+    linhas += [
+        "",
+        f"#### Colunas das relações do gold ({len(gold)})",
+        "",
+        "Nome e tipo no DuckDB, como `describe main.<relação>` mostra. **Negrito** = coluna proibida na saída "
+        "(seção 7). As relações de staging, intermediate e seeds, com a descrição de cada coluna, estão em "
+        "`relacoes` no catálogo.",
+        "",
+        "| Relação | Camada | Grão | Colunas |",
+        "|---|---|---|---|",
+    ]
+    for r in gold:
+        colunas = ", ".join(
+            (f"**`{c['nome']}`**" if c["proibida_na_saida"] else f"`{c['nome']}`")
+            + f" {c['tipo'].lower()}"
+            for c in r["colunas"]
+        )
+        linhas.append(
+            f"| `{r['nome']}` | {r['camada']} | {_celula(r['grao'] or '—')} | {colunas} |"
+        )
+    linhas += ["", FIM_ESQUEMA]
+    return "\n".join(linhas)
+
+
+def substituir_bloco(
+    texto: str, bloco: str, inicio_marca: str = INICIO_BLOCO, fim_marca: str = FIM_BLOCO
+) -> str:
     """Troca o bloco entre os marcadores do guia pelo `bloco` gerado."""
-    inicio, fim = texto.find(INICIO_BLOCO), texto.find(FIM_BLOCO)
+    inicio = texto.find(inicio_marca)
+    fim = texto.find(fim_marca, max(inicio, 0))
     if inicio < 0 or fim < inicio:
-        raise CatalogoErro(f"{GUIA.name}: faltam os marcadores do bloco gerado")
-    return texto[:inicio] + bloco + texto[fim + len(FIM_BLOCO) :]
+        raise CatalogoErro(f"{GUIA.name}: faltam os marcadores {inicio_marca[:40]}…")
+    return texto[:inicio] + bloco + texto[fim + len(fim_marca) :]
+
+
+def renderizar_guia(texto: str, catalogo: dict) -> str:
+    """O guia com os dois blocos gerados atualizados: o esquema e o índice."""
+    texto = substituir_bloco(texto, renderizar_esquema(catalogo), INICIO_ESQUEMA, FIM_ESQUEMA)
+    return substituir_bloco(texto, renderizar_indice(catalogo))
 
 
 def serializar(catalogo: dict) -> str:
@@ -622,18 +894,20 @@ def main(argv: list[str] | None = None) -> int:
     )  # fmt: skip
     analisador.add_argument("--catalogo", type=Path, default=CATALOGO)
     analisador.add_argument("--guia", type=Path, default=GUIA)
+    analisador.add_argument(
+        "--alvo-dbt", type=Path, default=DIR_TRANSFORM / "target",
+        help="diretório com manifest.json, catalog.json e semantic_manifest.json (`dbt docs generate`)",
+    )  # fmt: skip
     args = analisador.parse_args(argv)
     try:
         compilados = compilar(args.raiz_dados)
         semantica = carregar_semantica()
         catalogo = gerar_catalogo(
             carregar_matriz(), carregar_golden(), compilados, semantica, args.raiz_dados,
-            sql_semantico(semantica, args.raiz_dados),
+            sql_semantico(semantica, args.raiz_dados), carregar_esquema(args.alvo_dbt),
         )  # fmt: skip
         texto_catalogo = serializar(catalogo)
-        texto_guia = substituir_bloco(
-            args.guia.read_text(encoding="utf-8"), renderizar_indice(catalogo)
-        )
+        texto_guia = renderizar_guia(args.guia.read_text(encoding="utf-8"), catalogo)
     except Exception as exc:  # noqa: BLE001 — mensagem curta na linha de comando
         print(f"erro: {exc}", file=sys.stderr)
         return 1

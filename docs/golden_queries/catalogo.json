@@ -5953,5 +5953,4320 @@
         ]
       }
     }
+  ],
+  "metricas": [
+    {
+      "nome": "aberturas",
+      "rotulo": "Aberturas",
+      "tipo": "simple",
+      "natureza": "evento do extrato corrente, pela data de início ou da situação; soma entre anos",
+      "medida": "count(cnpj_completo) em fct_estabelecimentos",
+      "filtro": [
+        "{{ TimeDimension('estabelecimento__data_inicio_atividade', 'day') }} is not null"
+      ],
+      "entidades": [
+        "cnae",
+        "estabelecimento",
+        "municipio",
+        "natureza_juridica",
+        "porte",
+        "situacao_cadastral"
+      ],
+      "descricao": "Estabelecimentos do extrato corrente pela data de início de atividade (`metric_time` = início), só com data válida (as chaves -1 e -2 não geram evento), como `mart_dinamica_mercado`."
+    },
+    {
+      "nome": "ativos_rfb",
+      "rotulo": "Ativos RFB (CEMPRE × RFB)",
+      "tipo": "simple",
+      "natureza": "CEMPRE: 31/12 do `ano_cempre`, por classe CNAE; sigilo vira NULL",
+      "medida": "sum(ativos_rfb) em mart_emprego_setor_municipio",
+      "filtro": [],
+      "entidades": [
+        "emprego_setor_municipio",
+        "municipio"
+      ],
+      "descricao": "Estabelecimentos ativos na RFB (mês do gold) cuja subclasse principal é da classe, nos pares do mart CEMPRE × RFB; inclui MEI. Mesmo número de `qtd_ativos` somado por classe no mês corrente."
+    },
+    {
+      "nome": "baixas",
+      "rotulo": "Baixas",
+      "tipo": "simple",
+      "natureza": "evento do extrato corrente, pela data de início ou da situação; soma entre anos",
+      "medida": "count(cnpj_completo) em fct_estabelecimentos",
+      "filtro": [
+        "{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'BAIXADA'",
+        "{{ TimeDimension('estabelecimento__data_situacao', 'day') }} is not null"
+      ],
+      "entidades": [
+        "cnae",
+        "estabelecimento",
+        "municipio",
+        "natureza_juridica",
+        "porte",
+        "situacao_cadastral"
+      ],
+      "descricao": "Estabelecimentos BAIXADOS pela data da situação cadastral (`metric_time` = data da situação), só com data válida: o fechamento definitivo, sem as inaptidões, suspensões e nulidades de `encerramentos` (a inaptidão chega em lotes administrativos e pode ser revertida)."
+    },
+    {
+      "nome": "capital_social_medio",
+      "rotulo": "Capital Social Médio (R$)",
+      "tipo": "ratio",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "capital_social_total / qtd_matrizes",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Capital social médio por empresa (matriz)."
+    },
+    {
+      "nome": "capital_social_total",
+      "rotulo": "Capital Social Total (R$)",
+      "tipo": "simple",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "sum(soma_capital_social_matrizes) em fct_resumo_mensal",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Capital social somado só nas matrizes, para contar cada empresa uma vez."
+    },
+    {
+      "nome": "elegiveis_1a",
+      "rotulo": "elegiveis_1a",
+      "tipo": "simple",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sum(elegiveis_1a) em mart_sobrevivencia_coorte",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Estabelecimentos da coorte elegíveis ao horizonte de 1 ano(s)."
+    },
+    {
+      "nome": "elegiveis_3a",
+      "rotulo": "elegiveis_3a",
+      "tipo": "simple",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sum(elegiveis_3a) em mart_sobrevivencia_coorte",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Estabelecimentos da coorte elegíveis ao horizonte de 3 ano(s)."
+    },
+    {
+      "nome": "elegiveis_5a",
+      "rotulo": "elegiveis_5a",
+      "tipo": "simple",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sum(elegiveis_5a) em mart_sobrevivencia_coorte",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Estabelecimentos da coorte elegíveis ao horizonte de 5 ano(s)."
+    },
+    {
+      "nome": "encerramentos",
+      "rotulo": "Encerramentos",
+      "tipo": "simple",
+      "natureza": "evento do extrato corrente, pela data de início ou da situação; soma entre anos",
+      "medida": "count(cnpj_completo) em fct_estabelecimentos",
+      "filtro": [
+        "not {{ Dimension('estabelecimento__eh_ativa') }}",
+        "{{ TimeDimension('estabelecimento__data_situacao', 'day') }} is not null"
+      ],
+      "entidades": [
+        "cnae",
+        "estabelecimento",
+        "municipio",
+        "natureza_juridica",
+        "porte",
+        "situacao_cadastral"
+      ],
+      "descricao": "Estabelecimentos não ativos (`not eh_ativa`: baixados, suspensos, inaptos, nulos) pela data da situação cadastral (`metric_time` = data da situação), só com data válida; regra de `mart_dinamica_mercado`."
+    },
+    {
+      "nome": "idade_media_anos",
+      "rotulo": "Idade Média (anos)",
+      "tipo": "ratio",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "soma_idade_anos_ativos / qtd_ativos",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Idade média dos estabelecimentos ativos, em anos."
+    },
+    {
+      "nome": "pct_ativos",
+      "rotulo": "% Ativos",
+      "tipo": "ratio",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "qtd_ativos / qtd_estabelecimentos",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Ativos / estabelecimentos."
+    },
+    {
+      "nome": "pct_mei_entre_ativos",
+      "rotulo": "% MEI entre Ativos",
+      "tipo": "ratio",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "qtd_ativos_mei / qtd_ativos",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Participação do MEI entre os ativos."
+    },
+    {
+      "nome": "pessoal_ocupado_cempre",
+      "rotulo": "Pessoal ocupado (CEMPRE)",
+      "tipo": "simple",
+      "natureza": "CEMPRE: 31/12 do `ano_cempre`, por classe CNAE; sigilo vira NULL",
+      "medida": "sum(pessoal_ocupado_cempre) em mart_emprego_setor_municipio",
+      "filtro": [],
+      "entidades": [
+        "emprego_setor_municipio",
+        "municipio"
+      ],
+      "descricao": "Pessoal ocupado total em 31/12 do `ano_cempre` (CEMPRE/IBGE). Células com sigilo ficam fora da soma (nunca imputadas): o total de vários municípios ou classes subestima o real."
+    },
+    {
+      "nome": "qtd_ativos",
+      "rotulo": "Qtd Ativos",
+      "tipo": "simple",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "sum(qtd_ativos) em fct_resumo_mensal",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Estabelecimentos com situação cadastral ATIVA no mês (fotografia; não soma meses)."
+    },
+    {
+      "nome": "qtd_ativos_mei",
+      "rotulo": "Qtd Ativos MEI",
+      "tipo": "simple",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "sum(qtd_ativos) em fct_resumo_mensal",
+      "filtro": [
+        "{{ Dimension('resumo_mensal__opcao_mei') }}"
+      ],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Ativos de empresas optantes pelo MEI no mês."
+    },
+    {
+      "nome": "qtd_ativos_mes_anterior",
+      "rotulo": "Qtd Ativos Mês Anterior",
+      "tipo": "derived",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "ativos_mes_anterior (de qtd_ativos)",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Ativos no mês anterior ao de `metric_time`."
+    },
+    {
+      "nome": "qtd_estabelecimentos",
+      "rotulo": "Qtd Estabelecimentos",
+      "tipo": "simple",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "sum(qtd_estabelecimentos) em fct_resumo_mensal",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Estabelecimentos no mês (fotografia: em períodos maiores que o mês vale o último mês, não a soma)."
+    },
+    {
+      "nome": "qtd_matrizes",
+      "rotulo": "Qtd Matrizes",
+      "tipo": "simple",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "sum(qtd_matrizes) em fct_resumo_mensal",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Matrizes no mês (uma por empresa); denominador do capital social médio."
+    },
+    {
+      "nome": "saldo_aberturas_encerramentos",
+      "rotulo": "Saldo (aberturas − encerramentos)",
+      "tipo": "derived",
+      "natureza": "evento do extrato corrente, pela data de início ou da situação; soma entre anos",
+      "medida": "coalesce(aberturas, 0) - coalesce(encerramentos, 0) (de aberturas, encerramentos)",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "estabelecimento",
+        "municipio",
+        "natureza_juridica",
+        "porte",
+        "situacao_cadastral"
+      ],
+      "descricao": "Aberturas menos encerramentos no mesmo período de `metric_time` (o `saldo` de `mart_dinamica_mercado`); período com eventos só de um lado conta o outro como 0."
+    },
+    {
+      "nome": "sobreviventes_1a",
+      "rotulo": "sobreviventes_1a",
+      "tipo": "simple",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sum(sobreviventes_1a) em mart_sobrevivencia_coorte",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Elegíveis que seguiam ativos 1 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do aniversário de 1 ano(s) da abertura. Não é \"ainda ativo\"."
+    },
+    {
+      "nome": "sobreviventes_3a",
+      "rotulo": "sobreviventes_3a",
+      "tipo": "simple",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sum(sobreviventes_3a) em mart_sobrevivencia_coorte",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Elegíveis que seguiam ativos 3 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do aniversário de 3 ano(s) da abertura. Não é \"ainda ativo\"."
+    },
+    {
+      "nome": "sobreviventes_5a",
+      "rotulo": "sobreviventes_5a",
+      "tipo": "simple",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sum(sobreviventes_5a) em mart_sobrevivencia_coorte",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Elegíveis que seguiam ativos 5 ano(s) depois da abertura: ativos no extrato ou encerrados a partir do aniversário de 5 ano(s) da abertura. Não é \"ainda ativo\"."
+    },
+    {
+      "nome": "soma_idade_anos_ativos",
+      "rotulo": "soma_idade_anos_ativos",
+      "tipo": "simple",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "sum(soma_idade_anos) em fct_resumo_mensal",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Soma da idade (anos) dos ativos; numerador de `idade_media_anos`."
+    },
+    {
+      "nome": "taxa_sobrevivencia_1a",
+      "rotulo": "Taxa de Sobrevivência 1a",
+      "tipo": "ratio",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sobreviventes_1a / elegiveis_1a",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Sobreviventes / elegíveis a 1 ano(s), somando os estratos antes de dividir (não é a média das taxas). Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 1 ano(s), não só \"ainda ativo\"."
+    },
+    {
+      "nome": "taxa_sobrevivencia_3a",
+      "rotulo": "Taxa de Sobrevivência 3a",
+      "tipo": "ratio",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sobreviventes_3a / elegiveis_3a",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Sobreviventes / elegíveis a 3 ano(s), somando os estratos antes de dividir (não é a média das taxas). Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 3 ano(s), não só \"ainda ativo\"."
+    },
+    {
+      "nome": "taxa_sobrevivencia_5a",
+      "rotulo": "Taxa de Sobrevivência 5a",
+      "tipo": "ratio",
+      "natureza": "coorte: ano de abertura; elegíveis e sobreviventes somam entre recortes",
+      "medida": "sobreviventes_5a / elegiveis_5a",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "coorte_sobrevivencia",
+        "porte"
+      ],
+      "descricao": "Sobreviventes / elegíveis a 5 ano(s), somando os estratos antes de dividir (não é a média das taxas). Sobrevivente = ativo no extrato ou encerrado a partir do aniversário de 5 ano(s), não só \"ainda ativo\"."
+    },
+    {
+      "nome": "unidades_locais_cempre",
+      "rotulo": "Unidades locais (CEMPRE)",
+      "tipo": "simple",
+      "natureza": "CEMPRE: 31/12 do `ano_cempre`, por classe CNAE; sigilo vira NULL",
+      "medida": "sum(unidades_locais_cempre) em mart_emprego_setor_municipio",
+      "filtro": [],
+      "entidades": [
+        "emprego_setor_municipio",
+        "municipio"
+      ],
+      "descricao": "Unidades locais de empresas e outras organizações formais (CEMPRE/IBGE, `ano_cempre`) na classe e no município. Nunca sigilosas: a soma é exata."
+    },
+    {
+      "nome": "variacao_mensal_ativos",
+      "rotulo": "Variação Mensal de Ativos",
+      "tipo": "derived",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "qtd_ativos - ativos_mes_anterior (de qtd_ativos)",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Ativos no mês menos ativos no mês anterior."
+    },
+    {
+      "nome": "variacao_mensal_ativos_pct",
+      "rotulo": "Variação Mensal de Ativos (%)",
+      "tipo": "derived",
+      "natureza": "fotografia mensal: um mês é o cadastro inteiro; nunca some meses",
+      "medida": "(qtd_ativos - ativos_mes_anterior) / nullif(ativos_mes_anterior, 0) (de qtd_ativos)",
+      "filtro": [],
+      "entidades": [
+        "cnae",
+        "municipio",
+        "porte",
+        "resumo_mensal",
+        "situacao_cadastral"
+      ],
+      "descricao": "Variação relativa dos ativos frente ao mês anterior; nula sem ativos no mês anterior."
+    }
+  ],
+  "dimensoes": [
+    {
+      "nome": "cnae__codigo_classe",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "codigo_classe",
+      "descricao": "Código da classe (5 dígitos)."
+    },
+    {
+      "nome": "cnae__codigo_divisao",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "codigo_divisao",
+      "descricao": "Código da divisão (2 dígitos)."
+    },
+    {
+      "nome": "cnae__codigo_grupo",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "codigo_grupo",
+      "descricao": "Código do grupo (3 dígitos)."
+    },
+    {
+      "nome": "cnae__codigo_secao",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "codigo_secao",
+      "descricao": "Código da seção (letra)."
+    },
+    {
+      "nome": "cnae__codigo_subclasse",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "codigo_subclasse",
+      "descricao": "Código da subclasse (7 dígitos, com zeros à esquerda)."
+    },
+    {
+      "nome": "cnae__descricao_classe",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "descricao_classe",
+      "descricao": "Descrição da classe CNAE (5 primeiros dígitos da subclasse), da Base dos Dados."
+    },
+    {
+      "nome": "cnae__descricao_divisao",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "descricao_divisao",
+      "descricao": "Descrição da divisão."
+    },
+    {
+      "nome": "cnae__descricao_grupo",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "descricao_grupo",
+      "descricao": "Descrição do grupo CNAE (3 primeiros dígitos da subclasse), da Base dos Dados."
+    },
+    {
+      "nome": "cnae__descricao_secao",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "descricao_secao",
+      "descricao": "Descrição da seção CNAE (nível mais alto da hierarquia, uma letra), da Base dos Dados."
+    },
+    {
+      "nome": "cnae__descricao_subclasse",
+      "entidade": "cnae",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_cnae",
+      "coluna": "descricao_subclasse",
+      "descricao": "Descrição da subclasse."
+    },
+    {
+      "nome": "coorte_sobrevivencia__coorte",
+      "entidade": "coorte_sobrevivencia",
+      "tipo": "tempo",
+      "grao": "year",
+      "relacao": "mart_sobrevivencia_coorte",
+      "coluna": "make_date(cast(ano_coorte as integer), 1, 1)",
+      "descricao": "Ano de início de atividade da coorte (1º de janeiro)."
+    },
+    {
+      "nome": "coorte_sobrevivencia__uf",
+      "entidade": "coorte_sobrevivencia",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "mart_sobrevivencia_coorte",
+      "coluna": "uf",
+      "descricao": "Sigla da UF do município; `NI` para município sem par no BD."
+    },
+    {
+      "nome": "emprego_setor_municipio__ano_cempre",
+      "entidade": "emprego_setor_municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "mart_emprego_setor_municipio",
+      "coluna": "ano_cempre",
+      "descricao": "Ano de referência do CEMPRE (o mais recente baixado; hoje 2024). Diferente do mês da RFB."
+    },
+    {
+      "nome": "emprego_setor_municipio__classe_cnae",
+      "entidade": "emprego_setor_municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "mart_emprego_setor_municipio",
+      "coluna": "classe_cnae",
+      "descricao": "Código da classe CNAE 2.0 (5 dígitos, sem pontuação, como `dim_cnae.codigo_classe`; `47415` = 47.41-5)."
+    },
+    {
+      "nome": "emprego_setor_municipio__descricao_classe",
+      "entidade": "emprego_setor_municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "mart_emprego_setor_municipio",
+      "coluna": "descricao_classe",
+      "descricao": "Descrição da classe CNAE (`dim_cnae.descricao_classe`); se a classe do CEMPRE não está na CNAE da RFB (ex.: 70.10-7, \"Sedes de empresas e unidades administrativas locais\"), o nome da classe no próprio CEMPRE."
+    },
+    {
+      "nome": "emprego_setor_municipio__mes_rfb",
+      "entidade": "emprego_setor_municipio",
+      "tipo": "tempo",
+      "grao": "month",
+      "relacao": "mart_emprego_setor_municipio",
+      "coluna": "strptime(mes_referencia_rfb || '-01', '%Y-%m-%d')::date",
+      "descricao": "Mês do extrato RFB do gold (1º dia do mês); o CEMPRE é do `ano_cempre`, outro ano."
+    },
+    {
+      "nome": "emprego_setor_municipio__tem_sigilo",
+      "entidade": "emprego_setor_municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "mart_emprego_setor_municipio",
+      "coluna": "tem_sigilo",
+      "descricao": "true se alguma variável da célula veio com `X` (sigilo do IBGE); o valor fica NULL, nunca imputado."
+    },
+    {
+      "nome": "emprego_setor_municipio__uf",
+      "entidade": "emprego_setor_municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "mart_emprego_setor_municipio",
+      "coluna": "uf",
+      "descricao": "Sigla da UF do município."
+    },
+    {
+      "nome": "estabelecimento__data_inicio_atividade",
+      "entidade": "estabelecimento",
+      "tipo": "tempo",
+      "grao": "day",
+      "relacao": "fct_estabelecimentos",
+      "coluna": "case when sk_data_inicio_atividade > 0 then strptime(cast(sk_data_inicio_atividade as varchar), '%Y%m%d')::date end",
+      "descricao": "Data de início de atividade; nula para as chaves -1 (sem data) e -2 (anterior a 1900)."
+    },
+    {
+      "nome": "estabelecimento__data_situacao",
+      "entidade": "estabelecimento",
+      "tipo": "tempo",
+      "grao": "day",
+      "relacao": "fct_estabelecimentos",
+      "coluna": "case when sk_data_situacao > 0 then strptime(cast(sk_data_situacao as varchar), '%Y%m%d')::date end",
+      "descricao": "Data da situação cadastral atual; nula para as chaves -1 e -2."
+    },
+    {
+      "nome": "estabelecimento__eh_ativa",
+      "entidade": "estabelecimento",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "fct_estabelecimentos",
+      "coluna": "eh_ativa",
+      "descricao": "Verdadeiro para situação cadastral ativa (código 2)."
+    },
+    {
+      "nome": "estabelecimento__eh_matriz",
+      "entidade": "estabelecimento",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "fct_estabelecimentos",
+      "coluna": "eh_matriz",
+      "descricao": "Verdadeiro para matriz (`ind_matriz_filial = 1`)."
+    },
+    {
+      "nome": "estabelecimento__opcao_mei",
+      "entidade": "estabelecimento",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "fct_estabelecimentos",
+      "coluna": "opcao_mei",
+      "descricao": "Optante pelo MEI na empresa (false quando não há registro)."
+    },
+    {
+      "nome": "estabelecimento__opcao_simples",
+      "entidade": "estabelecimento",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "fct_estabelecimentos",
+      "coluna": "opcao_simples",
+      "descricao": "Optante pelo Simples Nacional na empresa (false quando não há registro)."
+    },
+    {
+      "nome": "municipio__id_municipio_ibge",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "id_municipio_ibge",
+      "descricao": "Código IBGE do município (7 dígitos). Linhagem: `stg_bd__municipios.id_municipio`."
+    },
+    {
+      "nome": "municipio__nome_mesorregiao",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_mesorregiao",
+      "descricao": "Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município)."
+    },
+    {
+      "nome": "municipio__nome_microrregiao",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_microrregiao",
+      "descricao": "Nome da microrregião."
+    },
+    {
+      "nome": "municipio__nome_municipio",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_municipio",
+      "descricao": "Nome do município (acentuado, Base dos Dados)."
+    },
+    {
+      "nome": "municipio__nome_municipio_polo_compras",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_municipio_polo_compras",
+      "descricao": "Nome do município polo de compras (`id_municipio_polo_compras`); NULL sem polo (incremento `enriquecimento_ibge`)."
+    },
+    {
+      "nome": "municipio__nome_regiao",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_regiao",
+      "descricao": "Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste)."
+    },
+    {
+      "nome": "municipio__nome_regiao_imediata",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_regiao_imediata",
+      "descricao": "Nome da região geográfica imediata."
+    },
+    {
+      "nome": "municipio__nome_regiao_intermediaria",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_regiao_intermediaria",
+      "descricao": "Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata)."
+    },
+    {
+      "nome": "municipio__nome_regiao_metropolitana",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_regiao_metropolitana",
+      "descricao": "Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1."
+    },
+    {
+      "nome": "municipio__nome_uf",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "nome_uf",
+      "descricao": "Nome completo da UF do município (por exemplo, `Espírito Santo`), da Base dos Dados; `NÃO INFORMADO` no membro `-1`."
+    },
+    {
+      "nome": "municipio__pct_compras_no_polo",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "pct_compras_no_polo",
+      "descricao": "% dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo (incremento `enriquecimento_ibge`)."
+    },
+    {
+      "nome": "municipio__regic_arranjo_populacional",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "regic_arranjo_populacional",
+      "descricao": "Arranjo populacional da REGIC 2018 de que o município faz parte; NULL quando é município isolado (incremento `enriquecimento_ibge`)."
+    },
+    {
+      "nome": "municipio__regic_hierarquia",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "regic_hierarquia",
+      "descricao": "Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`)."
+    },
+    {
+      "nome": "municipio__regic_hierarquia_codigo",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "regic_hierarquia_codigo",
+      "descricao": "Código do nível na hierarquia urbana da REGIC 2018 (`1A` Grande Metrópole Nacional … `5` Centro Local); NULL sem dado (incremento `enriquecimento_ibge`)."
+    },
+    {
+      "nome": "municipio__regic_regiao_influencia",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "regic_regiao_influencia",
+      "descricao": "Cidade (ou arranjo) de vinculação imediata do município na rede urbana da REGIC 2018 (incremento `enriquecimento_ibge`)."
+    },
+    {
+      "nome": "municipio__renda_per_capita_media_2022",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "renda_per_capita_media_2022",
+      "descricao": "Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1."
+    },
+    {
+      "nome": "municipio__renda_per_capita_mediana_2022",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "renda_per_capita_mediana_2022",
+      "descricao": "Rendimento domiciliar per capita mediano (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado: a 10295 publicada tem valor numérico nos 5.570 municípios; um símbolo do IBGE (`...`) viraria NULL."
+    },
+    {
+      "nome": "municipio__sigla_uf",
+      "entidade": "municipio",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_municipio",
+      "coluna": "sigla_uf",
+      "descricao": "Sigla da UF do município."
+    },
+    {
+      "nome": "natureza_juridica__codigo_natureza_juridica",
+      "entidade": "natureza_juridica",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_natureza_juridica",
+      "coluna": "codigo_natureza_juridica",
+      "descricao": "Código da natureza jurídica (4 dígitos)."
+    },
+    {
+      "nome": "natureza_juridica__descricao_natureza_juridica",
+      "entidade": "natureza_juridica",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_natureza_juridica",
+      "coluna": "descricao_natureza_juridica",
+      "descricao": "Descrição da natureza jurídica."
+    },
+    {
+      "nome": "porte__codigo_porte",
+      "entidade": "porte",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_porte",
+      "coluna": "codigo_porte",
+      "descricao": "Código RFB do porte da empresa em texto (`0` não informado, `1` micro, `3` pequena, `5` demais; `-1` no membro NÃO INFORMADO). Chave natural, igual a `dominio_porte.codigo`."
+    },
+    {
+      "nome": "porte__rotulo_porte",
+      "entidade": "porte",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_porte",
+      "coluna": "rotulo_porte",
+      "descricao": "Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS)."
+    },
+    {
+      "nome": "resumo_mensal__mes",
+      "entidade": "resumo_mensal",
+      "tipo": "tempo",
+      "grao": "month",
+      "relacao": "fct_resumo_mensal",
+      "coluna": "cast(mes_referencia || '-01' as date)",
+      "descricao": "Mês de referência do extrato RFB (primeiro dia do mês)."
+    },
+    {
+      "nome": "resumo_mensal__opcao_mei",
+      "entidade": "resumo_mensal",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "fct_resumo_mensal",
+      "coluna": "opcao_mei",
+      "descricao": "Optante pelo MEI."
+    },
+    {
+      "nome": "situacao_cadastral__codigo_situacao_cadastral",
+      "entidade": "situacao_cadastral",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_situacao_cadastral",
+      "coluna": "codigo_situacao_cadastral",
+      "descricao": "Código RFB da situação, em texto e sem zero à esquerda (`1`, `2`, `3`, `4`, `8`; `-1` no membro NÃO INFORMADO). No raw (`estabelecimentos.situacao`) o mesmo código vem com zero à esquerda (`02` = ativa): converta ao filtrar."
+    },
+    {
+      "nome": "situacao_cadastral__rotulo_situacao_cadastral",
+      "entidade": "situacao_cadastral",
+      "tipo": "categórica",
+      "grao": null,
+      "relacao": "dim_situacao_cadastral",
+      "coluna": "rotulo_situacao_cadastral",
+      "descricao": "Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA)."
+    }
+  ],
+  "relacoes": [
+    {
+      "nome": "main.stg_bd__censo_2022_municipio",
+      "camada": "staging",
+      "grao": "município IBGE (`id_municipio`)",
+      "descricao": "Censo 2022 por município, tipado: contagens `bigint`, taxas `double`; `area` vira `area_km2`. Uma linha por município.",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (7 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sigla_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "domicilios",
+          "tipo": "BIGINT",
+          "descricao": "Domicílios (Censo 2022).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao",
+          "tipo": "BIGINT",
+          "descricao": "População residente (Censo 2022).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "area_km2",
+          "tipo": "DOUBLE",
+          "descricao": "Área territorial em km².",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "taxa_alfabetizacao",
+          "tipo": "DOUBLE",
+          "descricao": "Taxa de alfabetização (fração de 0 a 1).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "idade_mediana",
+          "tipo": "DOUBLE",
+          "descricao": "Idade mediana, em anos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "razao_sexo",
+          "tipo": "DOUBLE",
+          "descricao": "Razão de sexo (homens por 100 mulheres).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_envelhecimento",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de envelhecimento (idosos por 100 jovens).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao_indigena",
+          "tipo": "BIGINT",
+          "descricao": "População indígena.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao_indigena_terra_indigena",
+          "tipo": "BIGINT",
+          "descricao": "População indígena residente em terras indígenas.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao_quilombola",
+          "tipo": "BIGINT",
+          "descricao": "População quilombola.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao_quilombola_territorio_quilombola",
+          "tipo": "BIGINT",
+          "descricao": "População quilombola residente em territórios quilombolas.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_bd__cnaes",
+      "camada": "staging",
+      "grao": "subclasse CNAE (`subclasse`)",
+      "descricao": "CNAEs (versão 2.x) da Base dos Dados, tipado e limpo: `subclasse` e demais códigos da hierarquia com zeros à esquerda preservados (`lpad_codigo`).",
+      "colunas": [
+        {
+          "nome": "subclasse",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse CNAE (7 dígitos; FK lógica para `stg_rfb__cnaes.codigo`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_subclasse",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da subclasse.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "classe",
+          "tipo": "VARCHAR",
+          "descricao": "Código da classe (5 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_classe",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da classe.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "grupo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do grupo (3 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_grupo",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição do grupo.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "divisao",
+          "tipo": "VARCHAR",
+          "descricao": "Código da divisão (2 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_divisao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da divisão.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "secao",
+          "tipo": "VARCHAR",
+          "descricao": "Letra da seção (agregado mais alto da hierarquia CNAE).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_secao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da seção.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_bd__municipios",
+      "camada": "staging",
+      "grao": "município IBGE (`id_municipio`)",
+      "descricao": "Municípios da Base dos Dados, tipado e limpo: ids como texto (`texto_ou_nulo`), `id_municipio_rf` com 4 dígitos (`lpad_codigo`, como o código RFB), `latitude`/`longitude` extraídos do WKT `centroide` (`POINT(longitude latitude)`).",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (7 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_rf",
+          "tipo": "VARCHAR",
+          "descricao": "Código do município na classificação da RFB, 4 dígitos (o BD pode trazê-lo sem zeros à esquerda); casa direto com `stg_rfb__municipios.codigo` e `stg_rfb__estabelecimentos.municipio_rfb_codigo` (ver cobertura em `tests/cobertura_municipio_rfb_bd.sql`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município, acentuado.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "sigla_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Nome completo da UF.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_microrregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da microrregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_microrregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da microrregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_mesorregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da mesorregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_mesorregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da mesorregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_regiao_imediata",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da região geográfica imediata.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_imediata",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da região geográfica imediata.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_regiao_intermediaria",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da região geográfica intermediária.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_intermediaria",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da região geográfica intermediária.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "longitude",
+          "tipo": "DOUBLE",
+          "descricao": "Longitude do centroide do município (extraída do WKT `centroide`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "latitude",
+          "tipo": "DOUBLE",
+          "descricao": "Latitude do centroide do município (extraída do WKT `centroide`).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_bd__pib",
+      "camada": "staging",
+      "grao": "município e ano (`id_municipio`, `ano`)",
+      "descricao": "PIB municipal e seus componentes (adição), tipados como `double`; `ano` inteiro.",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano de referência do PIB.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pib",
+          "tipo": "DOUBLE",
+          "descricao": "PIB total do município no ano, em R$.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "impostos_liquidos",
+          "tipo": "DOUBLE",
+          "descricao": "Impostos líquidos de subsídios, em R$.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado total, em R$.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_agropecuaria",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado da agropecuária, em R$.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_industria",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado da indústria, em R$.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_servicos",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado dos serviços, em R$.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_adespss",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado da administração, defesa, educação e saúde públicas, em R$.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_bd__populacao",
+      "camada": "staging",
+      "grao": "município e ano (`id_municipio`, `ano`)",
+      "descricao": "População estimada por município e ano (adição), tipada: `ano` inteiro, `populacao` bigint.",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (FK lógica para `stg_bd__municipios.id_municipio`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sigla_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano de referência da estimativa populacional.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao",
+          "tipo": "BIGINT",
+          "descricao": "População estimada no município e ano.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_bd__regioes_metropolitanas",
+      "camada": "staging",
+      "grao": "município IBGE (`id_municipio`)",
+      "descricao": "Região metropolitana de cada município, uma linha por município (a fonte pode listar um município em mais de uma região: fica a de tipo `RM`, depois a de menor nome). A `geometria` da fonte é descartada.",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (7 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sigla_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_metropolitana",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da região metropolitana.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tipo",
+          "tipo": "VARCHAR",
+          "descricao": "Tipo da unidade (`RM`, `RIDE`, `AGLO`, `CM`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "subcategoria_metropolitana",
+          "tipo": "VARCHAR",
+          "descricao": "Subcategoria (núcleo, colar...); frequentemente nula.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "legislacao",
+          "tipo": "VARCHAR",
+          "descricao": "Lei que instituiu a região.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "data_legislacao",
+          "tipo": "DATE",
+          "descricao": "Data da lei; nula quando ausente.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_bd__vizinhanca",
+      "camada": "staging",
+      "grao": "par de municípios vizinhos por ano de malha, como publicado (`ano`, `id_municipio_1`, `id_municipio_2`); pode repetir o par e trazer autopares, e a ponte bridge_municipio_vizinho deduplica e simetriza",
+      "descricao": "Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas e autopares em anos antigos), com `ano` inteiro. Ano mais recente e simetria: `bridge_municipio_vizinho`.",
+      "colunas": [
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano da malha municipal do par.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_1",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE de um município do par.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_2",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município vizinho.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_ibge__cempre_municipio_classe",
+      "camada": "staging",
+      "grao": "município × classe CNAE × ano (`id_municipio`, `classe_cnae`, `ano`)",
+      "descricao": "CEMPRE (IBGE, SIDRA 9528) por município e classe CNAE 2.0 (nível 4): unidades locais, pessoal ocupado, pessoal assalariado e salários. Uma linha por município, classe e ano. Só entram as categorias cujo nome começa por um código de classe (`NN.NN-N`): o Total fica em `stg_ibge__cempre_municipio_total`, e grupos que a SIDRA marca como nível 4 (`20.5`) ficam de fora, para nunca somar em dobro. Símbolos do IBGE (`valor_ibge`): `-` vira 0; `X` (sigilo), `..` e `...` viram NULL, e `tem_sigilo` marca a linha com algum `X`.",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo IBGE do município (7 dígitos, texto), o mesmo de `dim_municipio.id_municipio_ibge`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano de referência do CEMPRE.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "classe_cnae",
+          "tipo": "VARCHAR",
+          "descricao": "Classe CNAE 2.0 com 5 dígitos, sem pontuação (`47.41-5` -> `47415`): casa com os 5 primeiros dígitos da subclasse da RFB (`4741500`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_classe_cnae",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da classe CNAE, como publicado pelo IBGE (sem o código).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_categoria_sidra",
+          "tipo": "VARCHAR",
+          "descricao": "Id da categoria na classificação 12762 da SIDRA (por exemplo `117453`). Linhagem: `ibge.cempre_municipio_cnae.d4c`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "unidades_locais",
+          "tipo": "BIGINT",
+          "descricao": "Número de unidades locais (variável 706). Não é sigiloso no CEMPRE: NULL só com `..`/`...`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_ocupado",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado total (variável 707). NULL quando sigiloso (`X`) ou indisponível.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_assalariado",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado assalariado (variável 708). NULL quando sigiloso (`X`) ou indisponível.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "salarios_mil_reais",
+          "tipo": "DECIMAL(18,3)",
+          "descricao": "Salários e outras remunerações, em **mil reais** (variável 662). NULL quando sigiloso (`X`) ou indisponível.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_sigilo",
+          "tipo": "BOOLEAN",
+          "descricao": "Verdadeiro se alguma das variáveis veio como `X` (valor inibido para não identificar o informante; acontece quando há poucas unidades locais).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_ibge__cempre_municipio_total",
+      "camada": "staging",
+      "grao": "município × ano (`id_municipio`, `ano`)",
+      "descricao": "CEMPRE (IBGE, SIDRA 9528) por município, todas as atividades (categoria Total, 117897). Separado das classes para nunca somar em dobro com `stg_ibge__cempre_municipio_classe`. Mesmo tratamento de símbolos (`valor_ibge`).",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo IBGE do município (7 dígitos, texto).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano de referência do CEMPRE.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "unidades_locais",
+          "tipo": "BIGINT",
+          "descricao": "Número de unidades locais de todas as atividades (variável 706).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_ocupado",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado total (variável 707). NULL se sigiloso ou indisponível.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_assalariado",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado assalariado (variável 708). NULL se sigiloso ou indisponível.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "salarios_mil_reais",
+          "tipo": "DECIMAL(18,3)",
+          "descricao": "Salários e outras remunerações, em mil reais (variável 662). NULL se sigiloso ou indisponível.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_sigilo",
+          "tipo": "BOOLEAN",
+          "descricao": "Verdadeiro se alguma das variáveis veio como `X` (sigilo).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_ibge__regic_atracao",
+      "camada": "staging",
+      "grao": "município de destino (`id_municipio`)",
+      "descricao": "REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamentos dos questionários, geral e por tema. Município que não atrai ninguém não aparece, nem a pseudo-localidade `0` (\"Outros / Não circula jornal\") da planilha.",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo IBGE do município (7 dígitos, texto).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município, como na REGIC.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao_2018",
+          "tipo": "BIGINT",
+          "descricao": "População do município em 2018 (estimativa usada pela REGIC).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração geral (`IA`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_vestuario_calcados",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para compra de vestuário e calçados (`IA_Q1`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_moveis_eletro",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para compra de móveis e eletroeletrônicos (`IA_Q2`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_saude_baixa_media_complexidade",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para saúde de baixa e média complexidades (`IA_Q3`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_saude_alta_complexidade",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para saúde de alta complexidade (`IA_Q4`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_ensino_superior",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para ensino superior (`IA_Q5`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_atividades_culturais",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para atividades culturais (`IA_Q6`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_atividades_esportivas",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para atividades esportivas (`IA_Q7`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_aeroporto",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para aeroporto (`IA_Q8`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_jornais",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração dos jornais editados no município (`IA_Q9`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao_transporte_coletivo",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração para transporte público coletivo (`IA_Q10`).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_ibge__regic_hierarquia",
+      "camada": "staging",
+      "grao": "município (`id_municipio`)",
+      "descricao": "REGIC 2018 (IBGE): hierarquia urbana da cidade a que o município pertence (o próprio município isolado ou o arranjo populacional) e a sua região de influência (cidades de vinculação).",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo IBGE do município (7 dígitos, texto).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município, como na REGIC.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sigla_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_cidade_regic",
+          "tipo": "VARCHAR",
+          "descricao": "Código da cidade da REGIC (o arranjo populacional, ou o próprio município isolado).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "integra_arranjo_populacional",
+          "tipo": "BOOLEAN",
+          "descricao": "Verdadeiro se o município integra um arranjo populacional (categoria `Arranjo Populacional`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_arranjo_populacional",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo do arranjo populacional (NULL para município isolado).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_arranjo_populacional",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do arranjo populacional (NULL para município isolado).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "codigo_hierarquia",
+          "tipo": "VARCHAR",
+          "descricao": "Código da hierarquia urbana: `1A` Grande Metrópole Nacional, `1B` Metrópole Nacional, `1C` Metrópole, `2A`-`2C` Capital Regional, `3A`/`3B` Centro Sub-Regional, `4A`/`4B` Centro de Zona, `5` Centro Local.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_hierarquia",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da hierarquia urbana (por exemplo `Metrópole`, `Centro Local`).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "descricao_hierarquia",
+          "tipo": "VARCHAR",
+          "descricao": "Hierarquia como publicada, com o código e, se for o caso, o arranjo (`Hierarquia`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "quantidade_subordinacoes",
+          "tipo": "INTEGER",
+          "descricao": "Número de cidades a que o município se subordina diretamente (`Múltiplas Subordinações`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regiao_influencia",
+          "tipo": "VARCHAR",
+          "descricao": "Cidade(s) de vinculação imediata, com a hierarquia de cada uma (por exemplo `Arranjo Populacional de Vitória/ES - Metrópole (1C)`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cidade_influencia_1",
+          "tipo": "VARCHAR",
+          "descricao": "Primeira cidade de vinculação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cidade_influencia_2",
+          "tipo": "VARCHAR",
+          "descricao": "Segunda cidade de vinculação (NULL se não houver).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cidade_influencia_3",
+          "tipo": "VARCHAR",
+          "descricao": "Terceira cidade de vinculação (NULL se não houver).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cidade_influencia_4",
+          "tipo": "VARCHAR",
+          "descricao": "Quarta cidade de vinculação (NULL se não houver).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_ibge__regic_ligacoes",
+      "camada": "staging",
+      "grao": "ligação origem → destino (`id_municipio_origem`, `id_municipio_destino`)",
+      "descricao": "REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*` é o percentual estimado dos deslocamentos dos moradores da origem que vão ao destino para o tema (Q1 a Q10 da planilha), de 0 a 100; NULL quando ausente. Município sem ligação de origem não aparece. O destino `0` da planilha (\"Outros / Não circula jornal\", 3.888 origens no dado real) é a parcela dos deslocamentos para lugares não listados: fica com `id_municipio_destino` NULL e `destino_outros` verdadeiro (no máximo uma linha por origem).",
+      "colunas": [
+        {
+          "nome": "id_municipio_origem",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo IBGE do município de origem (7 dígitos, texto).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_destino",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo IBGE do município de destino (7 dígitos, texto); NULL no destino \"Outros\" (`destino_outros`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "destino_outros",
+          "tipo": "BOOLEAN",
+          "descricao": "Verdadeiro na linha do destino `0` da planilha (\"Outros / Não circula jornal\"): a parcela dos deslocamentos da origem para lugares não listados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_vestuario_calcados",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos da origem ao destino para comprar vestuário e calçados (Q1).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_moveis_eletro",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos da origem ao destino para comprar móveis e eletroeletrônicos (Q2).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_saude_baixa_media_complexidade",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos para serviços de saúde de baixa e média complexidades (Q3).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_saude_alta_complexidade",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos para serviços de saúde de alta complexidade (Q4).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_ensino_superior",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos para ensino superior (Q5).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_atividades_culturais",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos para atividades culturais (Q6).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_atividades_esportivas",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos para atividades esportivas (Q7).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_aeroporto",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos para usar aeroporto (Q8).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_jornais",
+          "tipo": "DOUBLE",
+          "descricao": "% dos jornais que circulam na origem editados no destino (Q9).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_transporte_coletivo",
+          "tipo": "DOUBLE",
+          "descricao": "% do destino entre os destinos mais frequentes de transporte público coletivo da origem (Q10).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_bens_servicos",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos da origem ao destino para bens e serviços em outros municípios, todos os temas (`PERC_LIG`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_atracao",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração geral do destino sobre a origem (`IA`).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_ibge__renda_municipio",
+      "camada": "staging",
+      "grao": "município (`id_municipio`)",
+      "descricao": "Censo 2022 (IBGE, SIDRA 10295) por município: moradores em domicílios particulares permanentes ocupados e rendimento nominal mensal domiciliar per capita médio e mediano, em reais, nos totais de sexo, cor ou raça e grupo de idade. Símbolos do IBGE viram NULL (`valor_ibge`).",
+      "colunas": [
+        {
+          "nome": "id_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Geocódigo IBGE do município (7 dígitos, texto).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano do Censo (2022).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "moradores",
+          "tipo": "BIGINT",
+          "descricao": "Moradores em domicílios particulares permanentes ocupados (variável 13604).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "renda_per_capita_media",
+          "tipo": "DECIMAL(12,2)",
+          "descricao": "Rendimento nominal mensal domiciliar per capita **médio**, em R$ (variável 13431).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "renda_per_capita_mediana",
+          "tipo": "DECIMAL(12,2)",
+          "descricao": "Rendimento nominal mensal domiciliar per capita **mediano**, em R$ (variável 13534).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_rfb__cnaes",
+      "camada": "staging",
+      "grao": "subclasse CNAE (`codigo`)",
+      "descricao": "Domínio de CNAEs (subclasse) da RFB, tipado e limpo: `codigo` com 7 dígitos (`lpad_codigo`) e `descricao` vazia convertida em NULL (`texto_ou_nulo`). Filtra pelo mês de referência (`filtro_mes_referencia`).",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse CNAE, sempre com 7 dígitos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da atividade econômica; NULL se vazia no raw.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_rfb__empresas",
+      "camada": "staging",
+      "grao": "empresa (`cnpj_raiz`) do mês selecionado",
+      "descricao": "Empresas (CNPJ raiz) da RFB, tipadas e limpas, do mês de referência selecionado (`filtro_mes_referencia`): códigos com zeros à esquerda (`lpad_codigo`), capital social em DECIMAL (`decimal_rfb`), porte inteiro e textos vazios convertidos em NULL. Uma linha por `cnpj_raiz` (adaptado, B8): uma raiz duplicada no extrato (2026-09: 08314885, com uma linha sem razão social e natureza 0000) é reduzida à linha mais informativa (`empresa_preferida_por_raiz`).",
+      "colunas": [
+        {
+          "nome": "cnpj_raiz",
+          "tipo": "VARCHAR",
+          "descricao": "8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "razao_social",
+          "tipo": "VARCHAR",
+          "descricao": "Razão social (nome oficial/jurídico) da empresa.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "natureza_juridica_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código da natureza jurídica, 4 dígitos (FK lógica para `stg_rfb__naturezas.codigo`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "qualificacao_responsavel_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código de qualificação do responsável pela empresa perante a RFB, 2 dígitos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "capital_social",
+          "tipo": "DECIMAL(18,2)",
+          "descricao": "Capital social declarado, DECIMAL(18,2) (`1000,50` -> 1000.50); inválido -> NULL.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "porte_codigo",
+          "tipo": "INTEGER",
+          "descricao": "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ente_federativo_responsavel",
+          "tipo": "VARCHAR",
+          "descricao": "Ente federativo responsável, preenchido só para órgãos/autarquias públicas.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "_mes_referencia",
+          "tipo": "VARCHAR",
+          "descricao": "Mês de referência (`YYYY-MM`) do extrato RFB.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "_data_referencia",
+          "tipo": "DATE",
+          "descricao": "Data do extrato RFB (do nome interno do arquivo, ex. `D60912` -> 2026-09-12).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_rfb__estabelecimentos",
+      "camada": "staging",
+      "grao": "estabelecimento (`cnpj_completo`) do mês selecionado",
+      "descricao": "Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referência selecionado: `cnpj_completo` com 14 dígitos, datas `YYYYMMDD` -> DATE (`0`, `00000000` e inválidas -> NULL), códigos com zeros à esquerda, CNAEs secundários como texto original e como lista. **Sem** colunas de contato (`email`, `ddd*`, `tel*`, `fax`) — ADR-0008.",
+      "colunas": [
+        {
+          "nome": "cnpj_raiz",
+          "tipo": "VARCHAR",
+          "descricao": "8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "cnpj_ordem",
+          "tipo": "VARCHAR",
+          "descricao": "Número do estabelecimento (4 dígitos; `0001` = matriz, em geral).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "cnpj_dv",
+          "tipo": "VARCHAR",
+          "descricao": "Dígitos verificadores do CNPJ (2 dígitos).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "cnpj_completo",
+          "tipo": "VARCHAR",
+          "descricao": "CNPJ completo com 14 dígitos = `cnpj_raiz || cnpj_ordem || cnpj_dv`.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "matriz_filial_codigo",
+          "tipo": "INTEGER",
+          "descricao": "1 = matriz, 2 = filial.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_fantasia",
+          "tipo": "VARCHAR",
+          "descricao": "Nome fantasia do estabelecimento; NULL se vazio.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "situacao_codigo",
+          "tipo": "INTEGER",
+          "descricao": "Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_situacao",
+          "tipo": "DATE",
+          "descricao": "Data da situação cadastral atual (para ativos, costuma ser a data de início).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "motivo_situacao_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do motivo da situação cadastral (2 dígitos; FK lógica para `stg_rfb__motivos`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cidade_exterior",
+          "tipo": "VARCHAR",
+          "descricao": "Cidade no exterior, só para estabelecimentos fora do Brasil.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pais_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do país (3 dígitos), só para estabelecimentos no exterior.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_inicio_atividade",
+          "tipo": "DATE",
+          "descricao": "Data de início de atividade. Datas absurdas vêm assim da RFB (fev/2025: 4 antes de 1800, a menor 1194-08-15) e não são anuladas (a paridade com o original as mantém); o teste de faixa em `warn` as registra, sem barrar o build. O limite é 1900-01-01, o início de `dim_data`: antes dele a fato usa `sk_data = -2` (DATA INVÁLIDA).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnaes_secundarios",
+          "tipo": "VARCHAR",
+          "descricao": "CNAEs secundários, texto original separado por vírgula; NULL se vazio.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnaes_secundarios_lista",
+          "tipo": "VARCHAR[]",
+          "descricao": "CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tipo_logradouro",
+          "tipo": "VARCHAR",
+          "descricao": "Tipo de logradouro (RUA, AVENIDA...).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "logradouro",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do logradouro.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "numero",
+          "tipo": "VARCHAR",
+          "descricao": "Número no logradouro.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "complemento",
+          "tipo": "VARCHAR",
+          "descricao": "Complemento do endereço.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "bairro",
+          "tipo": "VARCHAR",
+          "descricao": "Bairro.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "cep",
+          "tipo": "VARCHAR",
+          "descricao": "CEP (8 dígitos, texto).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF (`EX` para exterior).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio_rfb_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do município na classificação da RFB, 4 dígitos (não é o código IBGE).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "situacao_especial",
+          "tipo": "VARCHAR",
+          "descricao": "Situação especial (ex. recuperação judicial), quando houver.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_situacao_especial",
+          "tipo": "DATE",
+          "descricao": "Data da situação especial.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "_mes_referencia",
+          "tipo": "VARCHAR",
+          "descricao": "Mês de referência (`YYYY-MM`) do extrato RFB.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "_data_referencia",
+          "tipo": "DATE",
+          "descricao": "Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto, de `idade_atual`; não pode ser nula (teste `not_null`, `error`).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_rfb__motivos",
+      "camada": "staging",
+      "grao": "motivo de situação cadastral (`codigo`)",
+      "descricao": "Domínio de motivos de situação cadastral da RFB, tipado e limpo: `codigo` com 2 dígitos.",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do motivo de situação cadastral (2 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição do motivo de situação cadastral.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_rfb__municipios",
+      "camada": "staging",
+      "grao": "município da RFB (`codigo`)",
+      "descricao": "Domínio de municípios da RFB, tipado e limpo: `codigo` com 4 dígitos (`lpad_codigo`). Não tem UF; ver `stg_bd__municipios` para UF e georreferência.",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do município na classificação da RFB (4 dígitos; não é o código IBGE).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município, sem acentos.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_rfb__naturezas",
+      "camada": "staging",
+      "grao": "natureza jurídica (`codigo`)",
+      "descricao": "Domínio de naturezas jurídicas da RFB, tipado e limpo: `codigo` com 4 dígitos.",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código da natureza jurídica (4 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da natureza jurídica.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.stg_rfb__simples",
+      "camada": "staging",
+      "grao": "empresa (`cnpj_raiz`) do mês selecionado",
+      "descricao": "Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opcao_simples` e `opcao_mei` viram booleanos (`S`/`N`); datas `00000000` viram NULL.",
+      "colunas": [
+        {
+          "nome": "cnpj_raiz",
+          "tipo": "VARCHAR",
+          "descricao": "8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "opcao_simples",
+          "tipo": "BOOLEAN",
+          "descricao": "`true` se optante pelo Simples Nacional, `false` caso contrário.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_opcao_simples",
+          "tipo": "DATE",
+          "descricao": "Data de opção pelo Simples; NULL se `00000000` no raw.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_exclusao_simples",
+          "tipo": "DATE",
+          "descricao": "Data de exclusão do Simples; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito futuro (fim do mês ou do ano) é legítima.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "opcao_mei",
+          "tipo": "BOOLEAN",
+          "descricao": "`true` se optante pelo MEI, `false` caso contrário.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_opcao_mei",
+          "tipo": "DATE",
+          "descricao": "Data de opção pelo MEI; NULL se `00000000` no raw.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_exclusao_mei",
+          "tipo": "DATE",
+          "descricao": "Data de exclusão do MEI; NULL se `00000000` no raw. Sem `data_nao_futura`: a exclusão com efeito futuro é legítima.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.int_cnaes_secundarios__explodidos",
+      "camada": "intermediate",
+      "grao": "estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`)",
+      "descricao": "Uma linha por (estabelecimento, CNAE secundário), a partir de `cnaes_secundarios_lista`.",
+      "colunas": [
+        {
+          "nome": "cnpj_completo",
+          "tipo": "VARCHAR",
+          "descricao": "CNPJ completo do estabelecimento.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "codigo_cnae_secundario",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse CNAE secundária (7 dígitos).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.int_estabelecimentos__enriquecidos",
+      "camada": "intermediate",
+      "grao": "estabelecimento (`cnpj_completo`) do mês selecionado",
+      "descricao": "Estabelecimentos do mês selecionado com empresa, Simples/MEI e pares nos domínios, por LEFT JOIN: nada é descartado (diferente dos inner joins de `bh_empresas`); a ausência de par vira as flags `tem_*`. Base da fato e da bridge de CNAEs secundários.",
+      "colunas": [
+        {
+          "nome": "cnpj_completo",
+          "tipo": "VARCHAR",
+          "descricao": "CNPJ de 14 dígitos; único por mês.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "cnpj_raiz",
+          "tipo": "VARCHAR",
+          "descricao": "8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "matriz_filial_codigo",
+          "tipo": "INTEGER",
+          "descricao": "Indicador matriz (1) / filial (2); validado contra o seed `dominio_matriz_filial`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "situacao_codigo",
+          "tipo": "INTEGER",
+          "descricao": "Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_inicio_atividade",
+          "tipo": "DATE",
+          "descricao": "Data de início de atividade; NULL se `0`, `00000000` ou inválida no raw.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dat_situacao",
+          "tipo": "DATE",
+          "descricao": "Data da situação cadastral atual; NULL se `0`, `00000000` ou inválida no raw.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse CNAE principal, 7 dígitos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnaes_secundarios_lista",
+          "tipo": "VARCHAR[]",
+          "descricao": "CNAEs secundários como lista (cada item com 7 dígitos); lista vazia se não houver.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio_rfb_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do município na classificação da RFB, 4 dígitos (não é o código IBGE).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_ibge",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município pareado na Base dos Dados; NULL se `tem_municipio_bd` é falso.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "natureza_juridica_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código da natureza jurídica da empresa (4 dígitos); NULL sem empresa.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "porte_codigo",
+          "tipo": "INTEGER",
+          "descricao": "Código de porte da empresa: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL sem empresa.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "capital_social",
+          "tipo": "DECIMAL(18,2)",
+          "descricao": "Capital social da empresa, DECIMAL(18,2); NULL sem empresa ou se inválido no raw.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "opcao_simples",
+          "tipo": "BOOLEAN",
+          "descricao": "`true` se a empresa é optante pelo Simples Nacional; sem registro no Simples vira `false`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "opcao_mei",
+          "tipo": "BOOLEAN",
+          "descricao": "`true` se a empresa é optante pelo MEI; sem registro no Simples vira `false`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_empresa",
+          "tipo": "BOOLEAN",
+          "descricao": "Diagnóstico do LEFT JOIN. `false` se o estabelecimento não tem a empresa (`cnpj_raiz`) em `stg_rfb__empresas`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_natureza",
+          "tipo": "BOOLEAN",
+          "descricao": "Diagnóstico do LEFT JOIN. `false` se a natureza jurídica não tem par em `stg_rfb__naturezas`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_cnae_bd",
+          "tipo": "BOOLEAN",
+          "descricao": "Diagnóstico do LEFT JOIN. `false` se o CNAE principal não tem par em `stg_bd__cnaes`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_municipio_bd",
+          "tipo": "BOOLEAN",
+          "descricao": "Diagnóstico do LEFT JOIN. `false` se o município RFB não tem par na Base dos Dados (exterior, município novo).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "_mes_referencia",
+          "tipo": "VARCHAR",
+          "descricao": "Mês de referência (`YYYY-MM`) do extrato RFB.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "_data_referencia",
+          "tipo": "DATE",
+          "descricao": "Data do extrato RFB; base de `idade_anos` e de `data_referencia()`.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.int_municipios__conformados",
+      "camada": "intermediate",
+      "grao": "município IBGE (`sk_municipio`)",
+      "descricao": "Município conformado (Base dos Dados + população do `ano_populacao` + PIB do último ano), uma linha por município IBGE. Base de `dim_municipio`; não inclui o membro `-1`.",
+      "colunas": [
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Código IBGE como inteiro (chave substituta determinística).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_ibge",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (7 dígitos, texto); chave natural da Base dos Dados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_rfb",
+          "tipo": "VARCHAR",
+          "descricao": "Código RFB do município; único (duplicata multiplicaria linhas da fato).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município, acentuado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sigla_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Nome completo da UF.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_mesorregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da mesorregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_mesorregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da mesorregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_microrregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da microrregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_microrregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da microrregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_regiao_intermediaria",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da região geográfica intermediária.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_intermediaria",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da região geográfica intermediária.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_regiao_imediata",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da região geográfica imediata.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_imediata",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da região geográfica imediata.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "latitude",
+          "tipo": "DOUBLE",
+          "descricao": "Latitude do centroide do município (graus decimais).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "longitude",
+          "tipo": "DOUBLE",
+          "descricao": "Longitude do centroide do município (graus decimais).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_populacao",
+          "tipo": "INTEGER",
+          "descricao": "Ano da população usada (var `ano_populacao` ou o último ano disponível); NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao",
+          "tipo": "BIGINT",
+          "descricao": "População estimada do município no `ano_populacao`; NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_pib",
+          "tipo": "INTEGER",
+          "descricao": "Último ano com PIB disponível; NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pib",
+          "tipo": "DOUBLE",
+          "descricao": "PIB do município (R$) em `ano_pib`; NULL sem dado.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.int_municipios__perfil_ibge",
+      "camada": "intermediate",
+      "grao": "município IBGE (`id_municipio_ibge`)",
+      "descricao": "Perfil do município com as fontes do IBGE (incremento `enriquecimento_ibge`, ADR-0022), uma linha por município de `int_municipios__conformados`: renda do Censo 2022, valor adicionado por atividade (`ano_va` próprio, independente de `ano_pib`), hierarquia urbana, índice de atração e polo de compras (REGIC 2018) e o total do CEMPRE. NULL onde a fonte não tem o município ou está vazia (modo offline sem `ibge/`). Base das colunas novas de `dim_municipio`.",
+      "colunas": [
+        {
+          "nome": "id_municipio_ibge",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (7 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "renda_per_capita_media_2022",
+          "tipo": "DECIMAL(12,2)",
+          "descricao": "Rendimento domiciliar per capita médio (R$) do Censo 2022.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "renda_per_capita_mediana_2022",
+          "tipo": "DECIMAL(12,2)",
+          "descricao": "Rendimento domiciliar per capita mediano (R$) do Censo 2022.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "moradores_renda_2022",
+          "tipo": "BIGINT",
+          "descricao": "Moradores (base da renda per capita) do Censo 2022.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_va",
+          "tipo": "INTEGER",
+          "descricao": "Último ano com as quatro aberturas do VA preenchidas.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_agropecuaria",
+          "tipo": "DOUBLE",
+          "descricao": "VA da agropecuária em `ano_va`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_industria",
+          "tipo": "DOUBLE",
+          "descricao": "VA da indústria em `ano_va`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_servicos",
+          "tipo": "DOUBLE",
+          "descricao": "VA dos serviços (exceto administração pública) em `ano_va`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_adm_publica",
+          "tipo": "DOUBLE",
+          "descricao": "VA da administração, defesa, educação e saúde públicas e seguridade social em `ano_va`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_agropecuaria",
+          "tipo": "DOUBLE",
+          "descricao": "Participação da agropecuária na soma das quatro aberturas (0–100).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_industria",
+          "tipo": "DOUBLE",
+          "descricao": "Participação da indústria na soma das quatro aberturas (0–100).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_servicos",
+          "tipo": "DOUBLE",
+          "descricao": "Participação dos serviços na soma das quatro aberturas (0–100).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_adm_publica",
+          "tipo": "DOUBLE",
+          "descricao": "Participação da administração pública na soma das quatro aberturas (0–100).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_hierarquia_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do nível da hierarquia urbana (REGIC 2018).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_hierarquia",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do nível da hierarquia urbana (REGIC 2018).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_arranjo_populacional",
+          "tipo": "VARCHAR",
+          "descricao": "Arranjo populacional do município (REGIC 2018); NULL se isolado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_regiao_influencia",
+          "tipo": "VARCHAR",
+          "descricao": "Vinculação imediata do município na rede urbana (REGIC 2018).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_indice_atracao",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração geral (REGIC 2018); NULL se não é destino.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_polo_compras",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do polo de compras (maior Q2 entre os destinos listados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_municipio_polo_compras",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do polo de compras.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_compras_no_polo",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos para móveis e eletroeletrônicos (Q2) que vão ao polo.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_cempre",
+          "tipo": "INTEGER",
+          "descricao": "Ano do CEMPRE (o mais recente baixado).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "unidades_locais_cempre",
+          "tipo": "BIGINT",
+          "descricao": "Unidades locais, todas as atividades (CEMPRE, Total).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_ocupado_cempre",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado total, todas as atividades (CEMPRE, Total).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.int_regic__destinos_compras",
+      "camada": "intermediate",
+      "grao": "origem × destino × tema (`id_municipio_origem`, `id_municipio_destino`, `tema`); o destino \"Outros\" tem `id_municipio_destino` NULL",
+      "descricao": "REGIC 2018 em formato longo (incremento `enriquecimento_ibge`): para cada município de origem, os destinos aonde os moradores vão comprar vestuário e calçados (`vestuario_calcados`, Q1) e móveis e eletroeletrônicos (`moveis_eletro`, Q2), com o % dos deslocamentos (> 0) e o `posto` do destino (1 = principal destino listado; empate fica com o menor código IBGE). O destino \"Outros\" (lugares não listados) fica com `eh_outros` e sem posto. Base do polo de compras de `dim_municipio` e de `bridge_municipio_destino_compras`.",
+      "colunas": [
+        {
+          "nome": "id_municipio_origem",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município de origem dos deslocamentos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_destino",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do destino; NULL no destino \"Outros\".",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "eh_outros",
+          "tipo": "BOOLEAN",
+          "descricao": "true no destino \"Outros / Não circula jornal\" (lugares não listados na REGIC).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tema",
+          "tipo": "VARCHAR",
+          "descricao": "`vestuario_calcados` (Q1) ou `moveis_eletro` (Q2).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos da origem que vão ao destino no tema (0–100, > 0).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "posto",
+          "tipo": "BIGINT",
+          "descricao": "Posição do destino entre os listados da origem no tema (1 = maior %, empate pelo menor código); NULL no destino \"Outros\".",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.bridge_estabelecimento_cnae_secundario",
+      "camada": "core",
+      "grao": "estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`)",
+      "descricao": "Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos entre `fct_estabelecimentos` e `dim_cnae`). Lista vazia não gera linhas. Opcional no BI.",
+      "colunas": [
+        {
+          "nome": "cnpj_completo",
+          "tipo": "VARCHAR",
+          "descricao": "CNPJ completo; FK para `fct_estabelecimentos.cnpj_completo`.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae` (CNAE secundário); `-1` quando sem par na Base dos Dados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_cnae_secundario",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse CNAE secundária (7 dígitos) como veio da RFB, normalizada com zeros à esquerda.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.bridge_municipio_destino_compras",
+      "camada": "core",
+      "grao": "origem × destino × tema (`sk_municipio_origem`, `sk_municipio_destino`, `tema`)",
+      "descricao": "Para onde os moradores de cada município vão comprar (incremento `enriquecimento_ibge`, ADR-0022), da REGIC 2018, em tabela longa: grão = origem × destino × tema, nos temas de compra `vestuario_calcados` (Q1) e `moveis_eletro` (Q2), só ligações com % > 0. `posto` 1 é o principal destino listado da origem no tema. O destino \"Outros\" (lugares não listados) é a linha com `sk_municipio_destino` = -1 e `eh_outros`, sem posto: com ela a soma de `pct` por origem e tema bate ~100 (teste `destino_compras_soma_100`, warn). A REGIC é de 2018: municípios criados depois não aparecem como origem. Parquet em `gold/bridge_municipio_destino_compras.parquet`; opcional no BI.",
+      "colunas": [
+        {
+          "nome": "sk_municipio_origem",
+          "tipo": "INTEGER",
+          "descricao": "Município de origem dos deslocamentos; FK para `dim_municipio.sk_municipio`. Sem `-1`: origem fora de `dim_municipio` fica de fora.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_municipio_destino",
+          "tipo": "INTEGER",
+          "descricao": "Município de destino; FK para `dim_municipio.sk_municipio`. `-1` no destino \"Outros\" (lugares não listados, `eh_outros`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "eh_outros",
+          "tipo": "BOOLEAN",
+          "descricao": "true na linha do destino \"Outros / Não circula jornal\" da REGIC: a parcela dos deslocamentos para lugares não listados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tema",
+          "tipo": "VARCHAR",
+          "descricao": "Tema de compra do questionário da REGIC: `vestuario_calcados` (Q1, vestuário e calçados) ou `moveis_eletro` (Q2, móveis e eletroeletrônicos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos da origem para comprar no tema que vão a este destino (0–100).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "posto",
+          "tipo": "BIGINT",
+          "descricao": "Posição do destino entre os listados da origem no tema (1 = principal destino, o polo em `moveis_eletro`); NULL no destino \"Outros\".",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.bridge_municipio_vizinho",
+      "camada": "core",
+      "grao": "par de municípios vizinhos do ano mais recente, nos dois sentidos (`sk_municipio`, `sk_municipio_vizinho`)",
+      "descricao": "Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares (`sk_municipio`, `sk_municipio_vizinho`) do ano mais recente da Base dos Dados, simétricos, sem autopares nem duplicatas. Base de `mart_concorrencia_area_mercado`; opcional no BI.",
+      "colunas": [
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Município; FK para `dim_municipio.sk_municipio`. Sem chave `-1`: par com município fora de `dim_municipio` é descartado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_municipio_vizinho",
+          "tipo": "INTEGER",
+          "descricao": "Município vizinho; FK para `dim_municipio.sk_municipio`. Sem chave `-1`: par com município fora de `dim_municipio` é descartado.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dim_cnae",
+      "camada": "core",
+      "grao": "subclasse CNAE (`sk_cnae`), mais o membro `-1`",
+      "descricao": "Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo → classe → subclasse (Base dos Dados), código e descrição em colunas separadas. Membro `-1` para CNAE sem par no BD.",
+      "colunas": [
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Subclasse como inteiro.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_secao",
+          "tipo": "VARCHAR",
+          "descricao": "Código da seção (letra).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_secao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da seção CNAE (nível mais alto da hierarquia, uma letra), da Base dos Dados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_divisao",
+          "tipo": "VARCHAR",
+          "descricao": "Código da divisão (2 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_divisao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da divisão.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_grupo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do grupo (3 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_grupo",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição do grupo CNAE (3 primeiros dígitos da subclasse), da Base dos Dados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_classe",
+          "tipo": "VARCHAR",
+          "descricao": "Código da classe (5 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_classe",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da classe CNAE (5 primeiros dígitos da subclasse), da Base dos Dados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_subclasse",
+          "tipo": "VARCHAR",
+          "descricao": "Código da subclasse (7 dígitos, com zeros à esquerda).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_subclasse",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da subclasse.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dim_data",
+      "camada": "core",
+      "grao": "dia do calendário (`sk_data`), mais os membros `-1` e `-2`",
+      "descricao": "Calendário (ADR-0013): uma linha por dia de 1900-01-01 até `data_referencia` (ou a maior data observada, se maior), com `sk_data = yyyymmdd`. Dimensão de papel duplo na fato (`sk_data_inicio_atividade`, `sk_data_situacao`). Membros `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900), com datas contíguas ao calendário (1899-12-31 e 1899-12-30) para que a tabela seja marcável como tabela de datas no Power BI; `ano`/`mes` ficam NULL neles.",
+      "colunas": [
+        {
+          "nome": "sk_data",
+          "tipo": "INTEGER",
+          "descricao": "Chave substituta inteira no formato yyyymmdd (ex.: 20000229); `-1` NÃO INFORMADO (data nula) e `-2` DATA INVÁLIDA (anterior a 1900).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "data",
+          "tipo": "DATE",
+          "descricao": "Data do calendário, nunca nula; os membros `-1` e `-2` usam 1899-12-31 e 1899-12-30.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano do dia do calendário (4 dígitos, a partir de 1900).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "semestre",
+          "tipo": "INTEGER",
+          "descricao": "Semestre do ano (1 ou 2).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "trimestre",
+          "tipo": "INTEGER",
+          "descricao": "Trimestre do ano (1 a 4).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "mes",
+          "tipo": "INTEGER",
+          "descricao": "Mês do ano do dia do calendário (1 a 12).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_mes",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do mês em português (janeiro … dezembro).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_mes",
+          "tipo": "VARCHAR",
+          "descricao": "Ano e mês no formato `AAAA-MM`, usado como rótulo/ordenação mensal e igual a `_mes_referencia`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dia",
+          "tipo": "INTEGER",
+          "descricao": "Dia do mês do dia do calendário (1 a 31).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dia_semana_numero",
+          "tipo": "INTEGER",
+          "descricao": "Dia da semana ISO (1 segunda … 7 domingo), para ordenar `dia_semana` no BI.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "dia_semana",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do dia da semana em português (segunda-feira … domingo).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dim_municipio",
+      "camada": "core",
+      "grao": "município (`sk_municipio`), mais o membro `-1`",
+      "descricao": "Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística, hierarquias geográficas em colunas, centroide, população e PIB. Membro `-1` \"NÃO INFORMADO\" para estabelecimentos sem município na Base dos Dados (exterior, município criado após a base). Incremento `enriquecimento_bd`: Censo 2022 e região metropolitana. Incremento `enriquecimento_ibge` (ADR-0022): renda per capita do Censo 2022, valor adicionado por atividade (`ano_va`, que pode diferir de `ano_pib`), hierarquia urbana, índice de atração e polo de compras da REGIC 2018 e o total do CEMPRE (`ano_cempre`); NULL sem a fonte.",
+      "colunas": [
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave substituta inteira (código IBGE do município); `-1` é o membro NÃO INFORMADO. Determinística: não depende da ordem de carga.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_ibge",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (7 dígitos). Linhagem: `stg_bd__municipios.id_municipio`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_rfb",
+          "tipo": "VARCHAR",
+          "descricao": "Código do município na RFB (4 dígitos), usado para casar com os estabelecimentos. Linhagem: `stg_bd__municipios.id_municipio_rf`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município (acentuado, Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sigla_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_uf",
+          "tipo": "VARCHAR",
+          "descricao": "Nome completo da UF do município (por exemplo, `Espírito Santo`), da Base dos Dados; `NÃO INFORMADO` no membro `-1`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da grande região (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_mesorregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da mesorregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_mesorregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da mesorregião (nível da hierarquia UF → mesorregião → microrregião → município).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_microrregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da microrregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_microrregiao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da microrregião.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_regiao_intermediaria",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da região geográfica intermediária.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_intermediaria",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da região geográfica intermediária (hierarquia alternativa: intermediária → imediata).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_regiao_imediata",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE da região geográfica imediata.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_imediata",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da região geográfica imediata.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "latitude",
+          "tipo": "DOUBLE",
+          "descricao": "Latitude do centroide do município (graus decimais).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "longitude",
+          "tipo": "DOUBLE",
+          "descricao": "Longitude do centroide do município (graus decimais).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_populacao",
+          "tipo": "INTEGER",
+          "descricao": "Ano da população usada: var `ano_populacao` ou o último ano disponível.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao",
+          "tipo": "BIGINT",
+          "descricao": "População estimada do município no `ano_populacao`; NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_pib",
+          "tipo": "INTEGER",
+          "descricao": "Ano do PIB usado (último ano disponível).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pib",
+          "tipo": "DOUBLE",
+          "descricao": "PIB do município (R$) em `ano_pib`; NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao_censo_2022",
+          "tipo": "BIGINT",
+          "descricao": "População residente do Censo 2022; NULL sem dado do Censo.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "domicilios_2022",
+          "tipo": "BIGINT",
+          "descricao": "Domicílios do Censo 2022 (denominador de ativos por mil domicílios); NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "area_km2",
+          "tipo": "DOUBLE",
+          "descricao": "Área territorial do município em km² (Censo 2022); NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "densidade_hab_km2",
+          "tipo": "DOUBLE",
+          "descricao": "População do Censo 2022 por km² (2 casas); NULL sem Censo ou sem área, nunca zero.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "taxa_alfabetizacao",
+          "tipo": "DOUBLE",
+          "descricao": "Taxa de alfabetização do Censo 2022 (fração de 0 a 1).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "idade_mediana",
+          "tipo": "DOUBLE",
+          "descricao": "Idade mediana em anos (Censo 2022).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "indice_envelhecimento",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de envelhecimento (idosos por 100 jovens) do Censo 2022.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "razao_sexo",
+          "tipo": "DOUBLE",
+          "descricao": "Razão de sexo (homens por 100 mulheres) do Censo 2022.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_metropolitana",
+          "tipo": "VARCHAR",
+          "descricao": "Região metropolitana do município (GeoBR 2017); `NÃO PERTENCE` quando em nenhuma; `NÃO INFORMADO` no membro -1.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "renda_per_capita_media_2022",
+          "tipo": "DECIMAL(12,2)",
+          "descricao": "Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "renda_per_capita_mediana_2022",
+          "tipo": "DECIMAL(12,2)",
+          "descricao": "Rendimento domiciliar per capita mediano (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado: a 10295 publicada tem valor numérico nos 5.570 municípios; um símbolo do IBGE (`...`) viraria NULL.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "moradores_renda_2022",
+          "tipo": "BIGINT",
+          "descricao": "Moradores em domicílios particulares permanentes ocupados, a base da renda per capita do Censo 2022 (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_va",
+          "tipo": "INTEGER",
+          "descricao": "Ano do valor adicionado (VA) por atividade: o último ano com as quatro aberturas preenchidas no PIB dos Municípios (hoje 2021), independente de `ano_pib` — o PIB total e o VA podem ser de anos diferentes (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_agropecuaria",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado bruto da agropecuária (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_industria",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado bruto da indústria (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_servicos",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado bruto dos serviços, exceto administração pública (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "va_adm_publica",
+          "tipo": "DOUBLE",
+          "descricao": "Valor adicionado bruto da administração, defesa, educação e saúde públicas e seguridade social (R$, preços correntes) em `ano_va` (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_agropecuaria",
+          "tipo": "DOUBLE",
+          "descricao": "Participação da agropecuária na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_industria",
+          "tipo": "DOUBLE",
+          "descricao": "Participação da indústria na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_servicos",
+          "tipo": "DOUBLE",
+          "descricao": "Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_va_adm_publica",
+          "tipo": "DOUBLE",
+          "descricao": "Participação da administração pública na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_hierarquia_codigo",
+          "tipo": "VARCHAR",
+          "descricao": "Código do nível na hierarquia urbana da REGIC 2018 (`1A` Grande Metrópole Nacional … `5` Centro Local); NULL sem dado (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_hierarquia",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_arranjo_populacional",
+          "tipo": "VARCHAR",
+          "descricao": "Arranjo populacional da REGIC 2018 de que o município faz parte; NULL quando é município isolado (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_regiao_influencia",
+          "tipo": "VARCHAR",
+          "descricao": "Cidade (ou arranjo) de vinculação imediata do município na rede urbana da REGIC 2018 (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "regic_indice_atracao",
+          "tipo": "DOUBLE",
+          "descricao": "Índice de atração geral da REGIC 2018 (deslocamentos recebidos de outros municípios); NULL quando o município não é destino de nenhuma ligação (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_polo_compras",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do polo de compras: o destino listado na REGIC 2018 com o maior % dos deslocamentos para comprar móveis e eletroeletrônicos (Q2, a melhor proxy de bem durável e material de construção). O destino \"Outros\" nunca é polo; empate fica com o menor código; NULL sem ligação com Q2 > 0 (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_municipio_polo_compras",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município polo de compras (`id_municipio_polo_compras`); NULL sem polo (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_compras_no_polo",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_cempre",
+          "tipo": "INTEGER",
+          "descricao": "Ano de referência do CEMPRE baixado (hoje 2024), diferente do mês da RFB; NULL sem dado (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "unidades_locais_cempre",
+          "tipo": "BIGINT",
+          "descricao": "Unidades locais de empresas e outras organizações formais no município, todas as atividades (CEMPRE, Total); NULL sem dado (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_ocupado_cempre",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado total no município, todas as atividades (CEMPRE, Total, 31/12 do ano); NULL sem dado ou com sigilo (incremento `enriquecimento_ibge`).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dim_natureza_juridica",
+      "camada": "core",
+      "grao": "natureza jurídica (`sk_natureza_juridica`), mais o membro `-1`",
+      "descricao": "Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio.",
+      "colunas": [
+        {
+          "nome": "sk_natureza_juridica",
+          "tipo": "INTEGER",
+          "descricao": "Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código como inteiro.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_natureza_juridica",
+          "tipo": "VARCHAR",
+          "descricao": "Código da natureza jurídica (4 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_natureza_juridica",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da natureza jurídica.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dim_porte",
+      "camada": "core",
+      "grao": "porte da empresa (`sk_porte`), mais o membro `-1`",
+      "descricao": "Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio.",
+      "colunas": [
+        {
+          "nome": "sk_porte",
+          "tipo": "INTEGER",
+          "descricao": "Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB do porte.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_porte",
+          "tipo": "VARCHAR",
+          "descricao": "Código RFB do porte da empresa em texto (`0` não informado, `1` micro, `3` pequena, `5` demais; `-1` no membro NÃO INFORMADO). Chave natural, igual a `dominio_porte.codigo`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "rotulo_porte",
+          "tipo": "VARCHAR",
+          "descricao": "Rótulo curto (N/A, MICRO, PEQUENA, DEMAIS).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_porte",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição por extenso.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dim_situacao_cadastral",
+      "camada": "core",
+      "grao": "situação cadastral (`sk_situacao_cadastral`), mais o membro `-1`",
+      "descricao": "Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-1` para código fora do domínio.",
+      "colunas": [
+        {
+          "nome": "sk_situacao_cadastral",
+          "tipo": "INTEGER",
+          "descricao": "Chave substituta inteira determinística (derivada do código natural); `-1` é o membro NÃO INFORMADO. Código RFB da situação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "codigo_situacao_cadastral",
+          "tipo": "VARCHAR",
+          "descricao": "Código RFB da situação, em texto e sem zero à esquerda (`1`, `2`, `3`, `4`, `8`; `-1` no membro NÃO INFORMADO). No raw (`estabelecimentos.situacao`) o mesmo código vem com zero à esquerda (`02` = ativa): converta ao filtrar.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "rotulo_situacao_cadastral",
+          "tipo": "VARCHAR",
+          "descricao": "Rótulo curto (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_situacao_cadastral",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição por extenso.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.fct_estabelecimentos",
+      "camada": "core",
+      "grao": "estabelecimento (`cnpj_completo`)",
+      "descricao": "Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimensão degenerada), só com chaves inteiras para as dimensões, flags e medidas. Sem descartes silenciosos: estabelecimento sem par numa dimensão fica com a chave `-1`. Parquet em `gold/fct_estabelecimentos.parquet`; para o Power BI use `fct_resumo_mensal` (modo Import).",
+      "colunas": [
+        {
+          "nome": "cnpj_completo",
+          "tipo": "VARCHAR",
+          "descricao": "CNPJ completo (14 dígitos); dimensão degenerada e chave da linha.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_municipio`; `-1` quando o município RFB não tem par na Base dos Dados (exterior, município novo).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae` (CNAE principal); `-1` quando o CNAE não tem par na Base dos Dados.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_natureza_juridica",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_natureza_juridica`; `-1` quando a empresa não tem natureza no domínio.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_porte",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_porte`; `-1` quando o porte está vazio ou fora do domínio.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_situacao_cadastral",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_situacao_cadastral`; `-1` quando o código está fora do domínio.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_data_inicio_atividade",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_data` (papel: início de atividade); `-1` quando a data é nula; `-2` quando é anterior a 1900 (DATA INVÁLIDA).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_data_situacao",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_data` (papel: data da situação cadastral); `-1` quando a data é nula (ex.: `00000000`); `-2` quando é anterior a 1900 (DATA INVÁLIDA).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "idade_anos",
+          "tipo": "DOUBLE",
+          "descricao": "Idade do estabelecimento em anos (1 casa), relativa a `data_referencia`, só para ativos (NULL nos demais), como `bh_empresas.idade_atual`. Aditiva via soma, para médias no BI.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "opcao_simples",
+          "tipo": "BOOLEAN",
+          "descricao": "Optante pelo Simples Nacional na empresa (false quando não há registro).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "opcao_mei",
+          "tipo": "BOOLEAN",
+          "descricao": "Optante pelo MEI na empresa (false quando não há registro).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "capital_social",
+          "tipo": "DECIMAL(18,2)",
+          "descricao": "Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por estabelecimento (some só a matriz, `eh_matriz`). NULL quando não há empresa.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "eh_matriz",
+          "tipo": "BOOLEAN",
+          "descricao": "Verdadeiro para matriz (`ind_matriz_filial = 1`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "eh_ativa",
+          "tipo": "BOOLEAN",
+          "descricao": "Verdadeiro para situação cadastral ativa (código 2).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.fct_resumo_mensal",
+      "camada": "core",
+      "grao": "mês × município × CNAE × porte × situação cadastral × opção MEI (`mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`)",
+      "descricao": "Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × município × CNAE × porte × situação × MEI (sem ano de início nem natureza, que explodiriam o resumo; ADR-0013). Medidas aditivas (idade média = `soma_idade_anos / qtd_ativos`; capital médio = `soma_capital_social_matrizes / qtd_matrizes`). Gravada como uma partição Parquet por mês em `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`: reprocessar um mês substitui só a partição dele e o histórico sobrevive à remoção do `warehouse.duckdb`. Esta relação lê TODAS as partições existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)` do staging.",
+      "colunas": [
+        {
+          "nome": "sk_mes_referencia",
+          "tipo": "INTEGER",
+          "descricao": "Primeiro dia do mês como `yyyymm01`; mesma chave de `dim_data.sk_data` (relacionamento 1:* no BI). Nunca `-1`: é sempre o mês do extrato.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_municipio` (`-1` = NÃO INFORMADO).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae` (CNAE principal; `-1` = NÃO INFORMADO).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_porte",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_porte`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_situacao_cadastral",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_situacao_cadastral`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "opcao_mei",
+          "tipo": "BOOLEAN",
+          "descricao": "Optante pelo MEI.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "qtd_estabelecimentos",
+          "tipo": "BIGINT",
+          "descricao": "Quantidade de estabelecimentos no grão.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "qtd_ativos",
+          "tipo": "BIGINT",
+          "descricao": "Quantidade de estabelecimentos ativos (situação 2) no grão.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "soma_idade_anos",
+          "tipo": "DOUBLE",
+          "descricao": "Soma da idade (anos) dos estabelecimentos ativos; divida por `qtd_ativos` para a média.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "qtd_matrizes",
+          "tipo": "BIGINT",
+          "descricao": "Quantidade de matrizes no grão (uma por empresa); denominador do capital médio.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "soma_capital_social_matrizes",
+          "tipo": "DECIMAL(18,2)",
+          "descricao": "Soma do capital social (R$) só das matrizes (uma por empresa, sem repetição por filial).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "mes_referencia",
+          "tipo": "VARCHAR",
+          "descricao": "Mês de referência `YYYY-MM` (coluna de partição Hive).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.mart_concorrencia_area_mercado",
+      "camada": "analytics",
+      "grao": "CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado",
+      "descricao": "Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por CNAE principal × município: os pares com estabelecimento no município (como `mart_concorrencia_municipio`) e os vazios de mercado, isto é, municípios sem o CNAE cujos vizinhos ou região metropolitana têm ao menos um ativo (`tem_estabelecimento_local` = false, ativos = inativos = 0, indicadores locais 0 com denominador). Traz ativos e inativos no município, nos vizinhos (`bridge_municipio_vizinho`) e na região metropolitana (município incluído; NULL fora de região metropolitana), e ativos por mil domicílios e por km² (Censo 2022) do município e da área de mercado (município + vizinhos). Indicador NULL quando falta o denominador (município ou algum vizinho sem Censo), nunca zero. Colunas aditivas do incremento `enriquecimento_ibge` (ADR-0022): o polo de compras do município (REGIC 2018) e os ativos do CNAE nele (`ativos_no_polo`). Parquet em `gold/mart_concorrencia_area_mercado.parquet`.",
+      "colunas": [
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae`; `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "desc_cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da subclasse (Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_municipio`; `-1` para município sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município (acentuado, Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_regiao_metropolitana",
+          "tipo": "VARCHAR",
+          "descricao": "Região metropolitana do município; `NÃO PERTENCE` fora de região metropolitana.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "domicilios_2022",
+          "tipo": "BIGINT",
+          "descricao": "Domicílios do município (Censo 2022); NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "area_km2",
+          "tipo": "DOUBLE",
+          "descricao": "Área do município em km² (Censo 2022); NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_estabelecimento_local",
+          "tipo": "BOOLEAN",
+          "descricao": "true se o município tem ao menos um estabelecimento (ativo ou inativo) do CNAE; false nos vazios de mercado (vizinhos ou região metropolitana têm ativo, o município não).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos ativos do CNAE no município (0 nos vazios de mercado).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "inativos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos inativos do CNAE no município (0 nos vazios de mercado).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "qtd_vizinhos",
+          "tipo": "BIGINT",
+          "descricao": "Municípios vizinhos do município (0 se nenhum).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_vizinhos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos ativos do CNAE nos municípios vizinhos (o município fica fora).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "inativos_vizinhos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos inativos do CNAE nos municípios vizinhos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_regiao_metropolitana",
+          "tipo": "BIGINT",
+          "descricao": "Ativos do CNAE na região metropolitana do município (ele incluído); NULL fora de região metropolitana.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "inativos_regiao_metropolitana",
+          "tipo": "BIGINT",
+          "descricao": "Inativos do CNAE na região metropolitana do município (ele incluído); NULL fora de região metropolitana.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_por_mil_domicilios",
+          "tipo": "DOUBLE",
+          "descricao": "Ativos do município por mil domicílios (6 casas); 0 nos vazios de mercado; NULL sem domicílios.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_por_km2",
+          "tipo": "DOUBLE",
+          "descricao": "Ativos do município por km² (6 casas); 0 nos vazios de mercado; NULL sem área.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_area_por_mil_domicilios",
+          "tipo": "DOUBLE",
+          "descricao": "Ativos do município e dos vizinhos por mil domicílios dos mesmos municípios; NULL se algum não tem Censo.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_area_por_km2",
+          "tipo": "DOUBLE",
+          "descricao": "Ativos do município e dos vizinhos por km² dos mesmos municípios; NULL se algum não tem Censo.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_polo_compras",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do polo de compras do município (`dim_municipio.id_municipio_polo_compras`: maior % em móveis e eletroeletrônicos, Q2, da REGIC 2018); NULL sem polo. Incremento `enriquecimento_ibge`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "nome_municipio_polo_compras",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do polo de compras; NULL sem polo. Incremento `enriquecimento_ibge`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pct_compras_no_polo",
+          "tipo": "DOUBLE",
+          "descricao": "% dos deslocamentos do município para comprar móveis e eletroeletrônicos (Q2) que vão ao polo (0–100); NULL sem polo. Incremento `enriquecimento_ibge`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_no_polo",
+          "tipo": "BIGINT",
+          "descricao": "Ativos do mesmo CNAE no município polo de compras (0 quando o polo não tem o CNAE; NULL sem polo). É a concorrência que o morador encontra onde já costuma comprar bens duráveis. Incremento `enriquecimento_ibge`.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.mart_concorrencia_municipio",
+      "camada": "analytics",
+      "grao": "CNAE principal × município (`cnae_principal`, `sk_municipio`)",
+      "descricao": "Densidade de concorrência por CNAE principal × município. `ativos` e `inativos` pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 / população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.",
+      "colunas": [
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae`; `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "desc_cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da subclasse (Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_municipio`; `-1` para município sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município (acentuado, Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "populacao",
+          "tipo": "BIGINT",
+          "descricao": "População do município no `ano_populacao`; NULL sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos ativos (`situacao = 2`) do CNAE no município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "inativos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos inativos (`situacao != 2`) do CNAE no município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_por_10k_hab",
+          "tipo": "DOUBLE",
+          "descricao": "Ativos por 10 mil habitantes (2 casas); NULL quando a população é nula ou zero.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ranking_uf",
+          "tipo": "BIGINT",
+          "descricao": "Posição do município na UF para o CNAE por `ativos_por_10k_hab` decrescente (1 = mais denso); NULL sem densidade.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.mart_dinamica_mercado",
+      "camada": "analytics",
+      "grao": "ano × CNAE principal × município (`ano`, `sk_cnae`, `sk_municipio`)",
+      "descricao": "Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal × município. Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`). Datas nulas não geram evento.",
+      "colunas": [
+        {
+          "nome": "ano",
+          "tipo": "INTEGER",
+          "descricao": "Ano calendário do evento (abertura ou encerramento).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae`; `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_municipio`; `-1` para município sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "desc_cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da subclasse (Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município (acentuado, Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município (`dim_municipio.sigla_uf`; `NI` para município sem par na Base dos Dados).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "aberturas",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos com início de atividade no ano.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "encerramentos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos inativos com data da situação no ano.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "saldo",
+          "tipo": "BIGINT",
+          "descricao": "aberturas − encerramentos.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.mart_emprego_setor_municipio",
+      "camada": "analytics",
+      "grao": "município × classe CNAE de 5 dígitos (`sk_municipio`, `classe_cnae`)",
+      "descricao": "Tamanho real do setor no município (incremento `enriquecimento_ibge`, ADR-0022): o CEMPRE do IBGE (unidades locais, pessoal ocupado, assalariados e salários) ao lado dos CNPJs ativos da RFB, por município × classe CNAE (5 dígitos). Só os pares em que o CEMPRE tem unidade local ou a RFB tem ativo da classe. Os anos são diferentes: o CEMPRE é do `ano_cempre` (hoje 2024) e a RFB do mês do gold (`mes_referencia_rfb`). Sigilo do IBGE (`X`) nunca é imputado: o valor fica NULL e `tem_sigilo` true; por isso somas de pessoal ocupado e salários sobre classes ou municípios **subestimam** o total (as unidades locais nunca são sigilosas). Um CNPJ ativo não é uma unidade com gente trabalhando: o CEMPRE conta organizações formais com CNPJ ativo no ano e, para empresas, com atividade (RAIS/eSocial ou pesquisas do IBGE), e a RFB conta todo cadastro ativo, inclusive MEI e inativos de fato. Parquet em `gold/mart_emprego_setor_municipio.parquet`.",
+      "colunas": [
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_municipio` (nunca -1).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "id_municipio_ibge",
+          "tipo": "VARCHAR",
+          "descricao": "Código IBGE do município (7 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município (acentuado, Base dos Dados); na camada semântica, use `municipio__nome_municipio`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "classe_cnae",
+          "tipo": "VARCHAR",
+          "descricao": "Código da classe CNAE 2.0 (5 dígitos, sem pontuação, como `dim_cnae.codigo_classe`; `47415` = 47.41-5).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao_classe",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da classe CNAE (`dim_cnae.descricao_classe`); se a classe do CEMPRE não está na CNAE da RFB (ex.: 70.10-7, \"Sedes de empresas e unidades administrativas locais\"), o nome da classe no próprio CEMPRE.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ano_cempre",
+          "tipo": "INTEGER",
+          "descricao": "Ano de referência do CEMPRE (o mais recente baixado; hoje 2024). Diferente do mês da RFB.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "unidades_locais_cempre",
+          "tipo": "BIGINT",
+          "descricao": "Unidades locais da classe no município (CEMPRE, variável 706); 0 se o IBGE publica `-`; NULL sem CEMPRE do município.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_ocupado_cempre",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado total da classe no município (CEMPRE, 707); NULL com sigilo (`tem_sigilo`) ou sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_assalariado_cempre",
+          "tipo": "BIGINT",
+          "descricao": "Pessoal ocupado assalariado da classe no município (CEMPRE, 708); NULL com sigilo ou sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "salarios_mil_reais",
+          "tipo": "DECIMAL(18,3)",
+          "descricao": "Salários e outras remunerações da classe no município (CEMPRE, 662, R$ mil, nominais do ano); NULL com sigilo ou sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "tem_sigilo",
+          "tipo": "BOOLEAN",
+          "descricao": "true se alguma variável da célula veio com `X` (sigilo do IBGE); o valor fica NULL, nunca imputado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_rfb",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos ativos na RFB (mês do gold) cuja subclasse principal é da classe; inclui MEI.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "ativos_rfb_sem_mei",
+          "tipo": "BIGINT",
+          "descricao": "Ativos da classe na RFB sem os de empresa optante pelo MEI (`opcao_mei`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "pessoal_por_unidade",
+          "tipo": "DOUBLE",
+          "descricao": "Pessoal ocupado por unidade local (2 casas); NULL com sigilo, sem unidade ou sem dado.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "razao_unidades_cempre_ativos_rfb",
+          "tipo": "DOUBLE",
+          "descricao": "Unidades locais do CEMPRE por ativo da RFB (4 casas); NULL sem ativo. Abaixo de 1, há mais CNPJs ativos que unidades com atividade; acima de 1, o CEMPRE vê unidades que a RFB classifica em outra classe (ou o cadastro defasado). Anos diferentes: leia como ordem de grandeza.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "mes_referencia_rfb",
+          "tipo": "VARCHAR",
+          "descricao": "Mês do extrato RFB (`AAAA-MM`) dos ativos; o CEMPRE é de `ano_cempre`, outro ano.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.mart_fornecedores_proximos",
+      "camada": "analytics",
+      "grao": "estabelecimento fornecedor (`cnpj_completo`)",
+      "descricao": "Fornecedores próximos: fornecedores ATIVOS do município do caso (vars `caso_municipio`/`caso_uf`) cujo CNAE principal ou secundário está em `caso_cnaes_fornecedores`, a até `raio_fornecedores_km` do centroide do município (haversine entre centroides da Base dos Dados). Uma linha por estabelecimento; `via` indica se casou pelo CNAE principal ou por um secundário.",
+      "colunas": [
+        {
+          "nome": "cnpj_completo",
+          "tipo": "VARCHAR",
+          "descricao": "CNPJ de 14 dígitos do fornecedor.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "nome",
+          "tipo": "VARCHAR",
+          "descricao": "Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11 dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae` do CNAE fornecido; `-1` se o CNAE não existe na dimensão.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_fornecido",
+          "tipo": "VARCHAR",
+          "descricao": "CNAE (7 dígitos) que qualificou o fornecedor (principal; senão o menor secundário que casa).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "via",
+          "tipo": "VARCHAR",
+          "descricao": "`principal` ou `secundario`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_municipio",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_municipio` do município do fornecedor. Sem chave `-1`: fornecedor sem município na dimensão ou sem centroide fica de fora do mart.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Município do fornecedor.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município do fornecedor (`dim_municipio.sigla_uf`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "distancia_km",
+          "tipo": "DOUBLE",
+          "descricao": "Distância haversine (km, 2 casas) do centroide do município do caso.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.mart_sobrevivencia_coorte",
+      "camada": "analytics",
+      "grao": "coorte × CNAE principal × porte × UF (`ano_coorte`, `sk_cnae`, `sk_porte`, `uf`)",
+      "descricao": "Sobrevivência por coorte (ano de início da atividade) × CNAE principal × porte × UF, a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`); sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis. Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`.",
+      "colunas": [
+        {
+          "nome": "ano_coorte",
+          "tipo": "BIGINT",
+          "descricao": "Ano de `dat_inicio_atividade` do estabelecimento.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_cnae",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_cnae`; `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Código da subclasse CNAE (7 dígitos); `-1` para CNAE sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sk_porte",
+          "tipo": "INTEGER",
+          "descricao": "Chave de `dim_porte`.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "porte",
+          "tipo": "VARCHAR",
+          "descricao": "Rótulo do porte (`dim_porte`); NÃO INFORMADO para porte vazio.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município; `NI` para município sem par no BD.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "estabelecimentos",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos do estrato (independente de elegibilidade).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "elegiveis_1a",
+          "tipo": "BIGINT",
+          "descricao": "Estabelecimentos da coorte elegíveis ao horizonte de 1 ano (0 quando a coorte ainda não completou o horizonte).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sobreviventes_1a",
+          "tipo": "BIGINT",
+          "descricao": "Elegíveis que sobrevivem 1 ano (ativos ou encerrados após `dat_inicio + 1 ano`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "taxa_1a",
+          "tipo": "DOUBLE",
+          "descricao": "sobreviventes_1a / elegiveis_1a; NULL sem elegíveis.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "elegiveis_3a",
+          "tipo": "BIGINT",
+          "descricao": "Elegíveis ao horizonte de 3 anos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sobreviventes_3a",
+          "tipo": "BIGINT",
+          "descricao": "Elegíveis que sobrevivem 3 anos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "taxa_3a",
+          "tipo": "DOUBLE",
+          "descricao": "sobreviventes_3a / elegiveis_3a; NULL sem elegíveis.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "elegiveis_5a",
+          "tipo": "BIGINT",
+          "descricao": "Elegíveis ao horizonte de 5 anos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "sobreviventes_5a",
+          "tipo": "BIGINT",
+          "descricao": "Elegíveis que sobrevivem 5 anos.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "taxa_5a",
+          "tipo": "DOUBLE",
+          "descricao": "sobreviventes_5a / elegiveis_5a; NULL sem elegíveis.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.agg_empresas",
+      "camada": "original",
+      "grao": "combinação das 10 dimensões do original (`municipio`, `microrregiao_municipio`, `mesorregiao_municipio`, `uf`, `cnae_principal`, `desc_cnae_principal`, `grupo_cnae_principal`, `natureza_juridica`, `porte`, `situacao`)",
+      "descricao": "**Agg Empresas** (flat table agregada do notebook 3): `bh_empresas` agrupada pelas 10 dimensões do original (município, microrregião, mesorregião, UF, CNAE principal, descrição e grupo do CNAE, natureza jurídica, porte e situação), com a contagem de empresas e a idade média do estrato. Reconciliada com `bh_empresas` (teste `agg_empresas_reconciliacao`). Parquet em `gold/agg_empresas.parquet`.",
+      "colunas": [
+        {
+          "nome": "municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município. Linhagem: `bh_empresas.municipio`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "microrregiao_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da microrregião do município. Linhagem: `bh_empresas.microrregiao_municipio`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "mesorregiao_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da mesorregião do município. Linhagem: `bh_empresas.mesorregiao_municipio`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município. Linhagem: `bh_empresas.uf`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse do CNAE principal (7 caracteres numéricos). Linhagem: `bh_empresas.cnae_principal`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "desc_cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição da subclasse do CNAE principal. Linhagem: `bh_empresas.desc_cnae_principal`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "grupo_cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição do grupo (3 primeiros dígitos) do CNAE principal. Linhagem: `bh_empresas.grupo_cnae_principal`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "natureza_juridica",
+          "tipo": "VARCHAR",
+          "descricao": "Natureza jurídica da empresa. Linhagem: `bh_empresas.natureza_juridica`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "porte",
+          "tipo": "VARCHAR",
+          "descricao": "Porte da empresa (N/A, MICRO, PEQUENA, DEMAIS ou NULL). Linhagem: `bh_empresas.porte`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "situacao",
+          "tipo": "VARCHAR",
+          "descricao": "Situação da empresa (ATIVA ou INATIVA). Linhagem: `bh_empresas.situacao`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "qtd_empresas",
+          "tipo": "BIGINT",
+          "descricao": "Número de estabelecimentos no estrato (combinação das 10 dimensões). Linhagem: `bh_empresas.cnpj_completo`; contagem (`count`).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "media_idade",
+          "tipo": "DOUBLE",
+          "descricao": "Idade média, em anos, dos estabelecimentos do estrato. Linhagem: `bh_empresas.idade_atual`; média simples (`avg`). NULL em estratos só de INATIVAS (a idade só existe para ATIVA). Valores acima de 200 anos são dado absurdo da RFB (ver `bh_empresas.idade_atual`).",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.bh_empresas",
+      "camada": "original",
+      "grao": "estabelecimento (`cnpj_completo`) com par em todos os domínios (inner joins do original)",
+      "descricao": "**BH Empresas** (flat table granular do notebook 3; bh = base humanizada): uma linha por estabelecimento (CNPJ completo), com os dados de domínio (natureza jurídica RFB, CNAE e município da Base dos Dados) já juntados e humanizados. Mesmas regras e mesmos **inner joins** do SQL original — estabelecimentos sem par em algum domínio ficam de fora (teste `bh_empresas_descartes_inner_join`). Paridade verificada contra a tradução literal do SQL original (`audit__bh_empresas_sql_original`, teste `paridade_bh_empresas`). Parquet em `gold/bh_empresas.parquet`.",
+      "colunas": [
+        {
+          "nome": "cnpj_raiz",
+          "tipo": "VARCHAR",
+          "descricao": "8 primeiros dígitos de CNPJ da empresa. Linhagem: `stg_rfb__empresas.cnpj_raiz`, prefixado com '0' no staging. Domínio: caracteres numéricos, prefixado com 0s se necessário.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "cnpj_completo",
+          "tipo": "VARCHAR",
+          "descricao": "CNPJ completo da empresa, com 14 dígitos. Linhagem: `stg_rfb__estabelecimentos.cnpj_completo` (`cnpj_raiz`, `cnpj_ordem` e `cnpj_dv`, cada um prefixado com '0' no staging).",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "nome",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da empresa. Linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005): sem espaços nas bordas (`trim` do staging), que o original mantinha (fev/2025: ~752 razões sociais com espaço à esquerda); o teste `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas. **Adaptado** (ADR-0008): o CPF que encerra a razão social do empresário individual/MEI (todo trecho de exatamente 11 dígitos, no fim ou no meio do nome, sem exigir DV: 908 CPFs reais vêm no meio) sai como `***.***.***-**` (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste `sem_cpf_no_nome` (error) barra CPF com DV válido.",
+          "proibida_na_saida": true
+        },
+        {
+          "nome": "natureza_juridica",
+          "tipo": "VARCHAR",
+          "descricao": "Natureza jurídica da empresa, i.e. uma espécie de \"tipo\" (em termos jurídicos e fiscais). Linhagem: `stg_rfb__naturezas.descricao` com `codigo = stg_rfb__empresas.natureza_juridica_codigo`; upper case.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "porte",
+          "tipo": "VARCHAR",
+          "descricao": "Porte da empresa, i.e. uma espécie de \"tamanho\" (em termos de faturamento). Linhagem: `stg_rfb__empresas.porte_codigo`, mapeado 0 → \"N/A\", 1 → \"MICRO\", 3 → \"PEQUENA\", 5 → \"DEMAIS\"; outro valor ou vazio → NULL.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasse do CNAE (código nacional de atividade econômica) principal da empresa. Linhagem: `stg_rfb__estabelecimentos.cnae_principal`, sem transformação. Domínio: 7 caracteres numéricos (classificação IBGE).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "desc_cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição textual da subclasse do CNAE principal. Linhagem: `stg_bd__cnaes.descricao_subclasse` com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "grupo_cnae_principal",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição textual do grupo (3 primeiros dígitos do CNAE) do CNAE principal. Linhagem: `stg_bd__cnaes.descricao_grupo` com `subclasse = stg_rfb__estabelecimentos.cnae_principal`; upper case.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "cnaes_secundarios",
+          "tipo": "VARCHAR",
+          "descricao": "Subclasses dos CNAEs secundários, separadas por vírgula. Linhagem: `stg_rfb__estabelecimentos.cnaes_secundarios`, sem transformação.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município do estabelecimento. Linhagem: `stg_bd__municipios.nome` com `id_municipio_rf = stg_rfb__estabelecimentos.municipio_rfb_codigo`; upper case.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "microrregiao_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da microrregião (agregado de municípios vizinhos) do município. Linhagem: `stg_bd__municipios.nome_microrregiao`; upper case.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "mesorregiao_municipio",
+          "tipo": "VARCHAR",
+          "descricao": "Nome da mesorregião (agregado de microrregiões vizinhas) do município. Linhagem: `stg_bd__municipios.nome_mesorregiao`; upper case.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "uf",
+          "tipo": "VARCHAR",
+          "descricao": "Sigla da UF do município (`UF` no original). Linhagem: `stg_bd__municipios.sigla_uf`; upper case.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "situacao",
+          "tipo": "VARCHAR",
+          "descricao": "Situação da empresa, se ativa ou inativa. Linhagem: `stg_rfb__estabelecimentos.situacao_codigo`, mapeado 2 → \"ATIVA\", qualquer outro código → \"INATIVA\".",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "idade_atual",
+          "tipo": "DOUBLE",
+          "descricao": "Idade da empresa em anos (1 casa decimal), apenas se ATIVA; NULL se INATIVA. Linhagem: `stg_rfb__estabelecimentos.dat_inicio_atividade`; `round(dias até data_referencia / 365.25, 1)`. **Adaptado** (ADR-0004): o original usava `now()`; aqui a idade é relativa à data do extrato (`data_referencia`), para ser determinística. Fora de [0, 200] anos é dado absurdo da RFB (fev/2025: 2 ativos, inícios em 1199 e 1601): avisa (warn) e só falha acima de 100 linhas. A data não é anulada no staging, para manter a paridade.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dominio_matriz_filial",
+      "camada": "seed",
+      "grao": "código do indicador matriz/filial (`codigo`)",
+      "descricao": "Domínio do indicador matriz/filial do estabelecimento. A fato usa só a flag `eh_matriz`; o seed documenta o domínio e valida `matriz_filial_codigo`.",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "INTEGER",
+          "descricao": "Código do indicador (1 matriz, 2 filial).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "rotulo",
+          "tipo": "VARCHAR",
+          "descricao": "Rótulo curto (MATRIZ, FILIAL).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição por extenso.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dominio_porte",
+      "camada": "seed",
+      "grao": "código de porte (`codigo`)",
+      "descricao": "Domínio de porte da empresa (metadados RFB): `rotulo` reproduz os valores de `bh_empresas.porte`. Base de `dim_porte`.",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "INTEGER",
+          "descricao": "Código de porte da RFB (0, 1, 3, 5).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "rotulo",
+          "tipo": "VARCHAR",
+          "descricao": "Rótulo curto do porte (N/A, MICRO, PEQUENA, DEMAIS).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição por extenso do porte.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.dominio_situacao_cadastral",
+      "camada": "seed",
+      "grao": "código de situação cadastral (`codigo`)",
+      "descricao": "Domínio de situação cadastral do estabelecimento (metadados RFB). Base de `dim_situacao_cadastral`.",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "INTEGER",
+          "descricao": "Código da situação cadastral (1, 2, 3, 4, 8).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "rotulo",
+          "tipo": "VARCHAR",
+          "descricao": "Rótulo curto da situação (NULA, ATIVA, SUSPENSA, INAPTA, BAIXADA).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Descrição por extenso da situação.",
+          "proibida_na_saida": false
+        }
+      ]
+    },
+    {
+      "nome": "main.excecoes_conhecidas_municipio",
+      "camada": "seed",
+      "grao": "código de município da RFB sem par na Base dos Dados (`codigo`)",
+      "descricao": "Códigos de município da RFB sem par na Base dos Dados por motivo conhecido (exterior, município criado após a base). Aceitos por `cobertura_municipio_rfb_bd`; `excecoes_municipio_obsoletas` avisa quando a base passa a cobri-los.",
+      "colunas": [
+        {
+          "nome": "codigo",
+          "tipo": "INTEGER",
+          "descricao": "Código do município na classificação da RFB (4 dígitos).",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "descricao",
+          "tipo": "VARCHAR",
+          "descricao": "Nome do município como aparece na RFB.",
+          "proibida_na_saida": false
+        },
+        {
+          "nome": "motivo",
+          "tipo": "VARCHAR",
+          "descricao": "Motivo da exceção (não é município; criado após a base BD).",
+          "proibida_na_saida": false
+        }
+      ]
+    }
   ]
 }

@@ -265,6 +265,10 @@ def test_catalogo_e_indice_gerados(tmp_path: Path) -> None:
     assert "- `porte` × `raw`: m" in indice
     guia = f"# G\n\nantes\n{g.INICIO_BLOCO}\nvelho\n{g.FIM_BLOCO}\ndepois\n"
     assert g.substituir_bloco(guia, indice) == f"# G\n\nantes\n{indice}\ndepois\n"
+    # Os dois blocos gerados convivem: os marcadores do esquema não casam com os do índice.
+    dois = f"{g.INICIO_ESQUEMA}\nx\n{g.FIM_ESQUEMA}\nmeio\n{g.INICIO_BLOCO}\ny\n{g.FIM_BLOCO}\n"
+    assert g.substituir_bloco(dois, "I") == f"{g.INICIO_ESQUEMA}\nx\n{g.FIM_ESQUEMA}\nmeio\nI\n"
+    assert g.substituir_bloco(dois, "E", g.INICIO_ESQUEMA, g.FIM_ESQUEMA).startswith("E\nmeio\n")
 
 
 def test_catalogo_recusa_problemas() -> None:
@@ -280,3 +284,84 @@ def test_golden_queries_do_repositorio_validas() -> None:
     assert (
         g.problemas_gerais(g.carregar_matriz(), g.carregar_golden(), g.carregar_semantica()) == []
     )
+
+
+def _esquema_minimo() -> tuple[dict, dict, dict]:
+    semantico = {
+        "semantic_models": [
+            {"name": "dim_porte", "primary_entity": None, "node_relation": {"alias": "dim_porte"},
+             "entities": [{"name": "porte", "type": "primary"}],
+             "dimensions": [{"name": "rotulo_porte", "type": "categorical", "description": "Rótulo.\n"}]},
+            {"name": "fct_resumo_mensal", "primary_entity": "resumo_mensal", "node_relation": {"alias": "fct_resumo_mensal"},
+             "entities": [{"name": "porte", "type": "foreign"}, {"name": "cnae", "type": "foreign"}],
+             "dimensions": [{"name": "mes", "type": "time", "type_params": {"time_granularity": "month"}}]},
+        ],
+        "metrics": [
+            {"name": "qtd_ativos", "type": "simple", "label": "Ativos", "description": "Ativos no mês.",
+             "type_params": {"expr": "qtd_ativos", "metric_aggregation_params": {"semantic_model": "fct_resumo_mensal", "agg": "sum"}},
+             "filter": None},
+            {"name": "qtd_x", "type": "simple", "label": None, "description": None,
+             "type_params": {"expr": "qtd_estabelecimentos", "metric_aggregation_params": {"semantic_model": "fct_resumo_mensal", "agg": "sum"}},
+             "filter": {"where_filters": [{"where_sql_template": "{{ Dimension('porte__rotulo_porte') }} = 'MICRO'"}]}},
+            {"name": "pct", "type": "ratio", "label": None, "description": "",
+             "type_params": {"numerator": {"name": "qtd_ativos"}, "denominator": {"name": "qtd_x"}}, "filter": None},
+        ],
+    }  # fmt: skip
+    manifesto = {
+        "nodes": {
+            "model.rfb.dim_porte": {"package_name": "rfb", "original_file_path": "models/marts/core/dim_porte.sql",
+                                    "alias": "dim_porte", "name": "dim_porte", "description": "Porte.",
+                                    "meta": {"grao": "porte (`sk_porte`)"},
+                                    "columns": {"rotulo_porte": {"description": "Rótulo\n do porte."}}},
+            "model.rfb.dq_resumo": {"package_name": "rfb", "original_file_path": "models/observability/dq_resumo.sql",
+                                    "alias": "dq_resumo", "name": "dq_resumo"},
+            "test.rfb.algum_teste": {"package_name": "rfb", "original_file_path": "models/marts/core/_core.yml",
+                                     "alias": "algum_teste", "name": "algum_teste"},
+        }
+    }  # fmt: skip
+    catalogo = {
+        "nodes": {
+            "model.rfb.dim_porte": {"columns": {"nome": {"name": "nome", "type": "VARCHAR", "index": 2},
+                                                "rotulo_porte": {"name": "rotulo_porte", "type": "VARCHAR", "index": 1}}},
+            "model.rfb.dq_resumo": {"columns": {"x": {"name": "x", "type": "INTEGER", "index": 1}}},
+            "test.rfb.algum_teste": {"columns": {"x": {"name": "x", "type": "INTEGER", "index": 1}}},
+        }
+    }  # fmt: skip
+    return manifesto, catalogo, semantico
+
+
+def test_esquema_gera_metricas_dimensoes_e_relacoes() -> None:
+    """RGQ-02: métricas com natureza, medida, filtro e entidades; dimensões qualificadas; relações com colunas."""
+    esquema = g.gerar_esquema(*_esquema_minimo())
+    metricas = {m["nome"]: m for m in esquema["metricas"]}
+    assert metricas["qtd_ativos"]["medida"] == "sum(qtd_ativos) em fct_resumo_mensal"
+    assert metricas["qtd_ativos"]["natureza"].startswith("fotografia mensal")
+    assert metricas["qtd_ativos"]["entidades"] == [
+        "porte",
+        "resumo_mensal",
+    ]  # `cnae` não tem modelo próprio aqui
+    assert metricas["qtd_x"]["filtro"] == ["{{ Dimension('porte__rotulo_porte') }} = 'MICRO'"]
+    assert metricas["pct"]["medida"] == "qtd_ativos / qtd_x"
+    assert [d["nome"] for d in esquema["dimensoes"]] == [
+        "porte__rotulo_porte",
+        "resumo_mensal__mes",
+    ]
+    assert esquema["dimensoes"][1]["grao"] == "month"
+    (relacao,) = esquema["relacoes"]  # observabilidade e testes ficam fora
+    assert relacao["nome"] == "main.dim_porte" and relacao["camada"] == "core"
+    assert [(c["nome"], c["proibida_na_saida"]) for c in relacao["colunas"]] == [
+        ("rotulo_porte", False),
+        ("nome", True),
+    ]
+    assert relacao["colunas"][0]["descricao"] == "Rótulo do porte."
+    indice = g.renderizar_esquema({**esquema, "golden_queries": []})
+    assert "**`nome`** varchar" in indice and "`porte__rotulo_porte`" in indice
+
+
+def test_esquema_recusa_modelo_semantico_sem_natureza() -> None:
+    manifesto, catalogo, semantico = _esquema_minimo()
+    semantico["metrics"][0]["type_params"]["metric_aggregation_params"]["semantic_model"] = (
+        "dim_porte"
+    )
+    with pytest.raises(g.CatalogoErro, match="sem natureza"):
+        g.gerar_esquema(manifesto, catalogo, semantico)

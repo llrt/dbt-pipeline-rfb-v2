@@ -120,11 +120,31 @@ def test_golden_query_semantica_sql_devolve_a_resposta_esperada(entrada: dict) -
     assert _sem_identificador(entrada["id"], obtido, entrada.get("privacidade", "agregado")) == []
 
 
-def test_catalogo_e_indice_do_guia_em_dia() -> None:
-    """`--verificar` gera em memória e compara com `catalogo.json` e o bloco gerado do guia."""
+def test_catalogo_e_indice_do_guia_em_dia(manifesto_e_catalogo) -> None:
+    """`--verificar` gera em memória e compara com `catalogo.json` e os blocos gerados do guia (índice e esquema).
+
+    O esquema (métricas, dimensões, relações) vem do `dbt docs generate` da fixture `manifesto_e_catalogo`.
+    """
+    manifesto, _ = manifesto_e_catalogo
     feito = subprocess.run(
         [sys.executable, str(RAIZ_REPO / "scripts" / "gerar_catalogo_golden.py"), "--verificar",
-         "--raiz-dados", str(_raiz())],
+         "--raiz-dados", str(_raiz()), "--alvo-dbt", str(manifesto.parent)],
         capture_output=True, text=True, check=False,
     )  # fmt: skip
     assert feito.returncode == 0, feito.stdout + feito.stderr
+
+
+@pytest.mark.parametrize(
+    "metrica", ["qtd_ativos", "aberturas", "taxa_sobrevivencia_3a", "pessoal_ocupado_cempre"]
+)  # uma métrica de cada modelo semântico
+def test_dimensoes_do_catalogo_sao_as_que_o_mf_aceita(metrica: str) -> None:
+    """RGQ-02: as dimensões que o catálogo diz que a métrica aceita são as de `mf list dimensions` (na cópia)."""
+    catalogo = json.loads(g.CATALOGO.read_text(encoding="utf-8"))
+    (definicao,) = [m for m in catalogo["metricas"] if m["nome"] == metrica]
+    esperadas = {"metric_time"} | {
+        d["nome"] for d in catalogo["dimensoes"] if d["entidade"] in definicao["entidades"]
+    }
+    with g.mf_sobre_copia(_raiz()) as mf:
+        saida = mf(["list", "dimensions", "--metrics", metrica])
+    listadas = {linha.split("•", 1)[1].strip() for linha in saida.splitlines() if "•" in linha}
+    assert listadas == esperadas

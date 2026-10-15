@@ -68,3 +68,9 @@ catálogo. As analyses de `golden/` ficam fora da compilação do relatório do 
   `--verificar` prova que o SQL é o que o `mf` gera hoje, e a execução prova que ele responde o esperado. O SQL gerado
   roda no DuckDB direto sem ajuste de dialeto. O guia manda o agente usar o `sql`; o `comando` fica para quem tem o
   repositório.
+- **Esquema consultável gerado (RGQ-02).** O catálogo ganha `metricas` (tipo, natureza, medida, filtro e entidades
+  aceitas), `dimensoes` (por entidade, com o nome qualificado do MetricFlow) e `relacoes` (colunas, tipos e a marca
+  das colunas proibidas na saída), gerados do `semantic_manifest.json` e do `catalog.json` do dbt; o guia ganha um
+  segundo bloco gerado com as métricas, as dimensões e as colunas do gold. Por isso o `make golden` roda
+  `dbt docs generate` em vez de `dbt parse`. A natureza de cada métrica vem do modelo semântico da medida, numa tabela
+  do gerador que falha com modelo novo. Um teste confere as dimensões contra `mf list dimensions`.
