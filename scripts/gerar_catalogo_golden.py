@@ -42,6 +42,7 @@ from gerar_conceitos import Definicao
 from gerar_conceitos import carregar as carregar_definicoes
 
 from rfb_pipeline.caminhos import (
+    DOC_BLOCKS_CONCEITOS,
     GOLDEN_CATALOGO,
     GOLDEN_MATRIZ,
     GOLDEN_SEMANTICA,
@@ -987,7 +988,7 @@ def problemas_de_definicoes(matriz: dict, definicoes: list[Definicao]) -> list[s
     nomes = {d.nome for d in definicoes}
     citados = {n for c in matriz["conceitos"] for n in c.get("definicoes") or []}
     problemas = [
-        f"conceito {c['id']}: definição {n!r} não é doc block de transform/models/docs/conceitos.md"
+        f"conceito {c['id']}: definição {n!r} não é doc block de {relativo(DOC_BLOCKS_CONCEITOS)}"
         for c in matriz["conceitos"]
         for n in c.get("definicoes") or []
         if n not in nomes
