@@ -405,3 +405,34 @@ def test_raiz_e_cnpj_numerico_sao_identificador() -> None:
     assert not g.numero_identificador(20260912)  # `sk_data` AAAAMMDD
     assert not g.numero_identificador(11111111111)
     assert g.RE_CPF_MASCARADO.search("PINTE BEM ***.***.***-**")
+
+
+def test_id_citado_em_armadilha_precisa_existir() -> None:
+    """RGQ-07 (M8): a armadilha que cita uma golden query inexistente é apontada."""
+    cab = g.ler_cabecalho(SQL_VALIDO)
+    assert g.ids_citados_inexistentes([cab], ["gq_core__porte__01"]) == []
+    cab["armadilhas"] = ["Veja gq_core__porte__09."]
+    assert g.ids_citados_inexistentes([cab], ["gq_core__porte__01"]) == [
+        "gq_core__porte__01: cita gq_core__porte__09, que não existe"
+    ]
+
+
+def test_guia_cita_so_ids_que_existem() -> None:
+    texto = "Parta de `gq_core__porte__01` ou de `gq_core__ativos__01`."
+    assert g.problemas_do_guia(texto, ["gq_core__porte__01"]) == [
+        f"{g.GUIA.name}: cita gq_core__ativos__01, que não existe"
+    ]
+
+
+def test_exemplos_sql_do_guia_precisam_de_marca() -> None:
+    texto = "x\n\n  ```sql\n  -- exemplo: um\n  select 1\n  ```\n\n```sql\n-- exemplo: dois\nselect 2\n```\n"
+    assert g.exemplos_sql_do_guia(texto) == {
+        "um": "-- exemplo: um\nselect 1",
+        "dois": "-- exemplo: dois\nselect 2",
+    }
+    with pytest.raises(g.CatalogoErro, match="sem `-- exemplo"):
+        g.exemplos_sql_do_guia("```sql\nselect 1\n```\n")
+    with pytest.raises(g.CatalogoErro, match="repetido"):
+        g.exemplos_sql_do_guia(
+            "```sql\n-- exemplo: a\nselect 1\n```\n```sql\n-- exemplo: a\nselect 2\n```\n"
+        )

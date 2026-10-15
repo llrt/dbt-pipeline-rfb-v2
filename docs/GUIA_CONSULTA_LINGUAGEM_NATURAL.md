@@ -12,6 +12,8 @@ Convenções deste guia:
 - **DEVE / NUNCA** são regras duras. "Prefira" é padrão que admite exceção explicada na resposta.
 - `gq_<camada>__<conceito>__<nn>` é o id de uma golden query do catálogo: uma consulta testada no CI, com a resposta
   exata nas fixtures. Parta sempre da golden query mais próxima.
+- Todo bloco SQL dos exemplos começa com `-- exemplo: <id>`: o CI executa cada um nas fixtures, somente leitura, e
+  confere que todo `gq_*` citado neste guia existe no catálogo.
 - Os números de exemplo vêm das **fixtures do CI** (cenário sintético: 18 estabelecimentos, meses 2026-08 e
   2026-09), salvo onde está escrito **dado real**.
 
@@ -373,6 +375,7 @@ def checar_saida(colunas, linhas, identifica_estabelecimento=False):
 - **SQL final:**
 
   ```sql
+  -- exemplo: exemplo_1_lojas_tinta_fundao
   select count(*) filter (where fct.eh_ativa) as ativos, count(*) filter (where not fct.eh_ativa) as nao_ativos
   from main.fct_estabelecimentos as fct
   inner join main.dim_cnae as cnae on fct.sk_cnae = cnae.sk_cnae
@@ -394,6 +397,7 @@ def checar_saida(colunas, linhas, identifica_estabelecimento=False):
 - **SQL final (o polo e os ativos do CNAE nele, numa consulta):**
 
   ```sql
+  -- exemplo: exemplo_2_polo_e_concorrencia
   select municipio, ativos, ativos_vizinhos, nome_municipio_polo_compras, pct_compras_no_polo, ativos_no_polo
   from main.mart_concorrencia_area_mercado
   where cnae_principal = '4741500' and municipio = 'Fundão' and uf = 'ES'
@@ -422,6 +426,7 @@ def checar_saida(colunas, linhas, identifica_estabelecimento=False):
 - **SQL final:**
 
   ```sql
+  -- exemplo: exemplo_4_pessoal_cempre_es
   select sum(unidades_locais_cempre) as unidades_locais, sum(pessoal_ocupado_cempre) as pessoal_sem_sigilo,
          count(*) filter (where tem_sigilo) as celulas_com_sigilo, any_value(ano_cempre) as ano_cempre
   from main.mart_emprego_setor_municipio

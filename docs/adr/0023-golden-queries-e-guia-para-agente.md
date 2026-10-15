@@ -82,3 +82,6 @@ catálogo. As analyses de `golden/` ficam fora da compilação do relatório do 
   mascarado (`***.***.***-**`) num texto são recusados. O guia dá ao agente a mesma checagem como função Python
   (`checar_saida`, seção 7), que o CI extrai e testa contra os vazamentos da RGQ e contra o veredito do gerador em
   toda coluna do esquema.
+- **Texto escrito à mão verificado (RGQ-07).** Todo `gq_*` citado nos campos de texto dos cabeçalhos e no guia
+  inteiro (não só no bloco gerado) precisa existir; o gerador falha e o teste também. Todo bloco ` ```sql ` do guia
+  abre com `-- exemplo: <id>`, e o CI executa cada um nas fixtures, somente leitura, com a guarda de privacidade.

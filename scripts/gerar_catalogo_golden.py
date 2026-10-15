@@ -725,7 +725,51 @@ def problemas_gerais(
                 f"{entrada.get('id')}: colunas proibidas na saída (ADR-0008): {', '.join(proibidas)}"
             )
     ids = [*golden, *(str(e.get("id")) for e in semantica)]
-    return problemas + problemas_de_cobertura(matriz, ids)
+    cabecalhos = [*(c for c, _ in golden.values()), *semantica]
+    return (
+        problemas + problemas_de_cobertura(matriz, ids) + ids_citados_inexistentes(cabecalhos, ids)
+    )
+
+
+_CAMPOS_DE_TEXTO = ("perguntas", "intencao", "armadilhas", "variacoes")
+
+
+def ids_citados_inexistentes(cabecalhos: list[dict], ids: list[str]) -> list[str]:
+    """Golden queries citadas no texto de um cabeçalho (armadilhas, variações...) que não existem (RGQ-07)."""
+    existentes = set(ids)
+    problemas = []
+    for cab in cabecalhos:
+        texto = " ".join(str(cab.get(campo) or "") for campo in _CAMPOS_DE_TEXTO)
+        for citado in sorted(set(_RE_ID_CITADO.findall(texto)) - existentes):
+            problemas.append(f"{cab.get('id')}: cita {citado}, que não existe")
+    return problemas
+
+
+_RE_BLOCO_SQL = re.compile(r"^[ \t]*```sql[ \t]*\n(.*?)^[ \t]*```", re.S | re.M)
+_RE_MARCA_EXEMPLO = re.compile(r"\A\s*-- exemplo: ([a-z0-9_]+)\s*\n")
+
+
+def exemplos_sql_do_guia(texto: str) -> dict[str, str]:
+    """`{id: SQL}` dos blocos ```sql do guia; todo bloco abre com `-- exemplo: <id>` (RGQ-07), id único."""
+    exemplos: dict[str, str] = {}
+    for bloco in _RE_BLOCO_SQL.findall(texto):
+        marca = _RE_MARCA_EXEMPLO.match(bloco)
+        if marca is None:
+            raise CatalogoErro(
+                f"{GUIA.name}: bloco ```sql sem `-- exemplo: <id>` na primeira linha:\n{bloco[:200]}"
+            )
+        if marca.group(1) in exemplos:
+            raise CatalogoErro(f"{GUIA.name}: id de exemplo repetido: {marca.group(1)}")
+        exemplos[marca.group(1)] = "\n".join(linha.strip() for linha in bloco.splitlines())
+    return exemplos
+
+
+def problemas_do_guia(texto: str, ids: list[str]) -> list[str]:
+    """Golden queries citadas no guia (fora do bloco gerado também) que não existem (RGQ-07)."""
+    return [
+        f"{GUIA.name}: cita {citado}, que não existe"
+        for citado in sorted(set(_RE_ID_CITADO.findall(texto)) - set(ids))
+    ]
 
 
 def _entrada_comum(cab: dict) -> dict:
@@ -1010,6 +1054,10 @@ def main(argv: list[str] | None = None) -> int:
         )  # fmt: skip
         texto_catalogo = serializar(catalogo)
         texto_guia = renderizar_guia(args.guia.read_text(encoding="utf-8"), catalogo)
+        problemas = problemas_do_guia(texto_guia, [q["id"] for q in catalogo["golden_queries"]])
+        exemplos_sql_do_guia(texto_guia)  # todo bloco SQL marcado
+        if problemas:
+            raise CatalogoErro("\n- ".join(["guia com problema:", *problemas]))
     except Exception as exc:  # noqa: BLE001 — mensagem curta na linha de comando
         print(f"erro: {exc}", file=sys.stderr)
         return 1

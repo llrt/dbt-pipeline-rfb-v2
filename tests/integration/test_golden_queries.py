@@ -218,3 +218,28 @@ def test_checagem_do_guia_concorda_com_o_ci_e_aceita_as_golden_queries(resultado
     for entrada in SEMANTICA:
         resultado = entrada["resposta_esperada_fixtures"]
         assert checar(resultado["colunas"], resultado["linhas"]) == [], entrada["id"]
+
+
+EXEMPLOS = g.exemplos_sql_do_guia(g.GUIA.read_text(encoding="utf-8"))
+
+
+def test_guia_tem_exemplos_sql_marcados() -> None:
+    assert len(EXEMPLOS) >= 3
+
+
+@pytest.mark.parametrize("exemplo", sorted(EXEMPLOS))
+def test_exemplo_sql_do_guia_executa_nas_fixtures(exemplo: str) -> None:
+    """RGQ-07: o SQL escrito à mão nos exemplos do guia compila e executa nas fixtures, somente leitura, sem expor pessoa."""
+    sql = EXEMPLOS[exemplo]
+    with duckdb.connect(str(_raiz() / "warehouse.duckdb"), read_only=True) as con:
+        cursor = con.execute(sql)
+        colunas, linhas = [d[0] for d in cursor.description], cursor.fetchall()
+    assert _checagem_do_guia()(colunas, linhas) == []
+    assert g.colunas_derivadas_proibidas(sql) == []
+
+
+def test_ids_citados_no_guia_e_nos_cabecalhos_existem() -> None:
+    """RGQ-07: todo `gq_*` citado no guia inteiro (fora do bloco gerado também) e nos cabeçalhos existe."""
+    ids = [*GOLDEN, *(e["id"] for e in SEMANTICA)]
+    assert g.problemas_do_guia(g.GUIA.read_text(encoding="utf-8"), ids) == []
+    assert g.ids_citados_inexistentes([*(c for c, _ in GOLDEN.values()), *SEMANTICA], ids) == []
