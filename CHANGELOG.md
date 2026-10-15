@@ -26,7 +26,7 @@ histórico de como o projeto foi feito, em [docs/historico/](docs/historico/READ
   camada semântica. O ESCOPO entra no ARCHITECTURE (§11) e cada triagem vai para o fim da sua revisão.
 - Em [docs/conceitos.md](docs/conceitos.md), cada conceito é dito uma vez: abre com a sua definição e segue só com o
   que ela não diz (base legal, exemplos, cuidados). As perguntas frequentes com `mf query` vão para a
-  [referência da camada semântica](docs/referencia/camada-semantica.md#perguntas-frequentes); 1.012 → 687 linhas.
+  [referência da camada semântica](docs/referencia/camada-semantica.md#perguntas-frequentes); 1.012 → 643 linhas.
 - [docs/operacao.md](docs/operacao.md) abre com os comandos do dia a dia e um sumário; as notas de upgrade ficam no
   fim. Os cenários apontam para o relatório do estudo de caso.
 - Verificador de links e âncoras dos `.md` no `make ci`, que confere também a caixa do nome do arquivo; caminhos de

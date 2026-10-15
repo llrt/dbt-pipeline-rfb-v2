@@ -417,6 +417,11 @@ parte do caminho (≈ 170 linhas, que a proposta de cortes da RD punha num apên
 | Mii | o lugar da definição de `porte` apagado | `doc block porte sem lugar em docs/conceitos.md` |
 
 
+**Depois do reteste** (decisão do líder): a base legal longa do Simples e do MEI foi para a referência de regras
+(`173a725`), as linhas "No projeto" com colunas saíram para a ontologia e o dicionário (`c38c71c`) e o pitch do BI
+ganhou o link do guia (`0cb33cd`). `conceitos.md`: 687 → **643** (593 sem os marcadores); linhas de leitura:
+**1.993**.
+
 Limite conhecido: um valor **diferente** escrito à mão no complemento (por exemplo, "R$ 91.000,00" ao lado da
 definição com R$ 81 mil) não é repetição e passa. O teste garante que a definição exista num lugar só, não que o
 complemento esteja certo.

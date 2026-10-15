@@ -183,7 +183,7 @@ v1.5.0 não entrega:
   confirmou com 3 perguntas livres). O ganho foi tirar dele as definições, que agora vêm do catálogo.
 - **O efeito "~6.000 → ~2.500 linhas lidas".** Medido de novo no FD, só o caminho de leitura de quem é de negócio
   (conceitos + cenários + guia do agente + Power BI): 2.354 linhas na v1.4.1 (CAMADA_SEMANTICA + cenários + guia +
-  POWER_BI), 2.350 no D2 e **2.037** no FD (`conceitos.md`: 1.019 → 1.012 → 687, das quais 50 são marcadores
+  POWER_BI), 2.350 no D2 e **1.993** no FD (`conceitos.md`: 1.019 → 1.012 → 643, das quais 50 são marcadores
   invisíveis do bloco gerado). O "~2.500" da proposta contava também o REGRAS_NEGOCIO (629 linhas), que virou
   referência e saiu desse caminho.
 
