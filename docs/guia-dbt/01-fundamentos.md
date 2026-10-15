@@ -955,9 +955,9 @@ agora usa o caminho `/docs/...` — URLs antigas como `/docs/build/ref` quebram/
 - [ARCHITECTURE.md](../../ARCHITECTURE.md) — arquitetura do projeto (camadas, materializações, vars, DQ).
 - [docs/adr/README.md](../adr/README.md) — registro de decisões (ADR-0002: EL em Python; ADR-0004: data
   determinística; ADR-0006: marcação de escopo; ADR-0009: estratégia de testes).
-- [docs/ESCOPO.md](../ESCOPO.md) — original × adição (a "tabela humana" do `meta.escopo`).
+- [ARCHITECTURE.md, §11](../../ARCHITECTURE.md#11-escopo-original--adaptado--adição) — original × adição (a "tabela humana" do `meta.escopo`).
 - [PRODUCT.md](../../PRODUCT.md) — produto e personas (o porquê das escolhas).
 
 ---
 
-*Voltar ao [README do guia](../../README.md#documentos).*
+*Voltar ao [README do guia](../../README.md#documentação).*
