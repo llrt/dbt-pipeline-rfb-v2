@@ -165,7 +165,7 @@ def verificar_links(texto: str, doc: Path = CAMADA_SEMANTICA) -> list[str]:
             pendencias.append(f"{doc.name}: âncora inexistente: #{ancora}")
     for outro in DIR_DOCS.rglob("*.md"):
         conteudo = outro.read_text(encoding="utf-8")
-        for ancora in re.findall(r"(?<![\w-])" + re.escape(doc.name) + r"#([^)\s]+)", conteudo):
+        for ancora in re.findall(r"(?<![\w-])" + re.escape(doc.name) + r"#([^)\s`]+)", conteudo):
             if ancora not in ancoras:
                 origem = outro.relative_to(RAIZ)
                 pendencias.append(f"{origem}: âncora inexistente {doc.name}#{ancora}")
