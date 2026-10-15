@@ -190,3 +190,12 @@ def test_conferir_esquema_num_banco_so_com_o_gold(tmp_path: Path) -> None:
     con = CONEXAO["conectar_somente_leitura"](_copia_mutada(tmp_path, comandos))
     assert conferir_esquema(con, CATALOGO) == ([], [])
     con.close()
+
+
+def test_conferir_esquema_cobra_staging_ausente_num_banco_local(tmp_path: Path) -> None:
+    """Fora do caso só-gold, relação de staging faltando é divergência (banco local incompleto)."""
+    (staging,) = [r["nome"] for r in CATALOGO["relacoes"] if r["camada"] == "staging"][:1]
+    con = CONEXAO["conectar_somente_leitura"](_copia_mutada(tmp_path, [f"drop view {staging}"]))
+    problemas, _ = conferir_esquema(con, CATALOGO)
+    con.close()
+    assert problemas == [f"{staging.removeprefix('main.')}: relação ausente no banco"]
