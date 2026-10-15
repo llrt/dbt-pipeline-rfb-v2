@@ -9,6 +9,7 @@ intencao: "Ativos por seção e divisão da CNAE do CNAE principal (hierarquia d
 tabelas: [fct_estabelecimentos, dim_cnae]
 colunas_chave: [sk_cnae, codigo_secao, descricao_secao, codigo_divisao, descricao_divisao]
 armadilhas:
+  - "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta."
   - "'Setor'/'ramo' é ambíguo: seção (letra), divisão (2 dígitos), grupo (3), classe (5) ou subclasse (7). Escolha o nível ou pergunte."
   - "Só o CNAE principal; o secundário está na ponte (gq_core__cnae_secundario__01)."
   - "O membro -1 (NÃO INFORMADO) reúne CNAEs sem par na Base dos Dados."

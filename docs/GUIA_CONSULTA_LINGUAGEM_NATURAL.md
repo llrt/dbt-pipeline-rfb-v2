@@ -171,7 +171,7 @@ Regras de join:
 
 | Termo do usuário | Tradução | Ambiguidade a resolver (pergunte ou declare a escolha) |
 |---|---|---|
-| empresa | matriz: `eh_matriz` (uma por CNPJ básico); métrica `qtd_matrizes` | o usuário quer empresas ou estabelecimentos/lojas? "Quantas empresas de tinta" quase sempre quer estabelecimentos do CNAE |
+| empresa | matriz: `eh_matriz` (uma por CNPJ básico) ou `count(distinct left(cnpj_completo, 8))`; métrica `qtd_matrizes` | o usuário quer empresas ou estabelecimentos/lojas? "Quantas empresas de tinta" quase sempre quer estabelecimentos do CNAE. A golden query cuja pergunta diz "empresa" e que conta estabelecimentos traz a armadilha `Empresa × estabelecimento:`: leia-a e declare a escolha |
 | estabelecimento, CNPJ, loja, unidade, filial | linha de `fct_estabelecimentos` (`cnpj_completo`); métricas `qtd_estabelecimentos`, `qtd_ativos` | "CNPJ" sozinho = estabelecimento; "filial" = `not eh_matriz` |
 | empresa aberta, ativa, funcionando | `eh_ativa` (situação 2, ATIVA) | "aberta" pode ser **ativa hoje** ou **aberta no período** (`aberturas`). Ativa não prova que opera (IN 2.119, art. 9º) |
 | abriu, nova empresa, abertura | `aberturas` (data de início de atividade) | qual período? o ano do extrato é parcial |

@@ -436,3 +436,24 @@ def test_exemplos_sql_do_guia_precisam_de_marca() -> None:
         g.exemplos_sql_do_guia(
             "```sql\n-- exemplo: a\nselect 1\n```\n```sql\n-- exemplo: a\nselect 2\n```\n"
         )
+
+
+def test_pergunta_por_empresa_exige_contar_empresas_ou_armadilha() -> None:
+    """RGQ-03: 'empresas' na pergunta com SQL de estabelecimentos precisa da armadilha explícita."""
+    cab = {
+        "id": "gq_core__x__01",
+        "perguntas": ["Quantas empresas abriram?", "b?"],
+        "armadilhas": ["Outra."],
+    }
+    assert g.problemas_empresa(cab, "select count(*) from fct")
+    assert g.problemas_empresa(cab, "select count(*) from fct where fct.eh_matriz") == []
+    assert (
+        g.problemas_empresa(cab, "select count(distinct left(fct.cnpj_completo, 8)) from fct") == []
+    )
+    assert (
+        g.problemas_empresa(
+            {**cab, "armadilhas": ["Empresa × estabelecimento: conta estabelecimentos."]}, "x"
+        )
+        == []
+    )
+    assert g.problemas_empresa({**cab, "perguntas": ["Quantos estabelecimentos?", "b?"]}, "x") == []

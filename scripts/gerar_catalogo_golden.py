@@ -724,6 +724,11 @@ def problemas_gerais(
             problemas.append(
                 f"{entrada.get('id')}: colunas proibidas na saída (ADR-0008): {', '.join(proibidas)}"
             )
+    for cab, texto in golden.values():
+        problemas += problemas_empresa(cab, _RE_CABECALHO.sub("", texto))
+    for entrada in semantica:
+        consulta = " ".join([*(entrada.get("metricas") or []), *(entrada.get("group_by") or [])])
+        problemas += problemas_empresa(entrada, f"{consulta} {entrada.get('where') or ''}")
     ids = [*golden, *(str(e.get("id")) for e in semantica)]
     cabecalhos = [*(c for c, _ in golden.values()), *semantica]
     return (
@@ -732,6 +737,31 @@ def problemas_gerais(
 
 
 _CAMPOS_DE_TEXTO = ("perguntas", "intencao", "armadilhas", "variacoes")
+_RE_PERGUNTA_EMPRESA = re.compile(r"\bempresas?\b", re.I)
+# SQL ou consulta semântica que conta empresas (CNPJ básico), não estabelecimentos.
+_RE_CONTA_EMPRESA = re.compile(
+    r"eh_matriz|cnpj_raiz|cnpj_basico|left\(\s*[\w.]*cnpj_completo\s*,\s*8\s*\)|qtd_matrizes", re.I
+)
+ARMADILHA_EMPRESA = "Empresa × estabelecimento:"
+
+
+def problemas_empresa(cab: dict, consulta: str) -> list[str]:
+    """Pergunta com "empresa" exige consulta que conte empresas ou a armadilha explícita (RGQ-03).
+
+    O glossário do guia: empresa = CNPJ básico (matriz); estabelecimento = CNPJ completo. Uma golden query que
+    responde "quantas empresas" contando estabelecimentos precisa dizer isso numa armadilha que começa com
+    `Empresa × estabelecimento:`.
+    """
+    if not any(_RE_PERGUNTA_EMPRESA.search(p) for p in cab.get("perguntas") or []):
+        return []
+    if _RE_CONTA_EMPRESA.search(consulta):
+        return []
+    if any(str(a).startswith(ARMADILHA_EMPRESA) for a in cab.get("armadilhas") or []):
+        return []
+    return [
+        f"{cab.get('id')}: pergunta por empresa, mas não conta empresas (`eh_matriz`, CNPJ básico, `qtd_matrizes`) "
+        f"nem tem a armadilha `{ARMADILHA_EMPRESA} ...`"
+    ]
 
 
 def ids_citados_inexistentes(cabecalhos: list[dict], ids: list[str]) -> list[str]:

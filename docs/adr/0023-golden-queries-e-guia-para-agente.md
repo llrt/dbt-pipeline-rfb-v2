@@ -85,3 +85,8 @@ catálogo. As analyses de `golden/` ficam fora da compilação do relatório do 
 - **Texto escrito à mão verificado (RGQ-07).** Todo `gq_*` citado nos campos de texto dos cabeçalhos e no guia
   inteiro (não só no bloco gerado) precisa existir; o gerador falha e o teste também. Todo bloco ` ```sql ` do guia
   abre com `-- exemplo: <id>`, e o CI executa cada um nas fixtures, somente leitura, com a guarda de privacidade.
+- **Empresa × estabelecimento nas perguntas (RGQ-03).** Golden query com "empresa" numa pergunta precisa contar
+  empresas (`eh_matriz`, CNPJ básico, `qtd_matrizes`) ou ter uma armadilha que começa com
+  `Empresa × estabelecimento:` e diz o que conta; o gerador e o teste falham sem isso. As 19 que contavam
+  estabelecimentos (ou empresas, nos arquivos por CNPJ básico) sem dizer ganharam a armadilha; as perguntas
+  coloquiais ficaram, porque é assim que o usuário pergunta.

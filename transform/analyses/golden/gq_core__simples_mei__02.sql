@@ -9,6 +9,7 @@ intencao: "Ativos por porte × regime (MEI, Simples sem MEI, fora do Simples): '
 tabelas: [fct_estabelecimentos, dim_porte]
 colunas_chave: [sk_porte, rotulo_porte, opcao_mei, opcao_simples]
 armadilhas:
+  - "Empresa × estabelecimento: conta estabelecimentos ativos; para empresas, use a variação `eh_matriz` e declare a escolha."
   - "'Pequena empresa' é ambíguo: porte PEQUENA (EPP), porte MICRO+PEQUENA (ME/EPP), optante do Simples ou MEI. Mostre a quebra ou pergunte."
   - "Porte é declarado; Simples e MEI são opções de tributação da empresa."
 variacoes:

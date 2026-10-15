@@ -9,6 +9,7 @@ intencao: "Auditoria do staging: empresas por ano da data de opção pelo MEI, c
 tabelas: [stg_rfb__simples]
 colunas_chave: [cnpj_raiz, dat_opcao_mei, dat_exclusao_mei]
 armadilhas:
+  - "Empresa × estabelecimento: `stg_rfb__simples` tem uma linha por empresa (CNPJ básico); aqui se contam empresas, não estabelecimentos."
   - "As datas de opção e exclusão só existem no staging; o gold tem a flag do extrato (`opcao_mei`)."
   - "É por EMPRESA, não por estabelecimento; a data de opção pelo Simples pode ser a data de efeito (1º/1 do ano seguinte)."
 variacoes:

@@ -9,6 +9,7 @@ intencao: "O total do CEMPRE por município (todas as atividades): unidades loca
 tabelas: [dim_municipio, fct_estabelecimentos]
 colunas_chave: [sk_municipio, ano_cempre, unidades_locais_cempre, pessoal_ocupado_cempre]
 armadilhas:
+  - "Empresa × estabelecimento: o CEMPRE conta unidades locais (o equivalente a estabelecimentos), não empresas; o pessoal é o das unidades do município."
   - "O CEMPRE é de 31/12 do `ano_cempre` (hoje 2024); a RFB é do mês do extrato: anos diferentes."
   - "O CEMPRE não conta MEI e só conta quem tem sinal de atividade: ele é menor que os ativos da RFB."
   - "Pessoal ocupado inclui sócios e proprietários; não é só emprego com carteira."

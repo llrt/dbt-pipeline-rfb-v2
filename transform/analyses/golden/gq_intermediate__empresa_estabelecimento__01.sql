@@ -9,6 +9,7 @@ intencao: "Linhagem: as flags `tem_*` do intermediate, que dizem quantos estabel
 tabelas: [int_estabelecimentos__enriquecidos]
 colunas_chave: [cnpj_completo, tem_empresa, tem_natureza, tem_cnae_bd, tem_municipio_bd]
 armadilhas:
+  - "Empresa × estabelecimento: conta estabelecimentos; 'sem par de empresa' é o estabelecimento cujo CNPJ básico não está no arquivo Empresas."
   - "O gold não descarta nada: o que não tem par vai para o membro -1 ('NÃO INFORMADO'); `bh_empresas` (original) descarta por inner join."
   - "Sem par de município inclui o exterior (código RFB 9707)."
 variacoes:

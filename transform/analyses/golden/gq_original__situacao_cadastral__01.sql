@@ -9,7 +9,8 @@ intencao: "Paridade com o MVP: a situação reduzida a ATIVA × INATIVA (regra d
 tabelas: [agg_empresas]
 colunas_chave: [situacao, qtd_empresas]
 armadilhas:
-  - "INATIVA junta nula, suspensa, inapta e baixada; `qtd_empresas` conta estabelecimentos, apesar do nome."
+  - "Empresa × estabelecimento: `qtd_empresas` conta estabelecimentos, apesar do nome."
+  - "INATIVA junta nula, suspensa, inapta e baixada."
   - "Só para paridade; para pergunta nova use gq_core__situacao_cadastral__01."
 variacoes:
   - "Um CNAE e município: filtre `cnae_principal` e `municipio` (em MAIÚSCULAS, sem acento: 'FUNDAO')."

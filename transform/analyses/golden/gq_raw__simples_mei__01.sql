@@ -9,6 +9,7 @@ intencao: "Auditoria do raw: combinação de OPÇÃO PELO SIMPLES e OPÇÃO PELO
 tabelas: [rfb.simples]
 colunas_chave: [_mes_referencia, opcao_simples, opcao_mei]
 armadilhas:
+  - "Empresa × estabelecimento: o arquivo Simples tem uma linha por empresa (CNPJ básico); aqui se contam empresas, não estabelecimentos."
   - "O arquivo Simples é por EMPRESA (CNPJ básico); empresa sem linha no arquivo vira `false` no gold."
   - "Para contar MEI ativos use `opcao_mei` em fct_estabelecimentos (gq_core__simples_mei__01) ou `qtd_ativos_mei`."
   - "O raw só traz 'S', 'N' ou vazio: a flag é a situação no extrato, não o histórico."

@@ -847,6 +847,7 @@
       "intencao": "Auditoria do raw: códigos de PORTE DA EMPRESA no mês mais recente (00 não informado, 01 micro, 03 pequena, 05 demais; vazio vira NULL).",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: o arquivo Empresas tem uma linha por empresa (CNPJ básico); aqui se contam empresas, não estabelecimentos.",
         "Camada de auditoria: para o porte com rótulo use gq_core__porte__01.",
         "O porte é da EMPRESA (CNPJ básico), não do estabelecimento; MEI não é porte.",
         "O porte é declarado, não medido: não há receita nos dados abertos.",
@@ -904,6 +905,7 @@
       "intencao": "Auditoria do raw: combinação de OPÇÃO PELO SIMPLES e OPÇÃO PELO MEI no mês mais recente.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: o arquivo Simples tem uma linha por empresa (CNPJ básico); aqui se contam empresas, não estabelecimentos.",
         "O arquivo Simples é por EMPRESA (CNPJ básico); empresa sem linha no arquivo vira `false` no gold.",
         "Para contar MEI ativos use `opcao_mei` em fct_estabelecimentos (gq_core__simples_mei__01) ou `qtd_ativos_mei`.",
         "O raw só traz 'S', 'N' ou vazio: a flag é a situação no extrato, não o histórico."
@@ -1263,6 +1265,7 @@
       "intencao": "Auditoria do staging: empresas por ano da data de opção pelo MEI, com quantas já têm data de exclusão (as datas não chegam ao gold).",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: `stg_rfb__simples` tem uma linha por empresa (CNPJ básico); aqui se contam empresas, não estabelecimentos.",
         "As datas de opção e exclusão só existem no staging; o gold tem a flag do extrato (`opcao_mei`).",
         "É por EMPRESA, não por estabelecimento; a data de opção pelo Simples pode ser a data de efeito (1º/1 do ano seguinte)."
       ],
@@ -1444,6 +1447,7 @@
       "intencao": "Linhagem: as flags `tem_*` do intermediate, que dizem quantos estabelecimentos vão para o membro -1 de cada dimensão no gold.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: conta estabelecimentos; 'sem par de empresa' é o estabelecimento cujo CNPJ básico não está no arquivo Empresas.",
         "O gold não descarta nada: o que não tem par vai para o membro -1 ('NÃO INFORMADO'); `bh_empresas` (original) descarta por inner join.",
         "Sem par de município inclui o exterior (código RFB 9707)."
       ],
@@ -1656,6 +1660,7 @@
       "intencao": "O total do CEMPRE por município (todas as atividades): unidades locais e pessoal ocupado, com o ano do CEMPRE, ao lado dos ativos da RFB.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: o CEMPRE conta unidades locais (o equivalente a estabelecimentos), não empresas; o pessoal é o das unidades do município.",
         "O CEMPRE é de 31/12 do `ano_cempre` (hoje 2024); a RFB é do mês do extrato: anos diferentes.",
         "O CEMPRE não conta MEI e só conta quem tem sinal de atividade: ele é menor que os ativos da RFB.",
         "Pessoal ocupado inclui sócios e proprietários; não é só emprego com carteira."
@@ -1734,6 +1739,7 @@
       "intencao": "Ativos por seção e divisão da CNAE do CNAE principal (hierarquia de dim_cnae).",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta.",
         "'Setor'/'ramo' é ambíguo: seção (letra), divisão (2 dígitos), grupo (3), classe (5) ou subclasse (7). Escolha o nível ou pergunte.",
         "Só o CNAE principal; o secundário está na ponte (gq_core__cnae_secundario__01).",
         "O membro -1 (NÃO INFORMADO) reúne CNAEs sem par na Base dos Dados."
@@ -1985,6 +1991,7 @@
       "intencao": "Aberturas por mês do ano corrente do extrato, usando dim_data no papel de data de início de atividade.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta.",
         "dim_data tem papel duplo: junte por `sk_data_inicio_atividade` (abertura) ou por `sk_data_situacao` (evento da situação).",
         "Os membros -1 (sem data) e -2 (antes de 1900) têm `ano` NULL: filtre `ano is not null`.",
         "O mês do extrato é parcial (vai até a data de referência)."
@@ -2038,6 +2045,7 @@
       "intencao": "Aberturas (data de início), encerramentos (não ativos pela data da situação) e baixas por ano, com o saldo, como na regra de mart_dinamica_mercado.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta.",
         "Encerramento no projeto = todo não ativo (nula, suspensa, inapta, baixada); 'fechou de vez' = só baixa (código 8).",
         "Eventos são derivados do extrato corrente: um inapto reativado deixa de contar; quem sumiu do cadastro não entra.",
         "O último ano é parcial e lotes de inaptidão distorcem um ano: compare períodos completos."
@@ -2413,6 +2421,7 @@
       "intencao": "Desambiguação de município homônimo: o mesmo nome em várias UFs, com código IBGE e estabelecimentos de cada um.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; aqui a pergunta é ambígua também no município: pergunte (exemplo 3 do guia).",
         "Nome sem UF é ambíguo: se houver mais de uma linha, pergunte a UF antes de responder.",
         "O `left join` mantém o município sem nenhum estabelecimento (0), que um `inner join` esconderia."
       ],
@@ -2997,6 +3006,7 @@
       "intencao": "Ativos por porte × regime (MEI, Simples sem MEI, fora do Simples): 'pequena empresa' pode ser porte ou regime.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: conta estabelecimentos ativos; para empresas, use a variação `eh_matriz` e declare a escolha.",
         "'Pequena empresa' é ambíguo: porte PEQUENA (EPP), porte MICRO+PEQUENA (ME/EPP), optante do Simples ou MEI. Mostre a quebra ou pergunte.",
         "Porte é declarado; Simples e MEI são opções de tributação da empresa."
       ],
@@ -3062,7 +3072,7 @@
       "privacidade": "agregado",
       "armadilhas": [
         "Ativa ≠ em operação (IN 2.119, art. 9º, parágrafo único).",
-        "A situação é do estabelecimento; a 'situação da empresa' é a da matriz (filtre `eh_matriz`).",
+        "Empresa × estabelecimento: conta estabelecimentos. A situação é do estabelecimento; a 'situação da empresa' é a da matriz (filtre `eh_matriz`).",
         "Só a situação no dia do extrato: transições entre dois extratos não aparecem."
       ],
       "variacoes": [
@@ -3116,6 +3126,7 @@
       "intencao": "Estabelecimentos não ativos pelo ano da data da situação, separando baixada (fechou de vez) de inapta, suspensa e nula.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta.",
         "'Fechou' é ambíguo: baixa (definitiva) × inaptidão/suspensão (reversíveis). Pergunte ou mostre a quebra.",
         "Inaptidões chegam em lote numa data só (ADE): um ano com lote parece de mercado em queda.",
         "Data ausente (-1) ou anterior a 1900 (-2) tem `ano` NULL na dim_data e fica fora; o ano do extrato é parcial.",
@@ -3989,6 +4000,7 @@
       "intencao": "Taxa de sobrevivência a 3 anos por porte, no Brasil (todos os CNAEs), somando os estratos.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: a coorte é de estabelecimentos (filiais incluídas), não de empresas; o porte é da empresa, repetido em cada estabelecimento dela.",
         "O porte é o do extrato atual, não o da abertura.",
         "Estrato pequeno dá taxa instável: mostre os elegíveis junto da taxa."
       ],
@@ -4431,7 +4443,8 @@
       "intencao": "Paridade com o MVP: a situação reduzida a ATIVA × INATIVA (regra do original) em agg_empresas.",
       "privacidade": "agregado",
       "armadilhas": [
-        "INATIVA junta nula, suspensa, inapta e baixada; `qtd_empresas` conta estabelecimentos, apesar do nome.",
+        "Empresa × estabelecimento: `qtd_empresas` conta estabelecimentos, apesar do nome.",
+        "INATIVA junta nula, suspensa, inapta e baixada.",
         "Só para paridade; para pergunta nova use gq_core__situacao_cadastral__01."
       ],
       "variacoes": [
@@ -4589,6 +4602,7 @@
       "intencao": "Ativos por seção da CNAE (CNAE principal) num mês.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: `qtd_ativos` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__empresa_estabelecimento__01); se não está claro, declare a escolha na resposta.",
         "Só o CNAE principal; o secundário não está na camada semântica.",
         "`NÃO INFORMADO` reúne CNAEs sem par na Base dos Dados."
       ],
@@ -4876,6 +4890,7 @@
       "intencao": "Aberturas, encerramentos, baixas e saldo por ano.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: `aberturas` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__dinamica_mercado__01); se não está claro, declare a escolha na resposta.",
         "Encerramento inclui inapta e suspensa; 'fechou de vez' = `baixas`.",
         "Ano sem evento de um lado sai null; o saldo o trata como 0. O último ano é parcial."
       ],
@@ -5023,6 +5038,7 @@
       "intencao": "Consulta salva `dinamica_anual_por_secao_cnae`.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: `aberturas` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__dinamica_mercado__01); se não está claro, declare a escolha na resposta.",
         "Inaptidões em lote e ano parcial distorcem o saldo de um ano."
       ],
       "variacoes": [
@@ -5514,6 +5530,7 @@
       "intencao": "Ativos por município de uma UF no mês, com a renda per capita média do Censo 2022 como dimensão.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: `qtd_ativos` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__empresa_estabelecimento__01); se não está claro, declare a escolha na resposta.",
         "A renda é dimensão, não métrica: não some nem tire média dela no MetricFlow."
       ],
       "variacoes": [
@@ -5779,6 +5796,7 @@
       "intencao": "Consulta salva `sobrevivencia_por_coorte_e_porte`.",
       "privacidade": "agregado",
       "armadilhas": [
+        "Empresa × estabelecimento: a coorte é de estabelecimentos (filiais incluídas), não de empresas.",
         "Taxa null = coorte ainda não elegível no horizonte."
       ],
       "variacoes": [

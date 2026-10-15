@@ -152,6 +152,7 @@ golden_queries:
     group_by: [metric_time__month, cnae__descricao_secao]
     where: "{{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
     armadilhas:
+      - "Empresa × estabelecimento: `qtd_ativos` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__empresa_estabelecimento__01); se não está claro, declare a escolha na resposta."
       - "Só o CNAE principal; o secundário não está na camada semântica."
       - "`NÃO INFORMADO` reúne CNAEs sem par na Base dos Dados."
     variacoes:
@@ -285,6 +286,7 @@ golden_queries:
     metricas: [aberturas, encerramentos, baixas, saldo_aberturas_encerramentos]
     group_by: [metric_time__year]
     armadilhas:
+      - "Empresa × estabelecimento: `aberturas` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__dinamica_mercado__01); se não está claro, declare a escolha na resposta."
       - "Encerramento inclui inapta e suspensa; 'fechou de vez' = `baixas`."
       - "Ano sem evento de um lado sai null; o saldo o trata como 0. O último ano é parcial."
     variacoes:
@@ -317,6 +319,7 @@ golden_queries:
     intencao: "Consulta salva `dinamica_anual_por_secao_cnae`."
     saved_query: dinamica_anual_por_secao_cnae
     armadilhas:
+      - "Empresa × estabelecimento: `aberturas` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__dinamica_mercado__01); se não está claro, declare a escolha na resposta."
       - "Inaptidões em lote e ano parcial distorcem o saldo de um ano."
     variacoes:
       - "Com filtro: reescreva com `--metrics aberturas,encerramentos,saldo_aberturas_encerramentos --group-by metric_time__year,cnae__descricao_secao --where ...`."
@@ -352,6 +355,7 @@ golden_queries:
     intencao: "Consulta salva `sobrevivencia_por_coorte_e_porte`."
     saved_query: sobrevivencia_por_coorte_e_porte
     armadilhas:
+      - "Empresa × estabelecimento: a coorte é de estabelecimentos (filiais incluídas), não de empresas."
       - "Taxa null = coorte ainda não elegível no horizonte."
     variacoes:
       - "Uma UF: `--metrics taxa_sobrevivencia_3a --group-by metric_time__year --where \"{{ Dimension('coorte_sobrevivencia__uf') }} = 'ES'\"`."
@@ -451,6 +455,7 @@ golden_queries:
     group_by: [municipio__nome_municipio, municipio__renda_per_capita_media_2022]
     where: "{{ Dimension('municipio__sigla_uf') }} = 'ES' and {{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
     armadilhas:
+      - "Empresa × estabelecimento: `qtd_ativos` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__empresa_estabelecimento__01); se não está claro, declare a escolha na resposta."
       - "A renda é dimensão, não métrica: não some nem tire média dela no MetricFlow."
     variacoes:
       - "Mediana: `municipio__renda_per_capita_mediana_2022`."

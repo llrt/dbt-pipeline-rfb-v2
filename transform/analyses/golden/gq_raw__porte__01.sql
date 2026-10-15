@@ -9,6 +9,7 @@ intencao: "Auditoria do raw: códigos de PORTE DA EMPRESA no mês mais recente (
 tabelas: [rfb.empresas]
 colunas_chave: [_mes_referencia, porte]
 armadilhas:
+  - "Empresa × estabelecimento: o arquivo Empresas tem uma linha por empresa (CNPJ básico); aqui se contam empresas, não estabelecimentos."
   - "Camada de auditoria: para o porte com rótulo use gq_core__porte__01."
   - "O porte é da EMPRESA (CNPJ básico), não do estabelecimento; MEI não é porte."
   - "O porte é declarado, não medido: não há receita nos dados abertos."

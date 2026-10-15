@@ -10,6 +10,7 @@ intencao: "Estabelecimentos não ativos pelo ano da data da situação, separand
 tabelas: [fct_estabelecimentos, dim_situacao_cadastral, dim_data]
 colunas_chave: [eh_ativa, sk_data_situacao, rotulo_situacao_cadastral, ano]
 armadilhas:
+  - "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta."
   - "'Fechou' é ambíguo: baixa (definitiva) × inaptidão/suspensão (reversíveis). Pergunte ou mostre a quebra."
   - "Inaptidões chegam em lote numa data só (ADE): um ano com lote parece de mercado em queda."
   - "Data ausente (-1) ou anterior a 1900 (-2) tem `ano` NULL na dim_data e fica fora; o ano do extrato é parcial."

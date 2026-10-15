@@ -9,6 +9,7 @@ intencao: "Taxa de sobrevivência a 3 anos por porte, no Brasil (todos os CNAEs)
 tabelas: [mart_sobrevivencia_coorte]
 colunas_chave: [porte, elegiveis_3a, sobreviventes_3a]
 armadilhas:
+  - "Empresa × estabelecimento: a coorte é de estabelecimentos (filiais incluídas), não de empresas; o porte é da empresa, repetido em cada estabelecimento dela."
   - "O porte é o do extrato atual, não o da abertura."
   - "Estrato pequeno dá taxa instável: mostre os elegíveis junto da taxa."
 variacoes:

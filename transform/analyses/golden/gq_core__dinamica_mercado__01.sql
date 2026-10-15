@@ -9,6 +9,7 @@ intencao: "Aberturas (data de início), encerramentos (não ativos pela data da 
 tabelas: [fct_estabelecimentos, dim_data]
 colunas_chave: [sk_data_inicio_atividade, sk_data_situacao, eh_ativa, sk_situacao_cadastral]
 armadilhas:
+  - "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; se não está claro, declare a escolha na resposta."
   - "Encerramento no projeto = todo não ativo (nula, suspensa, inapta, baixada); 'fechou de vez' = só baixa (código 8)."
   - "Eventos são derivados do extrato corrente: um inapto reativado deixa de contar; quem sumiu do cadastro não entra."
   - "O último ano é parcial e lotes de inaptidão distorcem um ano: compare períodos completos."

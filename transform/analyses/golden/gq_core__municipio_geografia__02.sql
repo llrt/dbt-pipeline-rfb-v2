@@ -9,6 +9,7 @@ intencao: "Desambiguação de município homônimo: o mesmo nome em várias UFs,
 tabelas: [fct_estabelecimentos, dim_municipio]
 colunas_chave: [sk_municipio, id_municipio_ibge, nome_municipio, sigla_uf]
 armadilhas:
+  - "Empresa × estabelecimento: conta estabelecimentos (CNPJ completo), não empresas. Se o usuário quer empresas (CNPJ básico), filtre `fct.eh_matriz` (uma matriz por empresa) ou conte `distinct left(cnpj_completo, 8)`; aqui a pergunta é ambígua também no município: pergunte (exemplo 3 do guia)."
   - "Nome sem UF é ambíguo: se houver mais de uma linha, pergunte a UF antes de responder."
   - "O `left join` mantém o município sem nenhum estabelecimento (0), que um `inner join` esconderia."
 variacoes:

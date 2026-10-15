@@ -10,7 +10,7 @@ tabelas: [fct_estabelecimentos, dim_situacao_cadastral]
 colunas_chave: [sk_situacao_cadastral, rotulo_situacao_cadastral]
 armadilhas:
   - "Ativa ≠ em operação (IN 2.119, art. 9º, parágrafo único)."
-  - "A situação é do estabelecimento; a 'situação da empresa' é a da matriz (filtre `eh_matriz`)."
+  - "Empresa × estabelecimento: conta estabelecimentos. A situação é do estabelecimento; a 'situação da empresa' é a da matriz (filtre `eh_matriz`)."
   - "Só a situação no dia do extrato: transições entre dois extratos não aparecem."
 variacoes:
   - "Por UF ou CNAE: junte a dimensão e acrescente ao `group by`."
