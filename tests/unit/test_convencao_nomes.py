@@ -80,6 +80,7 @@ ALVOS_MAKE_ESPERADOS = {
     "semantica",
     "dicionario",
     "regras",
+    "golden",
 }
 
 

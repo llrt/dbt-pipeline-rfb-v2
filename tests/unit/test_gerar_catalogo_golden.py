@@ -1,0 +1,266 @@
+# ruff: noqa: E501  (textos e SQL de exemplo)
+"""Regras do gerador do catálogo das golden queries (ADR-0023), sem dbt nem warehouse."""
+
+from __future__ import annotations
+
+import datetime as dt
+import json
+import sys
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+RAIZ = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(RAIZ / "scripts"))
+
+import gerar_catalogo_golden as g  # noqa: E402
+
+CONCEITOS = {"porte", "renda"}
+SQL_VALIDO = """{# ---
+id: gq_core__porte__01
+conceito: porte
+camada: core
+perguntas: ["Quantas micro?", "Quantas por porte?"]
+intencao: "Ativos por porte."
+tabelas: [fct_estabelecimentos, dim_porte]
+colunas_chave: [sk_porte]
+armadilhas: ["MEI não é porte."]
+variacoes: ["Por UF."]
+resposta_esperada_fixtures:
+  colunas: [rotulo_porte, ativos]
+  linhas:
+    - [MICRO, 4]
+--- #}
+{{ config(tags=['escopo_adicao', 'golden_query'], meta={'escopo': 'adicao'}) }}
+
+select por.rotulo_porte, count(*) as ativos
+from {{ ref('fct_estabelecimentos') }} as fct
+inner join {{ ref('dim_porte') }} as por on fct.sk_porte = por.sk_porte
+group by all
+order by 1
+"""
+
+
+def _validar(texto: str, nome: str = "gq_core__porte__01") -> list[str]:
+    return g.validar_cabecalho(g.ler_cabecalho(texto), nome, texto, CONCEITOS)
+
+
+def test_cabecalho_valido_passa() -> None:
+    assert _validar(SQL_VALIDO) == []
+
+
+def test_sem_cabecalho_falha() -> None:
+    with pytest.raises(g.CatalogoErro, match="falta o cabeçalho"):
+        g.ler_cabecalho("select 1")
+
+
+@pytest.mark.parametrize(
+    ("troca", "esperado"),
+    [
+        (('intencao: "Ativos por porte."\n', ""), "faltam os campos intencao"),
+        (("camada: core", "camada: gold"), "camada inválida"),
+        (("conceito: porte", "conceito: tamanho"), "fora da matriz"),
+        (
+            ('perguntas: ["Quantas micro?", "Quantas por porte?"]', 'perguntas: ["Só uma?"]'),
+            "de 2 a 4",
+        ),
+        (
+            ("tabelas: [fct_estabelecimentos, dim_porte]", "tabelas: [fct_estabelecimentos]"),
+            "difere das relações",
+        ),
+        (("order by 1\n", ""), "order by"),
+        (("'golden_query'", "'outra'"), "golden_query"),
+        (("id: gq_core__porte__01", "id: gq_core__porte__02"), "difere do nome do arquivo"),
+        (("    - [MICRO, 4]", "    - [MICRO]"), "tamanho de `colunas`"),
+        (('armadilhas: ["MEI não é porte."]', "armadilhas: []"), "`armadilhas`"),
+    ],
+)
+def test_cabecalho_invalido_e_apontado(troca: tuple[str, str], esperado: str) -> None:
+    texto = SQL_VALIDO.replace(*troca)
+    assert texto != SQL_VALIDO
+    problemas = _validar(texto)
+    assert any(esperado in p for p in problemas), problemas
+
+
+def test_relacoes_citadas_no_cabecalho_nao_contam_como_do_sql() -> None:
+    texto = SQL_VALIDO.replace(
+        'variacoes: ["Por UF."]', "variacoes: [\"Use {{ ref('dim_municipio') }}.\"]"
+    )
+    assert _validar(texto) == []
+
+
+def test_nome_do_arquivo_precisa_bater_com_camada_e_conceito() -> None:
+    assert any(
+        "difere" in p or "diferem" in p for p in _validar(SQL_VALIDO, "gq_analytics__porte__01")
+    )
+
+
+def _matriz(sem_query: dict) -> dict:
+    return {
+        "camadas": [{"id": c} for c in g.CAMADAS],
+        "conceitos": [{"id": "porte"}, {"id": "renda"}],
+        "sem_query": sem_query,
+    }
+
+
+def _completa() -> tuple[dict, list[str]]:
+    ids = [f"gq_{c}__porte__01" for c in g.CAMADAS]
+    motivos = {"renda": {c: "não se aplica" for c in g.CAMADAS}}
+    return _matriz(motivos), ids
+
+
+def test_matriz_completa_passa() -> None:
+    matriz, ids = _completa()
+    assert g.problemas_de_cobertura(matriz, ids) == []
+
+
+def test_celula_sem_query_nem_motivo_falha() -> None:
+    matriz, ids = _completa()
+    del matriz["sem_query"]["renda"]["raw"]
+    assert g.problemas_de_cobertura(matriz, ids) == ["renda × raw: sem golden query e sem motivo"]
+
+
+def test_celula_com_query_e_motivo_falha() -> None:
+    matriz, ids = _completa()
+    matriz["sem_query"]["porte"] = {"core": "motivo"}
+    assert "porte × core: tem golden query e motivo ao mesmo tempo" in g.problemas_de_cobertura(
+        matriz, ids
+    )
+
+
+def test_motivo_que_cita_id_inexistente_falha() -> None:
+    matriz, ids = _completa()
+    matriz["sem_query"]["renda"]["core"] = "use gq_core__renda__07"
+    assert any("gq_core__renda__07" in p for p in g.problemas_de_cobertura(matriz, ids))
+
+
+@pytest.mark.parametrize(
+    "coluna",
+    ["nome", "razao_social", "nome_fantasia", "cpf", "email", "telefone1", "ddd1", "logradouro", "bairro",
+     "cep", "numero", "complemento", "nome_socio", "estabelecimento__nome_fantasia"],
+)  # fmt: skip
+def test_colunas_de_pessoa_contato_ou_endereco_sao_proibidas(coluna: str) -> None:
+    assert g.colunas_proibidas([coluna]) == [coluna]
+
+
+@pytest.mark.parametrize(
+    "coluna",
+    ["nome_municipio", "nome_uf", "nome_regiao_metropolitana", "nome_municipio_polo_compras", "nome_mes",
+     "municipio", "uf", "ativos", "municipio__nome_municipio", "municipio__nome_municipio_polo_compras"],
+)  # fmt: skip
+def test_colunas_de_lugar_e_agregado_sao_permitidas(coluna: str) -> None:
+    assert g.colunas_proibidas([coluna]) == []
+
+
+def test_cnpj_so_com_identifica_estabelecimento() -> None:
+    assert g.colunas_proibidas(["cnpj_completo", "cnpj_raiz"]) == ["cnpj_completo", "cnpj_raiz"]
+    assert g.colunas_proibidas(["cnpj_completo"], "identifica_estabelecimento") == []
+    assert g.colunas_proibidas(["nome"], "identifica_estabelecimento") == ["nome"]
+
+
+def test_normalizar_sql_torna_portavel() -> None:
+    raiz = "/Users/alguem/dados"
+    compilado = (
+        '\n\nselect * from "warehouse"."main"."dim_porte" as p\n'
+        "join read_parquet('/Users/alguem/dados/raw/rfb/empresas/*.parquet') as e on true   \n"
+    )
+    portavel = g.normalizar_sql(compilado, raiz)
+    assert portavel == (
+        "select * from main.dim_porte as p\n"
+        "join read_parquet('${RAIZ_DADOS}/raw/rfb/empresas/*.parquet') as e on true\n"
+    )
+    assert not g.caminho_absoluto_no_sql(portavel)
+    assert g.caminho_absoluto_no_sql("read_parquet('/home/x/raw/a.parquet')")
+
+
+def test_normalizar_valores() -> None:
+    assert g.normalizar_resultado(
+        ["a", "b", "c", "d", "e"], [(Decimal("1000.50"), 1 / 3, dt.date(2026, 9, 12), None, True)]
+    ) == {
+        "colunas": ["a", "b", "c", "d", "e"],
+        "linhas": [[1000.5, 0.333333, "2026-09-12", None, True]],
+    }
+
+
+def test_resultado_mf_normaliza_e_ordena() -> None:
+    resultado = g.resultado_mf(
+        ["mes", "uf", "qtd", "pct"],
+        [
+            ["2026-09-01 00:00:00", "SP", "2", ""],
+            ["2026-08-01 00:00:00", "ES", "10", "0.3333333333"],
+        ],
+    )
+    assert resultado["linhas"] == [
+        ["2026-08-01", "ES", 10, 0.333333],
+        ["2026-09-01", "SP", 2, None],
+    ]
+
+
+def test_comando_mf() -> None:
+    entrada = {
+        "metricas": ["qtd_ativos", "pct_ativos"],
+        "group_by": ["metric_time__month"],
+        "where": "{{ Dimension('municipio__sigla_uf') }} = 'ES'",
+    }
+    assert g.comando_mf(entrada) == (
+        "uv run mf query --metrics qtd_ativos,pct_ativos --group-by metric_time__month "
+        "--where \"{{ Dimension('municipio__sigla_uf') }} = 'ES'\""
+    )
+    assert g.comando_mf({"saved_query": "serie"}) == "uv run mf query --saved-query serie"
+
+
+def _entrada_semantica(**extra) -> dict:
+    return {
+        "id": "gq_semantica__porte__01",
+        "conceito": "porte",
+        "camada": "semantica",
+        "perguntas": ["a?", "b?"],
+        "intencao": "x",
+        "armadilhas": ["y"],
+        "variacoes": ["z"],
+        "resposta_esperada_fixtures": {"colunas": [], "linhas": []},
+        **extra,
+    }
+
+
+def test_semantica_exige_saved_query_ou_metricas() -> None:
+    assert g.validar_semantica(_entrada_semantica(metricas=["qtd_ativos"]), CONCEITOS) == []
+    assert g.validar_semantica(_entrada_semantica(saved_query="s"), CONCEITOS) == []
+    assert g.validar_semantica(_entrada_semantica(), CONCEITOS)
+    assert g.validar_semantica(_entrada_semantica(saved_query="s", where="x"), CONCEITOS)
+
+
+def test_catalogo_e_indice_gerados(tmp_path: Path) -> None:
+    matriz = _matriz(
+        {"porte": {c: "m" for c in g.CAMADAS if c != "core"}, "renda": {c: "m" for c in g.CAMADAS}}
+    )
+    matriz["camadas"] = [{"id": c, "nome": c, "uso": c} for c in g.CAMADAS]
+    matriz["conceitos"] = [{"id": "porte", "nome": "Porte"}, {"id": "renda", "nome": "Renda"}]
+    golden = {"gq_core__porte__01": (g.ler_cabecalho(SQL_VALIDO), SQL_VALIDO)}
+    compilado = {"gq_core__porte__01": 'select 1 from "warehouse"."main"."dim_porte" order by 1'}
+    catalogo = g.gerar_catalogo(matriz, golden, compilado, [], "/x")
+    (consulta,) = catalogo["golden_queries"]
+    assert consulta["sql"] == "select 1 from main.dim_porte order by 1\n"
+    assert consulta["arquivo"] == "transform/analyses/golden/gq_core__porte__01.sql"
+    assert json.loads(g.serializar(catalogo)) == catalogo
+    indice = g.renderizar_indice(catalogo)
+    assert "[01](../transform/analyses/golden/gq_core__porte__01.sql)" in indice
+    assert "- `porte` × `raw`: m" in indice
+    guia = f"# G\n\nantes\n{g.INICIO_BLOCO}\nvelho\n{g.FIM_BLOCO}\ndepois\n"
+    assert g.substituir_bloco(guia, indice) == f"# G\n\nantes\n{indice}\ndepois\n"
+
+
+def test_catalogo_recusa_problemas() -> None:
+    matriz = _matriz({})
+    matriz["conceitos"] = [{"id": "porte", "nome": "Porte"}]
+    golden = {"gq_core__porte__01": (g.ler_cabecalho(SQL_VALIDO), SQL_VALIDO)}
+    with pytest.raises(g.CatalogoErro, match="sem golden query e sem motivo"):
+        g.gerar_catalogo(matriz, golden, {"gq_core__porte__01": "select 1"}, [], None)
+
+
+def test_golden_queries_do_repositorio_validas() -> None:
+    """Os cabeçalhos versionados, `semantica.yml` e a matriz (sem dbt): o CI de integração executa as queries."""
+    assert (
+        g.problemas_gerais(g.carregar_matriz(), g.carregar_golden(), g.carregar_semantica()) == []
+    )

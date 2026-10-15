@@ -193,7 +193,12 @@ def test_ler_qualidade_inclui_avisos_e_falhas_e_exclui_aprovados(tmp_path: Path)
 @pytest.mark.parametrize(
     ("subpasta", "selecao", "exclusao"),
     [
-        ("", "path:analyses", ["--exclude", "path:analyses/regras_negocio"]),  # RRN-09
+        # RRN-09 e ADR-0023: sem subpasta, nem as regras nem as golden queries
+        (
+            "",
+            "path:analyses",
+            ["--exclude", "path:analyses/regras_negocio", "path:analyses/golden"],
+        ),
         ("regras_negocio", "path:analyses/regras_negocio", []),
     ],
 )
@@ -215,7 +220,8 @@ def test_compilar_analises_separa_estudo_de_caso_e_regras(
     (comando,) = chamadas
     assert comando[comando.index("--select") + 1] == selecao
     if exclusao:
-        assert comando[comando.index("--exclude") : comando.index("--exclude") + 2] == exclusao
+        inicio = comando.index("--exclude")
+        assert comando[inicio : inicio + len(exclusao)] == exclusao
     else:
         assert "--exclude" not in comando
 

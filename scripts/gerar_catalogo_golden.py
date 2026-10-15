@@ -1,0 +1,637 @@
+# ruff: noqa: E501  (textos longos do índice)
+"""Gera o catálogo das golden queries (ADR-0023): `docs/golden_queries/catalogo.json` e o índice do guia.
+
+Uso: `make golden` (compila as analyses de `transform/analyses/golden/` sobre o warehouse do `make ci` e roda este
+script) ou `uv run python scripts/gerar_catalogo_golden.py`. Com `--verificar` não escreve nada: gera em memória e
+falha (código 1) se o catálogo ou o bloco gerado de `docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md` estiverem
+desatualizados.
+
+Fontes:
+- o cabeçalho YAML de cada golden query SQL, num comentário Jinja `{# --- ... --- #}` no início do arquivo;
+- o SQL **compilado** pelo dbt (`ref()` e `source()` resolvidos), normalizado para ser portável: o banco local
+  (`"warehouse"."main"."x"`) vira `main.x` e o caminho absoluto de `RAIZ_DADOS` (nos `read_parquet` das fontes
+  raw) vira o marcador `${RAIZ_DADOS}`;
+- `docs/golden_queries/semantica.yml`, as golden queries da camada semântica (comandos `mf query`);
+- `docs/golden_queries/matriz.yml`, a matriz conceito × camada com o motivo de cada célula sem query.
+
+As funções de validação (cabeçalho, cobertura da matriz, colunas proibidas) também são usadas pelos testes.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import os
+import re
+import shlex
+import sys
+from decimal import Decimal
+from pathlib import Path
+
+import yaml
+
+RAIZ = Path(__file__).resolve().parents[1]
+DIR_TRANSFORM = RAIZ / "transform"
+SUBPASTA = "golden"
+DIR_GOLDEN = DIR_TRANSFORM / "analyses" / SUBPASTA
+DIR_DOCS = RAIZ / "docs" / "golden_queries"
+MATRIZ = DIR_DOCS / "matriz.yml"
+SEMANTICA = DIR_DOCS / "semantica.yml"
+CATALOGO = DIR_DOCS / "catalogo.json"
+GUIA = RAIZ / "docs" / "GUIA_CONSULTA_LINGUAGEM_NATURAL.md"
+PADRAO_ARQUIVO = "gq_*.sql"
+
+CAMADAS = ("raw", "staging", "intermediate", "core", "analytics", "original", "semantica")
+CAMPOS_COMUNS = (
+    "id", "conceito", "camada", "perguntas", "intencao", "armadilhas", "variacoes",
+    "resposta_esperada_fixtures",
+)  # fmt: skip
+CAMPOS_SQL = (*CAMPOS_COMUNS, "tabelas", "colunas_chave")
+PRIVACIDADES = ("agregado", "identifica_estabelecimento")
+MARCADOR_RAIZ = "${RAIZ_DADOS}"
+INICIO_BLOCO = "<!-- INÍCIO do bloco gerado por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->"
+FIM_BLOCO = "<!-- FIM do bloco gerado -->"
+
+_RE_CABECALHO = re.compile(r"\A\{#\s*---\n(.*?)\n---\s*#\}", re.S)
+_RE_NOME = re.compile(r"^gq_([a-z]+)__([a-z_]+?)__(\d{2})$")
+_RE_REF = re.compile(r"ref\(\s*'([^']+)'\s*\)")
+_RE_SOURCE = re.compile(r"source\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)")
+_RE_RELACAO_LOCAL = re.compile(r'"[^"]+"\."(main)"\."([A-Za-z0-9_]+)"')
+_RE_ID_CITADO = re.compile(r"\bgq_[a-z]+__[a-z_]+?__\d{2}\b")
+
+# ADR-0008: nenhuma golden query devolve nome, CPF, contato ou endereço (o endereço fica só no staging). O CNPJ
+# (completo ou básico) só sai com `privacidade: identifica_estabelecimento`, quando a pergunta pede o
+# estabelecimento identificado.
+_COLUNAS_PROIBIDAS = re.compile(
+    r"(^|_)(nome|razao_social|nome_fantasia|cpf|email|correio|telefone|tel|ddd|ddd_fax|fax|"
+    r"logradouro|tipo_logradouro|numero|complemento|bairro|cep|socio|socios)\d*(_|$)"
+)
+# Colunas de nome de lugar ou de categoria, que não são de pessoa: permitidas apesar do prefixo `nome`.
+_NOMES_PERMITIDOS = re.compile(
+    r"^nome_(municipio|uf|regiao|mesorregiao|microrregiao|regiao_intermediaria|regiao_imediata|"
+    r"regiao_metropolitana|municipio_polo_compras|municipio_vizinho|municipio_origem|municipio_destino|"
+    r"mes|classe_cnae)$"
+)
+_COLUNAS_CNPJ = re.compile(r"(^|_)cnpj(_|$)")
+
+
+class CatalogoErro(Exception):
+    """Golden query, matriz ou catálogo fora do padrão."""
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Leitura e validação
+
+
+def ler_cabecalho(texto: str, origem: str = "") -> dict:
+    """O cabeçalho YAML do comentário Jinja `{# --- ... --- #}` que abre o arquivo."""
+    achado = _RE_CABECALHO.match(texto)
+    if achado is None:
+        raise CatalogoErro(
+            f"{origem}: falta o cabeçalho `{{# --- ... --- #}}` no início do arquivo"
+        )
+    dados = yaml.safe_load(achado.group(1))
+    if not isinstance(dados, dict):
+        raise CatalogoErro(f"{origem}: o cabeçalho não é um mapa YAML")
+    return dados
+
+
+def tabelas_do_sql(sql: str) -> set[str]:
+    """Relações citadas por `ref('x')` (x) e `source('a', 'b')` (a.b) no SQL fonte."""
+    return set(_RE_REF.findall(sql)) | {f"{a}.{b}" for a, b in _RE_SOURCE.findall(sql)}
+
+
+def _lista_de_textos(valor: object) -> bool:
+    return (
+        isinstance(valor, list)
+        and bool(valor)
+        and all(isinstance(x, str) and x.strip() for x in valor)
+    )
+
+
+def _validar_resposta(resposta: object) -> list[str]:
+    if not isinstance(resposta, dict) or set(resposta) != {"colunas", "linhas"}:
+        return ["`resposta_esperada_fixtures` deve ter exatamente `colunas` e `linhas`"]
+    colunas, linhas = resposta["colunas"], resposta["linhas"]
+    if colunas == [] and linhas == []:  # resultado vazio (o `mf` não grava CSV sem linhas)
+        return []
+    if not _lista_de_textos(colunas):
+        return ["`resposta_esperada_fixtures.colunas` deve ser uma lista de nomes"]
+    if not isinstance(linhas, list) or any(
+        not isinstance(x, list) or len(x) != len(colunas) for x in linhas
+    ):
+        return [
+            "`resposta_esperada_fixtures.linhas` deve ser uma lista de linhas do tamanho de `colunas`"
+        ]
+    return []
+
+
+def validar_comum(cab: dict, conceitos: set[str]) -> list[str]:
+    """Regras do cabeçalho comuns às golden queries SQL e às da camada semântica."""
+    problemas: list[str] = []
+    if cab.get("camada") not in CAMADAS:
+        problemas.append(f"camada inválida {cab.get('camada')!r} (válidas: {', '.join(CAMADAS)})")
+    if cab.get("conceito") not in conceitos:
+        problemas.append(
+            f"conceito {cab.get('conceito')!r} fora da matriz (docs/golden_queries/matriz.yml)"
+        )
+    perguntas = cab.get("perguntas")
+    if not _lista_de_textos(perguntas) or not 2 <= len(perguntas) <= 4:
+        problemas.append("`perguntas` deve ter de 2 a 4 formulações")
+    for campo in ("armadilhas", "variacoes"):
+        if not _lista_de_textos(cab.get(campo)):
+            problemas.append(f"`{campo}` deve ser uma lista não vazia de textos")
+    if not isinstance(cab.get("intencao"), str) or not cab["intencao"].strip():
+        problemas.append("`intencao` deve ser uma frase")
+    if cab.get("privacidade", "agregado") not in PRIVACIDADES:
+        problemas.append(f"`privacidade` inválida (válidas: {', '.join(PRIVACIDADES)})")
+    if "resposta_esperada_fixtures" in cab:
+        problemas += _validar_resposta(cab["resposta_esperada_fixtures"])
+    return problemas
+
+
+def validar_cabecalho(cab: dict, nome: str, sql: str, conceitos: set[str]) -> list[str]:
+    """Problemas do cabeçalho de uma golden query SQL (`nome` = nome do arquivo sem `.sql`)."""
+    faltando = [c for c in CAMPOS_SQL if c not in cab]
+    problemas = [f"faltam os campos {', '.join(faltando)}"] if faltando else []
+    problemas += validar_comum(cab, conceitos)
+    partes = _RE_NOME.match(nome)
+    if partes is None:
+        problemas.append("nome fora do padrão `gq_<camada>__<conceito>__<nn>`")
+    else:
+        if cab.get("id") != nome:
+            problemas.append(f"`id` {cab.get('id')!r} difere do nome do arquivo")
+        if partes.group(1) != cab.get("camada") or partes.group(2) != cab.get("conceito"):
+            problemas.append("camada ou conceito do nome do arquivo diferem do cabeçalho")
+    if cab.get("camada") == "semantica":
+        problemas.append(
+            "a camada `semantica` fica em docs/golden_queries/semantica.yml, não em SQL"
+        )
+    for campo in ("tabelas", "colunas_chave"):
+        if not _lista_de_textos(cab.get(campo)):
+            problemas.append(f"`{campo}` deve ser uma lista não vazia de nomes")
+    corpo = _RE_CABECALHO.sub("", sql)
+    if _lista_de_textos(cab.get("tabelas")) and set(cab["tabelas"]) != tabelas_do_sql(corpo):
+        problemas.append(
+            f"`tabelas` {sorted(cab['tabelas'])} difere das relações do SQL {sorted(tabelas_do_sql(corpo))}"
+        )
+    if not re.search(r"golden_query", corpo) or not re.search(
+        r"escopo['\"]?\s*:\s*['\"]adicao", corpo
+    ):
+        problemas.append("a config deve ter a tag `golden_query` e `meta.escopo: adicao`")
+    if not re.search(r"\border\s+by\b", corpo, re.I):
+        problemas.append("o SQL precisa de `order by`: a resposta esperada é comparada na ordem")
+    return [f"{nome}: {p}" for p in problemas]
+
+
+def validar_semantica(entrada: dict, conceitos: set[str]) -> list[str]:
+    """Problemas de uma golden query da camada semântica (`semantica.yml`)."""
+    nome = entrada.get("id", "?")
+    faltando = [c for c in CAMPOS_COMUNS if c not in entrada]
+    problemas = [f"faltam os campos {', '.join(faltando)}"] if faltando else []
+    problemas += validar_comum(entrada, conceitos)
+    if entrada.get("camada") != "semantica":
+        problemas.append("camada deve ser `semantica`")
+    partes = _RE_NOME.match(str(nome))
+    if (
+        partes is None
+        or partes.group(1) != "semantica"
+        or partes.group(2) != entrada.get("conceito")
+    ):
+        problemas.append("`id` fora do padrão `gq_semantica__<conceito>__<nn>`")
+    if bool(entrada.get("saved_query")) == bool(entrada.get("metricas")):
+        problemas.append("use `saved_query` ou `metricas`, um dos dois")
+    if entrada.get("metricas") is not None and not _lista_de_textos(entrada.get("metricas")):
+        problemas.append("`metricas` deve ser uma lista de nomes")
+    if entrada.get("group_by") is not None and not _lista_de_textos(entrada.get("group_by")):
+        problemas.append("`group_by` deve ser uma lista de dimensões")
+    if entrada.get("saved_query") and (entrada.get("group_by") or entrada.get("where")):
+        problemas.append("`saved_query` não leva `group_by` nem `where`")
+    return [f"{nome}: {p}" for p in problemas]
+
+
+def argumentos_mf(entrada: dict) -> list[str]:
+    """Argumentos de `mf query` de uma golden query semântica (sem `--csv`)."""
+    if entrada.get("saved_query"):
+        return ["--saved-query", entrada["saved_query"]]
+    args = ["--metrics", ",".join(entrada["metricas"])]
+    if entrada.get("group_by"):
+        args += ["--group-by", ",".join(entrada["group_by"])]
+    if entrada.get("where"):
+        args += ["--where", entrada["where"]]
+    return args
+
+
+def comando_mf(entrada: dict) -> str:
+    """Linha de comando legível (rodar em `transform/`): aspas duplas quando bastam, como na documentação."""
+
+    def _citar(arg: str) -> str:
+        if re.fullmatch(r"[\w.,:/=-]+", arg):
+            return arg
+        return f'"{arg}"' if not re.search(r'["$`\\]', arg) else shlex.quote(arg)
+
+    return "uv run mf query " + " ".join(_citar(a) for a in argumentos_mf(entrada))
+
+
+def problemas_de_cobertura(matriz: dict, ids: list[str]) -> list[str]:
+    """Toda célula conceito × camada tem golden query ou motivo, nunca os dois; motivos citam ids que existem."""
+    conceitos = [c["id"] for c in matriz["conceitos"]]
+    camadas = [c["id"] for c in matriz["camadas"]]
+    problemas: list[str] = []
+    if tuple(camadas) != CAMADAS:
+        problemas.append(f"matriz: camadas {camadas} != {list(CAMADAS)}")
+    repetidos = sorted({i for i in ids if ids.count(i) > 1})
+    if repetidos:
+        problemas.append(f"ids repetidos: {', '.join(repetidos)}")
+    cobertas = set()
+    for i in ids:
+        partes = _RE_NOME.match(i)
+        if partes:
+            cobertas.add((partes.group(2), partes.group(1)))
+    motivos = matriz.get("sem_query") or {}
+    for conceito, por_camada in motivos.items():
+        if conceito not in conceitos:
+            problemas.append(f"sem_query: conceito {conceito!r} fora da lista de conceitos")
+            continue
+        for camada, motivo in (por_camada or {}).items():
+            if camada not in camadas:
+                problemas.append(f"sem_query: {conceito} × camada {camada!r} inválida")
+            elif not isinstance(motivo, str) or not motivo.strip():
+                problemas.append(f"sem_query: {conceito} × {camada} sem texto de motivo")
+            if (conceito, camada) in cobertas:
+                problemas.append(f"{conceito} × {camada}: tem golden query e motivo ao mesmo tempo")
+            for citado in _RE_ID_CITADO.findall(str(motivo)):
+                if citado not in ids:
+                    problemas.append(
+                        f"sem_query: {conceito} × {camada} cita {citado}, que não existe"
+                    )
+    for conceito in conceitos:
+        for camada in camadas:
+            if (conceito, camada) not in cobertas and camada not in (motivos.get(conceito) or {}):
+                problemas.append(f"{conceito} × {camada}: sem golden query e sem motivo")
+    return problemas
+
+
+def colunas_proibidas(colunas: list[str], privacidade: str = "agregado") -> list[str]:
+    """Colunas de saída que expõem pessoa, contato ou endereço (ADR-0008), ou CNPJ sem `identifica_estabelecimento`."""
+    proibidas = []
+    for coluna in colunas:
+        nome = coluna.lower().rsplit("__", 1)[-1]  # dimensão do MetricFlow: `<entidade>__<coluna>`
+        if _COLUNAS_PROIBIDAS.search(nome) and not _NOMES_PERMITIDOS.match(nome):
+            proibidas.append(coluna)
+        elif _COLUNAS_CNPJ.search(nome) and privacidade != "identifica_estabelecimento":
+            proibidas.append(coluna)
+    return proibidas
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Resultado e SQL compilado
+
+
+def normalizar_valor(valor: object) -> object:
+    """Valor de resultado em forma estável para YAML/JSON: decimal e float com 6 casas, data em ISO."""
+    if isinstance(valor, bool) or valor is None or isinstance(valor, int | str):
+        return valor
+    if isinstance(valor, Decimal | float):
+        return round(float(valor), 6)
+    if isinstance(valor, dt.date | dt.datetime):
+        return valor.isoformat()
+    return str(valor)
+
+
+def normalizar_resultado(colunas: list[str], linhas: list[tuple]) -> dict:
+    return {
+        "colunas": list(colunas),
+        "linhas": [[normalizar_valor(v) for v in linha] for linha in linhas],
+    }
+
+
+_RE_INTEIRO = re.compile(r"^-?\d+$")
+_RE_DECIMAL = re.compile(r"^-?\d+\.\d+(e-?\d+)?$")
+_RE_MEIA_NOITE = re.compile(r"^(\d{4}-\d{2}-\d{2})[ T]00:00:00$")
+
+
+def normalizar_texto_mf(valor: str) -> object:
+    """Célula do CSV do `mf query` em forma estável: vazio = null, data sem hora, número como número."""
+    if valor == "":
+        return None
+    if valor in ("True", "False"):
+        return valor == "True"
+    if _RE_INTEIRO.match(valor):
+        return int(valor)
+    if _RE_DECIMAL.match(valor):
+        return round(float(valor), 6)
+    data = _RE_MEIA_NOITE.match(valor)
+    return data.group(1) if data else valor
+
+
+def resultado_mf(colunas: list[str], linhas: list[list[str]]) -> dict:
+    """Resultado do `mf query` normalizado, com as linhas ordenadas (o MetricFlow não garante a ordem)."""
+    normalizadas = [[normalizar_texto_mf(v) for v in linha] for linha in linhas]
+    normalizadas.sort(key=lambda linha: [("" if v is None else str(v)) for v in linha])
+    return {"colunas": list(colunas), "linhas": normalizadas}
+
+
+def executar_mf(entrada: dict, raiz_dados: Path, temporario: Path) -> dict:
+    """Roda o `mf query` de uma golden query semântica (em `transform/`) e devolve o resultado normalizado."""
+    import csv
+    import subprocess
+
+    saida = temporario / f"{entrada['id']}.csv"
+    saida.unlink(missing_ok=True)
+    env = os.environ | {"RAIZ_DADOS": str(raiz_dados), "DBT_PROFILES_DIR": str(DIR_TRANSFORM)}
+    env.pop("CAMINHO_DUCKDB", None)
+    feito = subprocess.run(
+        ["uv", "run", "mf", "query", "--quiet", "--csv", str(saida), *argumentos_mf(entrada)],
+        cwd=DIR_TRANSFORM, env=env, capture_output=True, text=True, check=False,
+    )  # fmt: skip
+    if feito.returncode != 0:
+        raise CatalogoErro(
+            f"{entrada['id']}: `mf query` falhou:\n{feito.stdout[-1500:]}{feito.stderr[-1500:]}"
+        )
+    if not saida.exists():  # o `mf` não grava o CSV quando a consulta volta vazia
+        return {"colunas": [], "linhas": []}
+    with saida.open(encoding="utf-8") as arquivo:
+        colunas, *linhas = list(csv.reader(arquivo))
+    return resultado_mf(colunas, linhas)
+
+
+def normalizar_sql(sql: str, raiz_dados: str | Path | None) -> str:
+    """SQL compilado portável: `main.<relação>` e `${RAIZ_DADOS}` no lugar do caminho da máquina."""
+    texto = sql
+    if raiz_dados:
+        texto = texto.replace(str(Path(raiz_dados).resolve()), MARCADOR_RAIZ)
+        texto = texto.replace(str(raiz_dados), MARCADOR_RAIZ)
+    texto = _RE_RELACAO_LOCAL.sub(r"\1.\2", texto)
+    linhas = [linha.rstrip() for linha in texto.strip().splitlines()]
+    return "\n".join(linhas) + "\n"
+
+
+def caminho_absoluto_no_sql(sql: str) -> bool:
+    """Se sobrou caminho absoluto da máquina (`/Users/...`, `/home/...`, `C:\\...`) no SQL."""
+    return bool(re.search(r"'(/(Users|home|tmp|private|var)/|[A-Za-z]:\\)", sql))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Catálogo
+
+
+def carregar_matriz(caminho: Path = MATRIZ) -> dict:
+    return yaml.safe_load(caminho.read_text(encoding="utf-8"))
+
+
+def carregar_semantica(caminho: Path = SEMANTICA) -> list[dict]:
+    dados = yaml.safe_load(caminho.read_text(encoding="utf-8"))
+    return list(dados.get("golden_queries") or [])
+
+
+def carregar_golden(diretorio: Path = DIR_GOLDEN) -> dict[str, tuple[dict, str]]:
+    """`{id: (cabeçalho, SQL fonte)}` das golden queries SQL, em ordem de nome."""
+    resultado = {}
+    for arquivo in sorted(diretorio.glob(PADRAO_ARQUIVO)):
+        texto = arquivo.read_text(encoding="utf-8")
+        resultado[arquivo.stem] = (ler_cabecalho(texto, arquivo.name), texto)
+    return resultado
+
+
+def problemas_gerais(
+    matriz: dict, golden: dict[str, tuple[dict, str]], semantica: list[dict]
+) -> list[str]:
+    """Cabeçalhos, entradas semânticas e cobertura da matriz."""
+    conceitos = {c["id"] for c in matriz["conceitos"]}
+    problemas: list[str] = []
+    for nome, (cab, texto) in golden.items():
+        problemas += validar_cabecalho(cab, nome, texto, conceitos)
+        resposta = cab.get("resposta_esperada_fixtures") or {}
+        proibidas = colunas_proibidas(
+            resposta.get("colunas") or [], cab.get("privacidade", "agregado")
+        )
+        if proibidas:
+            problemas.append(
+                f"{nome}: colunas proibidas na saída (ADR-0008): {', '.join(proibidas)}"
+            )
+    for entrada in semantica:
+        problemas += validar_semantica(entrada, conceitos)
+        resposta = entrada.get("resposta_esperada_fixtures") or {}
+        proibidas = colunas_proibidas(
+            resposta.get("colunas") or [], entrada.get("privacidade", "agregado")
+        )
+        if proibidas:
+            problemas.append(
+                f"{entrada.get('id')}: colunas proibidas na saída (ADR-0008): {', '.join(proibidas)}"
+            )
+    ids = [*golden, *(str(e.get("id")) for e in semantica)]
+    return problemas + problemas_de_cobertura(matriz, ids)
+
+
+def _entrada_comum(cab: dict) -> dict:
+    return {
+        "id": cab["id"],
+        "conceito": cab["conceito"],
+        "camada": cab["camada"],
+        "perguntas": cab["perguntas"],
+        "intencao": cab["intencao"],
+        "privacidade": cab.get("privacidade", "agregado"),
+        "armadilhas": cab["armadilhas"],
+        "variacoes": cab["variacoes"],
+    }
+
+
+def gerar_catalogo(
+    matriz: dict, golden: dict[str, tuple[dict, str]], compilados: dict[str, str], semantica: list[dict],
+    raiz_dados: str | Path | None,
+) -> dict:  # fmt: skip
+    """O catálogo legível por máquina (dicionário pronto para `json.dumps`)."""
+    problemas = problemas_gerais(matriz, golden, semantica)
+    faltam = sorted(set(golden) - set(compilados))
+    if faltam:
+        problemas.append(f"sem SQL compilado: {', '.join(faltam)}")
+    if problemas:
+        raise CatalogoErro("golden queries com problema:\n- " + "\n- ".join(problemas))
+    consultas = []
+    for nome, (cab, _) in golden.items():
+        sql = normalizar_sql(compilados[nome], raiz_dados)
+        if caminho_absoluto_no_sql(sql):
+            raise CatalogoErro(f"{nome}: o SQL compilado ainda tem caminho absoluto da máquina")
+        consultas.append(
+            {
+                **_entrada_comum(cab),
+                "tabelas": cab["tabelas"],
+                "colunas_chave": cab["colunas_chave"],
+                "arquivo": f"transform/analyses/{SUBPASTA}/{nome}.sql",
+                "sql": sql,
+                "resposta_esperada_fixtures": cab["resposta_esperada_fixtures"],
+            }
+        )
+    for entrada in semantica:
+        extra = (
+            {"saved_query": entrada["saved_query"]}
+            if entrada.get("saved_query")
+            else {
+                "metricas": entrada["metricas"],
+                "group_by": entrada.get("group_by") or [],
+                "where": entrada.get("where"),
+            }
+        )
+        consultas.append(
+            {
+                **_entrada_comum(entrada),
+                **extra,
+                "arquivo": "docs/golden_queries/semantica.yml",
+                "comando": comando_mf(entrada),
+                "resposta_esperada_fixtures": entrada["resposta_esperada_fixtures"],
+            }
+        )
+    ordem = {c: i for i, c in enumerate(CAMADAS)}
+    consultas.sort(key=lambda c: (ordem[c["camada"]], c["conceito"], c["id"]))
+    motivos = matriz.get("sem_query") or {}
+    return {
+        "formato": 1,
+        "descricao": (
+            "Golden queries por conceito e camada (ADR-0023). Gerado por scripts/gerar_catalogo_golden.py; não "
+            "edite à mão. O SQL é o compilado pelo dbt: relações em `main.<nome>` (o schema do warehouse local e "
+            "do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes raw. Guia de uso: "
+            "docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md."
+        ),
+        "marcador_raiz_dados": MARCADOR_RAIZ,
+        "camadas": matriz["camadas"],
+        "conceitos": [
+            {**c, "sem_query": dict(motivos.get(c["id"]) or {})} for c in matriz["conceitos"]
+        ],
+        "golden_queries": consultas,
+    }
+
+
+def _link(consulta: dict) -> str:
+    if consulta["camada"] == "semantica":
+        return f"[`{consulta['id']}`](golden_queries/semantica.yml)"
+    return f"[`{consulta['id']}`](../{consulta['arquivo']})"
+
+
+def renderizar_indice(catalogo: dict) -> str:
+    """O bloco gerado do guia: a matriz conceito × camada, os motivos das células vazias e o índice."""
+    camadas = [c["id"] for c in catalogo["camadas"]]
+    por_celula: dict[tuple[str, str], list[dict]] = {}
+    for consulta in catalogo["golden_queries"]:
+        por_celula.setdefault((consulta["conceito"], consulta["camada"]), []).append(consulta)
+    por_camada = {
+        c: sum(1 for q in catalogo["golden_queries"] if q["camada"] == c) for c in camadas
+    }
+    linhas = [
+        INICIO_BLOCO,
+        "",
+        f"**{len(catalogo['golden_queries'])}** golden queries em **{len(catalogo['conceitos'])}** conceitos: "
+        + ", ".join(f"{c} {por_camada[c]}" for c in camadas)
+        + ". Cada célula tem as golden queries (número = sufixo `__nn`) ou um traço, com o motivo na lista abaixo "
+        "da tabela.",
+        "",
+        "| Conceito | " + " | ".join(camadas) + " |",
+        "|---|" + "---|" * len(camadas),
+    ]
+    for conceito in catalogo["conceitos"]:
+        celulas = []
+        for camada in camadas:
+            consultas = por_celula.get((conceito["id"], camada), [])
+            if consultas:
+                celulas.append(
+                    " ".join(f"[{q['id'][-2:]}]({_link(q).split('](', 1)[1]}" for q in consultas)
+                )
+            else:
+                celulas.append("—")
+        linhas.append(f"| `{conceito['id']}` {conceito['nome']} | " + " | ".join(celulas) + " |")
+    linhas += ["", "#### Células sem golden query", ""]
+    for conceito in catalogo["conceitos"]:
+        for camada, motivo in conceito["sem_query"].items():
+            linhas.append(f"- `{conceito['id']}` × `{camada}`: {motivo}")
+    linhas += [
+        "",
+        "#### Índice",
+        "",
+        "| Golden query | Camada | Conceito | Pergunta típica | Intenção |",
+        "|---|---|---|---|---|",
+    ]
+    for consulta in catalogo["golden_queries"]:
+        linhas.append(
+            f"| {_link(consulta)} | {consulta['camada']} | `{consulta['conceito']}` | "
+            f"{consulta['perguntas'][0]} | {consulta['intencao']} |".replace("\n", " ")
+        )
+    linhas += ["", FIM_BLOCO]
+    return "\n".join(linhas)
+
+
+def substituir_bloco(texto: str, bloco: str) -> str:
+    """Troca o bloco entre os marcadores do guia pelo `bloco` gerado."""
+    inicio, fim = texto.find(INICIO_BLOCO), texto.find(FIM_BLOCO)
+    if inicio < 0 or fim < inicio:
+        raise CatalogoErro(f"{GUIA.name}: faltam os marcadores do bloco gerado")
+    return texto[:inicio] + bloco + texto[fim + len(FIM_BLOCO) :]
+
+
+def serializar(catalogo: dict) -> str:
+    return json.dumps(catalogo, ensure_ascii=False, indent=2) + "\n"
+
+
+def compilar(raiz_dados: Path) -> dict[str, str]:
+    """`{id: SQL compilado}` das golden queries (`dbt compile` com o target `ci`)."""
+    sys.path.insert(0, str(RAIZ / "src"))
+    from rfb_pipeline.relatorio import compilar_analises
+
+    return compilar_analises(
+        DIR_TRANSFORM, raiz_dados, "ci", subpasta=SUBPASTA, padrao=PADRAO_ARQUIVO
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    analisador = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    analisador.add_argument(
+        "--verificar", action="store_true", help="só confere se o catálogo e o guia estão em dia"
+    )
+    analisador.add_argument(
+        "--raiz-dados", type=Path, default=Path(os.environ.get("RAIZ_DADOS", RAIZ / ".tmp" / "ci" / "dados")),
+        help="RAIZ_DADOS da compilação (padrão: a do `make ci`)",
+    )  # fmt: skip
+    analisador.add_argument("--catalogo", type=Path, default=CATALOGO)
+    analisador.add_argument("--guia", type=Path, default=GUIA)
+    args = analisador.parse_args(argv)
+    try:
+        compilados = compilar(args.raiz_dados)
+        catalogo = gerar_catalogo(
+            carregar_matriz(), carregar_golden(), compilados, carregar_semantica(), args.raiz_dados
+        )
+        texto_catalogo = serializar(catalogo)
+        texto_guia = substituir_bloco(
+            args.guia.read_text(encoding="utf-8"), renderizar_indice(catalogo)
+        )
+    except Exception as exc:  # noqa: BLE001 — mensagem curta na linha de comando
+        print(f"erro: {exc}", file=sys.stderr)
+        return 1
+    if args.verificar:
+        atual = args.catalogo.read_text(encoding="utf-8") if args.catalogo.is_file() else ""
+        desatualizados = [
+            str(caminho.relative_to(RAIZ)) if caminho.is_relative_to(RAIZ) else str(caminho)
+            for caminho, novo, velho in (
+                (args.catalogo, texto_catalogo, atual),
+                (args.guia, texto_guia, args.guia.read_text(encoding="utf-8")),
+            )
+            if novo != velho
+        ]
+        if desatualizados:
+            print(
+                f"desatualizado: {', '.join(desatualizados)}; rode `make golden` e versione o resultado",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"catálogo em dia: {len(catalogo['golden_queries'])} golden queries")
+        return 0
+    args.catalogo.parent.mkdir(parents=True, exist_ok=True)
+    args.catalogo.write_text(texto_catalogo, encoding="utf-8")
+    args.guia.write_text(texto_guia, encoding="utf-8")
+    print(
+        f"{args.catalogo.relative_to(RAIZ)}: {len(catalogo['golden_queries'])} golden queries; índice do guia atualizado"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
