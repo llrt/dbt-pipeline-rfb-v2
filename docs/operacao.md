@@ -7,16 +7,21 @@ Como rodar o pipeline sobre os dados reais da RFB, manter a base atualizada todo
 execução. A atualização mensal, a retenção e a publicação no MotherDuck são **melhorias pedidas pelo
 usuário** (ADR-0012, ADR-0016); o original carregava um único mês à mão.
 
-## Nota de upgrade (v1.5.0)
+| No dia a dia | O que faz |
+|---|---|
+| `make setup` | instala as dependências (uma vez, e de novo depois de atualizar o repositório) |
+| `make pipeline MES=AAAA-MM` | processa um mês real de ponta a ponta (a primeira carga) |
+| `make atualizar` | processa o mês novo quando a RFB o publica; sem mês novo, não faz nada. É o que se agenda |
+| `make ci` | confere o projeto sobre fixtures, sem rede |
 
-Os relatórios gerados mudaram de lugar: `rfb relatorio` grava em `docs/relatorios/estudo-caso.md` e `rfb regras` em
-`docs/relatorios/regras-negocio.md` (antes, `docs/RELATORIO_ESTUDO_CASO.md` e `docs/RELATORIO_REGRAS_NEGOCIO.md`).
-`--saida` e `--saida-relatorio` continuam valendo como antes; scripts que liam os caminhos antigos precisam apontar para os novos.
+**Sumário:** [Primeira execução](#primeira-execução) · [Comandos](#comandos) ·
+[Estado e ordem dos meses](#estado-e-ordem-dos-meses-p22) · [Retenção](#retenção) ·
+[Publicação e S3](#publicação-e-s3) · [Requisitos e tempos](#requisitos-e-tempos-medidos-p14) ·
+[Execuções longas](#execuções-longas-manter-a-máquina-acordada-p20) · [Agendamento](#agendamento) ·
+[Fontes do IBGE](#fontes-do-ibge-incremento-enriquecimento_ibge) ·
+[Peculiaridades dos dados reais](#peculiaridades-dos-dados-reais) · [Notas de upgrade](#notas-de-upgrade)
 
 ## Primeira execução
-
-Comandos do dia a dia (`make setup`, `make ci`, `make pipeline`, `make atualizar`) estão no
-[README](../README.md#início-rápido); a tabela completa dos alvos do `make` está em [Comandos](#comandos), abaixo.
 
 Ao clonar o repositório em um ambiente limpo, a primeira execução pode levar alguns minutos:
 
@@ -28,14 +33,14 @@ Ao clonar o repositório em um ambiente limpo, a primeira execução pode levar 
 Nas execuções seguintes, os caches locais (`.venv`, `transform/dbt_packages`, `~/.duckdb/extensions`) já estão
 populados e o `make ci` (unit + pipeline sobre fixtures de dois meses + integração + lint) completa em ~2 minutos.
 
-- **Migração (ADR-0014):** `DATA_ROOT`→`RAIZ_DADOS`, `DATA_ROOT_LOCAL`→`RAIZ_DADOS_LOCAL`,
-  `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; o diretório padrão `data/` agora é `dados/`. As variáveis antigas causam erro.
 - **Threads:** `DBT_THREADS` (nós do dbt em paralelo) e `DUCKDB_THREADS` (threads do motor DuckDB) são variáveis
   distintas; ambas opcionais (padrões por alvo em `transform/profiles.yml`).
 - **Perfis dbt** (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local), `s3`
   (`RAIZ_DADOS=s3://...`; fontes e `gold/` no bucket, mas o `warehouse.duckdb` e os temporários ficam em
   `RAIZ_DADOS_LOCAL`; secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente, sem padrão). Variáveis vazias
   equivalem a ausentes; ver `.env.example`.
+
+Vindo de uma versão anterior? Veja as [notas de upgrade](#notas-de-upgrade), no fim.
 
 ## Comandos
 
@@ -71,76 +76,6 @@ backfill de 2026-08).
 
 Cada etapa imprime `== etapa <nome>: <segundos>s` e o fim do mês imprime o resumo
 `pipeline <mês> [corrente|backfill] concluído em …`.
-
-## Fontes do IBGE (incremento `enriquecimento_ibge`)
-
-`rfb ingerir` (e, por ele, `pipeline`/`atualizar`) também baixa, direto do IBGE, o CEMPRE por município ×
-classe CNAE (API SIDRA, tabela 9528), a renda per capita do Censo 2022 (SIDRA 10295) e a REGIC 2018
-(planilhas do geoftp), para `raw/ibge/<tabela>/<tabela>.parquet` (detalhes em `src/rfb_pipeline/ibge.py`).
-
-- **Não rebaixa todo mês.** São fontes anuais ou estáticas: uma tabela já no raw com o mesmo período
-  (SIDRA) ou o mesmo arquivo (REGIC) é pulada (`ibge.<tabela>: pulada (...)`), conforme
-  `_manifestos/ibge/manifesto.json` (origem, período, bytes, sha256 quando há arquivo, requisições, linhas). Só o
-  CEMPRE consulta a SIDRA para saber se saiu um ano novo (uma requisição leve), e no máximo **uma vez a
-  cada 30 dias**: a data da última consulta fica em `sonda_cempre_em` no manifesto IBGE. O manifesto do mês
-  (`_manifestos/AAAA-MM.json`) copia essas entradas em `ibge`.
-- **Falha do IBGE não derruba o mês.** Se a SIDRA ou o geoftp falharem (depois das retentativas, que
-  incluem o 429 de limite de taxa), a tabela que falhou fica com o raw anterior, ou vazia (só o esquema) se
-  não havia, a ingestão avisa na saída de erro (`aviso: ibge.<tabela>: não atualizada (...)`) e segue: a RFB,
-  a BD, o manifesto do mês e o dbt correm como sempre. A falha fica em `falhas` no manifesto IBGE e sai dele
-  quando a tabela é atualizada. Tente de novo com `rfb ingerir --renovar-ibge` (ou espere o próximo mês). Só
-  é erro se o raw vazio não puder ser gravado. Planilha da REGIC ilegível (por exemplo, uma página de erro
-  servida com HTTP 200, ou um zip sem a planilha esperada) conta como falha: o arquivo baixado sai de
-  `_baixados/ibge/regic/`, para a próxima execução baixar de novo.
-- **Renovar à força:** `rfb ingerir --renovar-ibge` (também em `pipeline`/`atualizar`). É uma opção
-  separada de `--forcar` porque o CEMPRE nacional leva de 1 a 2 horas (~340 requisições de ≤ 50.000
-  valores), e `--forcar` serve para reconverter um mês RFB sem rede. Em `rfb atualizar` **sem mês novo**,
-  `--renovar-ibge` renova só o IBGE e reconstrói o gold do mês corrente (sem tocar no raw da RFB e da BD); se
-  nenhuma tabela do IBGE for renovada, nada é reconstruído.
-- **Desligar o IBGE: `--sem-ibge`** (em `ingerir`, `pipeline` e `atualizar`). Não consulta a SIDRA nem o
-  geoftp nesta execução; o raw IBGE existente fica como está e o ausente é publicado vazio (colunas do IBGE
-  NULL). Serve para rede que só libera a RFB e a Base dos Dados e para adiar o primeiro download.
-- **Primeiro download longo.** A primeira ingestão em rede depois de instalar a v1.4 baixa o CEMPRE nacional
-  inteiro: de 1 a 2 horas a mais, dentro do `rfb atualizar` agendado do mês. Para não pegar o agendamento de
-  surpresa, rode antes, fora da janela, `rfb atualizar --renovar-ibge`: sem mês novo, ele baixa só o IBGE
-  (não os zips da RFB) e reconstrói o gold do mês corrente com as colunas novas. Ou adie: agende o mensal
-  com `--sem-ibge` até ter a janela.
-- **Ano do CEMPRE:** `RFB_CEMPRE_PERIODO=AAAA` fixa o ano (padrão: o mais recente publicado).
-- **Retomada:** o CEMPRE grava cada fatia em `_baixados/ibge/sidra/cempre_municipio_cnae/<ano>/` assim
-  que ela chega; uma execução interrompida continua de onde parou. As fatias somem depois de publicado o
-  raw.
-- **`--origem-local DIR`** lê `DIR/ibge/` em vez da rede:
-  `cempre_categorias_cnae.json`, `cempre_municipio_cnae.json` e `renda_censo_2022_municipio.json`
-  (respostas da SIDRA: lista JSON de objetos `NC`, `MC`, `V`, `D1C`…; as categorias com nomes, `/f/a`;
-  todas as linhas num arquivo só), `REGIC2018_Municipios_Hierarquia_e_regiao.xlsx` e
-  `REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip`, como publicados no geoftp. Uma tabela só é
-  reconvertida se o sha256 do arquivo mudar. `scripts/gerar_fixtures.py` gera esse layout.
-- **Espelho offline sem `ibge/` (compatibilidade com a v1.3).** Um `--origem-local` montado antes do
-  incremento não tem a pasta `ibge/`. A ingestão **não falha**: para cada arquivo IBGE ausente, avisa
-  (`ibge.<tabela>: AVISO ... ausente; publicada vazia`) e publica `raw/ibge/<tabela>/<tabela>.parquet` só com
-  o esquema (as colunas da fonte dbt, sem linhas). Se a tabela já existir no raw (de uma ingestão anterior),
-  ela é mantida (`mantido o raw existente`). Nada entra no manifesto IBGE, então a próxima execução com os
-  arquivos converte tudo. O `dbt build` segue igual: as colunas novas de `dim_municipio` saem NULL, o polo de
-  compras sai NULL, `bridge_municipio_destino_compras` sai vazia, `mart_emprego_setor_municipio` tem só os
-  pares com ativo na RFB e a RN-30 avalia esses pares sem violação. Nenhum teste dbt depende de haver dado do
-  IBGE: os de linhas e de soma do incremento passam vazios ou são `warn`. Detalhe do dbt-duckdb: o Parquet de
-  um modelo `external` vazio (a ponte, aqui) traz uma linha toda NULL, que a view do warehouse filtra; quem lê
-  o Parquet direto (Power BI) deve ignorar essa linha. O teste
-  `test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold` roda o pipeline nesse cenário.
-- **Depois de atualizar da v1.3.** O `RAIZ_DADOS` de quem já rodava a v1.3 não tem `raw/ibge/`, e as fontes
-  dbt do IBGE leem `raw/ibge/<tabela>/*.parquet`. Por isso toda chamada ao dbt (`pipeline`, inclusive
-  `--sem-ingestao`, e `atualizar`) e `rfb regras`/`rfb relatorio` publicam antes o raw IBGE vazio que faltar,
-  sem rede e sem tocar num raw existente (`ibge: AVISO raw ausente de ...`). `rfb atualizar` sem mês novo também
-  o garante. O gold continua o da v1.3 até o próximo build, que traz as colunas novas NULL; para tê-las
-  preenchidas sem esperar um mês novo, `rfb atualizar --renovar-ibge` (ver "Primeiro download longo"). Com `RAIZ_DADOS=s3://` a garantia fica com a ingestão:
-  o raw do bucket pode ter o IBGE que a cópia local não tem. O teste
-  `test_raiz_dados_da_v1_3_sem_raw_ibge_roda_regras_atualizar_e_pipeline_sem_ingestao` cobre o cenário.
-  Enquanto o warehouse for o da v1.3 (sem `mart_emprego_setor_municipio`, a ponte de destinos de compra e as
-  colunas novas de `dim_municipio` e da área de mercado, vistos no `information_schema`), `rfb relatorio` sai
-  com 0 e gera as seções antigas, com um aviso no lugar da seção do IBGE ("dados do IBGE ainda não
-  construídos; rode `rfb pipeline` ou `rfb atualizar --renovar-ibge`", também na saída de erro). `rfb regras`
-  não depende do gold novo: a RN-30 lê a fonte do CEMPRE e os marts da v1.3.
-- **Uso das bases novas:** [cenários de uso](uso/cenarios.md), com as analyses `cenario_*` e o caso.
 
 ## Estado e ordem dos meses (P22)
 
@@ -317,7 +252,7 @@ roda a tarefa perdida quando a máquina acorda (diferente do cron).
 
 Só faz sentido com o gold num bucket (`RAIZ_DADOS=s3://…`) ou publicado no MotherDuck: o runner é
 efêmero. Runners hospedados têm 16 GB de RAM e ~14 GB livres de disco em `/` — **insuficientes** para um
-mês real (ver "Requisitos de máquina"); use um runner auto-hospedado (`runs-on: self-hosted`) ou maior.
+mês real (ver [Requisitos e tempos medidos](#requisitos-e-tempos-medidos-p14)); use um runner auto-hospedado (`runs-on: self-hosted`) ou maior.
 
 ```yaml
 name: atualizar
@@ -344,6 +279,76 @@ jobs:
 Num runner efêmero o `_estado/ultima_execucao.json` local some entre execuções: preserve-o (cache do
 Actions ou cópia no bucket) ou o comando reprocessará o mês mais recente a cada dia.
 
+## Fontes do IBGE (incremento `enriquecimento_ibge`)
+
+`rfb ingerir` (e, por ele, `pipeline`/`atualizar`) também baixa, direto do IBGE, o CEMPRE por município ×
+classe CNAE (API SIDRA, tabela 9528), a renda per capita do Censo 2022 (SIDRA 10295) e a REGIC 2018
+(planilhas do geoftp), para `raw/ibge/<tabela>/<tabela>.parquet` (detalhes em `src/rfb_pipeline/ibge.py`).
+
+- **Não rebaixa todo mês.** São fontes anuais ou estáticas: uma tabela já no raw com o mesmo período
+  (SIDRA) ou o mesmo arquivo (REGIC) é pulada (`ibge.<tabela>: pulada (...)`), conforme
+  `_manifestos/ibge/manifesto.json` (origem, período, bytes, sha256 quando há arquivo, requisições, linhas). Só o
+  CEMPRE consulta a SIDRA para saber se saiu um ano novo (uma requisição leve), e no máximo **uma vez a
+  cada 30 dias**: a data da última consulta fica em `sonda_cempre_em` no manifesto IBGE. O manifesto do mês
+  (`_manifestos/AAAA-MM.json`) copia essas entradas em `ibge`.
+- **Falha do IBGE não derruba o mês.** Se a SIDRA ou o geoftp falharem (depois das retentativas, que
+  incluem o 429 de limite de taxa), a tabela que falhou fica com o raw anterior, ou vazia (só o esquema) se
+  não havia, a ingestão avisa na saída de erro (`aviso: ibge.<tabela>: não atualizada (...)`) e segue: a RFB,
+  a BD, o manifesto do mês e o dbt correm como sempre. A falha fica em `falhas` no manifesto IBGE e sai dele
+  quando a tabela é atualizada. Tente de novo com `rfb ingerir --renovar-ibge` (ou espere o próximo mês). Só
+  é erro se o raw vazio não puder ser gravado. Planilha da REGIC ilegível (por exemplo, uma página de erro
+  servida com HTTP 200, ou um zip sem a planilha esperada) conta como falha: o arquivo baixado sai de
+  `_baixados/ibge/regic/`, para a próxima execução baixar de novo.
+- **Renovar à força:** `rfb ingerir --renovar-ibge` (também em `pipeline`/`atualizar`). É uma opção
+  separada de `--forcar` porque o CEMPRE nacional leva de 1 a 2 horas (~340 requisições de ≤ 50.000
+  valores), e `--forcar` serve para reconverter um mês RFB sem rede. Em `rfb atualizar` **sem mês novo**,
+  `--renovar-ibge` renova só o IBGE e reconstrói o gold do mês corrente (sem tocar no raw da RFB e da BD); se
+  nenhuma tabela do IBGE for renovada, nada é reconstruído.
+- **Desligar o IBGE: `--sem-ibge`** (em `ingerir`, `pipeline` e `atualizar`). Não consulta a SIDRA nem o
+  geoftp nesta execução; o raw IBGE existente fica como está e o ausente é publicado vazio (colunas do IBGE
+  NULL). Serve para rede que só libera a RFB e a Base dos Dados e para adiar o primeiro download.
+- **Primeiro download longo.** A primeira ingestão em rede depois de instalar a v1.4 baixa o CEMPRE nacional
+  inteiro: de 1 a 2 horas a mais, dentro do `rfb atualizar` agendado do mês. Para não pegar o agendamento de
+  surpresa, rode antes, fora da janela, `rfb atualizar --renovar-ibge`: sem mês novo, ele baixa só o IBGE
+  (não os zips da RFB) e reconstrói o gold do mês corrente com as colunas novas. Ou adie: agende o mensal
+  com `--sem-ibge` até ter a janela.
+- **Ano do CEMPRE:** `RFB_CEMPRE_PERIODO=AAAA` fixa o ano (padrão: o mais recente publicado).
+- **Retomada:** o CEMPRE grava cada fatia em `_baixados/ibge/sidra/cempre_municipio_cnae/<ano>/` assim
+  que ela chega; uma execução interrompida continua de onde parou. As fatias somem depois de publicado o
+  raw.
+- **`--origem-local DIR`** lê `DIR/ibge/` em vez da rede:
+  `cempre_categorias_cnae.json`, `cempre_municipio_cnae.json` e `renda_censo_2022_municipio.json`
+  (respostas da SIDRA: lista JSON de objetos `NC`, `MC`, `V`, `D1C`…; as categorias com nomes, `/f/a`;
+  todas as linhas num arquivo só), `REGIC2018_Municipios_Hierarquia_e_regiao.xlsx` e
+  `REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip`, como publicados no geoftp. Uma tabela só é
+  reconvertida se o sha256 do arquivo mudar. `scripts/gerar_fixtures.py` gera esse layout.
+- **Espelho offline sem `ibge/` (compatibilidade com a v1.3).** Um `--origem-local` montado antes do
+  incremento não tem a pasta `ibge/`. A ingestão **não falha**: para cada arquivo IBGE ausente, avisa
+  (`ibge.<tabela>: AVISO ... ausente; publicada vazia`) e publica `raw/ibge/<tabela>/<tabela>.parquet` só com
+  o esquema (as colunas da fonte dbt, sem linhas). Se a tabela já existir no raw (de uma ingestão anterior),
+  ela é mantida (`mantido o raw existente`). Nada entra no manifesto IBGE, então a próxima execução com os
+  arquivos converte tudo. O `dbt build` segue igual: as colunas novas de `dim_municipio` saem NULL, o polo de
+  compras sai NULL, `bridge_municipio_destino_compras` sai vazia, `mart_emprego_setor_municipio` tem só os
+  pares com ativo na RFB e a RN-30 avalia esses pares sem violação. Nenhum teste dbt depende de haver dado do
+  IBGE: os de linhas e de soma do incremento passam vazios ou são `warn`. Detalhe do dbt-duckdb: o Parquet de
+  um modelo `external` vazio (a ponte, aqui) traz uma linha toda NULL, que a view do warehouse filtra; quem lê
+  o Parquet direto (Power BI) deve ignorar essa linha. O teste
+  `test_pipeline_offline_sem_ibge_sai_0_e_constroi_o_gold` roda o pipeline nesse cenário.
+- **Depois de atualizar da v1.3.** O `RAIZ_DADOS` de quem já rodava a v1.3 não tem `raw/ibge/`, e as fontes
+  dbt do IBGE leem `raw/ibge/<tabela>/*.parquet`. Por isso toda chamada ao dbt (`pipeline`, inclusive
+  `--sem-ingestao`, e `atualizar`) e `rfb regras`/`rfb relatorio` publicam antes o raw IBGE vazio que faltar,
+  sem rede e sem tocar num raw existente (`ibge: AVISO raw ausente de ...`). `rfb atualizar` sem mês novo também
+  o garante. O gold continua o da v1.3 até o próximo build, que traz as colunas novas NULL; para tê-las
+  preenchidas sem esperar um mês novo, `rfb atualizar --renovar-ibge` (ver "Primeiro download longo"). Com `RAIZ_DADOS=s3://` a garantia fica com a ingestão:
+  o raw do bucket pode ter o IBGE que a cópia local não tem. O teste
+  `test_raiz_dados_da_v1_3_sem_raw_ibge_roda_regras_atualizar_e_pipeline_sem_ingestao` cobre o cenário.
+  Enquanto o warehouse for o da v1.3 (sem `mart_emprego_setor_municipio`, a ponte de destinos de compra e as
+  colunas novas de `dim_municipio` e da área de mercado, vistos no `information_schema`), `rfb relatorio` sai
+  com 0 e gera as seções antigas, com um aviso no lugar da seção do IBGE ("dados do IBGE ainda não
+  construídos; rode `rfb pipeline` ou `rfb atualizar --renovar-ibge`", também na saída de erro). `rfb regras`
+  não depende do gold novo: a RN-30 lê a fonte do CEMPRE e os marts da v1.3.
+- **Uso das bases novas:** [cenários de uso](uso/cenarios.md), com as analyses `cenario_*` e o caso.
+
 ## Peculiaridades dos dados reais
 
 - **Bytes de controle C1 (0x80–0x9F)** aparecem em raros campos do extrato (2026-09: 5 bytes em
@@ -352,3 +357,18 @@ Actions ou cópia no bucket) ou o comando reprocessará o mês mais recente a ca
   byte) e relê, com um aviso. Nenhuma linha é perdida.
 - `Estabelecimentos0.zip`/`Empresas0.zip` são bem maiores que as demais partes (2,2 GB e 0,56 GB
   compactados em 2026-09; o CSV de `Estabelecimentos0` tem 7,1 GB).
+
+## Notas de upgrade
+
+O que muda para quem já rodava uma versão anterior. O registro completo, versão a versão, está no
+[CHANGELOG](../CHANGELOG.md).
+
+- **v1.5.0 (relatórios em `docs/relatorios/`).** `rfb relatorio` grava em `docs/relatorios/estudo-caso.md` e
+  `rfb regras` em `docs/relatorios/regras-negocio.md` (antes, `docs/RELATORIO_ESTUDO_CASO.md` e
+  `docs/RELATORIO_REGRAS_NEGOCIO.md`). `--saida` e `--saida-relatorio` continuam valendo como antes; scripts que
+  liam os caminhos antigos precisam apontar para os novos.
+- **v1.4.0 (fontes do IBGE).** O primeiro download do CEMPRE nacional leva de 1 a 2 horas, e um `RAIZ_DADOS` da
+  v1.3 não tem `raw/ibge/`: veja "Primeiro download longo" e "Depois de atualizar da v1.3" em
+  [Fontes do IBGE](#fontes-do-ibge-incremento-enriquecimento_ibge).
+- **v1.0.0 (ADR-0014):** `DATA_ROOT`→`RAIZ_DADOS`, `DATA_ROOT_LOCAL`→`RAIZ_DADOS_LOCAL`,
+  `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; o diretório padrão `data/` agora é `dados/`. As variáveis antigas causam erro.
