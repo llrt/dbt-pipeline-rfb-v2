@@ -67,7 +67,7 @@ Os nomes de campo abaixo são os do `catalogo.json`; o teste do repositório con
 | `sql` | **payload** devolvido ao modelo |
 | `armadilhas` | payload |
 | `variacoes` | payload |
-| `colunas_chave` | payload (camadas SQL) |
+| `colunas_chave` | payload (camadas SQL; a semântica não tem) |
 | `resposta_esperada_fixtures` | payload, **só como forma da saída** (colunas); as linhas são das fixtures |
 
 Um documento por golden query: não quebre em pedaços. Texto sugerido para o embedding: perguntas, uma por linha, mais
@@ -228,21 +228,68 @@ versão.
 - **Entregue o catálogo da tag que construiu o banco.** O `catalogo.json` traz `versao_projeto` (desde a v1.5.1);
   guarde a tag junto do índice vetorial.
 - **O banco não carrega carimbo de versão consultável.** `dq_resumo_execucao` só tem a execução do dbt, a contagem de
-  testes e a data; o manifesto da ingestão é de arquivos do mês, não da versão do projeto. Por isso a conferência é
-  **por esquema**.
-- **Na partida**, para cada item de `relacoes` presente no banco (no MotherDuck, só `core`, `analytics` e `original`),
-  compare `colunas[].nome` e `colunas[].tipo` com `information_schema.columns`:
+  testes e a data. O manifesto da ingestão (`_manifestos/AAAA-MM.json`) tem `versao_pipeline`, mas é a versão que
+  **ingeriu** o mês, não a que rodou o dbt depois; fica fora do banco (não vai ao MotherDuck); e, num manifesto
+  anterior ao campo, a leitura preenche a versão **atual**. Por isso a conferência é **por esquema**.
+- **Na partida**, compare cada item de `relacoes` (`colunas[].nome` e `colunas[].tipo`) com
+  `information_schema.columns`, com esta função. Ela faz a normalização que o catálogo pede:
+  - `relacoes[].nome` vem com `main.` e `information_schema` e `tabelas` vêm sem ele;
+  - `tabelas` com ponto (`rfb.empresas`, `ibge.*`) é fonte raw, lida por arquivo sob `${RAIZ_DADOS}/raw`: fica fora;
+  - a semântica também traz `tabelas` (as relações que o seu `sql` lê);
+  - num banco só com o gold (MotherDuck), as relações de staging, intermediate e seed não são cobradas;
+  - `table_catalog = current_database()` deixa de fora os outros bancos da conta no MotherDuck, que também têm schema
+    `main` (não testado sem token; no local o filtro não muda nada).
 
-```sql
-select table_name, column_name, data_type
-from information_schema.columns
-where table_schema = 'main'
+```python
+# referência: conferir esquema
+CAMADAS_GOLD = ("core", "analytics", "original")
+
+
+def conferir_esquema(conexao, catalogo):
+    """Divergências entre `relacoes` do catálogo e o banco, e as golden queries que elas bloqueiam.
+
+    Devolve `(problemas, bloqueadas)`: textos para o operador e ids de golden query que não podem responder.
+    """
+    banco = {}
+    for tabela, coluna, tipo in conexao.execute(
+        "select table_name, column_name, data_type from information_schema.columns "
+        "where table_schema = 'main' and table_catalog = current_database()"
+    ).fetchall():
+        banco.setdefault(tabela, {})[coluna] = tipo
+    # Banco só com o gold (MotherDuck): as relações de staging, intermediate e seed não são esperadas.
+    so_gold = not any(
+        r["nome"].removeprefix("main.") in banco for r in catalogo["relacoes"] if r["camada"] not in CAMADAS_GOLD
+    )
+    problemas, divergentes = [], set()
+    for relacao in catalogo["relacoes"]:
+        nome = relacao["nome"].removeprefix("main.")
+        if nome not in banco:
+            if not (so_gold and relacao["camada"] not in CAMADAS_GOLD):
+                problemas.append(f"{nome}: relação ausente no banco")
+                divergentes.add(nome)
+            continue
+        esperado = {c["nome"]: c["tipo"] for c in relacao["colunas"]}
+        for coluna in sorted(esperado.keys() - banco[nome].keys()):
+            problemas.append(f"{nome}.{coluna}: coluna ausente no banco (banco mais antigo)")
+        for coluna in sorted(banco[nome].keys() - esperado.keys()):
+            problemas.append(f"{nome}.{coluna}: coluna a mais no banco (banco mais novo)")
+        for coluna in sorted(esperado.keys() & banco[nome].keys()):
+            if esperado[coluna] != banco[nome][coluna]:
+                problemas.append(f"{nome}.{coluna}: tipo {banco[nome][coluna]}, o catálogo diz {esperado[coluna]}")
+        if any(p.startswith(f"{nome}.") for p in problemas):
+            divergentes.add(nome)
+    # `tabelas` com ponto (`rfb.empresas`) é fonte raw, lida por arquivo: fora do banco e desta conferência.
+    bloqueadas = sorted(
+        g["id"] for g in catalogo["golden_queries"] if divergentes & {t for t in g.get("tabelas", []) if "." not in t}
+    )
+    return problemas, bloqueadas
 ```
 
 - **Relação ou coluna faltando no banco:** banco mais antigo que o catálogo. Reconstrua o banco (`make atualizar`) ou
   use o catálogo da tag anterior. **Coluna a mais no banco:** banco mais novo; use o catálogo da tag nova.
-- **Falha fechada.** Se a divergência atinge uma relação que alguma golden query usa (`tabelas`), não responda com
-  ela: avise o operador. Divergência só em relação que nenhuma golden query cita pode virar aviso no log.
+- **Falha fechada.** Não responda com as golden queries de `bloqueadas`: avise o operador. Divergência só em relação
+  que nenhuma golden query cita pode virar aviso no log. O CI confere que a função aprova o warehouse das fixtures e
+  bloqueia as golden queries de uma relação com coluna removida.
 
 ## 7. Avaliação
 
