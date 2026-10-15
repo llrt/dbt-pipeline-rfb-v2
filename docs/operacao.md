@@ -1,5 +1,8 @@
 # Operação: pipeline real e atualização mensal
 
+> **Para quem:** quem roda, agenda ou mantém o pipeline sobre os dados reais · **Quando ler:** antes da primeira
+> execução real, ao agendar a atualização mensal ou ao dimensionar a máquina.
+
 Como rodar o pipeline sobre os dados reais da RFB, manter a base atualizada todo mês e agendar a
 execução. A atualização mensal, a retenção e a publicação no MotherDuck são **melhorias pedidas pelo
 usuário** (ADR-0012, ADR-0016); o original carregava um único mês à mão.
@@ -10,6 +13,30 @@ Os relatórios gerados mudaram de lugar: `rfb relatorio` grava em `docs/relatori
 `docs/relatorios/regras-negocio.md` (antes, `docs/RELATORIO_ESTUDO_CASO.md` e `docs/RELATORIO_REGRAS_NEGOCIO.md`).
 `--saida` e `--saida-relatorio` continuam valendo como antes; scripts que liam os caminhos antigos precisam apontar para os novos.
 
+## Primeira execução
+
+Comandos do dia a dia (`make setup`, `make ci`, `make pipeline`, `make atualizar`) estão no
+[README](../README.md#início-rápido); a tabela completa dos alvos do `make` está em [Comandos](#comandos), abaixo.
+
+Ao clonar o repositório em um ambiente limpo, a primeira execução pode levar alguns minutos:
+
+- O `make setup` executa `uv sync --all-extras` (criação do `.venv` e resolução de pacotes Python) e `dbt deps`
+  (download dos pacotes dbt).
+- Durante o teste de conexão S3 (`dbt debug --target s3`), o DuckDB baixa a extensão nativa pré-compilada `httpfs`
+  para `~/.duckdb/extensions/`.
+
+Nas execuções seguintes, os caches locais (`.venv`, `transform/dbt_packages`, `~/.duckdb/extensions`) já estão
+populados e o `make ci` (unit + pipeline sobre fixtures de dois meses + integração + lint) completa em ~2 minutos.
+
+- **Migração (ADR-0014):** `DATA_ROOT`→`RAIZ_DADOS`, `DATA_ROOT_LOCAL`→`RAIZ_DADOS_LOCAL`,
+  `DBT_DUCKDB_PATH`→`CAMINHO_DUCKDB`; o diretório padrão `data/` agora é `dados/`. As variáveis antigas causam erro.
+- **Threads:** `DBT_THREADS` (nós do dbt em paralelo) e `DUCKDB_THREADS` (threads do motor DuckDB) são variáveis
+  distintas; ambas opcionais (padrões por alvo em `transform/profiles.yml`).
+- **Perfis dbt** (`transform/profiles.yml`): `ci` (fixtures, duckdb em arquivo temporário), `dev` (local), `s3`
+  (`RAIZ_DADOS=s3://...`; fontes e `gold/` no bucket, mas o `warehouse.duckdb` e os temporários ficam em
+  `RAIZ_DADOS_LOCAL`; secret DuckDB com `AWS_*`/endpoint Tigris vindos do ambiente, sem padrão). Variáveis vazias
+  equivalem a ausentes; ver `.env.example`.
+
 ## Comandos
 
 | Comando | O que faz |
@@ -19,6 +46,22 @@ Os relatórios gerados mudaram de lugar: `rfb relatorio` grava em `docs/relatori
 | `rfb pipeline --mes 2025-02 --mes 2026-09` | Vários meses: sempre do **mais antigo ao mais novo** (ver "Ordem dos meses"). |
 | `rfb pipeline --sem-ingestao --mes AAAA-MM` | Usa o raw que já está em `RAIZ_DADOS` (útil para refazer só o dbt). Se faltar o raw do IBGE (um `RAIZ_DADOS` da v1.3), publica-o vazio antes do dbt; ver "Depois de atualizar da v1.3". |
 | `make regras` (`rfb regras`) | Executa os checks das regras de negócio ([regras-negocio.md](referencia/regras-negocio.md), ADR-0020) no warehouse de `RAIZ_DADOS`, **só lendo** (a única escrita é o raw do IBGE vazio, quando ele falta: a RN-30 lê a fonte do CEMPRE), e regrava `docs/relatorios/regras-negocio.md` (`SAIDA=ARQ` muda o destino). Sai com 0 mesmo com violações. Não faz parte do `pipeline`: rode depois de um mês novo concluído e revise a seção "Interpretação de AAAA-MM": no mesmo mês ela é preservada; num mês novo, o texto antigo vai para "Interpretação anterior (AAAA-MM)" e o comando avisa (`aviso:` na saída de erro) até que ela seja reescrita e a seção anterior apagada. Recusa rodar com o gold misto, como `rfb relatorio`. No dado real de 2026-09 levou 88 s com as 29 regras (`DUCKDB_MEMORY_LIMIT=16GB`, `DUCKDB_THREADS=4`). |
+
+Outros alvos:
+
+| Comando | O que faz |
+|---|---|
+| `make setup` | `uv sync --locked --all-extras` + `dbt deps` |
+| `make fixtures` | gera as fixtures sintéticas em `tests/fixtures/generated` |
+| `make ci` | unit + pipeline completo sobre fixtures (2026-08 → atualizar 2026-09 → no-op → backfill) + `rfb regras` + integração + lint, sem rede, em `.tmp/ci` |
+| `make semantica` | valida a camada semântica (MetricFlow) e lista as métricas |
+| `make dicionario`, `make golden`, `make conceitos` | regeneram o dicionário de dados, o catálogo das golden queries e as definições de `docs/conceitos.md` (os dois primeiros sobre o warehouse do `make ci`); o `make ci` confere se estão em dia |
+| `make relatorio` | regrava `docs/relatorios/estudo-caso.md` (requer `dbt build` prévio) |
+| `make docs` | `dbt docs generate` |
+| `make lint` | ruff, links e âncoras dos `.md`, sqlfluff |
+| `make sincronizar` | envia `raw/` e `gold/` para `s3://` (Tigris; ver [Publicação e S3](#publicação-e-s3)) |
+| `make publicar` | `rfb publicar --destino motherduck [--tabelas a,b]`: recria no MotherDuck as tabelas do `gold/`; só com `MOTHERDUCK_TOKEN` e `MOTHERDUCK_BANCO` (sem eles, "nada publicado", saída 0; ADR-0016) |
+| `make clean` | remove `.tmp`, `.venv` e os artefatos do dbt |
 
 Opções comuns a `pipeline` e `atualizar`: `--origem-local DIR` (fixtures, sem rede),
 `--permitir-incompleto`, `--forcar` (reconverte), `--renovar-ibge` e `--sem-ibge` (ver abaixo; excludentes), `--target` (padrão: o do profile; `s3` com
@@ -154,7 +197,8 @@ Após um `rfb atualizar` bem-sucedido:
   `--sem-publicar` desliga. A publicação lê o gold **local**: com `RAIZ_DADOS=s3://` ela é pulada com
   aviso.
 - **S3/Tigris (ADR-0007):** com `RAIZ_DADOS=s3://…` o pipeline ingere em `RAIZ_DADOS_LOCAL`, roda
-  `rfb sincronizar` (envia o raw) antes do dbt, usa o target `s3` (o dbt grava o gold direto no bucket)
+  `rfb sincronizar` (envia o raw; o `make sincronizar` avulso envia `raw/` e `gold/`, comparando tamanho e sha256)
+  antes do dbt, usa o target `s3` (o dbt grava o gold direto no bucket)
   e o relatório lê os marts pelo `httpfs` com um secret temporário (R3-06).
 - **Estado e retenção no modo s3 ficam no disco local (R4-06, comportamento aceito).** O estado
   (`_estado/ultima_execucao.json`, travas e o marcador `em_andamento.json`) é gravado em
@@ -167,10 +211,27 @@ Após um `rfb atualizar` bem-sucedido:
   do bucket) quando quiser. Lembre que o raw tem e-mail e telefone como publicados (ADR-0008): o bucket
   precisa ser privado.
 
-## Requisitos de máquina (P14)
+## Requisitos e tempos medidos (P14)
 
-Medido no `dbt build` completo de 2026-09 (73,4 M estabelecimentos; detalhes em
-[execucao-real-2026-10.md](historico/execucao-real-2026-10.md#memória-e-threads-p14)):
+Resumo da execução real de 2026-09 ([registro completo, datado de 2026-10-01](historico/execucao-real-2026-10.md)).
+**Máquina de referência:** MacBook Apple Silicon, 15 núcleos, 48 GB de RAM, SSD, macOS, com `caffeinate -i`.
+
+| Etapa (2026-09, `dev` 8/8 threads, 24 GB) | Tempo |
+|---|---|
+| Download WebDAV (31 zips, 7,07 GB), 1ª vez | ~21 min (≈ 5,5 MB/s) |
+| Conversão CSV → Parquet | 162 s (estabelecimentos 124 s) |
+| Ingestão numa reexecução (nada mudou) | 10–12 s |
+| `dbt source freshness` | 3 s |
+| `dbt build` | 318 s (`bh_empresas` 153 s e a paridade 109 s são os mais longos) |
+| Relatório do estudo de caso | 5 s |
+| **Pipeline com o raw já baixado** | **339 s** |
+
+**Volumes de 2026-09:** 70,1 M empresas, 73,4 M estabelecimentos, 50,4 M linhas no Simples (raw de 4,9 GB em
+Parquet); no gold, `fct_estabelecimentos` 73,4 M linhas (1,26 GB), `bridge_estabelecimento_cnae_secundario` 125,4 M
+(1,57 GB), `bh_empresas` 71,4 M (3,8 GB) e a partição mensal de `fct_resumo_mensal` 5,8 M linhas (62 MB).
+
+Memória, medida no `dbt build` completo de 2026-09
+([detalhes](historico/execucao-real-2026-10.md#memória-e-threads-p14)):
 
 | `DBT_THREADS`/`DUCKDB_THREADS` | `DUCKDB_MEMORY_LIMIT` | `dbt build` | Pico de RSS |
 |---|---|---|---|
