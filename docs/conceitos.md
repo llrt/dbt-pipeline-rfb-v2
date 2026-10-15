@@ -128,9 +128,7 @@ terceiros, físico ou virtual, onde a entidade exerce suas atividades", e exige 
 um de seus estabelecimentos [IN 2.119, art. 4º]. A divisão dos atributos entre empresa e estabelecimento é a do
 leiaute [RFB-Leiaute].
 
-No projeto, a fato é `fct_estabelecimentos` (entidade semântica `estabelecimento`), e não há entidade semântica
-"empresa". `qtd_estabelecimentos`, `qtd_ativos` e `qtd_ativos_mei` contam estabelecimentos; para empresas, use
-`qtd_matrizes`. Nas fixtures, em 2026-09, são 18 estabelecimentos e 16 matrizes: duas empresas têm uma filial cada.
+`qtd_estabelecimentos`, `qtd_ativos` e `qtd_ativos_mei` contam estabelecimentos; para empresas, use `qtd_matrizes`. Nas fixtures, em 2026-09, são 18 estabelecimentos e 16 matrizes: duas empresas têm uma filial cada.
 Atributos da empresa repetidos nas filiais não se somam por estabelecimento (veja [Capital social](#capital-social)).
 
 ### Matriz × filial
@@ -144,8 +142,7 @@ Atributos da empresa repetidos nas filiais não se somam por estabelecimento (ve
 > 2026). Contar matrizes é contar empresas: no dado real, todo CNPJ básico tem matriz, e quase sempre uma só.
 <!-- fim da definição: matriz_filial -->
 
-No projeto, o identificador está em `matriz_filial_codigo` e na flag `eh_matriz` [RFB-Leiaute]. Ler a inscrição da
-entidade como a da matriz é uma leitura, não texto expresso: o art. 9º fala da inscrição "da entidade ou do
+Ler a inscrição da entidade como a da matriz é uma leitura, não texto expresso: o art. 9º fala da inscrição "da entidade ou do
 estabelecimento filial" [IN 2.119, art. 9º], e o art. 4º, § 1º, inscreve os estados, o DF e os municípios "na
 condição de estabelecimento matriz" [IN 2.119, art. 4º, § 1º]. A entidade pode transformar uma filial em matriz
 [IN 2.119, art. 4º, § 3º]. A baixa das filiais junto com a matriz é a regra
@@ -200,9 +197,7 @@ Coletivo). É observação do projeto, não regra (conferência da RSEM no dado 
 [RN-08](referencia/regras-negocio.md#rn-08)). Já a natureza de sociedade contraria o § 1º, que só admite o empresário
 individual ou o empreendedor ([RN-29](referencia/regras-negocio.md#rn-29)).
 
-No projeto: `dim_natureza_juridica`, entidade `natureza_juridica`, dimensões
-`natureza_juridica__descricao_natureza_juridica` e `natureza_juridica__codigo_natureza_juridica`. Só a fato
-detalhada a tem: o resumo mensal não tem natureza jurídica.
+O resumo mensal não tem natureza jurídica: só a fato detalhada.
 
 ### Capital social
 
@@ -212,8 +207,8 @@ detalhada a tem: o resumo mensal não tem natureza jurídica.
 > Capital social não é faturamento.
 <!-- fim da definição: capital_social -->
 
-No projeto, é a coluna `capital_social` de `fct_estabelecimentos` [RFB-Leiaute]. As métricas `capital_social_total`
-e `capital_social_medio` já somam só as matrizes: o médio é por empresa.
+O campo é do arquivo Empresas [RFB-Leiaute]. As métricas `capital_social_total` e `capital_social_medio` já somam só
+as matrizes: o médio é por empresa.
 
 ### Porte
 
@@ -244,8 +239,7 @@ Cuidados:
 - O seed descreve "05 DEMAIS" como "Demais (médio e grande porte)". "Médio e grande porte" é um rótulo do projeto:
   o leiaute diz só "Demais".
 
-No projeto: `dim_porte`, entidade `porte`, dimensões `porte__rotulo_porte` e `porte__codigo_porte`. Os valores
-MICRO, PEQUENA e DEMAIS estão em `rotulo_porte`; `descricao_porte` é o texto longo.
+Os valores MICRO, PEQUENA e DEMAIS estão em `rotulo_porte`; `descricao_porte` é o texto longo.
 
 ### Simples Nacional e MEI
 
@@ -295,15 +289,6 @@ confira antes de citá-los num relatório.
 
 O PLP 186/2026, que muda o teto e o número de empregados, ainda não está aprovado: veja
 [mudanças na lei do Simples e do MEI](referencia/regras-negocio.md#mudanças-na-lei-do-simples-e-do-mei).
-
-No projeto:
-
-- `opcao_simples` e `opcao_mei` (em `stg_rfb__simples` e em `fct_estabelecimentos`);
-- a fato tem um teste: MEI implica Simples (`not opcao_mei or opcao_simples`);
-- as datas de opção e exclusão ficam no staging (`dat_opcao_mei`, `dat_exclusao_mei`, `dat_opcao_simples`,
-  `dat_exclusao_simples`);
-- métricas `qtd_ativos_mei` e `pct_mei_entre_ativos`; dimensões `resumo_mensal__opcao_mei` e
-  `estabelecimento__opcao_mei`.
 
 ### Situação cadastral
 
@@ -360,9 +345,7 @@ O ato declaratório é o ADE [IN 2.119, art. 39]; o efeito dos lotes nos número
   [RN-11](referencia/regras-negocio.md#rn-11) a [RN-13](referencia/regras-negocio.md#rn-13): o não ativo tem a data,
   ela não antecede o início de atividade e não passa do limite do extrato (o dia seguinte à data de referência).
 
-No projeto: `dim_situacao_cadastral`, entidade `situacao_cadastral`, dimensão
-`situacao_cadastral__rotulo_situacao_cadastral` e a flag `eh_ativa` (código 2). Para a situação da empresa, filtre
-`eh_matriz`.
+Para a situação da empresa, filtre `eh_matriz`.
 
 ### Situação especial
 
@@ -372,13 +355,8 @@ Estabelecimentos [RFB-Leiaute]. O leiaute não lista os valores possíveis. O pr
 
 ### Data de início de atividade
 
-É a "data de início da atividade" do **estabelecimento** [RFB-Leiaute] (`dat_inicio_atividade`). No projeto:
-
-- base da **idade** (`idade_anos`, só para ativos, em relação à data do extrato) e das métricas
-  `idade_media_anos` e `soma_idade_anos_ativos`;
-- base das **aberturas** (`aberturas`) e das **coortes** de sobrevivência (`mart_sobrevivencia_coorte`).
-
-Data ausente vira a chave `-1` e data anterior a 1900 vira `-2`. Nenhuma das duas gera evento nem coorte.
+É a "data de início da atividade" do **estabelecimento** [RFB-Leiaute]. É a base da **idade** (só dos ativos, em
+relação à data do extrato), das **aberturas** e das **coortes** de sobrevivência. Data ausente vira a chave `-1` e data anterior a 1900 vira `-2`. Nenhuma das duas gera evento nem coorte.
 
 ### CNAE principal e secundárias
 
@@ -408,14 +386,9 @@ Os cinco níveis, no exemplo da pergunta-guia do projeto [CONCLA-CNAE]:
 | Classe | 47.41-5 | Comércio varejista de tintas e materiais para pintura |
 | Subclasse | 4741-5/00 | Comércio varejista de tintas e materiais para pintura |
 
-No projeto (formato no [RFB-Leiaute]; regras [RN-01](referencia/regras-negocio.md#rn-01) a
-[RN-04](referencia/regras-negocio.md#rn-04)):
-
-- o principal vira `cnae_principal` (a subclasse) e `sk_cnae`;
-- `dim_cnae` traz os cinco níveis (dimensões `cnae__codigo_subclasse`, `cnae__descricao_secao` etc.), da Base dos
-  Dados;
-- os secundários ficam na ponte `bridge_estabelecimento_cnae_secundario`, fora da camada semântica (ver
-  [limites da camada semântica](referencia/camada-semantica.md#7-limites-e-cuidados)).
+O formato dos campos está no [RFB-Leiaute], e as regras são as [RN-01](referencia/regras-negocio.md#rn-01) a
+[RN-04](referencia/regras-negocio.md#rn-04). Os secundários ficam fora da camada semântica (ver
+[limites da camada semântica](referencia/camada-semantica.md#7-limites-e-cuidados)).
 
 ### Município: código RFB × código IBGE
 
@@ -428,8 +401,7 @@ No projeto (formato no [RFB-Leiaute]; regras [RN-01](referencia/regras-negocio.m
 <!-- fim da definição: municipio -->
 
 O campo do leiaute é o "código do município de jurisdição onde se encontra o estabelecimento", do domínio Municípios
-da RFB [RFB-Leiaute]. A conversão usa `codigo_rfb` → `id_municipio_ibge` do diretório, e a chave é `sk_municipio`.
-Todo código existe no domínio da RFB ([RN-19](referencia/regras-negocio.md#rn-19)); os casos sem par conhecidos estão
+da RFB [RFB-Leiaute]. Todo código existe no domínio da RFB ([RN-19](referencia/regras-negocio.md#rn-19)); os casos sem par conhecidos estão
 no seed `excecoes_conhecidas_municipio`: o código 9707 (EXTERIOR, UF `EX`) e municípios criados depois da base.
 
 ### CEMPRE: unidades locais e pessoal ocupado
@@ -500,8 +472,7 @@ O `...` das fixtures só existe para provar esse tratamento.
 > até 2021. As participações somam 100, salvo quando o IBGE publica VA negativo.
 <!-- fim da definição: valor_adicionado -->
 
-As colunas são `ano_pib`, `ano_va` e as participações (`pct_va_servicos`…). No dado real, a indústria de Cachoeira
-Dourada/GO publicou VA negativo em 2021.
+No dado real, a indústria de Cachoeira Dourada/GO publicou VA negativo em 2021.
 
 ### Concorrência e área de mercado
 
