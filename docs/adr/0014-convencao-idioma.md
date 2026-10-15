@@ -13,7 +13,7 @@ Lista fechada do que fica em inglês (exceções permitidas):
 | Categoria | Termos |
 |---|---|
 | Pastas/arquivos exigidos pelas ferramentas | `models/`, `seeds/`, `macros/`, `tests/`, `analyses/`, `snapshots/`, `src/`, `dbt_project.yml`, `profiles.yml`, `packages.yml`, `pyproject.toml`, `Makefile`, `README.md` e demais arquivos-padrão |
-| Camadas e subpastas do dbt (vocabulário da documentação oficial/ecossistema) | `staging`, `intermediate`, `marts`, `core`, `analytics`, `observability`, `audit` (modelos auxiliares de reconciliação/paridade — termo do `dbt-audit-helper`) |
+| Camadas e subpastas do dbt (vocabulário da documentação oficial/ecossistema) | `staging`, `intermediate`, `marts`, `core`, `analytics`, `observability`, `audit` (modelos auxiliares de reconciliação/paridade — termo do `dbt-audit-helper`), `docs` (*doc blocks* do dbt, v1.5.0) |
 | Prefixos de modelos dbt | `stg_`, `int_`, `dim_`, `fct_`, `bridge_`, `mart_`, `dq_`, `audit__` |
 | Camadas de dados (arquitetura medalhão) e vocabulário de warehouse | `raw`, `gold`, `warehouse` (arquivo `warehouse.duckdb`) |
 | Vocabulário de processo/ferramenta | `ci`, `lint`, `docs`, `setup`, `clean`, `fixtures`, `pipeline`, `cli`, `tmp`, `lock` (extensão de arquivo), `main`; nomes de targets dbt `dev`, `ci`, `s3` |

@@ -1,10 +1,13 @@
 # Cenários de uso das fontes do IBGE
 
+> **Para quem:** consultor(a), empreendedor(a) ou analista que quer usar renda, REGIC, CEMPRE e valor adicionado ·
+> **Quando ler:** para achar a consulta pronta de uma pergunta de mercado e saber como ler o resultado.
+
 > **Adição**, incremento `enriquecimento_ibge` ([ADR-0022](../adr/0022-enriquecimento-fontes-gratuitas-ibge.md)). Cinco
 > perguntas de negócio para quem vai abrir um negócio ou estuda um setor, cada uma respondida por uma das bases
 > novas do IBGE e por uma consulta pronta em `transform/analyses/`. O exemplo é o estudo de caso do projeto: uma loja
 > de tintas (CNAE 4741500) em Fundão/ES. O que cada base é e como ela foi construída está na
-> [camada semântica](../referencia/camada-semantica.md#a1-as-bases), Parte A.
+> [conceitos](../conceitos.md#1-as-bases).
 
 ## Como rodar
 

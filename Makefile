@@ -7,7 +7,7 @@ MES ?=
 export RAIZ_DADOS
 export DBT_PROFILES_DIR = $(CURDIR)/transform
 
-.PHONY: setup fixtures ingerir ci pipeline atualizar semantica dicionario golden docs lint sincronizar relatorio regras publicar clean
+.PHONY: setup fixtures ingerir ci pipeline atualizar semantica dicionario golden conceitos docs lint sincronizar relatorio regras publicar clean
 
 # Parse completo antes dos comandos que chamam o dbt várias vezes: no dbt-core 1.12.5 o partial parse
 # duplica as métricas de um YAML editado ("dbt found two metrics with the name ..."), ADR-0018.
@@ -84,6 +84,11 @@ golden: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 golden:
 	cd transform && env -u CAMINHO_DUCKDB uv run dbt docs generate --target ci --no-partial-parse --quiet
 	env -u CAMINHO_DUCKDB uv run python scripts/gerar_catalogo_golden.py
+
+## conceitos: copia as definições dos doc blocks (transform/models/docs/conceitos.md) para docs/conceitos.md.
+## Sem dbt; o `make ci` confere se está em dia. Depois de editar um doc block, rode também `make golden` e `make dicionario`.
+conceitos:
+	uv run python scripts/gerar_conceitos.py
 
 ## docs: gera a documentação de dbt
 docs:

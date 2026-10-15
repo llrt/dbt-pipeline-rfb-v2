@@ -13,12 +13,14 @@ RAIZ_REPO = Path(__file__).resolve().parents[2]
 DIR_DOCS = RAIZ_REPO / "docs"
 DIR_ADR = DIR_DOCS / "adr"
 DIR_REFERENCIA = DIR_DOCS / "referencia"
+DIR_HISTORICO = DIR_DOCS / "historico"
 
 # Relatórios que `rfb relatorio` e `rfb regras` gravam por padrão.
 RELATORIO_ESTUDO_CASO = DIR_DOCS / "relatorios" / "estudo-caso.md"
 RELATORIO_REGRAS_NEGOCIO = DIR_DOCS / "relatorios" / "regras-negocio.md"
 
 # Documentos gerados ou conferidos por scripts e testes.
+CONCEITOS = DIR_DOCS / "conceitos.md"
 CATALOGO_REGRAS = DIR_REFERENCIA / "regras-negocio.md"
 DICIONARIO_DADOS = DIR_REFERENCIA / "dicionario-dados.md"
 QUALIDADE_DADOS = DIR_REFERENCIA / "qualidade-dados.md"
@@ -33,6 +35,9 @@ GOLDEN_MATRIZ = DIR_GOLDEN / "matriz.yml"
 GOLDEN_SEMANTICA = DIR_GOLDEN / "semantica.yml"
 GOLDEN_CATALOGO = DIR_GOLDEN / "catalogo.json"
 ONTOLOGIA = DIR_REFERENCIA / "ontologia" / "rfb_cnpj.ttl"
+
+# Doc blocks do dbt com as definições curtas dos conceitos (fonte de `CONCEITOS` e do catálogo).
+DOC_BLOCKS_CONCEITOS = RAIZ_REPO / "transform" / "models" / "docs" / "conceitos.md"
 
 
 def link_de(origem: Path, alvo: Path) -> str:

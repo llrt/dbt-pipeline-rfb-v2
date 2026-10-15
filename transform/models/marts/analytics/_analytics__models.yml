@@ -7,6 +7,7 @@ models:
       pela regra do original (`situacao != 2` = inativo); `ativos_por_10k_hab` = ativos × 10 000 /
       população do `ano_populacao` (NULL sem população); `ranking_uf` ordena municípios da mesma UF e
       CNAE pela densidade. Parquet em `gold/mart_concorrencia_municipio.parquet`.
+      {{ doc('concorrencia_densidade') }}
     data_tests:
       # RBP-13: a densidade é por 10 mil habitantes (N11).
       - dbt_utils.expression_is_true:
@@ -81,6 +82,7 @@ models:
       a 1, 3 e 5 anos. Elegibilidade pela coorte inteira (`make_date(ano + N, 12, 31) <= data_referencia`);
       sobrevive quem está ativo ou foi encerrado após `dat_inicio + N anos`. Taxa NULL sem elegíveis.
       Invariantes (taxas em [0,1] e monotonicidade) no teste `sobrevivencia_invariantes`.
+      {{ doc('sobrevivencia') }}
     data_tests:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
@@ -243,6 +245,7 @@ models:
       Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal × município.
       Abertura = ano de `dat_inicio`; encerramento = ano de `dat_situacao` de inativos (`situacao != 2`).
       Datas nulas não geram evento.
+      {{ doc('abertura_encerramento') }}
     data_tests:
       - dbt_expectations.expect_table_row_count_to_be_between:
           arguments:
@@ -383,6 +386,7 @@ models:
       o denominador (município ou algum vizinho sem Censo), nunca zero. Colunas aditivas do
       incremento `enriquecimento_ibge` (ADR-0022): o polo de compras do município (REGIC 2018) e os
       ativos do CNAE nele (`ativos_no_polo`). Parquet em `gold/mart_concorrencia_area_mercado.parquet`.
+      {{ doc('area_mercado') }}
     config:
       meta: { grao: "CNAE principal × município (`sk_cnae`, `sk_municipio`), incluindo os vazios de mercado", incremento: enriquecimento_bd }
       contract:
@@ -538,6 +542,7 @@ models:
       e, para empresas, com atividade (RAIS/eSocial ou pesquisas do IBGE), e a RFB conta todo
       cadastro ativo, inclusive MEI e inativos de fato. Parquet em
       `gold/mart_emprego_setor_municipio.parquet`.
+      {{ doc('cempre') }}
     config:
       meta: { grao: "município × classe CNAE de 5 dígitos (`sk_municipio`, `classe_cnae`)", incremento: enriquecimento_ibge }
       contract:

@@ -1,5 +1,8 @@
 # Regras de negócio do cadastro CNPJ
 
+> **Para quem:** quem interpreta o dado do cadastro ou mantém os checks · **Quando ler:** para saber que regra o
+> cadastro deveria cumprir, a fonte dela e como ler uma violação no relatório.
+
 > **Adição** ([ADR-0020](../adr/0020-regras-de-negocio.md)). Este catálogo lista as regras e invariantes que o cadastro
 > CNPJ deveria cumprir e diz de onde vem cada uma. Cada regra tem uma analysis em
 > `transform/analyses/regras_negocio/` que conta quantos registros a cumprem e quantos a violam. O resultado do dado
@@ -69,7 +72,7 @@ O pedido citou três regras. Duas viram checks diretos, a terceira precisa de tr
     as opções, 1º de janeiro do ano seguinte).
 
   "Empresa" foi lida como estabelecimento, porque a situação cadastral é do estabelecimento
-  ([CAMADA_SEMANTICA, A3](camada-semantica.md#a3-ciclo-de-vida)). A situação da empresa é a da matriz, e a regra
+  ([conceitos, ciclo de vida](../conceitos.md#3-ciclo-de-vida)). A situação da empresa é a da matriz, e a regra
   da matriz para as filiais é a [RN-14](#rn-14).
 
 ## Catálogo
@@ -90,7 +93,7 @@ colchetes estão em [Fontes](#fontes).
 - **Dados:** [`int_estabelecimentos__enriquecidos`](dicionario-dados.md#int_estabelecimentos__enriquecidos)`.cnae_principal`
   × [`stg_rfb__cnaes`](dicionario-dados.md#stg_rfb__cnaes)`.codigo`. Universo: estabelecimentos do mês, por
   situação.
-- **Conceito:** [CNAE principal e secundárias](camada-semantica.md#cnae-principal-e-secundárias); ontologia
+- **Conceito:** [CNAE principal e secundárias](../conceitos.md#cnae-principal-e-secundárias); ontologia
   `rfbo:temCnaePrincipal`.
 - **Leitura de uma violação:** código fora do domínio do próprio extrato é erro de dado da RFB; código de versão
   antiga da CNAE, comportamento conhecido do cadastro. Não confundir com `cnaes_sem_par_bd` (par na Base dos Dados).
@@ -105,7 +108,7 @@ colchetes estão em [Fontes](#fontes).
   separadas por vírgula (nota 5), e domínio "CNAEs".
 - **Dados:** `int_estabelecimentos__enriquecidos.cnaes_secundarios_lista` (lista de `stg_rfb__estabelecimentos.cnaes_secundarios`)
   × `stg_rfb__cnaes.codigo`. Universo: ocorrências de CNAE secundário.
-- **Conceito:** [CNAE principal e secundárias](camada-semantica.md#cnae-principal-e-secundárias); ontologia
+- **Conceito:** [CNAE principal e secundárias](../conceitos.md#cnae-principal-e-secundárias); ontologia
   `rfbo:temCnaeSecundario`.
 - **Leitura de uma violação:** como na RN-01; um código com tamanho errado também indica falha na separação da lista.
 - **Analysis:** `transform/analyses/regras_negocio/rn_02_cnaes_secundarios_validos.sql`.
@@ -118,7 +121,7 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** regra do projeto. O leiaute separa principal e secundárias, mas não proíbe a repetição.
 - **Dados:** `int_estabelecimentos__enriquecidos.cnae_principal` e `.cnaes_secundarios_lista`. Universo: ocorrências
   de CNAE secundário.
-- **Conceito:** [CNAE principal e secundárias](camada-semantica.md#cnae-principal-e-secundárias).
+- **Conceito:** [CNAE principal e secundárias](../conceitos.md#cnae-principal-e-secundárias).
 - **Leitura de uma violação:** comportamento conhecido do cadastro (a atividade foi promovida a principal e ficou
   também na lista) ou erro de dado. Não muda as métricas, que usam só o principal.
 - **Analysis:** `transform/analyses/regras_negocio/rn_03_cnae_secundario_diferente_do_principal.sql`.
@@ -131,7 +134,7 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** regra do projeto.
 - **Dados:** `int_estabelecimentos__enriquecidos.cnaes_secundarios_lista`. Universo: estabelecimentos com ao menos um
   secundário.
-- **Conceito:** [CNAE principal e secundárias](camada-semantica.md#cnae-principal-e-secundárias). A ponte
+- **Conceito:** [CNAE principal e secundárias](../conceitos.md#cnae-principal-e-secundárias). A ponte
   [`bridge_estabelecimento_cnae_secundario`](dicionario-dados.md#bridge_estabelecimento_cnae_secundario) tem uma linha
   por par: repetições na lista viram uma linha só.
 - **Leitura de uma violação:** erro de dado da RFB.
@@ -153,7 +156,7 @@ colchetes estão em [Fontes](#fontes).
   situação nula que teria mais de um não baixado se esses contassem como não baixados (ex.: um ATIVO e um de
   situação nula). O indeterminado não entra nas violações porque a situação não é conhecida, e não entra no "no
   máximo um" para a falta de informação não parecer cadastro limpo.
-- **Conceito:** [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei); ontologia `rfbo:OpcaoMEI`.
+- **Conceito:** [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei); ontologia `rfbo:OpcaoMEI`.
 - **Leitura de uma violação:** mais de um estabelecimento não baixado é erro de dado ou desenquadramento ainda não
   registrado (defasagem). Os estabelecimentos baixados além do único não baixado são comportamento conhecido do
   cadastro (o baixado continua no extrato) e não contrariam a lei: aparecem na quebra, sem violação. A RSEM já
@@ -169,7 +172,7 @@ colchetes estão em [Fontes](#fontes).
 - **Tipo:** legal.
 - **Fonte:** [LC 123], art. 18-A, § 1º: considera-se MEI quem "seja optante pelo Simples Nacional".
 - **Dados:** `stg_rfb__simples.opcao_mei` e `.opcao_simples`. Universo: empresas com opção pelo MEI.
-- **Conceito:** [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei). O build já tem o teste
+- **Conceito:** [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei). O build já tem o teste
   equivalente na fato (`not opcao_mei or opcao_simples`); aqui a regra é contada na fonte.
 - **Leitura de uma violação:** erro de dado ou defasagem entre as duas opções do mesmo arquivo.
 - **Analysis:** `transform/analyses/regras_negocio/rn_06_mei_optante_simples.sql`.
@@ -182,8 +185,8 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** [LC 123], art. 18-E, § 3º: "O MEI é modalidade de microempresa." Códigos de porte: [RFB-Leiaute].
 - **Dados:** `stg_rfb__simples.opcao_mei` × [`stg_rfb__empresas`](dicionario-dados.md#stg_rfb__empresas)`.porte_codigo`.
   Universo: empresas MEI presentes no arquivo Empresas, por porte declarado.
-- **Conceito:** [Porte](camada-semantica.md#porte) ("o porte é declarado, não medido") e
-  [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei).
+- **Conceito:** [Porte](../conceitos.md#porte) ("o porte é declarado, não medido") e
+  [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei).
 - **Leitura de uma violação:** o porte é declarado no registro e não acompanha a opção pelo MEI; uma violação é
   comportamento conhecido do cadastro (porte desatualizado) mais provável que erro.
 - **Analysis:** `transform/analyses/regras_negocio/rn_07_mei_porte_micro.sql`.
@@ -198,7 +201,7 @@ colchetes estão em [Fontes](#fontes).
   a lei sustenta é mais estreito e é a [RN-29](#rn-29): o MEI não é sociedade.
 - **Dados:** `stg_rfb__simples.opcao_mei` × `stg_rfb__empresas.natureza_juridica_codigo` e
   [`stg_rfb__naturezas`](dicionario-dados.md#stg_rfb__naturezas). Universo: empresas MEI no arquivo Empresas.
-- **Conceito:** [Natureza jurídica](camada-semantica.md#natureza-jurídica) ("MEI não é natureza jurídica").
+- **Conceito:** [Natureza jurídica](../conceitos.md#natureza-jurídica) ("MEI não é natureza jurídica").
 - **Leitura de uma violação:** não é erro por si; mostra quantas empresas MEI têm outra natureza (a RSEM viu 1.238
   estabelecimentos com natureza de sociedade em 2026-09). Código sem descrição no domínio aparece como
   "(fora do domínio)".
@@ -217,8 +220,8 @@ colchetes estão em [Fontes](#fontes).
   eles mesmos, sociedades e ficam de fora.
 - **Dados:** `stg_rfb__simples.opcao_mei` × `stg_rfb__empresas.natureza_juridica_codigo` e `stg_rfb__naturezas`.
   Universo: empresas MEI no arquivo Empresas, por natureza.
-- **Conceito:** [Natureza jurídica](camada-semantica.md#natureza-jurídica) e
-  [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei).
+- **Conceito:** [Natureza jurídica](../conceitos.md#natureza-jurídica) e
+  [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei).
 - **Leitura de uma violação:** erro de dado ou desenquadramento do MEI não registrado depois de a empresa virar
   sociedade (defasagem). Diferente da [RN-08](#rn-08), que é observação, aqui a lei é contrariada.
 - **Analysis:** `transform/analyses/regras_negocio/rn_29_mei_nao_e_sociedade.sql`.
@@ -232,7 +235,7 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** regra do projeto sobre os campos "data de opção" e "data de exclusão" de cada regime [RFB-Leiaute].
 - **Dados:** `stg_rfb__simples.dat_opcao_simples`, `.dat_exclusao_simples`, `.dat_opcao_mei`, `.dat_exclusao_mei`.
   Universo: registros com as duas datas, por regime.
-- **Conceito:** [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei).
+- **Conceito:** [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei).
 - **Leitura de uma violação:** o arquivo guarda uma opção e uma exclusão por regime. Uma nova opção depois de uma
   exclusão pode deixar a exclusão antiga com a opção nova (comportamento do cadastro); sem reopção, é erro de dado.
 - **Analysis:** `transform/analyses/regras_negocio/rn_09_simples_exclusao_apos_opcao.sql`.
@@ -245,7 +248,7 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** [LC 123], art. 88: a lei entra em vigor na publicação, "ressalvado o regime de tributação das
   microempresas e empresas de pequeno porte, que entra em vigor em 1º de julho de 2007".
 - **Dados:** `stg_rfb__simples.dat_opcao_simples`. Universo: registros com data de opção pelo Simples.
-- **Conceito:** [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei).
+- **Conceito:** [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei).
 - **Leitura de uma violação:** erro de dado ou data de opção do regime anterior (o Simples federal, Lei 9.317/1996)
   levada para o campo.
 - **Analysis:** `transform/analyses/regras_negocio/rn_25_opcao_simples_apos_inicio_regime.sql`.
@@ -258,7 +261,7 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** [LC 128], art. 14, III: os arts. 18-A a 18-C da LC 123, que criam o SIMEI, "produzirão efeitos a
   partir de 1º de julho de 2009".
 - **Dados:** `stg_rfb__simples.dat_opcao_mei`. Universo: registros com data de opção pelo MEI.
-- **Conceito:** [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei).
+- **Conceito:** [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei).
 - **Leitura de uma violação:** erro de dado (por exemplo, a data de opção pelo Simples copiada para o MEI).
 - **Analysis:** `transform/analyses/regras_negocio/rn_26_opcao_mei_apos_inicio_simei.sql`.
 
@@ -274,8 +277,8 @@ colchetes estão em [Fontes](#fontes).
 - **Dados:** `stg_rfb__simples.dat_opcao_simples`, `.dat_opcao_mei` ×
   `int_estabelecimentos__enriquecidos.dat_inicio_atividade` da matriz. Universo: registros com a data de opção do
   regime, de CNPJ básico com uma única matriz com início de atividade, por regime.
-- **Conceito:** [Data de início de atividade](camada-semantica.md#data-de-início-de-atividade) e
-  [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei).
+- **Conceito:** [Data de início de atividade](../conceitos.md#data-de-início-de-atividade) e
+  [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei).
 - **Leitura de uma violação:** data de início de atividade corrigida depois da opção, opção na abertura com início
   de atividade declarado depois, ou erro de dado. Não é afirmada nenhuma delas.
 - **Analysis:** `transform/analyses/regras_negocio/rn_28_opcao_apos_inicio_atividade.sql`.
@@ -294,7 +297,7 @@ colchetes estão em [Fontes](#fontes).
 - **Dados:** [`stg_rfb__estabelecimentos`](dicionario-dados.md#stg_rfb__estabelecimentos)`.situacao_codigo` e
   `.motivo_situacao_codigo`; [`stg_rfb__motivos`](dicionario-dados.md#stg_rfb__motivos). Universo: todos os
   estabelecimentos, por situação.
-- **Conceito:** [Situação cadastral](camada-semantica.md#situação-cadastral); ontologia
+- **Conceito:** [Situação cadastral](../conceitos.md#situação-cadastral); ontologia
   `rfbo:MotivoSituacaoCadastral`.
 - **Leitura de uma violação:** ATIVO com motivo é um estabelecimento restabelecido em que o motivo antigo ficou
   (comportamento do cadastro) ou erro de dado. Não ativo com motivo 00 é erro de dado.
@@ -309,8 +312,8 @@ colchetes estão em [Fontes](#fontes).
   efeitos desde a data do evento [IN 2.119, art. 24, § 1º]. O leiaute não diz que o campo é obrigatório.
 - **Dados:** `int_estabelecimentos__enriquecidos.situacao_codigo` e `.dat_situacao` (`00000000` vira nulo).
   Universo: estabelecimentos não ativos.
-- **Conceito:** [Situação cadastral](camada-semantica.md#situação-cadastral) e
-  [A3](camada-semantica.md#a3-ciclo-de-vida): sem data, o estabelecimento não entra em `encerramentos` nem `baixas`.
+- **Conceito:** [Situação cadastral](../conceitos.md#situação-cadastral) e
+  [ciclo de vida](../conceitos.md#3-ciclo-de-vida): sem data, o estabelecimento não entra em `encerramentos` nem `baixas`.
 - **Leitura de uma violação:** erro de dado. O ATIVO sem data fica fora da regra (a RSEM viu 115.651 em 2026-09).
 - **Analysis:** `transform/analyses/regras_negocio/rn_11_inativo_com_data_situacao.sql`.
 
@@ -323,7 +326,7 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** regra do projeto sobre os campos de data do [RFB-Leiaute].
 - **Dados:** `int_estabelecimentos__enriquecidos.dat_situacao` e `.dat_inicio_atividade`. Universo: estabelecimentos
   com as duas datas, por situação.
-- **Conceito:** [Data de início de atividade](camada-semantica.md#data-de-início-de-atividade).
+- **Conceito:** [Data de início de atividade](../conceitos.md#data-de-início-de-atividade).
 - **Leitura de uma violação:** erro de dado ou data de início corrigida depois do evento. Distorce idade, coortes e
   `mart_dinamica_mercado` (encerramento antes da abertura).
 - **Analysis:** `transform/analyses/regras_negocio/rn_12_situacao_apos_inicio_atividade.sql`.
@@ -349,7 +352,7 @@ colchetes estão em [Fontes](#fontes).
   `stg_rfb__estabelecimentos.dat_situacao_especial`; `stg_rfb__simples.dat_opcao_simples`, `.dat_opcao_mei`;
   `_data_referencia`. Universo: valores preenchidos de cada campo, pela faixa ("até a data do extrato", "dia
   seguinte ao extrato", "opção até 1º de janeiro seguinte" e "além do limite"); só a última viola.
-- **Conceito:** [Data de início de atividade](camada-semantica.md#data-de-início-de-atividade). O build já avisa
+- **Conceito:** [Data de início de atividade](../conceitos.md#data-de-início-de-atividade). O build já avisa
   (`data_nao_futura`, warn) nas colunas de staging; aqui a regra é contada por campo.
 - **Leitura de uma violação:** erro de digitação de data ou ato registrado com data posterior. A faixa D+1 é o
   corte do extrato (defasagem), não erro.
@@ -366,7 +369,7 @@ colchetes estão em [Fontes](#fontes).
 - **Dados:** `int_estabelecimentos__enriquecidos.cnpj_raiz`, `.matriz_filial_codigo`, `.situacao_codigo`. Universo:
   filiais de empresas com matriz baixada, pela situação da filial. Viola a filial que não está BAIXADA nem NULA; a
   NULA aparece na quebra, sem violação.
-- **Conceito:** [Matriz × filial](camada-semantica.md#matriz--filial); ontologia `rfbo:Matriz`, `rfbo:Filial`.
+- **Conceito:** [Matriz × filial](../conceitos.md#matriz--filial); ontologia `rfbo:Matriz`, `rfbo:Filial`.
 - **Leitura de uma violação:** defasagem (a baixa da filial ainda não refletida no extrato), filial transformada em
   matriz [IN 2.119, art. 4º, § 3º] ou erro de dado. A filial **NULA** não viola: a nulidade produz efeitos "a partir
   do termo inicial de vigência do ato cadastral declarado nulo" [IN 2.119, art. 34, parágrafo único], então não há
@@ -389,8 +392,8 @@ colchetes estão em [Fontes](#fontes).
 - **Dados:** `int_estabelecimentos__enriquecidos.cnpj_raiz`, `.matriz_filial_codigo`, `.situacao_codigo`,
   `.dat_situacao` (matriz) e `.dat_inicio_atividade` (filial). Universo: filiais com início de atividade, de CNPJ
   básico com uma única matriz NULA, INAPTA ou BAIXADA com data da situação; pela situação da matriz.
-- **Conceito:** [Matriz × filial](camada-semantica.md#matriz--filial) e
-  [Situação cadastral](camada-semantica.md#situação-cadastral).
+- **Conceito:** [Matriz × filial](../conceitos.md#matriz--filial) e
+  [Situação cadastral](../conceitos.md#situação-cadastral).
 - **Leitura de uma violação:** filial inscrita antes do evento da matriz com início de atividade declarado depois,
   inscrição feita antes de a regra valer, nulidade com data do ato posterior à inscrição, ou erro de dado.
 - **Analysis:** `transform/analyses/regras_negocio/rn_27_filial_nao_inicia_apos_fim_da_matriz.sql`.
@@ -404,7 +407,7 @@ colchetes estão em [Fontes](#fontes).
   situação especial" [RFB-Leiaute].
 - **Dados:** `stg_rfb__estabelecimentos.situacao_especial` e `.dat_situacao_especial`. Universo: todos os
   estabelecimentos, por situação.
-- **Conceito:** [Situação especial](camada-semantica.md#situação-especial).
+- **Conceito:** [Situação especial](../conceitos.md#situação-especial).
 - **Leitura de uma violação:** erro de dado.
 - **Analysis:** `transform/analyses/regras_negocio/rn_15_situacao_especial_com_data.sql`.
 
@@ -415,12 +418,12 @@ colchetes estão em [Fontes](#fontes).
 
 - **Enunciado:** cada CNPJ básico do arquivo Estabelecimentos tem exatamente uma matriz.
 - **Tipo:** estrutural.
-- **Fonte:** regra do projeto, a leitura de [Matriz × filial](camada-semantica.md#matriz--filial): o identificador
+- **Fonte:** regra do projeto, a leitura de [Matriz × filial](../conceitos.md#matriz--filial): o identificador
   1/2 [RFB-Leiaute] e a inscrição dos entes "na condição de estabelecimento matriz" [IN 2.119, art. 4º, § 1º]. Não
   há texto que diga "uma matriz por entidade".
 - **Dados:** `int_estabelecimentos__enriquecidos.cnpj_raiz` e `.matriz_filial_codigo`. Universo: CNPJs básicos, pelo
   número de matrizes (0, 1, 2 ou mais).
-- **Conceito:** [Empresa × estabelecimento](camada-semantica.md#empresa--estabelecimento): `qtd_matrizes` conta
+- **Conceito:** [Empresa × estabelecimento](../conceitos.md#empresa--estabelecimento): `qtd_matrizes` conta
   empresas supondo esta regra.
 - **Leitura de uma violação:** 2 ou mais matrizes é erro de dado; 0 matrizes, empresa só com filiais no extrato.
   As duas distorcem `qtd_matrizes`. A RSEM viu 1 CNPJ básico com 2 matrizes em 2026-09.
@@ -436,7 +439,7 @@ colchetes estão em [Fontes](#fontes).
   [RFB-Alfanumérico] (DV "utilizando o cálculo pelo módulo 11"; os números atuais e seus DV continuam válidos).
 - **Dados:** `int_estabelecimentos__enriquecidos.cnpj_completo` (macro `cnpj_dv_invalidos`, a mesma do teste
   `cnpj_dv_valido`, que no build só avisa). Universo: estabelecimentos, por situação.
-- **Conceito:** [CNPJ](camada-semantica.md#cnpj).
+- **Conceito:** [CNPJ](../conceitos.md#cnpj).
 - **Leitura de uma violação:** erro de dado da RFB ou de conversão.
 - **Analysis:** `transform/analyses/regras_negocio/rn_17_cnpj_dv_valido.sql`.
 
@@ -449,7 +452,7 @@ colchetes estão em [Fontes](#fontes).
   estabelecimentos [IN 2.119, art. 4º].
 - **Dados:** `int_estabelecimentos__enriquecidos.tem_empresa` (left join com `stg_rfb__empresas`). Universo:
   estabelecimentos, por situação.
-- **Conceito:** [Empresa × estabelecimento](camada-semantica.md#empresa--estabelecimento).
+- **Conceito:** [Empresa × estabelecimento](../conceitos.md#empresa--estabelecimento).
 - **Leitura de uma violação:** defasagem entre os arquivos do mês ou erro de dado. O estabelecimento sem empresa
   fica com natureza e porte -1 na estrela e é descartado por `bh_empresas` (inner join do original).
 - **Analysis:** `transform/analyses/regras_negocio/rn_18_estabelecimento_com_empresa.sql`.
@@ -463,7 +466,7 @@ colchetes estão em [Fontes](#fontes).
   estabelecimento" e domínio "MUNICÍPIOS".
 - **Dados:** `int_estabelecimentos__enriquecidos.municipio_rfb_codigo` × [`stg_rfb__municipios`](dicionario-dados.md#stg_rfb__municipios)`.codigo`.
   Universo: estabelecimentos, por situação.
-- **Conceito:** [Município: código RFB × código IBGE](camada-semantica.md#município-código-rfb--código-ibge). É o
+- **Conceito:** [Município: código RFB × código IBGE](../conceitos.md#município-código-rfb--código-ibge). É o
   domínio da **RFB**: o par na Base dos Dados é outro teste (`cobertura_municipio_rfb_bd`).
 - **Leitura de uma violação:** erro de dado da RFB.
 - **Analysis:** `transform/analyses/regras_negocio/rn_19_municipio_no_dominio.sql`.
@@ -478,7 +481,7 @@ colchetes estão em [Fontes](#fontes).
   NATUREZA JURÍDICA 1XXX. PARA AS DEMAIS NATUREZAS, ESTE ATRIBUTO FICA EM BRANCO" (e nota 3).
 - **Dados:** `stg_rfb__empresas.natureza_juridica_codigo` e `.ente_federativo_responsavel`; `stg_rfb__naturezas`.
   Universo: empresas, pelo grupo e pela natureza; natureza vazia conta como "demais".
-- **Conceito:** [Natureza jurídica](camada-semantica.md#natureza-jurídica).
+- **Conceito:** [Natureza jurídica](../conceitos.md#natureza-jurídica).
 - **Leitura de uma violação:** no grupo 1, ente vazio é erro de dado ou entidade sem um único ente responsável, como
   o consórcio público (1210, 1228), que é interfederativo; fora dele, ente preenchido é erro de dado ou natureza
   alterada sem limpar o campo.
@@ -492,7 +495,7 @@ colchetes estão em [Fontes](#fontes).
 - **Fonte:** regra do projeto sobre o campo "capital social da empresa" [RFB-Leiaute].
 - **Dados:** `stg_rfb__empresas.capital_social` e `.porte_codigo`. Universo: empresas com capital preenchido, por
   porte.
-- **Conceito:** [Capital social](camada-semantica.md#capital-social): `capital_social_total` soma só as matrizes.
+- **Conceito:** [Capital social](../conceitos.md#capital-social): `capital_social_total` soma só as matrizes.
 - **Leitura de uma violação:** erro de dado ou de conversão do separador decimal.
 - **Analysis:** `transform/analyses/regras_negocio/rn_21_capital_social_nao_negativo.sql`.
 
@@ -510,7 +513,7 @@ testes ao build.
 - **Fonte:** regra do projeto, o grão declarado de [`rfb.simples`](dicionario-dados.md#rfb-simples) ("empresa
   (`cnpj_raiz`) por mês de referência").
 - **Dados:** `stg_rfb__simples.cnpj_raiz` (a fonte já filtrada pelo mês). Universo: linhas do mês.
-- **Conceito:** [Simples Nacional e MEI](camada-semantica.md#simples-nacional-e-mei).
+- **Conceito:** [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei).
 - **Leitura de uma violação:** arquivo duplicado na pasta do mês ou erro de dado; a raiz repetida multiplicaria
   estabelecimentos no left join de `int_estabelecimentos__enriquecidos`.
 - **Analysis:** `transform/analyses/regras_negocio/rn_22_grao_simples.sql`.
@@ -526,7 +529,7 @@ testes ao build.
 - **Tipo:** estrutural.
 - **Fonte:** regra do projeto (`meta.grao` dos modelos).
 - **Dados:** as três tabelas do gold. Universo: linhas de cada tabela.
-- **Conceito:** [A3](camada-semantica.md#a3-ciclo-de-vida) (aberturas, encerramentos, coortes).
+- **Conceito:** [ciclo de vida](../conceitos.md#3-ciclo-de-vida) (aberturas, encerramentos, coortes).
 - **Leitura de uma violação:** limite do projeto (erro de modelagem: um `group by` sem uma das chaves).
 - **Analysis:** `transform/analyses/regras_negocio/rn_23_grao_marts.sql`.
 
@@ -548,7 +551,7 @@ testes ao build.
   `int_estabelecimentos__enriquecidos`, o mesmo das demais regras), para o grão valer sobre a fotografia do mês. Um
   duplicado de um mês antigo não conta, e apagar meses antigos não muda o total. As outras cinco não têm mês: a Base
   dos Dados e o seed são uma versão só, e o histórico de testes acumula execuções por desenho.
-- **Conceito:** [A1](camada-semantica.md#a1-as-bases).
+- **Conceito:** [as bases](../conceitos.md#1-as-bases).
 - **Leitura de uma violação:** na vizinhança é comportamento conhecido da fonte: o grão declarado avisa que ela
   "pode repetir o par" e a ponte `bridge_municipio_vizinho` deduplica (RDIC-02). Nas demais, erro de dado da fonte
   ou arquivo duplicado.
@@ -587,8 +590,8 @@ testes ao build.
   `mart_emprego_setor_municipio` esses pares ficam, com a descrição da classe pelo CEMPRE. Lê o
   CEMPRE pela fonte, e não pelo staging, para rodar sobre um warehouse que ainda não tem os modelos do IBGE.
   Sem `ibge/` (modo offline) o CEMPRE é vazio e a regra avalia só os pares da RFB, sem violação.
-- **Conceito:** [CEMPRE](camada-semantica.md#cempre-unidades-locais-e-pessoal-ocupado) e
-  [CNAE principal e secundárias](camada-semantica.md#cnae-principal-e-secundárias).
+- **Conceito:** [CEMPRE](../conceitos.md#cempre-unidades-locais-e-pessoal-ocupado) e
+  [CNAE principal e secundárias](../conceitos.md#cnae-principal-e-secundárias).
 - **Leitura de uma violação:** divergência de classificação CNAE entre o IBGE e a RFB (a unidade está noutra classe
   no CNPJ) ou defasagem do cadastro (unidades encerradas entre 31/12 e o mês do extrato), sem afirmar qual. Não é
   erro de nenhuma das bases. Faixas: `sem ativo RFB sem MEI` (onde as violações estão), `sem unidade no CEMPRE`, e
@@ -605,8 +608,8 @@ testes ao build.
 ## Fontes
 
 Conferidas em **2026-10-13** (texto lido na fonte, não só citado). As linhas LC 128, CONCLA e CGSN 190/194 e os
-trechos novos da LC 123 (art. 88) e da IN 2.119 (art. 21, IV) entraram com o lote FRN (RRN-02, RRN-08). As chaves são as da
-[A7 da camada semântica](camada-semantica.md#a7-fontes), onde estão as demais.
+trechos novos da LC 123 (art. 88) e da IN 2.119 (art. 21, IV) entraram com o lote FRN (RRN-02, RRN-08). As chaves são as das
+[fontes dos conceitos](../conceitos.md#7-fontes), onde estão as demais.
 
 | Chave | Fonte | O que sustenta aqui |
 |---|---|---|

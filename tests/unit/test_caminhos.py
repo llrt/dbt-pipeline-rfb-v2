@@ -20,6 +20,8 @@ sys.path.insert(0, str(caminhos.RAIZ_REPO / "scripts"))
         "DICIONARIO_DADOS",
         "QUALIDADE_DADOS",
         "CAMADA_SEMANTICA",
+        "CONCEITOS",
+        "DOC_BLOCKS_CONCEITOS",
         "GUIA_CONSULTA",
         "OPERACAO",
         "CENARIOS_DE_USO",
@@ -70,4 +72,4 @@ def test_padroes_dos_scripts_e_da_cli_vem_das_constantes() -> None:
     assert gerar_qualidade_dados.SAIDA == caminhos.QUALIDADE_DADOS
     assert gerar_catalogo_golden.GUIA == caminhos.GUIA_CONSULTA
     assert gerar_catalogo_golden.CATALOGO == caminhos.GOLDEN_CATALOGO
-    assert verificar_doc_semantica.DOC == caminhos.CAMADA_SEMANTICA
+    assert verificar_doc_semantica.DOCS == (caminhos.CONCEITOS, caminhos.CAMADA_SEMANTICA)

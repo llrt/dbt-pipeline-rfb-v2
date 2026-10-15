@@ -6,8 +6,8 @@
 # que todo nome mapeado existe no `semantic_manifest.json`/`manifest.json` e que toda entidade semântica e
 # toda métrica do manifesto está mapeada; e que toda métrica está num conceito que anota o modelo semântico
 # dela (afinidade: `rfbo:entidadeSemantica`, `rfbo:modeloDbt`, o modelo de `rfbo:colunaDbt` ou a entidade de
-# `rfbo:dimensaoSemantica`). Explicação para leitores: docs/referencia/camada-semantica.md, Parte A.
-# Fontes acessadas em 2026-10-10; as do IBGE (CEMPRE, REGIC), em 2026-10-14 (links completos na Parte A, seção A7).
+# `rfbo:dimensaoSemantica`). Explicação para leitores: docs/conceitos.md.
+# Fontes acessadas em 2026-10-10; as do IBGE (CEMPRE, REGIC), em 2026-10-14 (links completos em docs/conceitos.md, seção 7).
 
 @prefix rfbo: <https://github.com/llrt/dbt-pipeline-rfb-v2/ontologia/rfb_cnpj#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .

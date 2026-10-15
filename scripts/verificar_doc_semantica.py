@@ -1,4 +1,4 @@
-"""Confere a doc da camada semântica (`caminhos.CAMADA_SEMANTICA`) contra o projeto.
+"""Confere as docs da camada semântica (`CONCEITOS` e `CAMADA_SEMANTICA`) contra o projeto.
 
 Verifica identificadores, links e exemplos `mf`.
 
@@ -12,8 +12,8 @@ Uso, depois de `dbt parse` (os exemplos precisam do gold do `make ci` em `RAIZ_D
   - alvo do Makefile, opção do `mf` ou arquivo do repositório;
   - em último caso, texto presente em outro arquivo versionado.
   Trechos com espaços ou símbolos são quebrados em palavras, e cada uma é conferida.
-- Links relativos e âncoras (`#...`) da doc precisam existir, e também os links de outras docs
-  para âncoras dela.
+- Links relativos e âncoras (`#...`) de cada doc precisam existir, e também os links de outras docs
+  para âncoras delas.
 - Com `--executar-exemplos`, roda cada `uv run mf ...` dos blocos de código e exige saída 0.
 
 Sai com código 1 se houver pendência. A parte estática (`verificar_estatico`) também roda no
@@ -33,12 +33,13 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
-from rfb_pipeline.caminhos import CAMADA_SEMANTICA, DIR_DOCS, RAIZ_REPO, relativo
+from rfb_pipeline.caminhos import CAMADA_SEMANTICA, CONCEITOS, DIR_DOCS, RAIZ_REPO, relativo
 
 RAIZ = RAIZ_REPO
-DOC = CAMADA_SEMANTICA
+# A narrativa de negócio (conceitos) e a referência técnica (camada semântica), separadas na v1.5.0.
+DOCS = (CONCEITOS, CAMADA_SEMANTICA)
 TARGET = RAIZ / "transform" / "target"
-EXCLUIDOS_DA_BUSCA = (relativo(DOC),)
+EXCLUIDOS_DA_BUSCA = tuple(relativo(d) for d in DOCS)
 IDENTIFICADOR = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 PALAVRA = re.compile(r"[^\W\d]\w*")
 GRANULARIDADES = ("day", "week", "month", "quarter", "year")
@@ -78,7 +79,7 @@ def _nomes() -> dict[str, set[str]]:
 
 
 def _no_repositorio(texto: str) -> bool:
-    """`texto` aparece em algum arquivo versionado além da própria doc."""
+    """`texto` aparece em algum arquivo versionado além das próprias docs."""
     palavra = ["-w"] if IDENTIFICADOR.fullmatch(texto) else []
     excluidos = [f":!{c}" for c in EXCLUIDOS_DA_BUSCA]
     resultado = subprocess.run(
@@ -146,22 +147,28 @@ def _slug(titulo: str) -> str:
     return re.sub(r"[^\w\- ]", "", titulo.strip().lower()).replace(" ", "-")
 
 
-def verificar_links(texto: str) -> list[str]:
-    ancoras = {_slug(t) for t in re.findall(r"^#{1,6} (.+)$", texto, flags=re.M)}
+def _ancoras(texto: str) -> set[str]:
+    cabecalhos = {_slug(t) for t in re.findall(r"^#{1,6} (.+)$", texto, flags=re.M)}
+    return cabecalhos | set(re.findall(r'<a id="([^"]+)"></a>', texto))
+
+
+def verificar_links(texto: str, doc: Path = CAMADA_SEMANTICA) -> list[str]:
+    ancoras = _ancoras(texto)
     pendencias = []
     for alvo in re.findall(r"\]\(([^)\s]+)\)", texto):
         if alvo.startswith("http"):
             continue
         arquivo, _, ancora = alvo.partition("#")
-        if arquivo and not (DOC.parent / arquivo).exists():
-            pendencias.append(f"link para arquivo inexistente: {alvo}")
+        if arquivo and not (doc.parent / arquivo).exists():
+            pendencias.append(f"{doc.name}: link para arquivo inexistente: {alvo}")
         elif not arquivo and ancora not in ancoras:
-            pendencias.append(f"âncora inexistente: #{ancora}")
+            pendencias.append(f"{doc.name}: âncora inexistente: #{ancora}")
     for outro in DIR_DOCS.rglob("*.md"):
         conteudo = outro.read_text(encoding="utf-8")
-        for ancora in re.findall(re.escape(DOC.name) + r"#([^)\s]+)", conteudo):
+        for ancora in re.findall(r"(?<![\w-])" + re.escape(doc.name) + r"#([^)\s]+)", conteudo):
             if ancora not in ancoras:
-                pendencias.append(f"{outro.relative_to(RAIZ)}: âncora inexistente #{ancora}")
+                origem = outro.relative_to(RAIZ)
+                pendencias.append(f"{origem}: âncora inexistente {doc.name}#{ancora}")
     return pendencias
 
 
@@ -187,29 +194,33 @@ def executar(comando: str) -> tuple[bool, str]:
     return resultado.returncode == 0, (resultado.stdout + resultado.stderr)[-500:]
 
 
-def verificar_estatico(texto: str) -> tuple[list[str], list[tuple[str, str]], list[str]]:
-    """Identificadores e links: (trechos entre crases, itens e categoria, pendências)."""
+def verificar_estatico(
+    docs: tuple[Path, ...] = DOCS,
+) -> tuple[list[str], list[tuple[str, str]], list[str]]:
+    """Identificadores e links das `docs`: (trechos entre crases, itens e categoria, pendências)."""
     nomes = _nomes()
-    sem_blocos = re.sub(r"```.*?```", "", texto, flags=re.S)
+    textos = {doc: doc.read_text(encoding="utf-8") for doc in docs}
+    sem_blocos = re.sub(r"```.*?```", "", "\n".join(textos.values()), flags=re.S)
     trechos = list(dict.fromkeys(re.findall(r"`([^`\n]+)`", sem_blocos)))
     conferidos = [item for trecho in trechos for item in classificar(trecho, nomes)]
     pendencias = [f"identificador inexistente: `{t}`" for t, c in conferidos if c == "PENDENTE"]
-    return trechos, conferidos, pendencias + verificar_links(texto)
+    for doc, texto in textos.items():
+        pendencias += verificar_links(texto, doc)
+    return trechos, conferidos, pendencias
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--executar-exemplos", action="store_true")
     opcoes = parser.parse_args()
-    texto = DOC.read_text(encoding="utf-8")
-    trechos, conferidos, pendencias = verificar_estatico(texto)
+    trechos, conferidos, pendencias = verificar_estatico()
     print(f"Trechos entre crases: {len(trechos)}; itens conferidos: {len(conferidos)}")
     for categoria, total in Counter(c for _, c in conferidos).most_common():
         print(f"  {categoria}: {total}")
     so_no_texto = sorted({t for t, c in conferidos if c == "repositório"})
     print("  só no texto do repositório:", ", ".join(so_no_texto))
     if opcoes.executar_exemplos:
-        comandos = exemplos_mf(texto)
+        comandos = [c for doc in DOCS for c in exemplos_mf(doc.read_text(encoding="utf-8"))]
         print(f"Exemplos `mf`: {len(comandos)}")
         for comando in comandos:
             ok, saida = executar(comando)

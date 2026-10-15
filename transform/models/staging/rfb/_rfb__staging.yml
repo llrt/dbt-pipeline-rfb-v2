@@ -88,6 +88,7 @@ models:
     description: >
       Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opcao_simples` e
       `opcao_mei` viram booleanos (`S`/`N`); datas `00000000` viram NULL.
+      {{ doc('simples_nacional') }} {{ doc('mei') }}
     columns:
       - name: cnpj_raiz
         description: 8 primeiros dígitos do CNPJ (FK lógica para `stg_rfb__empresas.cnpj_raiz`).
@@ -158,6 +159,7 @@ models:
       DECIMAL (`decimal_rfb`), porte inteiro e textos vazios convertidos em NULL. Uma linha por
       `cnpj_raiz` (adaptado, B8): uma raiz duplicada no extrato (2026-09: 08314885, com uma linha sem
       razão social e natureza 0000) é reduzida à linha mais informativa (`empresa_preferida_por_raiz`).
+      {{ doc('empresa') }}
     columns:
       - name: cnpj_raiz
         description: 8 primeiros dígitos do CNPJ; identifica a empresa (não o estabelecimento).
@@ -173,7 +175,8 @@ models:
       - name: razao_social
         description: Razão social (nome oficial/jurídico) da empresa.
       - name: natureza_juridica_codigo
-        description: Código da natureza jurídica, 4 dígitos (FK lógica para `stg_rfb__naturezas.codigo`).
+        description: >
+          Código da natureza jurídica, 4 dígitos (FK lógica para `stg_rfb__naturezas.codigo`). {{ doc('natureza_juridica') }}
       - name: qualificacao_responsavel_codigo
         description: Código de qualificação do responsável pela empresa perante a RFB, 2 dígitos.
       - name: capital_social
@@ -186,7 +189,8 @@ models:
                 uma_linha_por_raiz: true
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: porte_codigo
-        description: "Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio."
+        description: >
+          Código de porte: 0 não informado, 1 micro, 3 pequena, 5 demais; NULL se vazio. {{ doc('porte') }}
         data_tests:
           - accepted_values:
               arguments:
@@ -214,6 +218,7 @@ models:
       `cnpj_completo` com 14 dígitos, datas `YYYYMMDD` -> DATE (`0`, `00000000` e inválidas ->
       NULL), códigos com zeros à esquerda, CNAEs secundários como texto original e como lista.
       **Sem** colunas de contato (`email`, `ddd*`, `tel*`, `fax`) — ADR-0008.
+      {{ doc('estabelecimento') }}
     data_tests:
       # RBP-13: a situação atual não pode ser anterior ao início da atividade (datas nulas ficam de fora).
       - dbt_utils.expression_is_true:
@@ -254,7 +259,8 @@ models:
       - name: nome_fantasia
         description: Nome fantasia do estabelecimento; NULL se vazio.
       - name: situacao_codigo
-        description: "Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada."
+        description: >
+          Situação cadastral: 1 nula, 2 ativa, 3 suspensa, 4 inapta, 8 baixada. {{ doc('situacao_cadastral') }}
         data_tests:
           - accepted_values:
               arguments:
@@ -303,7 +309,8 @@ models:
                 sentinelas: ['00000000', '0']
               config: { severity: warn, store_failures: true, meta: { escopo: adicao }, tags: [escopo_adicao] }
       - name: cnae_principal
-        description: Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`).
+        description: >
+          Subclasse CNAE principal, 7 dígitos (`111301` -> `0111301`). {{ doc('cnae_principal') }}
         data_tests:
           - tamanho_exato:
               arguments:
@@ -312,7 +319,8 @@ models:
       - name: cnaes_secundarios
         description: CNAEs secundários, texto original separado por vírgula; NULL se vazio.
       - name: cnaes_secundarios_lista
-        description: CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver.
+        description: >
+          CNAEs secundários como lista (cada item com `trim` e 7 dígitos); lista vazia se não houver. {{ doc('cnae_secundario') }}
       - name: tipo_logradouro
         description: Tipo de logradouro (RUA, AVENIDA...).
       - name: logradouro
@@ -353,6 +361,7 @@ models:
         description: >
           Data do extrato RFB (do nome interno do arquivo). Base de `data_referencia()` e, portanto,
           de `idade_atual`; não pode ser nula (teste `not_null`, `error`).
+          {{ doc('data_referencia') }}
         data_tests:
           - not_null:
               config: { meta: { escopo: adicao }, tags: [escopo_adicao] }
