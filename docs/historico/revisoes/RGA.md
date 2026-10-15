@@ -444,13 +444,46 @@ RGA-01 é de segurança.
 
 | Achado | Decisão | Lote | Resolvido em |
 |---|---|---|---|
-| **RGA-01** `read_only` e o filtro de SELECT ainda leem qualquer arquivo e acessam a rede | O endurecimento testado pela RGA (`allowed_directories` na raiz dos dados, `enable_external_access=false`, `autoinstall_known_extensions=false`, `lock_configuration=true`) entra como **receita obrigatória** da ferramenta de execução, em `construcao-agente.md` e no guia §3. Teste: as golden queries rodam todas com essa conexão (no raw, depois de trocar `${RAIZ_DADOS}`), e leitura de arquivo fora da raiz, URL `https://`, `COPY ... TO` e `INSTALL` falham. No MotherDuck, dizer o que se aplica e o que não, sem afirmar o que não foi testado | FGA | |
-| **RGA-02** a comparação exata reprova o próprio `sql` do catálogo | O documento traz a função de comparação (`comparar_resposta`) num bloco marcado, com a normalização que o CI usa (decimais, datas ISO, meia-noite → data, ordem das linhas na semântica). Teste: ela é extraída do documento e aprova as 93 golden queries contra `resposta_esperada_fixtures` | FGA | |
-| **RGA-03** ordenar por camada rebaixa a golden query certa | A camada vira **desempate** entre candidatos de relevância próxima, não a ordem principal, como no guia §2. Ajustar o texto e o exemplo | FGA | |
-| **RGA-04** a conferência de esquema com falha fechada não casa nada sem normalizar | O documento traz a função `conferir_esquema` num bloco marcado, com a normalização: tira o `main.`; trata as fontes raw (`rfb.*`, `ibge.*`) como fora do banco; nas semânticas, as tabelas vêm do `sql` ou de um campo novo `tabelas` gerado no catálogo, o que for mais simples e testável. Teste: aprova o warehouse das fixtures e reprova um esquema mutado (coluna removida de uma relação usada) | FGA | |
-| **RGA-05** `checar_saida` (guia §7) deixa passar CNPJ como Decimal, double ou lista | Corrigir a função no guia: normaliza números inteiros em qualquer tipo numérico e percorre listas e structs. Teste com os vazamentos da RGA | FGA | |
-| **RGA-06** o teste só olha a 1ª coluna do §3 | Ampliar a guarda para todo nome de campo do catálogo citado no documento (prosa, §5, §6), com uma convenção explícita de marcação, se for preciso. M2, M3, M4 e M5 têm de morrer | FGA | |
-| **RGA-07** o §6 diz que o manifesto não tem versão | Corrigir: `_manifestos/AAAA-MM.json` tem `versao_pipeline` (versão da ingestão, fora do banco; o manifesto antigo herda a atual). A conclusão (conferência por esquema) fica | FGA | |
-| **RGA-08** MotherDuck: `table_schema='main'` pode trazer outros bancos | Acrescentar `table_catalog = current_database()` na conferência, com a ressalva de que não foi testado sem token | FGA | |
-| **RGA-09** quem liga `identifica_estabelecimento` | Dizer que é política do construtor, desligada por padrão. Hoje nenhuma golden query a usa | FGA | |
-| **RGA-10** tamanhos datados e inconsistências menores | Os tamanhos passam a ser **gerados** (bloco marcado em `construcao-agente.md`, atualizado pelo `make golden` e conferido no CI), o que mata a M6. Também: `checar_saida` dentro da ferramenta de execução, e não como ferramenta do modelo; a origem do mês da base no prompt; o filtro que recusava `FROM tabela`; a pergunta repetida entre core e semântica | FGA | |
+| **RGA-01** `read_only` e o filtro de SELECT ainda leem qualquer arquivo e acessam a rede | O endurecimento testado pela RGA (`allowed_directories` na raiz dos dados, `enable_external_access=false`, `autoinstall_known_extensions=false`, `lock_configuration=true`) entra como **receita obrigatória** da ferramenta de execução, em `construcao-agente.md` e no guia §3. Teste: as golden queries rodam todas com essa conexão (no raw, depois de trocar `${RAIZ_DADOS}`), e leitura de arquivo fora da raiz, URL `https://`, `COPY ... TO` e `INSTALL` falham. No MotherDuck, dizer o que se aplica e o que não, sem afirmar o que não foi testado | FGA | `10f4575`, `69a71d9` (testes), `264d226` |
+| **RGA-02** a comparação exata reprova o próprio `sql` do catálogo | O documento traz a função de comparação (`comparar_resposta`) num bloco marcado, com a normalização que o CI usa (decimais, datas ISO, meia-noite → data, ordem das linhas na semântica). Teste: ela é extraída do documento e aprova as 93 golden queries contra `resposta_esperada_fixtures` | FGA | `7cfd82c`, `69a71d9` (testes) |
+| **RGA-03** ordenar por camada rebaixa a golden query certa | A camada vira **desempate** entre candidatos de relevância próxima, não a ordem principal, como no guia §2. Ajustar o texto e o exemplo | FGA | `cc24ab7` |
+| **RGA-04** a conferência de esquema com falha fechada não casa nada sem normalizar | O documento traz a função `conferir_esquema` num bloco marcado, com a normalização: tira o `main.`; trata as fontes raw (`rfb.*`, `ibge.*`) como fora do banco; nas semânticas, as tabelas vêm do `sql` ou de um campo novo `tabelas` gerado no catálogo, o que for mais simples e testável. Teste: aprova o warehouse das fixtures e reprova um esquema mutado (coluna removida de uma relação usada) | FGA | `5017008` (`tabelas` na semântica), `69a71d9`, `4865e3b` |
+| **RGA-05** `checar_saida` (guia §7) deixa passar CNPJ como Decimal, double ou lista | Corrigir a função no guia: normaliza números inteiros em qualquer tipo numérico e percorre listas e structs. Teste com os vazamentos da RGA | FGA | `381c15c` |
+| **RGA-06** o teste só olha a 1ª coluna do §3 | Ampliar a guarda para todo nome de campo do catálogo citado no documento (prosa, §5, §6), com uma convenção explícita de marcação, se for preciso. M2, M3, M4 e M5 têm de morrer | FGA | `e7c9666` |
+| **RGA-07** o §6 diz que o manifesto não tem versão | Corrigir: `_manifestos/AAAA-MM.json` tem `versao_pipeline` (versão da ingestão, fora do banco; o manifesto antigo herda a atual). A conclusão (conferência por esquema) fica | FGA | `69a71d9` |
+| **RGA-08** MotherDuck: `table_schema='main'` pode trazer outros bancos | Acrescentar `table_catalog = current_database()` na conferência, com a ressalva de que não foi testado sem token | FGA | `69a71d9` |
+| **RGA-09** quem liga `identifica_estabelecimento` | Dizer que é política do construtor, desligada por padrão. Hoje nenhuma golden query a usa | FGA | `10f4575` |
+| **RGA-10** tamanhos datados e inconsistências menores | Os tamanhos passam a ser **gerados** (bloco marcado em `construcao-agente.md`, atualizado pelo `make golden` e conferido no CI), o que mata a M6. Também: `checar_saida` dentro da ferramenta de execução, e não como ferramenta do modelo; a origem do mês da base no prompt; o filtro que recusava `FROM tabela`; a pergunta repetida entre core e semântica | FGA | `5017008` (tamanhos gerados), `cc24ab7` (prompt, mês), `10f4575` (filtro `FROM tabela`), `7cfd82c` (pergunta repetida) |
+
+## Reteste (FGA)
+
+Data: 2026-10-15. Refiz o protótipo (a)–(d) usando só as funções dos blocos marcados de `construcao-agente.md`
+(`conectar_somente_leitura`, `exigir_leitura`, `comparar_resposta`, `conferir_esquema`) e `checar_saida` do guia §7,
+extraídas por regex e executadas como estão, sobre o `.tmp/ci/dados` do `make ci`. A busca é um BM25 próprio (o
+protótipo da RGA ficou no scratch do revisor), então as posições "antes" não são idênticas às da tabela (b) acima.
+
+| Etapa | Resultado |
+|---|---|
+| (a) Índice | 93 documentos; as 93 golden queries têm `tabelas` (as 20 semânticas, pelo `sql`) |
+| (b) Recuperação, pergunta exata | por relevância, a certa fica em 1º em 4 de 5 (core em 2º, atrás da irmã semântica); com a reordenação antiga por camada, raw cairia para 3º e analytics e original para 2º; com a camada só como desempate (notas a menos de 5 % da maior), as posições da relevância se mantêm |
+| (c) Execução | as 93 rodam pela conexão endurecida e passam por `exigir_leitura`; `comparar_resposta` aprova **93 de 93** (antes: 24 falhas cruas); `conferir_esquema` devolve `([], [])` |
+| (c) Ataques | `read_text('/etc/hosts')`, `glob('/Users/*')` e `read_csv('https://…')` passam pelo filtro, mas a conexão recusa (`Permission Error`); `COPY ... TO` fora da raiz, `INSTALL`, `ATTACH` e `SET` são recusados pelos dois; `COPY ... TO` **dentro** da raiz só o filtro recusa (o documento diz isso); `FROM tabela` agora passa |
+| (d) `checar_saida` | as 5 saídas sem problema; controle positivo com os 4 problemas; CNPJ como `int`, `Decimal`, `float`, lista e struct, todos detectados |
+
+### Mutações (FGA)
+
+Aplicadas no documento, testadas e revertidas com `git checkout`.
+
+| # | Mutação | Resultado |
+|---|---|---|
+| M2 | §6: `versao_projeto` → `versao_catalogo` | morta: `assert ['versao_catalogo'] == []` |
+| M3 | §3: `conceitos[].definicoes` → `conceitos[].definicao` | morta: `assert ['conceitos[].definicao'] == []` |
+| M4 | §3: `proibida_na_saida` → `proibido` | morta: `assert ['proibido'] == []` |
+| M5 | §5: `buscar_golden` devolve `chaves` | morta: `assert ['chaves'] == []` |
+| M6 | tamanhos: `124.672` → `9.999` | morta: `rode \`make golden\`` (bloco de tamanhos) |
+| F1 | sem `enable_external_access = false` | morta: `DID NOT RAISE` em `read_text` fora da raiz |
+| F2 | `comparar_resposta` sem a regra da meia-noite | morta: 13 golden queries semânticas reprovadas |
+| F3 | `conferir_esquema` sem tirar o `main.` | morta: 48 "relação ausente no banco" nas fixtures |
+
+Uma variante de F3 só no cálculo do banco só-gold sobrevivia (o caso só-gold ficava sempre verdadeiro); o teste do
+`4865e3b` (staging ausente num banco local tem de ser cobrado) a mata.
