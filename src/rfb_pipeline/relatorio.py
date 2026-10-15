@@ -329,6 +329,9 @@ def renderizar(
     linhas = [
         f"# Relatório do estudo de caso — {local}, CNAE {caso['cnae_alvo']}",
         "",
+        "> **Para quem:** quem quer a resposta da pergunta-guia no dado real do mês · "
+        "**Quando ler:** depois de cada mês novo processado.",
+        "",
         f"> Mês de referência **{caso['mes_referencia']}** (extrato de {caso['data_referencia']}). "
         "Gerado por `rfb relatorio` a partir das analyses `transform/analyses/estudo_caso_*`; "
         "não edite à mão.",

@@ -1,5 +1,7 @@
 # Relatório do estudo de caso — Fundão/ES, CNAE 4741500
 
+> **Para quem:** quem quer a resposta da pergunta-guia no dado real do mês · **Quando ler:** depois de cada mês novo processado.
+
 > Mês de referência **2026-09** (extrato de 2026-09-12). Gerado por `rfb relatorio` a partir das analyses `transform/analyses/estudo_caso_*`; não edite à mão.
 
 ## Respostas das perguntas do estudo (notebook 4 do original)

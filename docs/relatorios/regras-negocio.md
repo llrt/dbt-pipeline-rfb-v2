@@ -1,5 +1,7 @@
 # Relatório das regras de negócio — 2026-09
 
+> **Para quem:** quem usa o dado real e quer saber onde o cadastro foge das regras · **Quando ler:** depois de cada mês novo processado, antes de confiar num recorte.
+
 > Mês de referência **2026-09** (extrato de 2026-09-12). Gerado por `rfb regras` a partir das analyses `transform/analyses/regras_negocio/` e do catálogo [`docs/referencia/regras-negocio.md`](../referencia/regras-negocio.md); não edite à mão acima da seção "Interpretação". Só contagens: nenhum CNPJ, nome ou CPF ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)). Inconsistências não falham o comando nem o build ([ADR-0020](../adr/0020-regras-de-negocio.md)).
 
 ## Resumo

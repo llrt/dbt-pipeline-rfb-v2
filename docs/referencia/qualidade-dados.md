@@ -1,5 +1,7 @@
 # Qualidade de dados — catálogo de checks
 
+> **Para quem:** quem mantém o pipeline ou precisa saber o que um teste garante · **Quando ler:** ao investigar um aviso ou uma falha de teste.
+
 > Gerado por `scripts/gerar_qualidade_dados.py` a partir do manifesto dbt; não edite à mão.
 > Estratégia: [ARCHITECTURE.md §6](../../ARCHITECTURE.md); severidades: [ADR-0009](../adr/0009-estrategia-testes.md);
 > escopo: [ADR-0006](../adr/0006-marcacao-escopo.md). Resultados de cada execução ficam em

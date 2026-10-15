@@ -278,6 +278,9 @@ def renderizar(
     linhas = [
         f"# Relatório das regras de negócio — {mes_referencia}",
         "",
+        "> **Para quem:** quem usa o dado real e quer saber onde o cadastro foge das regras · "
+        "**Quando ler:** depois de cada mês novo processado, antes de confiar num recorte.",
+        "",
         f"> Mês de referência **{mes_referencia}** (extrato de {data_referencia}). Gerado por "
         "`rfb regras` a partir das analyses `transform/analyses/regras_negocio/` e do catálogo "
         f"[`{relativo(CATALOGO_REGRAS)}`]({link_de(RELATORIO_REGRAS_NEGOCIO, CATALOGO_REGRAS)}); "
