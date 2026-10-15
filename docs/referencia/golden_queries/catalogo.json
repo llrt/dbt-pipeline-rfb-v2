@@ -1,6 +1,6 @@
 {
   "formato": 1,
-  "versao_projeto": "1.5.0",
+  "versao_projeto": "1.5.1",
   "descricao": "Golden queries por conceito e camada (ADR-0023). Gerado por scripts/gerar_catalogo_golden.py; não edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o MetricFlow gera (`mf query --explain`), que roda sem o repositório e só lê. Relações em `main.<nome>` (o schema do warehouse local e do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes raw. Guia de uso: docs/uso/consulta-agente.md. Cada conceito traz em `definicoes` a definição curta (doc blocks do dbt, a mesma das descrições dos modelos).",
   "marcador_raiz_dados": "${RAIZ_DADOS}",
   "camadas": [
