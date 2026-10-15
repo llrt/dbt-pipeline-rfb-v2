@@ -1,11 +1,12 @@
-# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1 e pós-v1 até a v1.3.0)
+# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1 e pós-v1 até a v1.4.0)
 
 > Retrospectiva do líder (agente Traycer "Migração dbt DuckDB MVP v2", Claude Opus 5.5).
 > - Seções 1–7: v1, de 28/09 a 01/10/2026.
 > - Seção 8: pós-v1, de 01/10 a 13/10/2026 (v1.0.0 a v1.3.0).
+> - Seção 9: pós-v1.3, de 13/10 a 14/10/2026 (avaliações e v1.4.0).
 >
-> Custos por agente: [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md). Decisões: `.specs/STATE.md` (AD-001..AD-040)
-> e `docs/adr/` (0001–0020). Revisões: `docs/revisoes/`.
+> Custos por agente: [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md). Decisões: `.specs/STATE.md` (AD-001..AD-043)
+> e `docs/adr/` (0001–0022). Revisões: `docs/revisoes/`.
 
 ## 1. O que foi entregue
 
@@ -187,3 +188,73 @@ projeto: **US$ 404,15 ≈ R$ 2.082**, dos quais US$ 10,55 foram desembolso real.
 
 Por versão, sem o líder: v1.1.0 US$ 35,39; v1.2.0 US$ 15,38; v1.3.0 US$ 28,78. Detalhe em
 [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md#pós-v1-v110-a-v130).
+
+## 9. Pós-v1.3: avaliações e v1.4.0 (13/10 a 14/10/2026)
+
+### 9.1 O que foi entregue
+
+| Item | PR | Entrega |
+|---|---|---|
+| Avaliação do nível de bairro | [#6](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/6) | ADR-0021 **adiada**. O `bairro` da RFB é texto livre: 14 % dos ativos em "CENTRO" e 88 % dos pares município × bairro com menos de 5 ativos. A chave oficial exigiria o CNEFE (pesado, decenal) e uma emenda ao ADR-0008, a um custo estimado de US$ 150 a 250. O ADR traz os gatilhos para reabrir |
+| Avaliação de fontes gratuitas | — | Princípio do usuário: **nenhuma base paga**, para não transferir o custo a quem usa nem contornar a cobrança da fonte. As tabelas da antiga Fase 2 não eram pagas na origem; só o caminho pelo BigQuery era. O pacote 1 saiu dessa avaliação |
+| v1.4.0 (minor) | [#7](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/7) | Enriquecimento com fontes gratuitas, direto da origem (ADR-0022, que encerra a Fase 2 do ADR-0015). CEMPRE (SIDRA 9528), renda do Censo 2022 (SIDRA 10295), REGIC 2018 (geoftp) e VA por atividade entram em `dim_municipio`, na ponte de destinos de compra, no mart CEMPRE × RFB e no polo de compras da área de mercado. Também: a RN-30, 5 analyses de cenário com `docs/CENARIOS_DE_USO.md` e as opções `--renovar-ibge` e `--sem-ibge` |
+
+### 9.2 Processo
+- **A dinâmica delegada ficou completa desde o início:** IBG1 e IBG2 (implementação), RIBG (revisão, Opus alto),
+  FIBG e FIBG2 (correções), todos agentes novos. O líder confirmou as fontes na API antes do brief e verificou cada
+  lote com `make ci`, uma mutação própria e a conferência de que o dado real não foi tocado.
+- **A verificação do líder pegou o que o autor não via.** O IBG1 relatou o CI verde, mas as fixtures não eram
+  determinísticas: o openpyxl grava a hora no `core.xml`, e o teste só passa quando as duas gerações caem no mesmo
+  segundo.
+- **Minor ou major virou critério explícito.** O usuário perguntou, e o líder definiu a "interface pública": gold,
+  CLI, variáveis de ambiente, formato do `--origem-local`, camada semântica e requisitos. O brief do IBG2 ganhou a
+  condição de compatibilidade do modo offline.
+- **A compatibilidade quebrou duas vezes mesmo assim, por caminhos que ninguém listou:**
+  - a RIBG achou o RIBG-01 (bloqueante): um `RAIZ_DADOS` da v1.3, como o do usuário, sem `raw/ibge`, quebrava
+    `pipeline --sem-ingestao`, `atualizar` sem mês novo e `regras`;
+  - o Greptile achou o `rfb relatorio` num warehouse da v1.3 ainda não reconstruído.
+
+  A condição do brief cobria só o `--origem-local`.
+- **O usuário mudou o escopo no meio do lote** (analyses de demonstração e cenários de uso). O adendo foi para o
+  agente em curso, com o mesmo padrão de testes e mutações, sem abrir lote novo.
+
+### 9.3 Achados de produto
+1. **Fundão não tem loja de tintas porque compra fora.** A REGIC mostra os moradores comprando bens duráveis em Serra
+   (45 %) e Vitória (38 %). Serra tem 45 ativos no CNAE 4741500, e o CEMPRE confirma 33 unidades locais e 196 pessoas.
+2. **O CEMPRE exclui MEI** (metodologia do IBGE). A RN-30 compara só com os ativos sem MEI: são 2.101 divergências em
+   1.073.268 pares município × classe (0,20 %), concentradas em educação e administração pública.
+3. **O VA por atividade só vai até 2021,** enquanto o PIB total vai até 2023. O IBGE ainda não publicou as aberturas.
+4. **A REGIC não mede evasão total:** o % é a divisão entre destinos de fora do município. Em 314 de 5.503 municípios,
+   o polo de compras fica em outra UF.
+5. **O sigilo do CEMPRE é grande:** 1.099 municípios só na classe 47.41-5. O pessoal ocupado nunca é imputado.
+
+### 9.4 O que custou caro
+
+| Problema | Efeito | Lição |
+|---|---|---|
+| Compatibilidade de upgrade testada só pelo caminho citado no brief | 1 bloqueante na revisão e 1 P1 no Greptile, dois lotes de correção | Para minor, o brief lista **todo comando** com o estado da v(n−1) (dados, warehouse, raw) e pede um teste de integração por comando |
+| Fixtures não determinísticas (hora no `core.xml`) | uma volta extra ao IBG1 | Teste de determinismo com relógio forçado, não "duas gerações seguidas" |
+| CEMPRE nacional: 337 consultas, 45 min, 2,1 GB de JSON | primeiro `atualizar` de 1 a 2 h e dependência do IBGE no mensal | Fonte lenta tem opção de desligar (`--sem-ibge`), falha tolerada e sonda espaçada desde o primeiro desenho |
+| Adendo de escopo durante o lote | o IBG2 ficou com o maior custo do período | Aceitável: mais barato que um lote novo, mas a estimativa precisa prever esse tipo de pedido |
+
+### 9.5 Lições
+1. **Avaliar antes de construir rende.** Um ADR de avaliação de cerca de US$ 9 evitou um incremento de US$ 150 a 250
+   que agregava pouco. O usuário pediu a avaliação crítica, e ela mudou a decisão.
+2. **O princípio de custo zero para quem usa** vira critério de arquitetura: fonte primária gratuita, sem conta em
+   nuvem nem chave.
+3. **O critério de versão é um contrato verificável:** listar a interface pública e testar o upgrade por comando.
+4. **Confirmar a fonte antes do brief** (tabelas da SIDRA, símbolos, limites, oráculos) deu ao implementador valores
+   de referência para conferir. Todos bateram no dado real.
+
+### 9.6 Custo (resumo)
+Período: **US$ 97,27 ≈ R$ 488**, todo no Claude Opus 5.5 (equivalente de API da assinatura). Acumulado do projeto:
+**US$ 501,42 ≈ R$ 2.571**, dos quais US$ 10,55 foram desembolso real.
+
+| Papel | US$ | % |
+|---|---:|---:|
+| Implementação (IBG1, IBG2) | 43,20 | 44 % |
+| Líder (3,0 h ativas: avaliações US$ 9,26; orquestração da v1.4.0 US$ 17,98) | 27,24 | 28 % |
+| Correções (FIBG, FIBG2) | 18,01 | 19 % |
+| Revisão independente (RIBG) | 8,82 | 9 % |
+
+Detalhe em [docs/CUSTOS_AGENTES.md](docs/CUSTOS_AGENTES.md#pós-v13-avaliações-e-v140).
