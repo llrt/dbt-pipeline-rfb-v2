@@ -7,7 +7,7 @@ Formato do [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 [Versionamento Semântico](https://semver.org/lang/pt-BR/). O detalhe completo está na release de cada versão; o
 histórico de como o projeto foi feito, em [docs/historico/](docs/historico/README.md).
 
-## [Não lançada] — v1.5.1
+## [1.5.1] — 2026-10-15
 
 ### Adicionado
 - [Construção do agente de consulta](docs/uso/construcao-agente.md): guia para quem programa o agente (o que
@@ -32,6 +32,8 @@ histórico de como o projeto foi feito, em [docs/historico/](docs/historico/READ
   guia §3 descreve a conexão endurecida que o agente recebe.
 - `comparar_resposta` (guia de construção §7) convertia texto com cara de número em número em todas as camadas e
   aprovava o código `'5'` contra `'05'`: agora só a semântica passa pelo texto do CSV do `mf`, como no gerador.
+
+Release: [v1.5.1](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.5.1)
 
 ## [1.5.0] — 2026-10-15
 
