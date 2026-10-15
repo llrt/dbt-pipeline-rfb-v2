@@ -4,8 +4,9 @@
 Uso: `uv run python scripts/verificar_links_docs.py [arquivo.md ...]` (sem argumentos, todos os
 `.md` de `git ls-files`: README, raiz, `docs/`, `.specs/`, `transform/`). Sai com 1 e lista cada
 problema (`arquivo:linha: ...`) se um link relativo aponta para arquivo inexistente ou se a âncora
-não existe no destino. O nome do arquivo tem de bater também na caixa (`os.listdir`), porque no
-macOS o disco não distingue `OPERACAO.md` de `operacao.md` e o CI no Linux distingue. URLs externas
+não existe no destino. O nome do arquivo tem de bater também na caixa (`os.listdir`), com o mesmo resultado em
+qualquer sistema de arquivos: um link que só difere na caixa é sempre "caixa diferente" (o macOS
+não distingue `OPERACAO.md` de `operacao.md`; o Linux do CI distingue). URLs externas
 (`http:`, `https:`, `mailto:` etc.) são ignoradas. O slug dos cabeçalhos segue o GitHub: minúsculas,
 sem pontuação, espaços viram hífens, acentos são mantidos e repetidos ganham `-1`, `-2`.
 Python puro, sem dependência.
@@ -88,16 +89,31 @@ def links(texto: str) -> list[tuple[int, str]]:
     return [(n, d.strip("<>")) for n, d in achados]
 
 
-def existe_com_a_caixa_certa(alvo: Path) -> bool:
-    """`alvo` (absoluto, resolvido) existe e cada parte do caminho bate na caixa com o disco."""
-    if not alvo.exists():
-        return False
+def _partes(alvo: Path) -> tuple[Path, tuple[str, ...]]:
     base = RAIZ if alvo.is_relative_to(RAIZ) else Path(alvo.anchor)
-    pasta = base
-    for parte in alvo.relative_to(base).parts:
-        if parte not in os.listdir(pasta):
+    return base, alvo.relative_to(base).parts
+
+
+def existe_com_a_caixa_certa(alvo: Path) -> bool:
+    """Cada parte do caminho `alvo` (absoluto, resolvido) consta, com a mesma caixa, em `os.listdir`."""
+    pasta, partes = _partes(alvo)
+    for parte in partes:
+        if not pasta.is_dir() or parte not in os.listdir(pasta):
             return False
         pasta = pasta / parte
+    return True
+
+
+def _existe_ignorando_caixa(alvo: Path) -> bool:
+    """Caminho existe se a caixa for ignorada, com o mesmo resultado em qualquer sistema de arquivos."""
+    pasta, partes = _partes(alvo)
+    for parte in partes:
+        if not pasta.is_dir():
+            return False
+        achado = next((n for n in os.listdir(pasta) if n.lower() == parte.lower()), None)
+        if achado is None:
+            return False
+        pasta = pasta / achado
     return True
 
 
@@ -112,13 +128,12 @@ def verificar_arquivo(arquivo: Path, cache: dict[Path, set[str]] | None = None) 
         caminho, _, ancora = destino.partition("#")
         if caminho:
             alvo = (arquivo.parent / unquote(caminho)).resolve()
-            if not alvo.exists():
-                problemas.append(f"{arquivo}:{numero}: link quebrado: {destino}")
-                continue
             if not existe_com_a_caixa_certa(alvo):
-                problemas.append(
-                    f"{arquivo}:{numero}: link com caixa diferente do arquivo: {destino}"
-                )
+                if _existe_ignorando_caixa(alvo):
+                    mensagem = "link com caixa diferente do arquivo"
+                else:
+                    mensagem = "link quebrado"
+                problemas.append(f"{arquivo}:{numero}: {mensagem}: {destino}")
                 continue
         else:
             alvo = arquivo.resolve()

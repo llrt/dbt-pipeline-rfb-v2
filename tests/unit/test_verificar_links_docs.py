@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -52,17 +53,43 @@ def test_link_quebrado_e_reportado_com_linha(tmp_path: Path) -> None:
     assert "a.md:2: link quebrado: nao-existe.md" in problema
 
 
-def test_link_com_caixa_errada_e_reportado_mesmo_em_disco_sem_caixa(tmp_path: Path) -> None:
-    """RD-08: no macOS `OPERACAO.md` "existe" quando o arquivo é `operacao.md`; no Linux, não."""
+def _caixa_errada(tmp_path: Path) -> tuple[Path, list[str]]:
     _escrever(tmp_path, "uso/operacao.md", "# Operação\n")
     a = _escrever(
-        tmp_path, "a.md", "[x](uso/operacao.md)\n[y](uso/OPERACAO.md)\n[z](USO/operacao.md)\n"
+        tmp_path,
+        "a.md",
+        "[x](uso/operacao.md)\n[y](uso/OPERACAO.md)\n[z](USO/operacao.md)\n[w](uso/nada.md)\n",
     )
-    problemas = v.verificar_arquivo(a)
-    assert [p.split("a.md:")[1] for p in problemas] == [
+    return a, [
         "2: link com caixa diferente do arquivo: uso/OPERACAO.md",
         "3: link com caixa diferente do arquivo: USO/operacao.md",
+        "4: link quebrado: uso/nada.md",
     ]
+
+
+def test_link_com_caixa_errada_e_reportado_em_qualquer_disco(tmp_path: Path) -> None:
+    """RD-08: mesmo resultado em disco com caixa (Linux) e sem caixa (macOS)."""
+    a, esperado = _caixa_errada(tmp_path)
+    assert [p.split("a.md:")[1] for p in v.verificar_arquivo(a)] == esperado
+
+
+@pytest.mark.parametrize("disco_ignora_caixa", [True, False], ids=["macos", "linux"])
+def test_link_com_caixa_errada_em_disco_simulado(
+    tmp_path: Path, monkeypatch, disco_ignora_caixa: bool
+) -> None:
+    """Simula `Path.exists` do macOS (ignora a caixa) e do Linux (exato): resultado idêntico."""
+    a, esperado = _caixa_errada(tmp_path)
+    real = Path.exists
+
+    def exists_simulado(self: Path, **kw) -> bool:
+        pai = self.parent
+        if not real(pai, **kw):
+            return False
+        comparar = str.lower if disco_ignora_caixa else str
+        return any(comparar(n) == comparar(self.name) for n in os.listdir(pai))
+
+    monkeypatch.setattr(Path, "exists", exists_simulado)
+    assert [p.split("a.md:")[1] for p in v.verificar_arquivo(a)] == esperado
 
 
 def test_ancora_inexistente_e_reportada(tmp_path: Path) -> None:
