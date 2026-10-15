@@ -18,7 +18,7 @@
   - [1.6 Segurança de Credenciais e Isolamento de Segredos](#16-segurança-de-credenciais-e-isolamento-de-segredos)
 - [2. Otimização de Performance no DuckDB](#2-otimização-de-performance-no-duckdb)
   - [2.1 Gestão de Memória e Spill to Disk](#21-gestão-de-memória-e-spill-to-disk)
-  - [2.2 Concorrência: DBT_THREADS versus DUCKDB_THREADS](#22-concorrência-dbt_threads-versus-duckdb_threads)
+  - [2.2 Concorrência: DBT_THREADS versus DUCKDB_THREADS](#22-concorrência-dbt_threads-versus-duckdb_threads-após-f3a)
   - [2.3 Formato Parquet e Particionamento Inteligente](#23-formato-parquet-e-particionamento-inteligente)
   - [2.4 Operação: O Mito da Primeira Execução Lenta (P9)](#24-operação-o-mito-da-primeira-execução-lenta-p9)
 - [3. Usos Interessantes e Casos Avançados](#3-usos-interessantes-e-casos-avançados)

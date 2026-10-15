@@ -89,10 +89,11 @@ golden:
 docs:
 	cd transform && uv run dbt docs generate
 
-## lint: ruff + sqlfluff (mkdir -p $(RAIZ_DADOS): o templater dbt do sqlfluff abre RAIZ_DADOS/warehouse.duckdb)
+## lint: ruff + links/âncoras dos .md + sqlfluff (mkdir -p $(RAIZ_DADOS): o templater dbt do sqlfluff abre RAIZ_DADOS/warehouse.duckdb)
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
+	uv run python scripts/verificar_links_docs.py
 	mkdir -p $(RAIZ_DADOS)
 	uv run sqlfluff lint transform/models transform/tests transform/analyses
 

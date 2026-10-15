@@ -158,7 +158,7 @@ Severidade: **bloqueante** (impede o merge), **importante** (corrigir antes de f
 - **Correção sugerida:**
   - No gerador, imprimir as linhas das seeds (o CSV está em `transform/seeds/`, caminho no manifesto) como uma
     tabelinha na seção da seed.
-  - Nas colunas `codigo_*` das dimensões semeadas, citar o domínio ("valores de [`dominio_situacao_cadastral`](#...),
+  - Nas colunas `codigo_*` das dimensões semeadas, citar o domínio ("valores de `[dominio_situacao_cadastral](#...)`,
     sem zero à esquerda, mais `-1`").
   - Corrigir a descrição de `codigo_situacao_cadastral` como foi feito com `codigo_porte`.
 

@@ -727,6 +727,7 @@ transform/
 ├── seeds/                 # Arquivos CSV de domínio estático (dominio_porte.csv, etc.)
 ├── analyses/              # Consultas ad hoc e validações do estudo de caso
 └── target/                # Artefatos gerados: manifest.json, run_results.json, compiled/
+```
 
 ### Convenções da dbt Labs ("How we structure our dbt projects")
 
