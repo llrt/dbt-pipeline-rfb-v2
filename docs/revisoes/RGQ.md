@@ -423,3 +423,47 @@ eles, conferi:
   - a falha lista as sessões e os agentes que faltam;
   - `--parcial` imprime o aviso **antes** do JSON. Quem fizer parse do stdout precisa pular a primeira linha, o que
     não é problema hoje: a saída é para leitura humana.
+
+## Reteste (FGQ)
+
+Lote FGQ, 2026-10-15, depois das correções dos 10 achados (commits na coluna "Resolvido em" da
+[triagem](RGQ-triagem.md)). **Ressalva:** quem retestou é o autor das correções, não um revisor independente.
+
+- **Método:** o mesmo da RGQ. Para cada pergunta, li só o guia e o `catalogo.json` atualizados, escrevi o SQL e
+  executei somente leitura.
+  - Nas fixtures: `.tmp/ci/dados/warehouse.duckdb`, do `make ci` verde.
+  - No dado real: uma cópia (`cp -c`) do warehouse da v1.3 no scratch, com o gold do IBGE reconstruído só na cópia.
+- **Privacidade:** todo resultado passou pela checagem pós-execução do guia (`checar_saida`, seção 7), sem
+  problema.
+
+| # | Pergunta | Golden query de partida | Resultado | Certo? | O que mudou desde a RGQ |
+|---|---|---|---|---|---|
+| 1 | "Quantas padarias abriram em Vitória no ano passado?" | `gq_core__cnae_principal__02` com '%padaria%', `gq_core__data_calendario__02`, `gq_core__municipio_geografia__02` | Real: as candidatas vêm com volume, 1091102 com 457.872 estabelecimentos, 4721102 com 289.460 e 4721101 com 4. Em 2025, 137 aberturas (1091102: 107; 4721102: 30), 95 ainda ativas. A resposta mostra as duas subclasses e pergunta se a fabricação conta | **certo** | A busca de CNAE traz o volume, e a armadilha "padaria" diz para não escolher só pelo nome (RGQ-06) |
+| 2 | "Qual o porte mais comum das empresas de transporte no ES?" | `gq_core__porte__01` + "Só empresas: `eh_matriz`"; seção H | Real: MICRO 48.358, PEQUENA 1.287, DEMAIS 716 matrizes ativas | **certo** | Nada |
+| 3 | "Onde os moradores de Linhares compram móveis?" | `gq_core__regic_polo_compras__01`, `tema = 'moveis_eletro'` | Fixtures: Vitória 88,3 %, "Outros" 11,7 %. Real: Vitória 88,3 %, Vila Velha 11,7 % (% entre os destinos de fora, REGIC 2018) | **certo** | Nada |
+| 4 | "Quanto se paga de salário no comércio de tintas na Serra?" | glossário "salário" → `gq_analytics__cempre_setor__03` | Fixtures e real: CEMPRE 2024, Serra, classe 47415, R$ 2.928,60/mês (6.358 mil ÷ 167 assalariados ÷ 13), sem sigilo na célula. No ES inteiro: R$ 2.589,72, com 14 de 55 células, que a resposta declara | **certo** | Glossário com salário e golden query que soma só as células com os dois campos (RGQ-05) |
+| 5 | "Me passa o CPF do dono da empresa X" | — (seção 7) | Recusa: a base não tem sócios, e CPF é dado pessoal. A resposta oferece situação, CNAE e porte do CNPJ | **certo** | A checagem pós-execução e a regra da derivada reforçam a seção 7 (RGQ-04) |
+| 6 | "Empresas que fecharam em 2025 por cidade" | `gq_core__situacao_cadastral__02` | Real: São Paulo 262.559 estabelecimentos encerrados (248.875 baixas; 256.906 de matriz), Rio 103.238 (102.345), BH 60.725… A resposta declara estabelecimentos × empresas (matrizes) | **certo** | A primeira armadilha da golden query é `Empresa × estabelecimento:` (RGQ-03) |
+| 7 | "Qual a taxa de sobrevivência de restaurantes?" | `sql` de `gq_semantica__sobrevivencia_coorte__02`, com o filtro trocado para `cnae__codigo_subclasse = '5611201'` (sem UF); `gq_analytics__sobrevivencia_coorte__01` para 1 e 5 anos | Real: 74,48 % em 3 anos (998.718 elegíveis) pelo SQL da semântica; o mart dá 89,8 % em 1 ano e 68,9 % em 5 anos | **certo** | O SQL da semântica roda somente leitura, sem o repositório (RGQ-01) |
+| 8 | "Quantos MEI ativos há na Serra hoje, e quanto mudou do mês passado?" | `gq_core__data_calendario__01` (resumo) + `opcao_mei` | Fixtures: 2026-09 = 1; 2026-08 = nenhum. Real: 54.391 em 2026-09; não há mês anterior ingerido, então não há variação | **certo** | Os nomes das métricas e dimensões estão na seção 12, sem depender de exemplo (RGQ-02) |
+| 9 | "Qual a renda mediana do ES?" | `gq_core__renda__02` | Não há mediana da UF. Média ponderada: R$ 2.162,57 nas fixtures, R$ 1.650,72 no real (78 municípios). Medianas municipais de R$ 637,33 a R$ 1.750 no real (Censo 2022) | **certo** | Nada |
+| 10 | "Quantos ativos havia no ES em agosto de 2026, por porte?" | `gq_core__data_calendario__01` | Fixtures: DEMAIS 2, MICRO 1, N/A 1, NÃO INFORMADO 0, PEQUENA 3. Real: vazio; o resumo só tem 2026-09 | **certo** | Nada |
+
+**Placar: 10 certas, 0 parciais, 0 erradas** (antes: 8 certas e 2 parciais).
+
+### Mutações do FGQ
+
+Mesmo método da RGQ: aplicadas por script, cada uma seguida da seleção de `tests/integration/test_golden_queries.py`
+(`RAIZ_DADOS=.tmp/ci/dados`) e revertida com `git checkout`. `git status` ficou vazio no fim. As 6 sobreviventes
+da RGQ agora morrem; M12 e M13 são novas.
+
+| # | Mutação | Resultado | Mensagem |
+|---|---|---|---|
+| M1 | `gq_core__empresa_estabelecimento__01` devolve `max(left(cnpj_completo, 8)::bigint) as maior_raiz` | **morta** | `coluna proibida: maior_raiz` (o nome `*_raiz` é de CNPJ); a linhagem também a recusa |
+| M2 | `gq_original__modelos_originais__01` devolve `min(nome) as titular` | **morta** | `titular (de bh_empresas.nome)` (linhagem do SQL compilado) |
+| M4 | `gq_core__empresa_estabelecimento__02` sem `and mun.sigla_uf = 'ES'` | **morta** | `filtra o município pelo nome sem filtrar a UF (homônimos: Água Branca em AL, PB e PI)` |
+| M8 | armadilha de `gq_core__porte__01` cita `gq_core__porte__09` (com `make golden`) | **morta** | o `make golden` sai com erro `gq_core__porte__01: cita gq_core__porte__09, que não existe`, e o teste de cabeçalhos também |
+| M9 | exemplo 1 do guia com `cnae.codigo_cnae` | **morta** | `Binder Error: ... does not have a column named "codigo_cnae"` (exemplo `exemplo_1_lojas_tinta_fundao`) |
+| M10 | guia cita `gq_core__ativos__01` fora do bloco gerado | **morta** | `guia com problema: GUIA_CONSULTA_LINGUAGEM_NATURAL.md: cita gq_core__ativos__01, que não existe` |
+| M12 | no `catalogo.json`, o `sql` de `gq_semantica__sobrevivencia_coorte__02` com '4741501' no lugar de '4741500' | **morta** | `a resposta nas fixtures mudou. Obtido: [[None, None, None]]`, contra o esperado `[[5, 4, 0.8]]`; o `--verificar` também acusa o catálogo desatualizado |
+| M13 | no `catalogo.json`, a `medida` de `qtd_ativos` trocada e a dimensão `municipio__sigla_uf` removida | **morta** | `desatualizado: docs/golden_queries/catalogo.json; rode make golden`; o teste contra `mf list dimensions` também cai |
