@@ -97,8 +97,16 @@ que o MetricFlow gera para aquela consulta (`mf query --explain`), testado no CI
 - Só o **gold** é publicado: `"<banco>".main.<tabela>`, uma **tabela** (não view) por arquivo de `gold/`, inclusive
   `fct_resumo_mensal` com todas as partições (a coluna `mes_referencia` vem da partição). Não há raw, staging,
   intermediate nem seeds: as golden queries dessas camadas não rodam lá.
-- Conecte com `ATTACH 'md:<banco>'` (token em `MOTHERDUCK_TOKEN`) e use `main.<tabela>` depois de `USE <banco>`. Use
-  um token de leitura e só `SELECT`.
+- **Somente leitura vem do token, não da conexão.** Crie na interface do MotherDuck um **Read Scaling token**
+  ([doc oficial](https://motherduck.com/docs/key-tasks/authenticating-and-connecting-to-motherduck/read-scaling/)):
+  ele só permite leitura (`SELECT`) e recusa escrita, criação de banco e `ATTACH`/`DETACH`. O token comum do
+  MotherDuck é de leitura **e escrita**: não o use. O `read_only=True` da seção acima **não** se aplica ao `md:`.
+- Conecte com o token em `MOTHERDUCK_TOKEN` (ou `motherduck_token`,
+  [autenticação](https://motherduck.com/docs/key-tasks/authenticating-and-connecting-to-motherduck/authenticating-to-motherduck/)):
+  em Python, `duckdb.connect("md:<banco>")`; na CLI, `duckdb "md:<banco>"`. Numa sessão DuckDB já aberta, a forma é
+  `ATTACH 'md:<banco>'; USE <banco>;`, mas com o Read Scaling token o banco precisa já estar no catálogo da conta
+  (a publicação do projeto o deixa lá), porque o token não permite `ATTACH` de banco novo. Depois do `USE`, o SQL do
+  catálogo roda como está (`main.<tabela>`). Só `SELECT`.
 - O `sql` das golden queries semânticas roda no MotherDuck como no local: só lê `main.<tabela>` do gold. O
   `mf query` não roda lá (nem no ambiente do agente, seção 2).
 

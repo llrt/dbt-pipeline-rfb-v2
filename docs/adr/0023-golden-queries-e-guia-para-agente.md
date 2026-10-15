@@ -95,3 +95,6 @@ catálogo. As analyses de `golden/` ficam fora da compilação do relatório do 
   uma no staging (a série da estimativa); as outras camadas têm motivo, inclusive a semântica, que não tem métrica
   nem dimensão de população. A primeira usa Água Branca/AL, que tem homônimo nas fixtures, e o gerador recusa SQL
   que filtra o município pelo nome sem filtrar a UF (vale também para os exemplos do guia).
+- **MotherDuck (RGQ-09).** O guia nomeia o *Read Scaling token* (só leitura, recusa escrita e `ATTACH`/`DETACH`), dá
+  `duckdb.connect("md:<banco>")` e `ATTACH 'md:<banco>'; USE <banco>;`, diz que o `read_only=True` não vale para o
+  `md:` e aponta a documentação oficial.
