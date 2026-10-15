@@ -268,7 +268,9 @@ def conferir_esquema(conexao, catalogo):
         banco.setdefault(tabela, {})[coluna] = tipo
     # Banco só com o gold (MotherDuck): as relações de staging, intermediate e seed não são esperadas.
     so_gold = not any(
-        r["nome"].removeprefix("main.") in banco for r in catalogo["relacoes"] if r["camada"] not in CAMADAS_GOLD
+        r["nome"].removeprefix("main.") in banco
+        for r in catalogo["relacoes"]
+        if r["camada"] not in CAMADAS_GOLD
     )
     problemas, divergentes = [], set()
     for relacao in catalogo["relacoes"]:
@@ -285,12 +287,16 @@ def conferir_esquema(conexao, catalogo):
             problemas.append(f"{nome}.{coluna}: coluna a mais no banco (banco mais novo)")
         for coluna in sorted(esperado.keys() & banco[nome].keys()):
             if esperado[coluna] != banco[nome][coluna]:
-                problemas.append(f"{nome}.{coluna}: tipo {banco[nome][coluna]}, o catálogo diz {esperado[coluna]}")
+                problemas.append(
+                    f"{nome}.{coluna}: tipo {banco[nome][coluna]}, o catálogo diz {esperado[coluna]}"
+                )
         if any(p.startswith(f"{nome}.") for p in problemas):
             divergentes.add(nome)
     # `tabelas` com ponto (`rfb.empresas`) é fonte raw, lida por arquivo: fora do banco e desta conferência.
     bloqueadas = sorted(
-        g["id"] for g in catalogo["golden_queries"] if divergentes & {t for t in g.get("tabelas", []) if "." not in t}
+        g["id"]
+        for g in catalogo["golden_queries"]
+        if divergentes & {t for t in g.get("tabelas", []) if "." not in t}
     )
     return problemas, bloqueadas
 ```
@@ -349,7 +355,10 @@ def comparar_resposta(obtido, esperado, camada):
     if not (camada == "semantica" and not esperado["linhas"]):
         if len(obtido["colunas"]) != len(esperado["colunas"]):
             return False
-    linhas = [Counter(tuple(_normalizar(v) for v in linha) for linha in r["linhas"]) for r in (obtido, esperado)]
+    linhas = [
+        Counter(tuple(_normalizar(v) for v in linha) for linha in r["linhas"])
+        for r in (obtido, esperado)
+    ]
     return linhas[0] == linhas[1]
 ```
 

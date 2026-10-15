@@ -1,3 +1,4 @@
+# ruff: noqa: E501  (textos e nomes de exemplo)
 """Guia de construção do agente: campos do catálogo citados existem; a versão e os tamanhos batem."""
 
 from __future__ import annotations
@@ -7,6 +8,7 @@ import re
 import sys
 
 import pytest
+
 from rfb_pipeline import __version__, caminhos
 
 sys.path.insert(0, str(caminhos.RAIZ_REPO / "scripts"))
@@ -101,7 +103,9 @@ def test_bloco_de_tamanhos_em_dia() -> None:
     """RGA-10: os tamanhos do §3 são os do catálogo e do guia versionados (o `make golden` os gera)."""
     texto_catalogo = caminhos.GOLDEN_CATALOGO.read_text(encoding="utf-8")
     bloco = g.renderizar_tamanhos(
-        json.loads(texto_catalogo), texto_catalogo, caminhos.GUIA_CONSULTA.read_text(encoding="utf-8")
+        json.loads(texto_catalogo),
+        texto_catalogo,
+        caminhos.GUIA_CONSULTA.read_text(encoding="utf-8"),
     )
     assert bloco in DOC.read_text(encoding="utf-8"), "rode `make golden`"
 
@@ -110,4 +114,6 @@ def test_semantica_traz_as_tabelas_do_sql() -> None:
     """RGA-04: a golden query semântica também traz `tabelas`, as relações `main.<x>` que o seu `sql` lê."""
     for consulta in _catalogo()["golden_queries"]:
         if consulta["camada"] == "semantica":
-            assert consulta["tabelas"] == g.relacoes_do_sql_portavel(consulta["sql"]) != [], consulta["id"]
+            assert consulta["tabelas"] == g.relacoes_do_sql_portavel(consulta["sql"]) != [], (
+                consulta["id"]
+            )

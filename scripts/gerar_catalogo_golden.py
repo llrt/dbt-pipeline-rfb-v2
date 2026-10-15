@@ -1176,7 +1176,9 @@ def renderizar_tamanhos(catalogo: dict, texto_catalogo: str, texto_guia: str) ->
         return f"| {rotulo} | {_milhar(tamanho)} | ~{_milhar(round(tamanho / 400) * 100)} |"
 
     blocos = [
-        linha(f"`{chave}` ({len(catalogo[chave])})", json.dumps(catalogo[chave], ensure_ascii=False))
+        linha(
+            f"`{chave}` ({len(catalogo[chave])})", json.dumps(catalogo[chave], ensure_ascii=False)
+        )
         for chave in ("golden_queries", "relacoes", "dimensoes", "metricas", "conceitos")
     ]
     referencia = texto_guia[texto_guia.index("## 11. ") :]

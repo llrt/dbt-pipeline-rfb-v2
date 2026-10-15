@@ -1,3 +1,4 @@
+# ruff: noqa: E501  (textos e nomes de exemplo)
 """Funções de referência de `docs/uso/construcao-agente.md`, extraídas do documento e executadas nas fixtures (RGA).
 
 Roda depois do `make ci` (warehouse de `RAIZ_DADOS`):
@@ -54,7 +55,9 @@ def conexao():
     con.close()
 
 
-def test_golden_queries_rodam_pela_conexao_endurecida_e_comparar_resposta_as_aprova(conexao) -> None:
+def test_golden_queries_rodam_pela_conexao_endurecida_e_comparar_resposta_as_aprova(
+    conexao,
+) -> None:
     exigir_leitura = CONEXAO["exigir_leitura"]
     reprovadas = []
     for consulta in CATALOGO["golden_queries"]:
@@ -62,7 +65,9 @@ def test_golden_queries_rodam_pela_conexao_endurecida_e_comparar_resposta_as_apr
         exigir_leitura(conexao, sql)
         cursor = conexao.execute(sql)
         obtido = {"colunas": [d[0] for d in cursor.description], "linhas": cursor.fetchall()}
-        if not comparar_resposta(obtido, consulta["resposta_esperada_fixtures"], consulta["camada"]):
+        if not comparar_resposta(
+            obtido, consulta["resposta_esperada_fixtures"], consulta["camada"]
+        ):
             reprovadas.append(consulta["id"])
     assert len(CATALOGO["golden_queries"]) == 93
     assert reprovadas == []
@@ -74,7 +79,9 @@ def test_comparar_resposta_aceita_alias_e_ordem_e_recusa_valor_diferente() -> No
     assert comparar_resposta(trocado, esperado, "core")
     assert not comparar_resposta({**trocado, "linhas": [("MG", 1.5), ("ES", 4)]}, esperado, "core")
     assert not comparar_resposta({**trocado, "linhas": [("ES", 3)]}, esperado, "core")
-    assert not comparar_resposta({"colunas": ["uf"], "linhas": [("ES",), ("MG",)]}, esperado, "core")
+    assert not comparar_resposta(
+        {"colunas": ["uf"], "linhas": [("ES",), ("MG",)]}, esperado, "core"
+    )
 
 
 @pytest.mark.parametrize(
@@ -121,7 +128,8 @@ def test_exigir_leitura_recusa_o_que_nao_e_consulta(conexao, sql: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "sql", ["select 1", "with a as (select 1 as x) select x from a", "from main.dim_porte", "values (1)"]
+    "sql",
+    ["select 1", "with a as (select 1 as x) select x from a", "from main.dim_porte", "values (1)"],
 )
 def test_exigir_leitura_aceita_consultas(conexao, sql: str) -> None:
     CONEXAO["exigir_leitura"](conexao, sql)
@@ -140,7 +148,9 @@ def _copia_mutada(tmp_path: Path, comandos: list[str]) -> Path:
     return tmp_path
 
 
-def test_conferir_esquema_bloqueia_as_golden_queries_de_relacao_com_coluna_removida(tmp_path: Path) -> None:
+def test_conferir_esquema_bloqueia_as_golden_queries_de_relacao_com_coluna_removida(
+    tmp_path: Path,
+) -> None:
     (dim_cnae,) = [r for r in CATALOGO["relacoes"] if r["nome"] == "main.dim_cnae"]
     removida = dim_cnae["colunas"][-1]["nome"]
     raiz = _copia_mutada(
@@ -163,7 +173,9 @@ def test_conferir_esquema_bloqueia_as_golden_queries_de_relacao_com_coluna_remov
 def test_conferir_esquema_num_banco_so_com_o_gold(tmp_path: Path) -> None:
     """Como no MotherDuck: sem staging, intermediate e seeds, nada é cobrado e nada é bloqueado."""
     fora_do_gold = [
-        r["nome"] for r in CATALOGO["relacoes"] if r["camada"] not in ("core", "analytics", "original")
+        r["nome"]
+        for r in CATALOGO["relacoes"]
+        if r["camada"] not in ("core", "analytics", "original")
     ]
     with duckdb.connect(str(_raiz() / "warehouse.duckdb"), read_only=True) as con:
         tipos = dict(
@@ -172,7 +184,8 @@ def test_conferir_esquema_num_banco_so_com_o_gold(tmp_path: Path) -> None:
             ).fetchall()
         )
     comandos = [
-        f"drop {'view' if tipos[n.removeprefix('main.')] == 'VIEW' else 'table'} {n}" for n in fora_do_gold
+        f"drop {'view' if tipos[n.removeprefix('main.')] == 'VIEW' else 'table'} {n}"
+        for n in fora_do_gold
     ]
     con = CONEXAO["conectar_somente_leitura"](_copia_mutada(tmp_path, comandos))
     assert conferir_esquema(con, CATALOGO) == ([], [])
