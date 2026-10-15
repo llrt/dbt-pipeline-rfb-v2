@@ -261,6 +261,14 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
     `gq_core__perfil_municipio__01`; série da estimativa em `gq_staging__perfil_municipio__01`.
 19. **Fornecedores parametrizados.** `mart_fornecedores_proximos` só vale para o caso das vars do build (Fundão/ES,
     CNAEs de tinta, 100 km). Outro município ou CNAE exige outra consulta. Certo: `gq_analytics__fornecedores_proximos__01`.
+20. **Média de médias.** Coluna que já é média, taxa ou percentual (`media_idade` de `agg_empresas`, `pct_*`, `taxa_*`,
+    `*_por_10k_hab`, renda per capita) não se reagrega com `avg`: pondere pelo tamanho de cada linha (`sum(media_idade *
+    qtd_empresas) / sum(qtd_empresas) filter (where media_idade is not null)`) ou some numerador e denominador antes de
+    dividir. Errado: `avg(media_idade)`, que pesa igual um estrato de 1 e um de 1000 estabelecimentos. Certo:
+    `gq_original__porte__01`, `gq_core__renda__02`, `gq_analytics__sobrevivencia_coorte__01`.
+21. **Falta de dado não é categoria.** Num `CASE` que escolhe a maior participação (`greatest`), cada ramo testa a sua
+    categoria e não há `else '<categoria>'`: sem dado, nenhum ramo casa e sai NULL ("sem VA"), não "administração
+    pública". Diga o empate e a regra de desempate. Certo: `gq_core__valor_adicionado__01`.
 
 ## 7. Privacidade (regra dura, [ADR-0008](adr/0008-minimizacao-dados-pessoais.md))
 

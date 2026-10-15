@@ -195,6 +195,8 @@ def validar_cabecalho(cab: dict, nome: str, sql: str, conceitos: set[str]) -> li
     if not re.search(r"\border\s+by\b", corpo, re.I):
         problemas.append("o SQL precisa de `order by`: a resposta esperada é comparada na ordem")
     problemas += municipio_sem_uf(corpo)
+    problemas += case_argmax_com_else(corpo)
+    problemas += media_de_razoes(corpo)
     return [f"{nome}: {p}" for p in problemas]
 
 
@@ -209,6 +211,50 @@ def municipio_sem_uf(sql: str) -> list[str]:
             "filtra o município pelo nome sem filtrar a UF (homônimos: Água Branca em AL, PB e PI)"
         ]
     return []
+
+
+_RE_COMENTARIO_OU_TEXTO = re.compile(r"\{#.*?#\}|--[^\n]*|'(?:[^']|'')*'", re.S)
+_RE_CASE_OU_END = re.compile(r"\b(case|end)\b", re.I)
+_RE_MAIOR_OU_MENOR = re.compile(r"\b(greatest|least)\s*\(", re.I)
+_RE_ELSE_TEXTO = re.compile(r"\belse\s+'", re.I)
+# `avg` sobre coluna que já é média, taxa ou percentual: a reagregação sem peso (Greptile PR #8). A mediana fica de
+# fora: a mediana dos municípios é uma estatística da distribuição deles, não uma estimativa do total.
+_RE_MEDIA_DE_RAZAO = re.compile(
+    r"\b(avg|mean)\s*\(\s*(distinct\s+)?([\w]+\.)?"
+    r"(\w*(media|medio|mediana|pct|taxa|razao|percentual|por_10k|per_capita|indice)\w*)\s*\)",
+    re.I,
+)
+
+
+def case_argmax_com_else(sql: str) -> list[str]:
+    """`CASE` de maior/menor valor (`greatest`/`least`) com `else '<categoria>'` (Greptile PR #8).
+
+    O `else` transforma a ausência de dado (todos os valores NULL, nenhum ramo casa) numa categoria: um município
+    sem VA vira "administração pública". Cada ramo deve testar a sua categoria, sem `else`, e a falta sair NULL.
+    """
+    limpo = _RE_COMENTARIO_OU_TEXTO.sub(lambda m: "'x'" if m.group(0).startswith("'") else " ", sql)
+    inicios: list[int] = []
+    problemas = []
+    for achado in _RE_CASE_OU_END.finditer(limpo):
+        if achado.group(1).lower() == "case":
+            inicios.append(achado.start())
+        elif inicios:
+            bloco = limpo[inicios.pop() : achado.end()]
+            if _RE_MAIOR_OU_MENOR.search(bloco) and _RE_ELSE_TEXTO.search(bloco):
+                problemas.append(
+                    "CASE de greatest/least com `else '<categoria>'`: sem dado, a falta vira categoria; "
+                    "teste cada ramo e deixe sair NULL"
+                )
+    return problemas
+
+
+def media_de_razoes(sql: str) -> list[str]:
+    """`avg` sobre coluna que já é média, taxa ou percentual: reagregar exige ponderar (Greptile PR #8)."""
+    limpo = _RE_COMENTARIO_OU_TEXTO.sub(lambda m: "'x'" if m.group(0).startswith("'") else " ", sql)
+    return [
+        f"`{achado.group(0)}` reagrega {achado.group(4)} sem peso: pondere (soma do numerador ÷ soma do denominador)"
+        for achado in _RE_MEDIA_DE_RAZAO.finditer(limpo)
+    ]
 
 
 def validar_semantica(entrada: dict, conceitos: set[str]) -> list[str]:

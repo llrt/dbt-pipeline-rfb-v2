@@ -471,3 +471,55 @@ def test_municipio_pelo_nome_exige_uf() -> None:
         g.municipio_sem_uf("select 1 from main.mart_x where municipio = 'FUNDÃO' and uf = 'ES'")
         == []
     )
+
+
+def test_case_de_greatest_com_else_e_recusado() -> None:
+    """Greptile PR #8 (gq_core__valor_adicionado__01:42): o `else` de um CASE de maior valor transforma a falta de
+    dado em categoria (município sem VA vira "administração pública")."""
+    com_else = SQL_VALIDO.replace(
+        "select por.rotulo_porte,",
+        "select por.rotulo_porte, case greatest(a, b) when a then 'a' else 'b' end as maior,",
+    )
+    assert any("greatest/least" in p for p in _validar(com_else))
+    sem_else = "case greatest(a, b) when a then 'a' when b then 'b' end"
+    assert g.case_argmax_com_else(sem_else) == []
+    assert g.case_argmax_com_else("case when a = greatest(a, b) then 'a' else 'b' end")
+    assert g.case_argmax_com_else("case when x then 1 else 0 end, greatest(a, b)") == []
+    assert g.case_argmax_com_else("-- case greatest(a) else 'x' end\nselect 1") == []
+    # o `else` com texto num CASE aninhado sem greatest não conta para o de fora, e vice-versa
+    assert g.case_argmax_com_else("case when x then case when y then 'a' end else 'b' end") == []
+
+
+def test_media_de_coluna_que_ja_e_media_e_recusada() -> None:
+    """Greptile PR #8 (gq_original__porte__01:31): `avg(media_idade)` pesa igual estratos de tamanhos diferentes."""
+    com_avg = SQL_VALIDO.replace("count(*) as ativos", "round(avg(fct.media_idade), 1) as ativos")
+    assert any("sem peso" in p for p in _validar(com_avg))
+    for sql in (
+        "avg(pct_va_servicos)",
+        "AVG(t.taxa_3a)",
+        "avg(ativos_por_10k_hab)",
+        "avg(renda_per_capita_media_2022)",
+    ):
+        assert g.media_de_razoes(sql), sql
+    for sql in (
+        "avg(idade_atual)",
+        "avg(fct.capital_social)",
+        "median(ativos_por_10k_hab)",
+        "sum(media_idade * qtd_empresas)",
+    ):
+        assert g.media_de_razoes(sql) == [], sql
+
+
+@pytest.mark.parametrize(
+    "arquivo",
+    sorted((RAIZ / "transform" / "analyses").glob("cenario_*.sql"))
+    + sorted(g.DIR_GOLDEN.glob(g.PADRAO_ARQUIVO)),
+    ids=lambda p: p.stem,
+)
+def test_analises_de_cenario_e_golden_queries_sem_os_padroes_do_pr8(arquivo: Path) -> None:
+    """As analyses `cenario_*` e as golden queries não têm média de razões nem CASE de maior valor com `else`.
+
+    `estudo_caso_*` fica de fora: reproduz o notebook 4 do MVP, que faz `avg(media_idade)` (paridade com o original).
+    """
+    sql = arquivo.read_text(encoding="utf-8")
+    assert g.case_argmax_com_else(sql) + g.media_de_razoes(sql) == []
