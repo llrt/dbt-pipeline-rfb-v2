@@ -1,4 +1,4 @@
-"""O guia de construção do agente não envelhece: os campos do catálogo que ele cita existem, e a versão bate."""
+"""O guia de construção do agente não envelhece: os campos do catálogo que cita existem e a versão bate."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import re
 from rfb_pipeline import __version__, caminhos
 
 DOC = caminhos.GUIA_CONSTRUCAO_AGENTE
-# Primeira coluna de tabela com um campo entre crases: `| \`campo\` | ...`. Só as da seção "O que indexar".
+# Primeira coluna de tabela com um campo entre crases, só na seção "O que indexar".
 _CAMPO_EM_TABELA = re.compile(r"^\|\s*`([a-z_][a-z0-9_\[\].]*)`\s*\|", re.M)
 
 
