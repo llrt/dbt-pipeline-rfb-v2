@@ -313,8 +313,9 @@ As golden queries são um **conjunto de avaliação pronto**. Construa o banco d
 `.tmp/ci/dados`), rode o agente com cada item de `perguntas` e compare a saída com `resposta_esperada_fixtures` por
 `comparar_resposta`.
 
-**Não compare as tuplas cruas.** O catálogo guarda a resposta normalizada: decimal e float com 6 casas, data em ISO,
-meia-noite como data (o `mf` grava assim) e, na semântica, número em texto como número e linhas ordenadas. A tupla
+**Não compare as tuplas cruas.** O catálogo guarda a resposta normalizada: decimal e float com 6 casas e data em ISO;
+texto fica texto (o código `'05'` não vira 5). Só na semântica, que guarda o CSV do `mf`, meia-noite vira data,
+número em texto vira número e as linhas são ordenadas. A tupla
 crua do DuckDB reprova o próprio `sql` do catálogo em 24 das 93 golden queries. Esta função normaliza os dois lados e
 compara as linhas como multiconjunto (a ordem do SQL do agente pode ser outra) e as colunas pela posição (o alias é
 livre). O CI a extrai deste documento e confere que ela aprova as 93.
@@ -331,13 +332,20 @@ DECIMAL = re.compile(r"^-?\d+\.\d+(e-?\d+)?$")
 MEIA_NOITE = re.compile(r"^(\d{4}-\d{2}-\d{2})[ T]00:00:00$")
 
 
-def _normalizar(valor):
-    """A forma do catálogo: número com 6 casas, data ISO e meia-noite como data, número em texto como número."""
+def _normalizar(valor, camada):
+    """A forma do catálogo: decimal e float com 6 casas e data em ISO; texto fica texto (`'05'` não é `'5'`).
+
+    Só na semântica o valor passa pelo texto do CSV do `mf`: meia-noite vira data e número em texto vira número.
+    """
     if valor is None or isinstance(valor, bool):
         return valor
     if isinstance(valor, (Decimal, float)):
         return round(float(valor), 6)
-    texto = valor.isoformat() if isinstance(valor, (dt.date, dt.datetime)) else str(valor)
+    if camada != "semantica":
+        if isinstance(valor, (dt.date, dt.datetime)):
+            return valor.isoformat()
+        return valor if isinstance(valor, (int, str)) else str(valor)
+    texto = str(valor)
     if INTEIRO.match(texto):
         return int(texto)
     if DECIMAL.match(texto):
@@ -356,7 +364,7 @@ def comparar_resposta(obtido, esperado, camada):
         if len(obtido["colunas"]) != len(esperado["colunas"]):
             return False
     linhas = [
-        Counter(tuple(_normalizar(v) for v in linha) for linha in r["linhas"])
+        Counter(tuple(_normalizar(v, camada) for v in linha) for linha in r["linhas"])
         for r in (obtido, esperado)
     ]
     return linhas[0] == linhas[1]

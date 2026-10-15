@@ -84,6 +84,25 @@ def test_comparar_resposta_aceita_alias_e_ordem_e_recusa_valor_diferente() -> No
     )
 
 
+def test_comparar_resposta_preserva_texto_fora_da_semantica() -> None:
+    """Greptile PR #11 (construcao-agente.md:344): fora da semântica, texto fica texto, como o gerador grava. Os
+    códigos de porte `'0'`, `'1'`, `'3'` e `'5'` reprovam contra `'00'`, `'01'`, `'03'` e `'05'`; texto com cara de
+    número ou de meia-noite não vira número nem data. Na semântica, o CSV do `mf` continua normalizado."""
+    (consulta,) = [q for q in CATALOGO["golden_queries"] if q["id"] == "gq_raw__porte__01"]
+    esperado = consulta["resposta_esperada_fixtures"]
+    certo = {"colunas": ["porte", "n"], "linhas": [tuple(linha) for linha in esperado["linhas"]]}
+    assert [p for p, _ in certo["linhas"]] == ["00", "01", "03", "05", None]
+    errado = {**certo, "linhas": [(str(int(p)) if p else p, n) for p, n in certo["linhas"]]}
+    assert comparar_resposta(certo, esperado, "raw")
+    assert not comparar_resposta(errado, esperado, "raw")
+    um = {"colunas": ["x"], "linhas": [["2026-08-01T00:00:00"], ["1.50"]]}
+    assert not comparar_resposta(
+        {"colunas": ["x"], "linhas": [("2026-08-01",), (1.5,)]}, um, "core"
+    )
+    assert comparar_resposta({"colunas": ["x"], "linhas": [("2026-08-01 00:00:00",), ("1.50",)]},
+                             {"colunas": ["x"], "linhas": [["2026-08-01"], [1.5]]}, "semantica")  # fmt: skip
+
+
 @pytest.mark.parametrize(
     "sql",
     [
