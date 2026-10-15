@@ -4,7 +4,8 @@
 Uso: `uv run python scripts/verificar_links_docs.py [arquivo.md ...]` (sem argumentos, todos os
 `.md` de `git ls-files`: README, raiz, `docs/`, `.specs/`, `transform/`). Sai com 1 e lista cada
 problema (`arquivo:linha: ...`) se um link relativo aponta para arquivo inexistente ou se a âncora
-não existe no destino. URLs externas (`http:`, `https:`, `mailto:` etc.) são ignoradas. O slug dos
+não existe no destino. O nome do arquivo tem de bater também na caixa (`os.listdir`), porque no
+macOS o disco não distingue `OPERACAO.md` de `operacao.md` e o CI no Linux distingue. URLs externas (`http:`, `https:`, `mailto:` etc.) são ignoradas. O slug dos
 cabeçalhos segue o GitHub: minúsculas, sem pontuação, espaços viram hífens, acentos são mantidos e
 repetidos ganham `-1`, `-2`. Python puro, sem dependência.
 """
@@ -12,6 +13,7 @@ repetidos ganham `-1`, `-2`. Python puro, sem dependência.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -85,6 +87,19 @@ def links(texto: str) -> list[tuple[int, str]]:
     return [(n, d.strip("<>")) for n, d in achados]
 
 
+def existe_com_a_caixa_certa(alvo: Path) -> bool:
+    """`alvo` (absoluto, resolvido) existe e cada parte do caminho bate na caixa com o disco."""
+    if not alvo.exists():
+        return False
+    base = RAIZ if alvo.is_relative_to(RAIZ) else Path(alvo.anchor)
+    pasta = base
+    for parte in alvo.relative_to(base).parts:
+        if parte not in os.listdir(pasta):
+            return False
+        pasta = pasta / parte
+    return True
+
+
 def verificar_arquivo(arquivo: Path, cache: dict[Path, set[str]] | None = None) -> list[str]:
     """Problemas de links e âncoras de um `.md`, como `caminho:linha: mensagem`."""
     cache = {} if cache is None else cache
@@ -98,6 +113,11 @@ def verificar_arquivo(arquivo: Path, cache: dict[Path, set[str]] | None = None) 
             alvo = (arquivo.parent / unquote(caminho)).resolve()
             if not alvo.exists():
                 problemas.append(f"{arquivo}:{numero}: link quebrado: {destino}")
+                continue
+            if not existe_com_a_caixa_certa(alvo):
+                problemas.append(
+                    f"{arquivo}:{numero}: link com caixa diferente do arquivo: {destino}"
+                )
                 continue
         else:
             alvo = arquivo.resolve()

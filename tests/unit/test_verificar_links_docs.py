@@ -52,6 +52,19 @@ def test_link_quebrado_e_reportado_com_linha(tmp_path: Path) -> None:
     assert "a.md:2: link quebrado: nao-existe.md" in problema
 
 
+def test_link_com_caixa_errada_e_reportado_mesmo_em_disco_sem_caixa(tmp_path: Path) -> None:
+    """RD-08: no macOS `OPERACAO.md` "existe" quando o arquivo é `operacao.md`; no Linux, não."""
+    _escrever(tmp_path, "docs/operacao.md", "# Operação\n")
+    a = _escrever(
+        tmp_path, "a.md", "[x](docs/operacao.md)\n[y](docs/OPERACAO.md)\n[z](DOCS/operacao.md)\n"
+    )
+    problemas = v.verificar_arquivo(a)
+    assert [p.split("a.md:")[1] for p in problemas] == [
+        "2: link com caixa diferente do arquivo: docs/OPERACAO.md",
+        "3: link com caixa diferente do arquivo: DOCS/operacao.md",
+    ]
+
+
 def test_ancora_inexistente_e_reportada(tmp_path: Path) -> None:
     _escrever(tmp_path, "b.md", "# Título\n")
     a = _escrever(tmp_path, "a.md", "[x](b.md#outra) [y](#sumiu)\n")
