@@ -1,4 +1,4 @@
-# Custo por agente — v1 e pós-v1 (v1.1.0 a v1.3.0)
+# Custo por agente — v1 e pós-v1 (v1.1.0 a v1.4.0)
 
 > Gerado pelo líder em 2026-10-01 a partir dos transcripts do Claude Code (`~/.claude/projects/*dbt-pipeline-rfb-v2*`, deduplicados por mensagem) e do banco do opencode (`~/.local/share/opencode/opencode.db`, sessões do OpenRouter). A tentativa anterior do projeto (24/09, outra sessão: `fase-0-design`, `guia-g1-guia-dbt`, `fase-1-b1a-fundacao`) está fora.
 
@@ -129,13 +129,59 @@
 | FRN, correções da RRN | correção | v1.3.0 | Claude Opus 5.5 | 119.930 | 27.951.907 | 305.413 | 0,70 | 10,43 | 52,38 |
 | FRN2, comentários do Greptile (PR #4) | correção | v1.3.0 | Claude Opus 5.5 | 31.317 | 7.600.615 | 119.588 | 0,33 | 3,10 | 15,58 |
 
+## Pós-v1.3: avaliações e v1.4.0
+
+> Gerado pelo líder em 2026-10-14 com o mesmo `scripts/custos_agentes_pos_v1.py`, agora estendido. A metodologia, os preços e o câmbio (US$ 1 = R$ 5,021) são os da seção anterior. O período começa no fim da geração anterior (13/10/2026, 16:24) e vai até esta geração. Ele cobre:
+> - o fechamento do PR #5 e a limpeza dos worktrees;
+> - as avaliações do nível de bairro (ADR-0021, adiada) e das fontes gratuitas;
+> - os 5 agentes do PR #7 (enriquecimento IBGE, v1.4.0).
+>
+> Todos rodaram no Claude (assinatura), em Opus 5.5. O líder passou a ser lido em duas sessões (`96cb3a2c` e `07fdca18`, a continuação); a deduplicação por mensagem evita contar o histórico repetido.
+
+| | US$ | R$ | % |
+|---|---:|---:|---:|
+| Líder | 27,24 | 136,77 | 28 % |
+| Implementação (IBG1, IBG2) | 43,20 | 216,91 | 44 % |
+| Revisão (RIBG) | 8,82 | 44,29 | 9 % |
+| Correção (FIBG, FIBG2) | 18,01 | 90,43 | 19 % |
+| **Total do período** | **97,27** | **488,39** | 100 % |
+
+**Líder por fase**
+
+| Fase | Horas ativas | US$ | R$ |
+|---|---:|---:|---:|
+| PR #5 depois da geração anterior, housekeeping e avaliações (bairro, fontes gratuitas) | 1,39 | 9,26 | 46,49 |
+| Orquestração delegada da v1.4.0 (fontes, briefs, verificação, triagem, PR, Greptile, este relatório) | 1,61 | 17,98 | 90,28 |
+| **Total do líder** | **3,00** | **27,24** | **136,77** |
+
+**Por agente (v1.4.0, ordem de início)**
+
+| Agente | Papel | Modelo | Saída (tokens) | Leitura de cache | Entrada + escrita de cache | Horas ativas | US$ | R$ |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| IBG1, ingestão e staging do IBGE | implementação | Claude Opus 5.5 | 175.859 | 51.688.494 | 432.112 | 1,30 | 17,31 | 86,92 |
+| IBG2, gold, RN-30, semântica, cenários e docs | implementação | Claude Opus 5.5 | 220.112 | 84.909.377 | 563.756 | 0,90 | 25,89 | 130,01 |
+| RIBG, revisão independente | revisão | Claude Opus 5.5 | 97.113 | 23.029.193 | 283.779 | 0,42 | 8,82 | 44,27 |
+| FIBG, correções da RIBG e versão 1.4.0 | correção | Claude Opus 5.5 | 120.099 | 38.912.899 | 326.028 | 0,76 | 12,79 | 64,23 |
+| FIBG2, comentários do Greptile (PR #7) | correção | Claude Opus 5.5 | 56.081 | 13.146.566 | 183.090 | 0,34 | 5,22 | 26,18 |
+| **Agentes da v1.4.0** | | | | | | **3,72** | **70,03** | **351,61** |
+
+**Observações**
+- **Implementação foi o maior custo desta vez** (44 %), ao contrário do pós-v1 anterior.
+  - O IBG2 (US$ 25,89) concentrou gold, regra, semântica, ontologia, ADR e o adendo do usuário (5 analyses de cenário e `CENARIOS_DE_USO.md`).
+  - As 1,3 h do IBG1 incluem o download real do CEMPRE (45 min, 337 consultas à SIDRA).
+- **A fatia do líder caiu de 49 % para 28 %:** sem trabalho inline, ficaram só fontes, briefs, verificação, triagem e PR.
+- **A avaliação do bairro custou parte dos US$ 9,26 da primeira fase** e evitou um incremento estimado em US$ 150 a 250 (ADR-0021).
+- A estimativa da avaliação de fontes era de US$ 40 a 70 para o pacote 1. O custo real dos agentes foi de US$ 70,03, no teto. A estimativa não previa o adendo dos cenários nem as duas rodadas de correção de compatibilidade.
+- **Reproduzir:** `uv run python scripts/custos_agentes_pos_v1.py`. Rodar de novo dá US$ 47,26 para a fase "orquestração delegada v1.1.0 a v1.3.0", e não os 46,47 da tabela anterior: a fase agora vai até o fim da geração anterior. Os US$ 0,79 de diferença estão somados aqui na primeira fase do líder.
+
 ## Total acumulado
 
 | Período | US$ | R$ |
 |---|---:|---:|
 | v1 (até 01/10/2026; câmbio 5,2353) | 247,38 | 1.295,11 |
 | Pós-v1 (v1.1.0 a v1.3.0; câmbio 5,021) | 156,77 | 787,14 |
-| **Total** | **404,15** | **2.082,25** |
+| Pós-v1.3 (avaliações e v1.4.0; câmbio 5,021) | 97,27 | 488,39 |
+| **Total** | **501,42** | **2.570,64** |
 
 Do total, **US$ 10,55 foram desembolso real** (OpenRouter, todo na v1). O resto é equivalente de API da assinatura Claude.
 

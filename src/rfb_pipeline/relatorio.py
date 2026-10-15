@@ -30,6 +30,7 @@ SAIDA_PADRAO = RAIZ_REPO / "docs" / "RELATORIO_ESTUDO_CASO.md"
 PREFIXO_ANALISES = "estudo_caso_"
 PREFIXO_CENARIOS = "cenario_"  # incremento: enriquecimento_ibge (docs/CENARIOS_DE_USO.md)
 SUBPASTA_REGRAS = "regras_negocio"  # analyses de `rfb regras` (ADR-0020)
+SUBPASTA_GOLDEN = "golden"  # golden queries (ADR-0023): testadas e catalogadas, fora do relatório
 # Analyses do relatório: as do caso e os cenários de uso (incremento enriquecimento_ibge)
 PADRAO_RELATORIO = "*.sql"
 LIMITE_LINHAS = 20  # tabelas longas mostram as N primeiras linhas e o total (R3-16)
@@ -93,7 +94,8 @@ def compilar_analises(
     `--target-path` temporário: o `target/` do projeto guarda o `run_results.json` do último build,
     que outras ferramentas e testes leem (R3-16). `subpasta` e `padrao` escolhem outras analyses
     (ex.: `regras_negocio`, `rn_*.sql`, ADR-0020). Sem `subpasta`, as analyses das regras de negócio
-    ficam fora da compilação (RRN-09). `variaveis` vira `--vars` (ex.: outro `caso_municipio`).
+    (RRN-09) e as golden queries (ADR-0023) ficam fora da compilação. `variaveis` vira `--vars`
+    (ex.: outro `caso_municipio`).
     """
     selecao = f"path:analyses/{subpasta}" if subpasta else "path:analyses"
     with tempfile.TemporaryDirectory(prefix="rfb-relatorio-") as temporario:
@@ -106,7 +108,11 @@ def compilar_analises(
             temporario,
         ]
         if not subpasta:
-            comando += ["--exclude", f"path:analyses/{SUBPASTA_REGRAS}"]
+            comando += [
+                "--exclude",
+                f"path:analyses/{SUBPASTA_REGRAS}",
+                f"path:analyses/{SUBPASTA_GOLDEN}",
+            ]
         if target:
             comando += ["--target", target]
         if variaveis:

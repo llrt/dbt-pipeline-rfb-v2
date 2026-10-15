@@ -99,7 +99,8 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   │   ├── marts/analytics/     # marts analíticos              (adição)
 │   │   ├── observability/    # histórico e resumo de DQ      (adição)
 │   │   └── audit/            # tradução literal do SQL original (paridade; efêmero)
-│   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso, cenários de uso e regras de negócio)
+│   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso, cenários de uso, regras de negócio e
+│   │                                                     golden/: golden queries, ADR-0023)
 ├── dados/ (gitignored)          # RAIZ_DADOS padrão
 │   ├── raw/rfb/<entidade>/mes_referencia=YYYY-MM/*.parquet
 │   ├── raw/bd/<tabela>/*.parquet
@@ -312,6 +313,13 @@ erDiagram
 
 **Observabilidade (adição):** `on-run-end` grava `run_results` (testes: nome, status, falhas, severidade,
 escopo) em `dq_historico_testes` (incremental) e `dq_resumo_execucao`; `store_failures` ligado para testes de conteúdo.
+
+**Golden queries (adição, [ADR-0023](docs/adr/0023-golden-queries-e-guia-para-agente.md)):** uma analysis por
+conceito × camada em `transform/analyses/golden/` (`gq_<camada>__<conceito>__<nn>.sql`, com cabeçalho YAML e a
+resposta exata nas fixtures) e os comandos `mf query` de `docs/golden_queries/semantica.yml`, executados e conferidos
+no CI. `scripts/gerar_catalogo_golden.py` (`make golden`) gera o catálogo `docs/golden_queries/catalogo.json` com o
+SQL compilado e portável, para o agente de consulta em linguagem natural descrito em
+[docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md](docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md).
 
 ### 5.4 Seeds
 

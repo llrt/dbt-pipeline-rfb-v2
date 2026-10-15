@@ -19,6 +19,9 @@ uv run dbt show --select cenario_polo_compras_evasao --vars '{caso_uf: SP, caso_
 uv run dbt compile --select cenario_polo_compras_evasao   # o SQL em target/compiled/rfb/analyses/
 ```
 
+Para um agente que responde perguntas livres, as mesmas bases aparecem como golden queries testadas no
+[guia de consulta em linguagem natural](GUIA_CONSULTA_LINGUAGEM_NATURAL.md) ([ADR-0023](adr/0023-golden-queries-e-guia-para-agente.md)).
+
 Todas trazem só agregados por município, CNAE ou UF, nunca CNPJ nem nome
 ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)). As linhas de exemplo abaixo vêm do dado real (extrato da RFB de
 2026-09, CEMPRE 2024, Censo 2022, REGIC 2018), consultado em 2026-10-14.

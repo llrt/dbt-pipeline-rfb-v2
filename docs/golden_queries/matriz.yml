@@ -1,0 +1,213 @@
+# Matriz conceito × camada das golden queries (ADR-0023). Fonte de verdade da cobertura:
+# - `camadas`: as camadas consultáveis, na ordem da matriz;
+# - `conceitos`: os conceitos do modelo, com as classes da ontologia (`docs/ontologia/rfb_cnpj.ttl`) quando houver;
+# - `sem_query`: o motivo de cada célula conceito × camada que não tem golden query.
+# Toda célula tem golden query (em `transform/analyses/golden/` ou em `semantica.yml`) OU motivo, nunca os dois:
+# o teste `test_golden_queries.py` falha se uma célula ficar sem nenhum dos dois ou com os dois.
+# Depois de editar, rode `make golden` para regenerar `catalogo.json` e o índice do guia.
+
+camadas:
+  - id: raw
+    nome: Raw
+    uso: "auditoria e linhagem: o que a fonte publicou, antes de qualquer regra (`source()` sobre o Parquet)"
+  - id: staging
+    nome: Staging
+    uso: "auditoria: o dado tipado e limpo do mês selecionado, ainda sem as regras do modelo"
+  - id: intermediate
+    nome: Intermediate
+    uso: "linhagem: as junções e conformações entre o staging e o gold"
+  - id: core
+    nome: Core (gold)
+    uso: "pergunta ad hoc: dimensões, fatos e pontes do modelo estrela"
+  - id: analytics
+    nome: Analytics (gold)
+    uso: "pergunta ad hoc com regra pronta: marts de concorrência, dinâmica, sobrevivência, fornecedores e CEMPRE"
+  - id: original
+    nome: Original (gold)
+    uso: "só paridade com o MVP (`bh_empresas`, `agg_empresas`); nunca para pergunta nova"
+  - id: semantica
+    nome: Semântica (MetricFlow)
+    uso: "métrica de negócio padrão: `mf query` sobre as métricas e as consultas salvas"
+
+conceitos:
+  - id: empresa_estabelecimento
+    nome: Empresa × estabelecimento (CNPJ básico × completo)
+    classes_ontologia: [Empresa, Estabelecimento]
+  - id: matriz_filial
+    nome: Matriz × filial
+    classes_ontologia: [Matriz, Filial]
+  - id: situacao_cadastral
+    nome: Situação cadastral (ativa × em operação; baixa × inaptidão)
+    classes_ontologia: [SituacaoCadastral, MotivoSituacaoCadastral]
+  - id: porte
+    nome: Porte
+    classes_ontologia: [Porte]
+  - id: natureza_juridica
+    nome: Natureza jurídica
+    classes_ontologia: [NaturezaJuridica]
+  - id: cnae_principal
+    nome: CNAE principal e hierarquia
+    classes_ontologia: [AtividadeEconomica, SecaoCnae, DivisaoCnae, GrupoCnae, ClasseCnae, SubclasseCnae]
+  - id: cnae_secundario
+    nome: CNAE secundário
+    classes_ontologia: [SubclasseCnae]
+  - id: simples_mei
+    nome: Simples Nacional e MEI
+    classes_ontologia: [OpcaoSimplesNacional, OpcaoMEI]
+  - id: capital_social
+    nome: Capital social
+    classes_ontologia: [Empresa]
+  - id: municipio_geografia
+    nome: Município e hierarquia geográfica
+    classes_ontologia: [Municipio, UnidadeFederativa, RegiaoGeografica]
+  - id: perfil_municipio
+    nome: Perfil do município (população, PIB, Censo 2022)
+    classes_ontologia: [Municipio]
+  - id: data_calendario
+    nome: Data, calendário, fotografia mensal e data de referência
+    classes_ontologia: [FotografiaMensal]
+  - id: dinamica_mercado
+    nome: Abertura, encerramento e saldo (dinâmica)
+    classes_ontologia: [Abertura, Encerramento, Baixa]
+  - id: sobrevivencia_coorte
+    nome: Sobrevivência por coorte de abertura
+    classes_ontologia: [CoorteDeAbertura]
+  - id: concorrencia_densidade
+    nome: Concorrência e densidade
+    classes_ontologia: []
+  - id: area_mercado_vizinhanca
+    nome: Área de mercado e vizinhança
+    classes_ontologia: []
+  - id: fornecedores_proximos
+    nome: Fornecedores próximos
+    classes_ontologia: []
+  - id: cempre_setor
+    nome: CEMPRE (tamanho real do setor)
+    classes_ontologia: [SetorNoMunicipio]
+  - id: renda
+    nome: Renda per capita (Censo 2022)
+    classes_ontologia: [Municipio]
+  - id: regic_polo_compras
+    nome: REGIC, hierarquia urbana e polo de compras
+    classes_ontologia: [HierarquiaUrbana]
+  - id: valor_adicionado
+    nome: Valor adicionado (VA) por atividade
+    classes_ontologia: [Municipio]
+  - id: regras_qualidade
+    nome: Regras de negócio e qualidade
+    classes_ontologia: []
+  - id: modelos_originais
+    nome: Modelos originais do MVP (bh_empresas, agg_empresas)
+    classes_ontologia: []
+
+sem_query:
+  empresa_estabelecimento:
+    analytics: "os marts contam estabelecimentos por CNAE × município, sem separar empresa; ver gq_analytics__concorrencia_densidade__01 e, para empresas, gq_core__empresa_estabelecimento__01"
+  matriz_filial:
+    intermediate: "int_estabelecimentos__enriquecidos só copia `matriz_filial_codigo` do staging; use gq_staging__matriz_filial__01 (auditoria) ou gq_core__matriz_filial__01"
+    analytics: "nenhum mart separa matriz e filial; use gq_core__matriz_filial__01"
+    original: "bh_empresas e agg_empresas não têm matriz/filial (o MVP não usou o campo)"
+  situacao_cadastral:
+    intermediate: "int_estabelecimentos__enriquecidos só copia `situacao_codigo` do staging; use gq_staging__situacao_cadastral__01 ou gq_core__situacao_cadastral__01"
+    analytics: "os marts usam ativo × inativo (regra do original, `eh_ativa`), sem a situação; ver gq_analytics__concorrencia_densidade__01 e gq_core__situacao_cadastral__02"
+  porte:
+    staging: "o staging só tipa o código (`porte_codigo`); o que a RFB publicou está em gq_raw__porte__01 e o rótulo em gq_core__porte__01"
+    intermediate: "int_estabelecimentos__enriquecidos só copia `porte_codigo` do staging; use gq_core__porte__01"
+    analytics: "o porte é recorte de mart_sobrevivencia_coorte; ver gq_analytics__sobrevivencia_coorte__02"
+  natureza_juridica:
+    staging: "stg_rfb__naturezas é o domínio do raw tipado; use gq_raw__natureza_juridica__01 (o publicado) ou gq_core__natureza_juridica__01"
+    intermediate: "int_estabelecimentos__enriquecidos só copia `natureza_juridica_codigo`; use gq_core__natureza_juridica__01"
+    analytics: "nenhum mart tem natureza jurídica (só a fato detalhada); use gq_core__natureza_juridica__01"
+  cnae_principal:
+    staging: "a hierarquia da CNAE (stg_bd__cnaes) chega inteira em dim_cnae; use gq_core__cnae_principal__02 para achar o código pela descrição"
+    analytics: "os marts recortam por CNAE principal; ver gq_analytics__concorrencia_densidade__01"
+    original: "bh_empresas traz o CNAE em texto maiúsculo só para paridade; ver gq_original__modelos_originais__01"
+  cnae_secundario:
+    staging: "a lista `cnaes_secundarios_lista` vira a ponte do core; use gq_core__cnae_secundario__01"
+    intermediate: "int_cnaes_secundarios__explodidos é a mesma lista que bridge_estabelecimento_cnae_secundario, sem `sk_cnae`; use gq_core__cnae_secundario__01"
+    analytics: "o secundário só entra em mart_fornecedores_proximos (`via` = 'secundario'); ver gq_analytics__fornecedores_proximos__01"
+    original: "bh_empresas guarda a string `cnaes_secundarios` como no MVP; para pergunta nova use a ponte (gq_core__cnae_secundario__01)"
+    semantica: "a ponte muitos-para-muitos fica fora da camada semântica (CAMADA_SEMANTICA.md, B7)"
+  simples_mei:
+    intermediate: "int_estabelecimentos__enriquecidos só aplica `coalesce(..., false)` às flags; use gq_core__simples_mei__01"
+    analytics: "o MEI só aparece em `ativos_rfb_sem_mei` de mart_emprego_setor_municipio; ver gq_analytics__cempre_setor__01"
+    original: "o MVP não usou o arquivo Simples: bh_empresas e agg_empresas não têm Simples nem MEI"
+  capital_social:
+    staging: "o staging só converte a vírgula decimal (`capital_social`); o publicado está em gq_raw__capital_social__01"
+    intermediate: "int_estabelecimentos__enriquecidos só copia `capital_social`; use gq_core__capital_social__01"
+    analytics: "nenhum mart tem capital social; use gq_core__capital_social__01"
+    original: "bh_empresas e agg_empresas não têm capital social"
+  municipio_geografia:
+    intermediate: "int_municipios__conformados chega inteiro a dim_municipio; use gq_core__municipio_geografia__01"
+    analytics: "os marts trazem município e UF como recorte; ver gq_analytics__concorrencia_densidade__01"
+    original: "agg_empresas traz município, micro e mesorregião em maiúsculas só para paridade; ver gq_original__modelos_originais__02"
+  perfil_municipio:
+    raw: "o raw da Base dos Dados (`populacao`, `pib`, `censo_2022`) chega tipado e sem regra ao staging; para auditoria use gq_staging__perfil_municipio__01"
+    intermediate: "int_municipios__conformados e int_municipios__perfil_ibge chegam inteiros a dim_municipio; use gq_core__perfil_municipio__01"
+    analytics: "os marts usam a população só como denominador da densidade (`ativos_por_10k_hab`); o perfil está em dim_municipio, gq_core__perfil_municipio__01; ver gq_analytics__concorrencia_densidade__01"
+    original: "os modelos originais do MVP não têm população, PIB nem Censo"
+    semantica: "não há métrica de população nem de PIB, e essas colunas não são dimensões da semântica; use gq_core__perfil_municipio__01"
+  data_calendario:
+    intermediate: "o intermediate guarda `_mes_referencia` e `_data_referencia` do staging; use gq_staging__data_calendario__01"
+    analytics: "os marts são do mês corrente do gold, sem série; a série está em gq_core__data_calendario__01"
+    original: "os originais não têm mês: `idade_atual` é relativa à data de referência (ADR-0004); ver gq_staging__data_calendario__01"
+  dinamica_mercado:
+    raw: "a RFB não publica eventos, só a situação atual; abertura e encerramento são derivados pelo projeto no gold"
+    staging: "idem raw: os eventos são derivados no gold (fct_estabelecimentos × dim_data); use gq_core__dinamica_mercado__01"
+    intermediate: "nenhum intermediate deriva eventos; use gq_core__dinamica_mercado__01 ou gq_analytics__dinamica_mercado__01"
+    original: "o MVP não calculou aberturas nem encerramentos"
+  sobrevivencia_coorte:
+    raw: "a coorte é regra do projeto, calculada no gold"
+    staging: "a coorte é regra do projeto, calculada no gold"
+    intermediate: "a coorte é regra do projeto, calculada no gold"
+    core: "a regra (elegibilidade por coorte, sobrevivência a N anos) está pronta em mart_sobrevivencia_coorte; refazê-la no core arrisca divergir; use gq_analytics__sobrevivencia_coorte__01"
+    original: "o MVP não calculou sobrevivência"
+  concorrencia_densidade:
+    raw: "densidade é regra do projeto, calculada no gold"
+    staging: "densidade é regra do projeto, calculada no gold"
+    intermediate: "densidade é regra do projeto, calculada no gold"
+    core: "a densidade por 10 mil habitantes e o ranking na UF estão prontos em mart_concorrencia_municipio; use gq_analytics__concorrencia_densidade__01 (a contagem simples está em gq_core__empresa_estabelecimento__02)"
+  area_mercado_vizinhanca:
+    raw: "a vizinhança do raw é a da Base dos Dados com todos os anos; o gold usa o ano mais recente, simétrico (bridge_municipio_vizinho)"
+    staging: "stg_bd__vizinhanca tem todos os anos e um só sentido; use gq_core__area_mercado_vizinhanca__01"
+    intermediate: "nenhum intermediate de vizinhança; use gq_core__area_mercado_vizinhanca__01"
+    original: "o MVP não usou vizinhança"
+    semantica: "a ponte de vizinhança fica fora da camada semântica (CAMADA_SEMANTICA.md, B7)"
+  fornecedores_proximos:
+    raw: "a busca por raio é regra do projeto (haversine entre centroides), calculada no gold"
+    staging: "a busca por raio é regra do projeto, calculada no gold"
+    intermediate: "a busca por raio é regra do projeto, calculada no gold"
+    core: "o cálculo de distância e a escolha da via (principal × secundário) estão prontos em mart_fornecedores_proximos; use gq_analytics__fornecedores_proximos__01"
+    semantica: "fornecedores são uma lista por estabelecimento, sem métrica na camada semântica"
+  cempre_setor:
+    staging: "stg_ibge__cempre_municipio_classe só pivota as variáveis e marca o sigilo; o publicado está em gq_raw__cempre_setor__01 e o tratado em gq_analytics__cempre_setor__01"
+    intermediate: "int_municipios__perfil_ibge só leva o total do CEMPRE a dim_municipio; use gq_core__cempre_setor__01"
+    original: "o MVP não usou o CEMPRE"
+  renda:
+    raw: "o raw da SIDRA é longo (variável × município); o staging trata os símbolos (`...`); use gq_core__renda__01"
+    staging: "stg_ibge__renda_municipio chega inteiro a dim_municipio; use gq_core__renda__01"
+    intermediate: "int_municipios__perfil_ibge só renomeia a renda para dim_municipio; use gq_core__renda__01"
+    original: "o MVP não usou renda"
+  regic_polo_compras:
+    raw: "o raw da REGIC tem os dez temas e códigos de 6 dígitos; use gq_core__regic_polo_compras__01 (temas de compra, código IBGE)"
+    staging: "o staging só converte os códigos e os percentuais; use gq_core__regic_polo_compras__01"
+    intermediate: "int_regic__destinos_compras chega a bridge_municipio_destino_compras com `sk_*`; use gq_core__regic_polo_compras__01"
+    original: "o MVP não usou a REGIC"
+  valor_adicionado:
+    raw: "o raw do PIB tem os mesmos valores do staging, em texto; use gq_staging__valor_adicionado__01"
+    intermediate: "int_municipios__perfil_ibge escolhe o `ano_va` e calcula as participações, que chegam a dim_municipio; use gq_core__valor_adicionado__01"
+    analytics: "nenhum mart tem VA; use gq_core__valor_adicionado__01"
+    original: "o MVP não usou o VA"
+    semantica: "o VA não é dimensão nem métrica da camada semântica (atributo numérico de dim_municipio)"
+  regras_qualidade:
+    raw: "as regras rodam sobre o staging e o intermediate (analyses `rn_*`); o raw é o que a fonte publicou, sem regra"
+    analytics: "a qualidade de cada execução fica em dq_resumo_execucao (observabilidade): os números mudam a cada build; veja docs/QUALIDADE_DADOS.md e `rfb regras`"
+    original: "a paridade do original é teste do build (`paridade_bh_empresas`), não consulta"
+    semantica: "regras de negócio não são métricas; use `rfb regras` e docs/RELATORIO_REGRAS_NEGOCIO.md"
+  modelos_originais:
+    raw: "os modelos originais são do gold; a linhagem deles está no dicionário (docs/DICIONARIO_DADOS.md)"
+    staging: "os modelos originais são do gold; a linhagem deles está no dicionário"
+    intermediate: "os modelos originais leem o staging direto, sem intermediate"
+    core: "o equivalente no modelo estrela de cada pergunta do MVP está nas golden queries do core de cada conceito"
+    analytics: "idem core: os marts analíticos são adições, não originais"
+    semantica: "os originais não são modelos semânticos; as métricas equivalentes estão em gq_semantica__concorrencia_densidade__01"

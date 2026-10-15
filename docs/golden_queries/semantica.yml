@@ -1,0 +1,489 @@
+# Golden queries da camada semântica (ADR-0023): comandos `mf query` (MetricFlow) sobre as métricas e as consultas
+# salvas de transform/models. Mesmo cabeçalho de metadados das golden queries SQL de transform/analyses/golden/.
+# Cada entrada usa `saved_query` OU `metricas` (+ `group_by`, `where`). O comando roda em `transform/`:
+#   uv run mf query --metrics <metricas> --group-by <group_by> --where "<where>"
+#   uv run mf query --saved-query <saved_query>
+# `resposta_esperada_fixtures` é a saída do `mf query --csv` nas fixtures do `make ci`, com as linhas ORDENADAS
+# (o MetricFlow não garante a ordem e as consultas salvas não usam `order_by`, ADR-0017): datas sem a hora,
+# números como número, vazio como null. O `make golden` grava no catálogo o SQL que o MetricFlow gera para cada
+# entrada (`mf query --explain`, campo `sql`), e o teste `test_golden_queries.py` executa esse SQL somente leitura e
+# compara (RGQ-01).
+# Depois de editar, rode `make golden`.
+
+golden_queries:
+  - id: gq_semantica__empresa_estabelecimento__01
+    conceito: empresa_estabelecimento
+    camada: semantica
+    perguntas:
+      - "Quantas empresas e quantos estabelecimentos há por mês?"
+      - "Quantos CNPJs ativos existem, e quantas empresas?"
+    intencao: "Empresas (matrizes), estabelecimentos e ativos por mês de referência, pelas métricas padrão do resumo mensal."
+    metricas: [qtd_matrizes, qtd_estabelecimentos, qtd_ativos]
+    group_by: [metric_time__month]
+    armadilhas:
+      - "`qtd_estabelecimentos` e `qtd_ativos` contam estabelecimentos; empresas = `qtd_matrizes`."
+      - "Fotografia mensal: agrupe por mês; sem tempo ou por ano vale o último mês com linhas, nunca a soma."
+    variacoes:
+      - "Só ativas: `--where \"{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'ATIVA'\"` (conta a matriz ativa)."
+      - "Por UF: acrescente `municipio__sigla_uf` ao `--group-by`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, qtd_matrizes, qtd_estabelecimentos, qtd_ativos]
+      linhas:
+        - ['2026-08-01', 16, 17, 10]
+        - ['2026-09-01', 16, 18, 11]
+
+  - id: gq_semantica__matriz_filial__01
+    conceito: matriz_filial
+    camada: semantica
+    perguntas:
+      - "Quantas aberturas e encerramentos foram de matriz e quantos de filial?"
+      - "Abrem mais empresas novas ou filiais?"
+    intencao: "Aberturas e encerramentos (todos os anos do extrato) separados por matriz e filial."
+    metricas: [aberturas, encerramentos]
+    group_by: [estabelecimento__eh_matriz]
+    armadilhas:
+      - "`eh_matriz` é dimensão da fato detalhada: combine com `aberturas`/`encerramentos`, não com as métricas do resumo."
+      - "Sem tempo no `--group-by`, soma todos os anos de eventos do extrato corrente."
+    variacoes:
+      - "Por ano: acrescente `metric_time__year`."
+    resposta_esperada_fixtures:
+      colunas: [estabelecimento__eh_matriz, aberturas, encerramentos]
+      linhas:
+        - [false, 2, 1]
+        - [true, 15, 5]
+
+  - id: gq_semantica__situacao_cadastral__01
+    conceito: situacao_cadastral
+    camada: semantica
+    perguntas:
+      - "Quantos estabelecimentos há em cada situação cadastral por mês?"
+      - "Quantos estão suspensos, inaptos ou baixados?"
+    intencao: "Estabelecimentos por mês e situação cadastral, agrupando (não filtrando) a situação."
+    metricas: [qtd_estabelecimentos]
+    group_by: [metric_time__month, situacao_cadastral__rotulo_situacao_cadastral]
+    armadilhas:
+      - "Agrupe pela situação em vez de filtrá-la: com filtro, o MetricFlow escolhe o último mês DEPOIS do filtro e pode devolver uma fotografia velha (RSEM-01)."
+      - "Ativa ≠ em operação."
+    variacoes:
+      - "Uma UF: `--where \"{{ Dimension('municipio__sigla_uf') }} = 'ES'\"`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, situacao_cadastral__rotulo_situacao_cadastral, qtd_estabelecimentos]
+      linhas:
+        - ['2026-08-01', ATIVA, 10]
+        - ['2026-08-01', BAIXADA, 5]
+        - ['2026-08-01', INAPTA, 1]
+        - ['2026-08-01', SUSPENSA, 1]
+        - ['2026-09-01', ATIVA, 11]
+        - ['2026-09-01', BAIXADA, 6]
+        - ['2026-09-01', INAPTA, 1]
+
+  - id: gq_semantica__situacao_cadastral__02
+    conceito: situacao_cadastral
+    camada: semantica
+    perguntas:
+      - "Quantas suspensas há na Paraíba hoje?"
+      - "Quantos estabelecimentos suspensos tem a PB no mês mais recente?"
+    intencao: "Estoque atual com filtro de situação, feito do jeito certo: filtrando também o mês (vazio = nenhum)."
+    metricas: [qtd_estabelecimentos]
+    group_by: [metric_time__month]
+    where: "{{ Dimension('municipio__sigla_uf') }} = 'PB' and {{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'SUSPENSA' and {{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+    armadilhas:
+      - "Sem o filtro de mês, a consulta por ano devolve 1 (a fotografia de 2026-08), embora em 2026-09 não haja suspensa na PB: o `MAX(mes)` é escolhido depois do filtro (RSEM-01)."
+      - "Resultado vazio aqui quer dizer zero."
+    variacoes:
+      - "Outro mês: troque a data do filtro de `metric_time` (sempre o 1º dia do mês)."
+    resposta_esperada_fixtures:
+      colunas: []
+      linhas: []
+
+  - id: gq_semantica__porte__01
+    conceito: porte
+    camada: semantica
+    perguntas:
+      - "Qual a idade média dos ativos por porte no mês mais recente?"
+      - "Quantas microempresas ativas há?"
+    intencao: "Ativos e idade média por porte num mês."
+    metricas: [qtd_ativos, idade_media_anos]
+    group_by: [porte__rotulo_porte]
+    where: "{{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+    armadilhas:
+      - "`N/A` (código 00) ≠ `NÃO INFORMADO` (membro -1); o porte é declarado; MEI não é porte."
+      - "O ratio soma antes de dividir: idade média ponderada pelos ativos."
+    variacoes:
+      - "Série: troque o `--where` por `metric_time__month` no `--group-by`."
+    resposta_esperada_fixtures:
+      colunas: [porte__rotulo_porte, qtd_ativos, idade_media_anos]
+      linhas:
+        - [DEMAIS, 2, 18.7]
+        - [MICRO, 4, 4.275]
+        - [N/A, 2, 16.1]
+        - [NÃO INFORMADO, 0, null]
+        - [PEQUENA, 3, 14.8]
+
+  - id: gq_semantica__natureza_juridica__01
+    conceito: natureza_juridica
+    camada: semantica
+    perguntas:
+      - "Quantas aberturas houve por natureza jurídica?"
+      - "Quantas sociedades limitadas foram abertas?"
+    intencao: "Aberturas (todos os anos do extrato) por natureza jurídica."
+    metricas: [aberturas]
+    group_by: [natureza_juridica__descricao_natureza_juridica]
+    armadilhas:
+      - "Natureza jurídica só existe na fato detalhada: só com `aberturas`, `encerramentos` e `baixas`, nunca com as métricas do resumo."
+      - "MEI não é natureza jurídica."
+    variacoes:
+      - "Por ano: acrescente `metric_time__year`."
+    resposta_esperada_fixtures:
+      colunas: [natureza_juridica__descricao_natureza_juridica, aberturas]
+      linhas:
+        - [Empresa Individual de Responsabilidade Limitada (de Natureza Empresária), 1]
+        - [Empresário (Individual), 5]
+        - [Sociedade Empresária Limitada, 11]
+
+  - id: gq_semantica__cnae_principal__01
+    conceito: cnae_principal
+    camada: semantica
+    perguntas:
+      - "Quantos ativos há por seção da CNAE no mês mais recente?"
+      - "Qual setor tem mais empresas ativas?"
+    intencao: "Ativos por seção da CNAE (CNAE principal) num mês."
+    metricas: [qtd_ativos]
+    group_by: [metric_time__month, cnae__descricao_secao]
+    where: "{{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+    armadilhas:
+      - "Empresa × estabelecimento: `qtd_ativos` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__empresa_estabelecimento__01); se não está claro, declare a escolha na resposta."
+      - "Só o CNAE principal; o secundário não está na camada semântica."
+      - "`NÃO INFORMADO` reúne CNAEs sem par na Base dos Dados."
+    variacoes:
+      - "Uma subclasse: `--where \"{{ Dimension('cnae__codigo_subclasse') }} = '4741500'\"`."
+      - "Outros níveis: `cnae__descricao_divisao`, `cnae__descricao_grupo`, `cnae__descricao_classe`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, cnae__descricao_secao, qtd_ativos]
+      linhas:
+        - ['2026-09-01', 'Agricultura, pecuaria, producao florestal, pesca e aquicultura', 1]
+        - ['2026-09-01', Comercio; reparacao de veiculos automotores e motocicletas, 6]
+        - ['2026-09-01', Industrias de transformacao, 3]
+        - ['2026-09-01', NÃO INFORMADO, 1]
+
+  - id: gq_semantica__simples_mei__01
+    conceito: simples_mei
+    camada: semantica
+    perguntas:
+      - "Quantos MEI ativos há em cada UF?"
+      - "Qual a participação do MEI entre os ativos por estado?"
+    intencao: "MEI ativos, ativos e % de MEI por mês e UF."
+    metricas: [qtd_ativos_mei, qtd_ativos, pct_mei_entre_ativos]
+    group_by: [metric_time__month, municipio__sigla_uf]
+    armadilhas:
+      - "Recorte sem MEI sai vazio (null), não zero."
+      - "`qtd_ativos_mei` conta estabelecimentos (há MEI com filial no dado real)."
+    variacoes:
+      - "Uma UF: `--where \"{{ Dimension('municipio__sigla_uf') }} = 'ES'\"`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, municipio__sigla_uf, qtd_ativos_mei, qtd_ativos, pct_mei_entre_ativos]
+      linhas:
+        - ['2026-08-01', AL, null, 1, null]
+        - ['2026-08-01', ES, 1, 7, 0.142857]
+        - ['2026-08-01', NI, null, 2, null]
+        - ['2026-08-01', PB, null, 0, null]
+        - ['2026-09-01', AL, null, 1, null]
+        - ['2026-09-01', ES, 2, 8, 0.25]
+        - ['2026-09-01', NI, null, 2, null]
+        - ['2026-09-01', PB, null, 0, null]
+
+  - id: gq_semantica__capital_social__01
+    conceito: capital_social
+    camada: semantica
+    perguntas:
+      - "Qual o capital social total e médio das empresas por mês?"
+      - "Quanto capital têm as empresas do cadastro?"
+    intencao: "Capital social total e médio por empresa (só matrizes) por mês."
+    metricas: [capital_social_total, capital_social_medio, qtd_matrizes]
+    group_by: [metric_time__month]
+    armadilhas:
+      - "As métricas já somam só as matrizes; nunca some `capital_social` da fato por estabelecimento."
+    variacoes:
+      - "Por porte: acrescente `porte__rotulo_porte`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, capital_social_total, qtd_matrizes, capital_social_medio]
+      linhas:
+        - ['2026-08-01', 16000.5, 16, 1000.03125]
+        - ['2026-09-01', 16000.5, 16, 1000.03125]
+
+  - id: gq_semantica__municipio_geografia__01
+    conceito: municipio_geografia
+    camada: semantica
+    perguntas:
+      - "Quantos ativos e qual o % de ativos em cada UF do Sudeste?"
+      - "Como está o Sudeste por estado?"
+    intencao: "Ativos e % de ativos por mês e UF, filtrando uma grande região."
+    metricas: [qtd_ativos, pct_ativos]
+    group_by: [metric_time__month, municipio__sigla_uf]
+    where: "{{ Dimension('municipio__nome_regiao') }} = 'Sudeste'"
+    armadilhas:
+      - "'Região' é ambíguo (grande região, metropolitana, intermediária, imediata): `municipio__nome_regiao` é a grande região."
+      - "Município homônimo: filtre `municipio__nome_municipio` junto com `municipio__sigla_uf`."
+    variacoes:
+      - "Região metropolitana: `municipio__nome_regiao_metropolitana`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, municipio__sigla_uf, qtd_ativos, pct_ativos]
+      linhas:
+        - ['2026-08-01', ES, 7, 0.583333]
+        - ['2026-09-01', ES, 8, 0.615385]
+
+  - id: gq_semantica__data_calendario__01
+    conceito: data_calendario
+    camada: semantica
+    perguntas:
+      - "Quantos ativos a mais há em relação ao mês anterior?"
+      - "Qual a variação mensal de ativos?"
+    intencao: "Ativos, ativos do mês anterior e variação mensal por mês."
+    metricas: [qtd_ativos, qtd_ativos_mes_anterior, variacao_mensal_ativos]
+    group_by: [metric_time__month]
+    armadilhas:
+      - "O primeiro mês da série não tem mês anterior (null)."
+      - "Não some meses: cada mês é uma fotografia."
+    variacoes:
+      - "Em %: `variacao_mensal_ativos_pct`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, qtd_ativos, qtd_ativos_mes_anterior, variacao_mensal_ativos]
+      linhas:
+        - ['2026-08-01', 10, null, null]
+        - ['2026-09-01', 11, 10, 1]
+
+  - id: gq_semantica__data_calendario__02
+    conceito: data_calendario
+    camada: semantica
+    perguntas:
+      - "Qual a série mensal de ativos por UF?"
+      - "Como evoluiu o número de ativos em cada estado?"
+    intencao: "Consulta salva `serie_mensal_ativos_por_uf`: ativos, % de ativos e idade média por mês e UF."
+    saved_query: serie_mensal_ativos_por_uf
+    armadilhas:
+      - "Consultas salvas não aceitam `--where`; para filtrar, reescreva com `--metrics`."
+    variacoes:
+      - "Equivalente com filtro: `--metrics qtd_ativos,pct_ativos,idade_media_anos --group-by metric_time__month,municipio__sigla_uf --where ...`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, municipio__sigla_uf, qtd_ativos, pct_ativos, idade_media_anos]
+      linhas:
+        - ['2026-08-01', AL, 1, 1.0, 7.6]
+        - ['2026-08-01', ES, 7, 0.583333, 15.928571]
+        - ['2026-08-01', NI, 2, 1.0, 4.15]
+        - ['2026-08-01', PB, 0, 0.0, null]
+        - ['2026-09-01', AL, 1, 1.0, 7.7]
+        - ['2026-09-01', ES, 8, 0.615385, 14.3625]
+        - ['2026-09-01', NI, 2, 1.0, 4.25]
+        - ['2026-09-01', PB, 0, 0.0, null]
+
+  - id: gq_semantica__dinamica_mercado__01
+    conceito: dinamica_mercado
+    camada: semantica
+    perguntas:
+      - "Quantas empresas abriram, fecharam e foram baixadas por ano?"
+      - "Qual o saldo de aberturas por ano?"
+    intencao: "Aberturas, encerramentos, baixas e saldo por ano."
+    metricas: [aberturas, encerramentos, baixas, saldo_aberturas_encerramentos]
+    group_by: [metric_time__year]
+    armadilhas:
+      - "Empresa × estabelecimento: `aberturas` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__dinamica_mercado__01); se não está claro, declare a escolha na resposta."
+      - "Encerramento inclui inapta e suspensa; 'fechou de vez' = `baixas`."
+      - "Ano sem evento de um lado sai null; o saldo o trata como 0. O último ano é parcial."
+    variacoes:
+      - "Um CNAE: `--where \"{{ Dimension('cnae__codigo_subclasse') }} = '4741500'\"`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__year, aberturas, encerramentos, baixas, saldo_aberturas_encerramentos]
+      linhas:
+        - ['2000-01-01', 2, null, null, 2]
+        - ['2005-01-01', 1, null, null, 1]
+        - ['2008-01-01', 1, null, null, 1]
+        - ['2010-01-01', 1, null, null, 1]
+        - ['2012-01-01', 1, null, null, 1]
+        - ['2015-01-01', 1, null, null, 1]
+        - ['2016-01-01', 1, null, null, 1]
+        - ['2018-01-01', 2, null, null, 2]
+        - ['2019-01-01', 2, 1, 1, 1]
+        - ['2020-01-01', 1, 1, 1, 0]
+        - ['2021-01-01', 1, 1, 1, 0]
+        - ['2022-01-01', 1, null, null, 1]
+        - ['2023-01-01', 1, 1, null, 0]
+        - ['2024-01-01', 1, 1, 1, 0]
+        - ['2026-01-01', null, 1, 1, -1]
+
+  - id: gq_semantica__dinamica_mercado__02
+    conceito: dinamica_mercado
+    camada: semantica
+    perguntas:
+      - "Quantas aberturas e encerramentos por ano em cada seção da CNAE?"
+      - "Qual setor mais abriu empresas por ano?"
+    intencao: "Consulta salva `dinamica_anual_por_secao_cnae`."
+    saved_query: dinamica_anual_por_secao_cnae
+    armadilhas:
+      - "Empresa × estabelecimento: `aberturas` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__dinamica_mercado__01); se não está claro, declare a escolha na resposta."
+      - "Inaptidões em lote e ano parcial distorcem o saldo de um ano."
+    variacoes:
+      - "Com filtro: reescreva com `--metrics aberturas,encerramentos,saldo_aberturas_encerramentos --group-by metric_time__year,cnae__descricao_secao --where ...`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__year, cnae__descricao_secao, aberturas, encerramentos, saldo_aberturas_encerramentos]
+      linhas:
+        - ['2000-01-01', 'Agricultura, pecuaria, producao florestal, pesca e aquicultura', 1, null, 1]
+        - ['2000-01-01', Industrias de transformacao, 1, null, 1]
+        - ['2005-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, null, 1]
+        - ['2008-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, null, 1]
+        - ['2010-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, null, 1]
+        - ['2012-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, null, 1]
+        - ['2015-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, null, 1]
+        - ['2016-01-01', NÃO INFORMADO, 1, null, 1]
+        - ['2018-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, null, 1]
+        - ['2018-01-01', Industrias de transformacao, 1, null, 1]
+        - ['2019-01-01', 'Agricultura, pecuaria, producao florestal, pesca e aquicultura', 1, null, 1]
+        - ['2019-01-01', Comercio; reparacao de veiculos automotores e motocicletas, null, 1, -1]
+        - ['2019-01-01', Industrias de transformacao, 1, null, 1]
+        - ['2020-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, 1, 0]
+        - ['2021-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, 1, 0]
+        - ['2022-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, null, 1]
+        - ['2023-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, 1, 0]
+        - ['2024-01-01', Comercio; reparacao de veiculos automotores e motocicletas, 1, 1, 0]
+        - ['2026-01-01', 'Agricultura, pecuaria, producao florestal, pesca e aquicultura', null, 1, -1]
+
+  - id: gq_semantica__sobrevivencia_coorte__01
+    conceito: sobrevivencia_coorte
+    camada: semantica
+    perguntas:
+      - "Qual a taxa de sobrevivência em 1, 3 e 5 anos por coorte e porte?"
+      - "Empresas abertas em 2018 sobreviveram quanto?"
+    intencao: "Consulta salva `sobrevivencia_por_coorte_e_porte`."
+    saved_query: sobrevivencia_por_coorte_e_porte
+    armadilhas:
+      - "Empresa × estabelecimento: a coorte é de estabelecimentos (filiais incluídas), não de empresas."
+      - "Taxa null = coorte ainda não elegível no horizonte."
+    variacoes:
+      - "Uma UF: `--metrics taxa_sobrevivencia_3a --group-by metric_time__year --where \"{{ Dimension('coorte_sobrevivencia__uf') }} = 'ES'\"`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__year, porte__rotulo_porte, taxa_sobrevivencia_1a, taxa_sobrevivencia_3a, taxa_sobrevivencia_5a]
+      linhas:
+        - ['2000-01-01', DEMAIS, 1.0, 1.0, 1.0]
+        - ['2000-01-01', N/A, 1.0, 1.0, 1.0]
+        - ['2005-01-01', PEQUENA, 1.0, 1.0, 1.0]
+        - ['2008-01-01', MICRO, 1.0, 1.0, 1.0]
+        - ['2010-01-01', DEMAIS, 1.0, 1.0, 1.0]
+        - ['2012-01-01', PEQUENA, 1.0, 1.0, 1.0]
+        - ['2015-01-01', PEQUENA, 1.0, 1.0, 0.0]
+        - ['2016-01-01', DEMAIS, 1.0, 1.0, 1.0]
+        - ['2018-01-01', NÃO INFORMADO, 1.0, 1.0, 1.0]
+        - ['2018-01-01', PEQUENA, 1.0, 1.0, 1.0]
+        - ['2019-01-01', MICRO, 1.0, 1.0, 1.0]
+        - ['2020-01-01', MICRO, 1.0, 0.0, 0.0]
+        - ['2021-01-01', N/A, 1.0, 1.0, null]
+        - ['2022-01-01', MICRO, 1.0, 1.0, null]
+        - ['2023-01-01', MICRO, 1.0, null, null]
+        - ['2024-01-01', MICRO, 1.0, null, null]
+
+  - id: gq_semantica__sobrevivencia_coorte__02
+    conceito: sobrevivencia_coorte
+    camada: semantica
+    perguntas:
+      - "Qual a taxa de sobrevivência em 3 anos de lojas de tintas no ES?"
+      - "Loja de tinta no Espírito Santo dura 3 anos?"
+    intencao: "Taxa de sobrevivência a 3 anos (e os elegíveis) de um CNAE numa UF, todas as coortes somadas."
+    metricas: [elegiveis_3a, sobreviventes_3a, taxa_sobrevivencia_3a]
+    where: "{{ Dimension('coorte_sobrevivencia__uf') }} = 'ES' and {{ Dimension('cnae__codigo_subclasse') }} = '4741500'"
+    armadilhas:
+      - "O ratio soma os estratos antes de dividir (ponderado), igual a gq_analytics__sobrevivencia_coorte__01."
+    variacoes:
+      - "Por coorte: `--group-by metric_time__year`."
+    resposta_esperada_fixtures:
+      colunas: [elegiveis_3a, sobreviventes_3a, taxa_sobrevivencia_3a]
+      linhas:
+        - [5, 4, 0.8]
+
+  - id: gq_semantica__concorrencia_densidade__01
+    conceito: concorrencia_densidade
+    camada: semantica
+    perguntas:
+      - "Quantas lojas de tintas há em Fundão por mês e porte?"
+      - "Qual a resposta da pergunta-guia do MVP pela camada semântica?"
+    intencao: "Consulta salva `estudo_caso_fundao_tintas`: estabelecimentos, ativos e idade média de lojas de tintas em Fundão/ES por mês e porte."
+    saved_query: estudo_caso_fundao_tintas
+    armadilhas:
+      - "Sem densidade por habitante: população não é métrica (CAMADA_SEMANTICA.md, B7); use mart_concorrencia_municipio."
+    variacoes:
+      - "Outro caso: `--metrics qtd_estabelecimentos,qtd_ativos,idade_media_anos --group-by metric_time__month,porte__rotulo_porte --where ...`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, porte__rotulo_porte, qtd_estabelecimentos, qtd_ativos, idade_media_anos]
+      linhas:
+        - ['2026-08-01', DEMAIS, 1, 0, null]
+        - ['2026-08-01', MICRO, 2, 1, 3.8]
+        - ['2026-08-01', NÃO INFORMADO, 1, 0, null]
+        - ['2026-08-01', PEQUENA, 1, 0, null]
+        - ['2026-09-01', DEMAIS, 1, 0, null]
+        - ['2026-09-01', MICRO, 2, 1, 3.9]
+        - ['2026-09-01', NÃO INFORMADO, 1, 0, null]
+        - ['2026-09-01', PEQUENA, 1, 0, null]
+
+  - id: gq_semantica__cempre_setor__01
+    conceito: cempre_setor
+    camada: semantica
+    perguntas:
+      - "Quantas unidades e pessoas trabalham em cada setor em Serra?"
+      - "Qual o tamanho do setor em Serra, comparado aos CNPJs ativos?"
+    intencao: "Unidades locais e pessoal ocupado do CEMPRE e ativos da RFB por classe CNAE num município."
+    metricas: [unidades_locais_cempre, pessoal_ocupado_cempre, ativos_rfb]
+    group_by: [emprego_setor_municipio__classe_cnae]
+    where: "{{ Dimension('municipio__nome_municipio') }} = 'Serra'"
+    armadilhas:
+      - "`ativos_rfb` inclui MEI e o CEMPRE não: compare com `ativos_rfb_sem_mei` no mart."
+      - "`pessoal_ocupado_cempre` deixa de fora as células com sigilo (subestima)."
+    variacoes:
+      - "Uma classe: `--where \"{{ Dimension('emprego_setor_municipio__classe_cnae') }} = '47415'\"`."
+    resposta_esperada_fixtures:
+      colunas: [emprego_setor_municipio__classe_cnae, unidades_locais_cempre, pessoal_ocupado_cempre, ativos_rfb]
+      linhas:
+        - [20517, 4, 20, 0]
+        - [20711, 2, null, 1]
+        - [46796, 10, 80, 0]
+        - [47415, 33, 196, 1]
+
+  - id: gq_semantica__renda__01
+    conceito: renda
+    camada: semantica
+    perguntas:
+      - "Quantos ativos há em cada município do ES, com a renda per capita?"
+      - "Municípios mais ricos têm mais empresas?"
+    intencao: "Ativos por município de uma UF no mês, com a renda per capita média do Censo 2022 como dimensão."
+    metricas: [qtd_ativos]
+    group_by: [municipio__nome_municipio, municipio__renda_per_capita_media_2022]
+    where: "{{ Dimension('municipio__sigla_uf') }} = 'ES' and {{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+    armadilhas:
+      - "Empresa × estabelecimento: `qtd_ativos` conta estabelecimentos, não empresas. Para empresas, use `qtd_matrizes` (fotografia) ou filtre `eh_matriz` no gold (gq_core__empresa_estabelecimento__01); se não está claro, declare a escolha na resposta."
+      - "A renda é dimensão, não métrica: não some nem tire média dela no MetricFlow."
+    variacoes:
+      - "Mediana: `municipio__renda_per_capita_mediana_2022`."
+    resposta_esperada_fixtures:
+      colunas: [municipio__nome_municipio, municipio__renda_per_capita_media_2022, qtd_ativos]
+      linhas:
+        - [Aracruz, 1580.35, 1]
+        - [Fundão, 1406.78, 2]
+        - [Linhares, 1650.2, 1]
+        - [Serra, 1720.1, 3]
+        - [Vitória, 3351.64, 1]
+
+  - id: gq_semantica__regic_polo_compras__01
+    conceito: regic_polo_compras
+    camada: semantica
+    perguntas:
+      - "Para onde os moradores de cada município do ES vão comprar, e quantas lojas de tintas há lá?"
+      - "Qual o polo de compras de cada município, com a hierarquia e a renda?"
+    intencao: "Consulta salva `polo_compras_concorrencia_caso`: ativos de lojas de tintas por mês e município do ES, com o polo de compras, o % que vai a ele, a hierarquia e a renda."
+    saved_query: polo_compras_concorrencia_caso
+    armadilhas:
+      - "O % no polo divide os deslocamentos entre os destinos de fora."
+      - "Os ativos são do município, não do polo; para os do polo use mart_concorrencia_area_mercado."
+    variacoes:
+      - "Com filtro: reescreva com `--metrics qtd_ativos --group-by metric_time__month,municipio__nome_municipio,municipio__nome_municipio_polo_compras --where ...`."
+    resposta_esperada_fixtures:
+      colunas: [metric_time__month, municipio__nome_municipio, municipio__renda_per_capita_media_2022, municipio__regic_hierarquia, municipio__nome_municipio_polo_compras, municipio__pct_compras_no_polo, qtd_ativos]
+      linhas:
+        - ['2026-08-01', Fundão, 1406.78, Metrópole, Serra, 45.0, 1]
+        - ['2026-09-01', Fundão, 1406.78, Metrópole, Serra, 45.0, 1]
+        - ['2026-09-01', Serra, 1720.1, Metrópole, null, null, 1]

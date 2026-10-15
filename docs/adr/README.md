@@ -27,3 +27,4 @@ Decisões de processo/execução do projeto também ficam em [`.specs/STATE.md`]
 | [0020](0020-regras-de-negocio.md) | Regras de negócio verificadas fora do build (analyses + `rfb regras`), com relatório próprio | aceita |
 | [0021](0021-analises-nivel-bairro.md) | Análises no nível de bairro: adiar (custo × benefício desfavorável); gatilhos para reabrir | adiada |
 | [0022](0022-enriquecimento-fontes-gratuitas-ibge.md) | Enriquecimento com fontes gratuitas direto da origem (pacote 1: CEMPRE, renda do Censo 2022, REGIC 2018, VA) — incremento `enriquecimento_ibge` | aceita |
+| [0023](0023-golden-queries-e-guia-para-agente.md) | Golden queries testadas por conceito e camada, catálogo gerado e guia para um agente de consulta em linguagem natural | aceita |
