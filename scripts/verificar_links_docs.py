@@ -4,11 +4,11 @@
 Uso: `uv run python scripts/verificar_links_docs.py [arquivo.md ...]` (sem argumentos, todos os
 `.md` de `git ls-files`: README, raiz, `docs/`, `.specs/`, `transform/`). Sai com 1 e lista cada
 problema (`arquivo:linha: ...`) se um link relativo aponta para arquivo inexistente ou se a âncora
-não existe no destino. O nome do arquivo tem de bater também na caixa (`os.listdir`), com o mesmo resultado em
-qualquer sistema de arquivos: um link que só difere na caixa é sempre "caixa diferente" (o macOS
-não distingue `OPERACAO.md` de `operacao.md`; o Linux do CI distingue). URLs externas
-(`http:`, `https:`, `mailto:` etc.) são ignoradas. O slug dos cabeçalhos segue o GitHub: minúsculas,
-sem pontuação, espaços viram hífens, acentos são mantidos e repetidos ganham `-1`, `-2`.
+não existe no destino. O nome do arquivo tem de bater também na caixa (`os.listdir`), com o
+mesmo resultado em qualquer sistema de arquivos: um link que só difere na caixa é sempre "caixa
+diferente" (o macOS não distingue `OPERACAO.md` de `operacao.md`; o Linux do CI distingue). URLs
+externas (`http:`, `https:`, `mailto:` etc.) são ignoradas. O slug dos cabeçalhos segue o GitHub:
+minúsculas, sem pontuação, espaços viram hífens, acentos são mantidos e repetidos ganham `-1`, `-2`.
 Python puro, sem dependência.
 """
 
@@ -95,7 +95,7 @@ def _partes(alvo: Path) -> tuple[Path, tuple[str, ...]]:
 
 
 def existe_com_a_caixa_certa(alvo: Path) -> bool:
-    """Cada parte do caminho `alvo` (absoluto, resolvido) consta, com a mesma caixa, em `os.listdir`."""
+    """Cada parte do caminho `alvo` (absoluto, resolvido) consta, com a mesma caixa, no disco."""
     pasta, partes = _partes(alvo)
     for parte in partes:
         if not pasta.is_dir() or parte not in os.listdir(pasta):
@@ -105,7 +105,7 @@ def existe_com_a_caixa_certa(alvo: Path) -> bool:
 
 
 def _existe_ignorando_caixa(alvo: Path) -> bool:
-    """Caminho existe se a caixa for ignorada, com o mesmo resultado em qualquer sistema de arquivos."""
+    """O caminho existe se a caixa for ignorada (busca em `os.listdir`, igual em qualquer disco)."""
     pasta, partes = _partes(alvo)
     for parte in partes:
         if not pasta.is_dir():
