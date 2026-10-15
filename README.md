@@ -21,7 +21,8 @@ Censo 2022 e REGIC 2018).
   ([cenários de uso](docs/uso/cenarios.md); a resposta da pergunta-guia no dado real está no
   [relatório do estudo de caso](docs/relatorios/estudo-caso.md)).
 - **Analista de mercado / BI:** pipeline mensal, idempotente e testado; agende `make atualizar` e, a cada mês novo
-  da RFB, receba um **modelo estrela pronto para o Power BI** (Parquet) com série histórica e relatório de qualidade.
+  da RFB, receba um **modelo estrela pronto para o Power BI** (Parquet) com série histórica e relatório de qualidade
+  ([guia Power BI](docs/uso/power-bi.md)).
 - **Quem quer perguntar em linguagem natural:** entregue a um agente (LLM) o [guia de consulta](docs/uso/consulta-agente.md),
   o catálogo de golden queries e acesso somente leitura à base, e pergunte *"quantas lojas de tinta tem em Fundão?"*.
 - **Quem está aprendendo dbt:** um projeto real, em português, com fontes, staging, marts, testes genéricos,
