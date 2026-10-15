@@ -9,6 +9,14 @@ histórico de como o projeto foi feito, em [docs/historico/](docs/historico/READ
 
 ## [Não lançada] — v1.5.0
 
+### Adicionado
+- `make conceitos`: insere a definição de cada doc block no lugar do conceito em
+  [docs/conceitos.md](docs/conceitos.md) e monta o índice de termos; o `make ci` confere que está em dia e que o
+  texto escrito à mão não repete a definição.
+- Roteiro "Como estender" no [ARCHITECTURE (§12)](ARCHITECTURE.md#12-como-estender): o que fazer para uma fonte, um
+  modelo, um conceito ou um documento novo.
+- [Referência da ontologia](docs/referencia/ontologia/README.md), com o diagrama e a tabela conceito → modelo.
+
 ### Alterado
 - Documentação reorganizada por público: `docs/uso/`, `docs/referencia/`, `docs/relatorios/` e `docs/historico/`;
   o README vira porta de entrada com 6 entradas. Correspondência das seções antigas em
@@ -16,12 +24,19 @@ histórico de como o projeto foi feito, em [docs/historico/](docs/historico/READ
 - Conceitos de negócio com fonte única: definições curtas em doc blocks do dbt, usadas pelos YAMLs, pelo
   dicionário, pelo catálogo do agente e por [docs/conceitos.md](docs/conceitos.md), que recebe a antiga Parte A da
   camada semântica. O ESCOPO entra no ARCHITECTURE (§11) e cada triagem vai para o fim da sua revisão.
-- Verificador de links e âncoras dos `.md` no `make ci`; caminhos de `docs/` centralizados no código.
+- Em [docs/conceitos.md](docs/conceitos.md), cada conceito é dito uma vez: abre com a sua definição e segue só com o
+  que ela não diz (base legal, exemplos, cuidados). As perguntas frequentes com `mf query` vão para a
+  [referência da camada semântica](docs/referencia/camada-semantica.md#perguntas-frequentes); 1.012 → 687 linhas.
+- [docs/operacao.md](docs/operacao.md) abre com os comandos do dia a dia e um sumário; as notas de upgrade ficam no
+  fim. Os cenários apontam para o relatório do estudo de caso.
+- Verificador de links e âncoras dos `.md` no `make ci`, que confere também a caixa do nome do arquivo; caminhos de
+  `docs/` centralizados no código, com uma guarda por AST.
 
 **Nota de upgrade:** `rfb relatorio` e `rfb regras` passam a gravar em `docs/relatorios/estudo-caso.md` e
 `docs/relatorios/regras-negocio.md`. `--saida` e `--saida-relatorio` continuam valendo. Os arquivos-ponte nos
 caminhos antigos (`docs/CAMADA_SEMANTICA.md`, `docs/DICIONARIO_DADOS.md`, `docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md`,
-`docs/REGRAS_NEGOCIO.md`, `docs/ESCOPO.md`, `RETRO.md`) saem na v1.6.0.
+`docs/REGRAS_NEGOCIO.md`, `docs/ESCOPO.md`, `RETRO.md`) saem na v1.6.0. Depois de editar um doc block
+(`transform/models/docs/conceitos.md`), rode `make conceitos`, `make golden` e `make dicionario`.
 
 ## [1.4.1] — 2026-10-15
 
