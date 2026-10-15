@@ -1,4 +1,4 @@
-"""O guia de construção do agente não envelhece: os campos do catálogo que cita existem e a versão bate."""
+"""Guia de construção do agente: campos do catálogo citados existem; a versão bate."""
 
 from __future__ import annotations
 
