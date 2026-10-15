@@ -10,7 +10,7 @@ intencao: "Perfil de um município (identificado por nome E UF): as duas popula�
 tabelas: [dim_municipio]
 colunas_chave: [nome_municipio, sigla_uf, populacao, ano_populacao, populacao_censo_2022, pib, ano_pib, domicilios_2022, area_km2, densidade_hab_km2]
 armadilhas:
-  - "Duas populações: `populacao` é a estimativa do IBGE do `ano_populacao` (2024 no dado real); `populacao_censo_2022` é a contagem do Censo. Diga qual usou e o ano; a densidade (`densidade_hab_km2`) é do Censo."
+  - "Duas populações: `populacao` é a estimativa do IBGE do `ano_populacao` (2025 no dado real, 2024 nas fixtures); `populacao_censo_2022` é a contagem do Censo. Diga qual usou e o ano; a densidade (`densidade_hab_km2`) é do Censo."
   - "PIB per capita não é coluna: `pib / populacao` mistura o ano do PIB (`ano_pib`) com o da estimativa. O IBGE divide pela população do mesmo ano (a série está em gq_staging__perfil_municipio__01). Declare os anos ou chame de aproximado."
   - "Filtre o município pelo nome E pela UF: Água Branca existe em AL, PB e PI (gq_core__municipio_geografia__02). Sem UF, pergunte."
   - "`pib` está em reais (R$) nominais do `ano_pib`; NULL é sem dado, nunca zero."

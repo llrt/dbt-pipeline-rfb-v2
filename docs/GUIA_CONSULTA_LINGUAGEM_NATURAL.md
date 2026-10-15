@@ -255,7 +255,7 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
     intermediate rodam só no local. O `sql` do gold e da semântica roda nos dois, com o nome `main.<tabela>`.
 17. **CNAE secundário fora da semântica.** "Quem trabalha com X" pode incluir o secundário; só a ponte responde.
     Certo: `gq_core__cnae_secundario__01`.
-18. **Duas populações e PIB per capita.** `dim_municipio.populacao` é a estimativa do `ano_populacao` (2024);
+18. **Duas populações e PIB per capita.** `dim_municipio.populacao` é a estimativa do `ano_populacao` (2025 no dado real);
     `populacao_censo_2022` é a contagem do Censo; a densidade é do Censo. O PIB per capita não é coluna, e
     `pib / populacao` divide o PIB de `ano_pib` pela população de outro ano: diga "aproximado" e os anos. Certo:
     `gq_core__perfil_municipio__01`; série da estimativa em `gq_staging__perfil_municipio__01`.
@@ -479,13 +479,16 @@ def checar_saida(colunas, linhas, identifica_estabelecimento=False):
 ## 10. Resultados do dado real (amostra conferida)
 
 Agregados do extrato da RFB de 2026-09 (data de referência 12/09/2026), CEMPRE 2024, Censo 2022 e REGIC 2018,
-rodados em 2026-10-14 sobre uma cópia do warehouse real com o gold do IBGE reconstruído:
+rodados em 2026-10-14 e 2026-10-15 sobre uma cópia do warehouse real com o gold do IBGE reconstruído:
 
 | Golden query | Resultado |
 |---|---|
 | `gq_core__empresa_estabelecimento__02` | Fundão/ES, CNAE 4741500: 0 ativos, 5 não ativos |
 | `gq_core__regic_polo_compras__01` | Fundão compra móveis e eletroeletrônicos em Serra (45,0 %), Vitória (38,3 %) e Aracruz (16,7 %) |
 | `gq_analytics__cempre_setor__02` | ES, classe 47.41-5: 281 unidades locais, pelo menos 1.207 pessoas ocupadas (30 células em sigilo), 303 ativos sem MEI na RFB |
+| `gq_core__cnae_principal__02` com '%padaria%' | 1091102 (fabricação): 457.872 estabelecimentos, 206.541 ativos; 4721102 (revenda): 289.460 e 86.816; 4721101: 4 e 0 (obsoleta). Aberturas em Vitória/ES em 2025: 107 em 1091102 e 30 em 4721102, 137 no total |
+| `gq_core__perfil_municipio__01` com Fundão/ES | estimativa 18.898 (2025), Censo 2022 17.951, PIB R$ 595,4 milhões (2023), PIB per capita aproximado R$ 31.506,77 (anos diferentes), 62,55 hab./km² |
+| `gq_analytics__cempre_setor__03` | ES, classe 47.41-5: salário médio mensal aproximado R$ 2.589,72 (CEMPRE 2024), com 983 assalariados de 14 das 55 células; as outras 41 não têm salário publicado ou não têm assalariado |
 
 ## 11. Índice do catálogo
 
