@@ -28,8 +28,10 @@ histórico de como o projeto foi feito, em [docs/historico/](docs/historico/READ
   máquina e acessar a rede; a conexão endurecida passa a ser obrigatória (revisão RGA). A camada vira desempate na
   recuperação, o manifesto da ingestão é descrito como tem `versao_pipeline` e o teste confere todo campo citado.
 - `checar_saida` (guia de consulta §7) deixava passar CNPJ como `DECIMAL`, `DOUBLE`, lista ou struct: agora
-  percorre valores aninhados e trata número inteiro em qualquer tipo numérico. O guia §3 descreve a conexão
-  endurecida que o agente recebe.
+  percorre valores aninhados, inclusive as chaves de `map`, e trata número inteiro em qualquer tipo numérico. O
+  guia §3 descreve a conexão endurecida que o agente recebe.
+- `comparar_resposta` (guia de construção §7) convertia texto com cara de número em número em todas as camadas e
+  aprovava o código `'5'` contra `'05'`: agora só a semântica passa pelo texto do CSV do `mf`, como no gerador.
 
 ## [1.5.0] — 2026-10-15
 
