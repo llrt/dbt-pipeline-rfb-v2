@@ -186,7 +186,8 @@ Regras de join:
 | região metropolitana, Grande X | `nome_regiao_metropolitana` | 'NÃO PERTENCE' = fora de RM |
 | vizinho, ao redor, entorno | `bridge_municipio_vizinho` (fronteira) | fronteira × raio em km × fluxo de compra (REGIC) |
 | quanta gente trabalha, empregos, funcionários | CEMPRE: `pessoal_ocupado_cempre` (`mart_emprego_setor_municipio`, total em `dim_municipio`) | ano do CEMPRE (2024) ≠ mês da RFB; sem MEI; sigilo vira NULL e a soma é um piso. A RFB não tem número de empregados |
-| renda, poder de compra, quanto o pessoal ganha | `renda_per_capita_media_2022` / `_mediana_2022` | média × mediana; reais nominais de 2022 |
+| renda, poder de compra, quanto o pessoal ganha | `renda_per_capita_media_2022` / `_mediana_2022` | média × mediana; reais nominais de 2022. "Quanto ganha quem trabalha no setor X" é **salário** (linha abaixo), não renda do morador |
+| salário, remuneração, quanto se paga, quanto ganha um empregado | CEMPRE (`mart_emprego_setor_municipio`): salário médio mensal ≈ `salarios_mil_reais * 1000 / pessoal_assalariado_cempre / 13` (mil reais no ano, 13 salários), `gq_analytics__cempre_setor__03` | ano do CEMPRE (2024), nominal; por classe (5 dígitos); sem MEI; do assalariado, não do pessoal ocupado. Sigilo: célula com salário NULL fica fora do numerador **e** do denominador; diga quantas ficaram fora |
 | onde o pessoal compra, polo, para onde vão comprar | REGIC: `bridge_municipio_destino_compras`, `nome_municipio_polo_compras` | % entre destinos de fora; tema (móveis × vestuário); 2018 |
 | concorrência, concorrentes | ativos do CNAE no município (`mart_concorrencia_municipio`), densidade por 10 mil hab. | "muita" exige um critério: ranking na UF, vizinhos, área de mercado |
 | fornecedor | `mart_fornecedores_proximos` (só o caso configurado) ou CNAEs de fornecedor por município | qual CNAE fornece? qual raio? |
@@ -214,7 +215,11 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
 5. **Membros `-1`/`-2`.** "NÃO INFORMADO" e "DATA INVÁLIDA" são valores, não nulos; não os confunda com porte `N/A`
    (código 00). Certo: `gq_core__regras_qualidade__01`, `gq_core__porte__01`.
 6. **Sigilo do CEMPRE.** Pessoal e salários com `X` ficam NULL e `tem_sigilo` true. **NUNCA** impute (zero, média,
-   interpolação); a soma é um piso. Certo: `gq_analytics__cempre_setor__02`.
+   interpolação). Numa agregação (UF, várias classes ou municípios), a soma de pessoal é uma **subestimativa
+   declarada**: diga "pelo menos N" e quantas células ficaram fora. `tem_sigilo` é da linha inteira (qualquer variável
+   com `X`), e um salário pode vir NULL sem ele: numa razão (salário médio, pessoal por unidade), numerador e
+   denominador vêm das **mesmas** células, as que têm os dois campos. Certo: `gq_analytics__cempre_setor__02`,
+   `gq_analytics__cempre_setor__03`.
 7. **CEMPRE sem MEI.** Compare `unidades_locais_cempre` com `ativos_rfb_sem_mei`, não com `ativos_rfb` (RN-30).
    Certo: `gq_analytics__cempre_setor__01`.
 8. **Anos diferentes entre as fontes.** RFB: mês do extrato; CEMPRE: 31/12 do `ano_cempre` (2024); renda: Censo
@@ -479,7 +484,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 
 <!-- INÍCIO do bloco gerado por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->
 
-**89** golden queries em **22** conceitos: raw 12, staging 8, intermediate 3, core 26, analytics 12, original 8, semantica 20. Cada célula tem as golden queries (número = sufixo `__nn`) ou um traço, com o motivo na lista abaixo da tabela.
+**90** golden queries em **22** conceitos: raw 12, staging 8, intermediate 3, core 26, analytics 13, original 8, semantica 20. Cada célula tem as golden queries (número = sufixo `__nn`) ou um traço, com o motivo na lista abaixo da tabela.
 
 | Conceito | raw | staging | intermediate | core | analytics | original | semantica |
 |---|---|---|---|---|---|---|---|
@@ -499,7 +504,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 | `concorrencia_densidade` Concorrência e densidade | — | — | — | — | [01](../transform/analyses/golden/gq_analytics__concorrencia_densidade__01.sql) [02](../transform/analyses/golden/gq_analytics__concorrencia_densidade__02.sql) | [01](../transform/analyses/golden/gq_original__concorrencia_densidade__01.sql) | [01](golden_queries/semantica.yml) |
 | `area_mercado_vizinhanca` Área de mercado e vizinhança | — | — | — | [01](../transform/analyses/golden/gq_core__area_mercado_vizinhanca__01.sql) | [01](../transform/analyses/golden/gq_analytics__area_mercado_vizinhanca__01.sql) [02](../transform/analyses/golden/gq_analytics__area_mercado_vizinhanca__02.sql) | — | — |
 | `fornecedores_proximos` Fornecedores próximos | — | — | — | — | [01](../transform/analyses/golden/gq_analytics__fornecedores_proximos__01.sql) | [01](../transform/analyses/golden/gq_original__fornecedores_proximos__01.sql) | — |
-| `cempre_setor` CEMPRE (tamanho real do setor) | [01](../transform/analyses/golden/gq_raw__cempre_setor__01.sql) | — | — | [01](../transform/analyses/golden/gq_core__cempre_setor__01.sql) | [01](../transform/analyses/golden/gq_analytics__cempre_setor__01.sql) [02](../transform/analyses/golden/gq_analytics__cempre_setor__02.sql) | — | [01](golden_queries/semantica.yml) |
+| `cempre_setor` CEMPRE (tamanho real do setor) | [01](../transform/analyses/golden/gq_raw__cempre_setor__01.sql) | — | — | [01](../transform/analyses/golden/gq_core__cempre_setor__01.sql) | [01](../transform/analyses/golden/gq_analytics__cempre_setor__01.sql) [02](../transform/analyses/golden/gq_analytics__cempre_setor__02.sql) [03](../transform/analyses/golden/gq_analytics__cempre_setor__03.sql) | — | [01](golden_queries/semantica.yml) |
 | `renda` Renda per capita (Censo 2022) | — | — | — | [01](../transform/analyses/golden/gq_core__renda__01.sql) [02](../transform/analyses/golden/gq_core__renda__02.sql) | [01](../transform/analyses/golden/gq_analytics__renda__01.sql) | — | [01](golden_queries/semantica.yml) |
 | `regic_polo_compras` REGIC, hierarquia urbana e polo de compras | — | — | — | [01](../transform/analyses/golden/gq_core__regic_polo_compras__01.sql) [02](../transform/analyses/golden/gq_core__regic_polo_compras__02.sql) | [01](../transform/analyses/golden/gq_analytics__regic_polo_compras__01.sql) | — | [01](golden_queries/semantica.yml) |
 | `valor_adicionado` Valor adicionado (VA) por atividade | — | [01](../transform/analyses/golden/gq_staging__valor_adicionado__01.sql) | — | [01](../transform/analyses/golden/gq_core__valor_adicionado__01.sql) | — | — | — |
@@ -648,6 +653,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 | [`gq_analytics__area_mercado_vizinhanca__02`](../transform/analyses/golden/gq_analytics__area_mercado_vizinhanca__02.sql) | analytics | `area_mercado_vizinhanca` | Em que municípios não há nenhuma loja de tintas, mas há nos vizinhos? | Vazios de mercado: municípios sem estabelecimento local do CNAE, mas com ativos nos vizinhos ou na região metropolitana. |
 | [`gq_analytics__cempre_setor__01`](../transform/analyses/golden/gq_analytics__cempre_setor__01.sql) | analytics | `cempre_setor` | Quantas pessoas trabalham em lojas de tintas no ES, por município? | CEMPRE (unidades locais, pessoal ocupado, sigilo) ao lado dos ativos da RFB com e sem MEI, para uma classe CNAE numa UF. |
 | [`gq_analytics__cempre_setor__02`](../transform/analyses/golden/gq_analytics__cempre_setor__02.sql) | analytics | `cempre_setor` | Quantas pessoas trabalham no comércio de tintas no ES inteiro? | Totais de uma classe CNAE numa UF, com o número de células em sigilo que deixam a soma do pessoal subestimada. |
+| [`gq_analytics__cempre_setor__03`](../transform/analyses/golden/gq_analytics__cempre_setor__03.sql) | analytics | `cempre_setor` | Quanto se paga de salário no comércio de tintas no ES? | Salário médio mensal aproximado (CEMPRE) por classe CNAE numa UF, somando só as células com salário e assalariados publicados, e quantas ficaram fora. |
 | [`gq_analytics__concorrencia_densidade__01`](../transform/analyses/golden/gq_analytics__concorrencia_densidade__01.sql) | analytics | `concorrencia_densidade` | Fundão tem muita concorrência de loja de tintas? | Ativos, inativos, densidade por 10 mil habitantes e ranking na UF de um CNAE num município (mart_concorrencia_municipio). |
 | [`gq_analytics__concorrencia_densidade__02`](../transform/analyses/golden/gq_analytics__concorrencia_densidade__02.sql) | analytics | `concorrencia_densidade` | Quais municípios do ES têm mais lojas de tintas por habitante? | Ranking de densidade de um CNAE entre os municípios de uma UF. |
 | [`gq_analytics__dinamica_mercado__01`](../transform/analyses/golden/gq_analytics__dinamica_mercado__01.sql) | analytics | `dinamica_mercado` | Quantas lojas de tintas abriram e fecharam em Fundão por ano? | Aberturas, encerramentos e saldo por ano de um CNAE num município, com a regra pronta de mart_dinamica_mercado. |

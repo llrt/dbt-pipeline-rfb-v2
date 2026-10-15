@@ -16,7 +16,7 @@ armadilhas:
   - "CEMPRE de 31/12 do `ano_cempre`; RFB do `mes_referencia_rfb`."
 variacoes:
   - "Outra classe: troque `classe_cnae` (5 dígitos, sem pontuação)."
-  - "Salário médio mensal aproximado: `salarios_mil_reais * 1000 / pessoal_assalariado_cempre / 13`."
+  - "Salário médio mensal aproximado de uma célula: `salarios_mil_reais * 1000 / pessoal_assalariado_cempre / 13`; agregado, com as regras de gq_analytics__cempre_setor__03."
 resposta_esperada_fixtures:
   colunas: [municipio, ano_cempre, unidades_locais_cempre, pessoal_ocupado_cempre, tem_sigilo, ativos_rfb, ativos_rfb_sem_mei, mes_referencia_rfb]
   linhas:
