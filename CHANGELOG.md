@@ -7,7 +7,7 @@ Formato do [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 [Versionamento Semântico](https://semver.org/lang/pt-BR/). O detalhe completo está na release de cada versão; o
 histórico de como o projeto foi feito, em [docs/historico/](docs/historico/README.md).
 
-## [Não lançada] — v1.5.0
+## [1.5.0] — 2026-10-15
 
 ### Adicionado
 - `make conceitos`: insere a definição de cada doc block no lugar do conceito em
@@ -37,6 +37,8 @@ histórico de como o projeto foi feito, em [docs/historico/](docs/historico/READ
 caminhos antigos (`docs/CAMADA_SEMANTICA.md`, `docs/DICIONARIO_DADOS.md`, `docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md`,
 `docs/REGRAS_NEGOCIO.md`, `docs/ESCOPO.md`, `RETRO.md`) saem na v1.6.0. Depois de editar um doc block
 (`transform/models/docs/conceitos.md`), rode `make conceitos`, `make golden` e `make dicionario`.
+
+Release: [v1.5.0](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.5.0)
 
 ## [1.4.1] — 2026-10-15
 
