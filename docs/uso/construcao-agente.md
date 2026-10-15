@@ -112,7 +112,7 @@ Medido na versão 1.5.1 (`versao_projeto` do catálogo).
 | `dimensoes` (50) | 16.586 | ~4.100 |
 | `metricas` (29) | 13.536 | ~3.400 |
 | `conceitos` (23) | 26.974 | ~6.700 |
-| Guia `consulta-agente.md` (853 linhas) | 115.179 | ~28.800 |
+| Guia `consulta-agente.md` (855 linhas) | 115.394 | ~28.800 |
 | Guia, seções 11 e 12 (316 linhas) | 72.348 | ~18.100 |
 
 <!-- FIM do bloco gerado dos tamanhos -->
@@ -172,7 +172,7 @@ A checagem de privacidade não é ferramenta do modelo: roda dentro de `executar
 identifica_estabelecimento=False)` é a função do bloco `python` do
 [guia §7](consulta-agente.md#checagem-obrigatória-pós-execução): copie-a e chame-a dentro de `executar_sql_leitura`,
 para não depender de o modelo lembrar. Ela é testada no CI com os vazamentos conhecidos (CNPJ como texto, inteiro,
-`DECIMAL`, `DOUBLE`, lista e struct); se você estender o SQL permitido ou os tipos devolvidos, estenda-a junto.
+`DECIMAL`, `DOUBLE`, lista, struct e chave de mapa); se você estender o SQL permitido ou os tipos devolvidos, estenda-a junto.
 
 **`identifica_estabelecimento` é política sua, desligada por padrão.** Nenhuma das golden queries de hoje a usa (todas
 têm `privacidade: agregado`). Ligue-a só na etapa de classificação, quando a pergunta é sobre um CNPJ que o próprio

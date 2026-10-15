@@ -316,7 +316,7 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
 ### Checagem obrigatória pós-execução
 
 Antes de responder, **DEVE** passar o resultado por esta função (ou por uma checagem equivalente): colunas da saída
-e linhas como vieram do banco (listas, structs e mapas são percorridos; número inteiro em `DECIMAL` ou `DOUBLE` conta
+e linhas como vieram do banco (listas, structs e mapas são percorridos, chaves de mapa inclusive; número inteiro em `DECIMAL` ou `DOUBLE` conta
 como inteiro). Se ela devolver qualquer problema, **não** mostre o resultado: refaça o SQL só com
 agregados ou recuse (exemplo 5). Ela não substitui a regra da derivada acima, porque um nome com alias e sem CPF
 mascarado não tem cara de nada; as duas valem juntas.
@@ -358,10 +358,12 @@ def _dv_ok(digitos: str) -> bool:
 
 
 def _valores(valor):
-    """Os valores simples de uma célula: percorre listas, structs e mapas; número inteiro em Decimal ou float vira
-    int (um CNPJ em `DECIMAL(18,0)`, `DOUBLE` ou `array_agg` é o mesmo CNPJ)."""
+    """Os valores simples de uma célula: percorre listas, structs e mapas, com as chaves (um CNPJ pode ser a chave de
+    um `map`; struct e map chegam como dict, então o nome de campo de struct também é conferido); número inteiro em
+    Decimal ou float vira int (um CNPJ em `DECIMAL(18,0)`, `DOUBLE` ou `array_agg` é o mesmo CNPJ)."""
     if isinstance(valor, dict):
-        for item in valor.values():
+        for chave, item in valor.items():
+            yield from _valores(chave)
             yield from _valores(item)
     elif isinstance(valor, (list, tuple)):
         for item in valor:
