@@ -184,7 +184,7 @@ Em vez de construir modelos de dados proprietários e cálculos divergentes dent
 
 O passo seguinte é a **camada semântica do dbt (MetricFlow)**. As métricas deixam de ser fórmulas da ferramenta de BI
 e passam a ser declaradas em YAML junto do modelo, no padrão novo do dbt 1.12+ (`semantic_model`, `entity`/`dimension`
-nas colunas, `metrics`). Este projeto declara 25 métricas sobre o modelo estrela ([docs/CAMADA_SEMANTICA.md](../CAMADA_SEMANTICA.md),
+nas colunas, `metrics`). Este projeto declara 29 métricas sobre o modelo estrela ([docs/CAMADA_SEMANTICA.md](../CAMADA_SEMANTICA.md),
 [ADR-0018](../../docs/adr/0018-camada-semantica-metricflow.md)). Um trecho de `fct_resumo_mensal`:
 
 ```yaml

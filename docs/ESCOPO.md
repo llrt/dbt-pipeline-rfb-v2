@@ -6,6 +6,7 @@
 > Esta tabela é mantida pelos lotes; a versão final é consolidada na tarefa T31.
 
 Incremento **enriquecimento BD** (ADR-0015): `dbt ls --select tag:incremento_enriquecimento_bd`.
+Incremento **enriquecimento IBGE** (ADR-0022): `dbt ls --select tag:incremento_enriquecimento_ibge`.
 
 Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudança intencional documentada;
 **adição** = novo neste port.
@@ -45,14 +46,19 @@ Legenda: **original** = regra/artefato do MVP; **adaptado** = do MVP com mudanç
 | Pipeline ponta a ponta (`rfb pipeline`/`make pipeline`), backfill de mês antigo só do resumo (P22), teste `fct_resumo_mensal_gold_corrente`, publicação no fim quando o MotherDuck está configurado, `docs/OPERACAO.md` | adição (pedido do usuário) | ADR-0012/0016; original rodava os notebooks à mão |
 | Histórico de DQ exportado para `gold/dq_historico_testes/` (Parquet por execução) | adição | RBP-12: sobrevive ao descarte do `warehouse.duckdb` |
 | Série histórica `fct_resumo_mensal` particionada por mês | adição (pedido do usuário) | ADR-0012/0013 |
-| Camada semântica dbt/MetricFlow: modelos semânticos, 25 métricas, *time spine* em `dim_data`, 4 *saved queries*, `make semantica`, `docs/CAMADA_SEMANTICA.md` | adição (pedido do usuário) | ADR-0018; as medidas DAX do guia Power BI definidas uma vez, fora da ferramenta de BI |
+| Camada semântica dbt/MetricFlow: modelos semânticos, 29 métricas, *time spine* em `dim_data`, 5 *saved queries*, `make semantica`, `docs/CAMADA_SEMANTICA.md` | adição (pedido do usuário) | ADR-0018; as medidas DAX do guia Power BI definidas uma vez, fora da ferramenta de BI |
 | Dicionário de dados gerado (`docs/DICIONARIO_DADOS.md`, `make dicionario`): campos de cada tabela com tipo, grão, chaves e origem; `meta.campo_leiaute` nas fontes RFB; descrição em 100 % das colunas de fontes e gold | adição (pedido do usuário 2026-10-13) | ADR-0019 |
-| Regras de negócio: catálogo `docs/REGRAS_NEGOCIO.md` (RN-01 a RN-29), checks em `analyses/regras_negocio/`, `rfb regras`/`make regras` e `docs/RELATORIO_REGRAS_NEGOCIO.md`, fora do `dbt build` | adição (pedido do usuário 2026-10-13) | ADR-0020; inclui os grãos declarados sem teste (RDIC-09) |
+| Regras de negócio: catálogo `docs/REGRAS_NEGOCIO.md` (RN-01 a RN-30), checks em `analyses/regras_negocio/`, `rfb regras`/`make regras` e `docs/RELATORIO_REGRAS_NEGOCIO.md`, fora do `dbt build` | adição (pedido do usuário 2026-10-13) | ADR-0020; inclui os grãos declarados sem teste (RDIC-09) |
 | Modelo estrela otimizado para Power BI (`sk_*` inteiras, `dim_data`, hierarquias, fato agregada, guia + exposure) | adição (pedido do usuário) | "modelo estrela/snowflake para self-service" citado como trabalho futuro no notebook 5 — ADR-0013 |
 | Grafia dos municípios: `bh_empresas`/`agg_empresas` em MAIÚSCULAS (herdada do SQL original); `dim_municipio` e os marts de analytics na grafia da Base dos Dados ("Fundão"). Para cruzar use `upper(nome_municipio)` + `sigla_uf` (ou `sk_municipio`) | adaptado | P18: a paridade com o original exige as MAIÚSCULAS; a dimensão de BI mantém o texto acentuado da fonte |
 | Download da Base dos Dados pela API atual (`downloadTable`); população até 2025 e PIB até 2023 | adição · **incremento: enriquecimento BD** | pedido do usuário 2026-10-01 — ADR-0015 |
 | Censo 2022 por município, regiões metropolitanas e vizinhança (raw, staging, `dim_municipio`, vizinhança conformada) | adição · **incremento: enriquecimento BD** | ADR-0015 |
 | `mart_concorrencia_area_mercado` e área de mercado no relatório do estudo de caso | adição · **incremento: enriquecimento BD** | ADR-0015 |
+| Fontes do IBGE direto da origem: CEMPRE (SIDRA 9528), renda do Censo 2022 (SIDRA 10295) e REGIC 2018 (geoftp); raw `raw/ibge/`, staging `stg_ibge__*`, `--renovar-ibge`; modo offline sem `ibge/` com raw vazio e aviso | adição · **Incremento: enriquecimento IBGE** | pedido do usuário 2026-10-13/14 — ADR-0022 |
+| `dim_municipio`: renda per capita, valor adicionado por atividade (`ano_va`), hierarquia e índice de atração da REGIC, polo de compras e total do CEMPRE; `bridge_municipio_destino_compras` | adição · **Incremento: enriquecimento IBGE** | ADR-0022 |
+| `mart_emprego_setor_municipio` (CEMPRE × RFB) e polo de compras em `mart_concorrencia_area_mercado` | adição · **Incremento: enriquecimento IBGE** | ADR-0022 |
+| RN-30 (CEMPRE × RFB), métricas e consulta salva da camada semântica, conceitos da ontologia | adição · **Incremento: enriquecimento IBGE** | ADR-0022, ADR-0018, ADR-0020 |
+| Seção do IBGE no relatório do caso, analyses `cenario_*` e `docs/CENARIOS_DE_USO.md` | adição · **Incremento: enriquecimento IBGE** | pedido do usuário 2026-10-14 — ADR-0022 |
 | Publicação opcional do gold no MotherDuck (`rfb publicar`) | adição (pedido do usuário 2026-10-01) | ADR-0016 |
 | Guia de acesso do Power BI aos dados (Parquet, DuckDB local, MotherDuck) | adição (pedido do usuário) | ADR-0016 |
 | Workaround Hive Metastore (`## Reconstruir tabelas Spark`) | removido | desnecessário: Parquet + DuckDB não têm metastore volátil |

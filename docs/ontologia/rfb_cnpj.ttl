@@ -7,7 +7,7 @@
 # toda métrica do manifesto está mapeada; e que toda métrica está num conceito que anota o modelo semântico
 # dela (afinidade: `rfbo:entidadeSemantica`, `rfbo:modeloDbt`, o modelo de `rfbo:colunaDbt` ou a entidade de
 # `rfbo:dimensaoSemantica`). Explicação para leitores: docs/CAMADA_SEMANTICA.md, Parte A.
-# Fontes acessadas em 2026-10-10 (links completos na Parte A, seção A7).
+# Fontes acessadas em 2026-10-10; as do IBGE (CEMPRE, REGIC), em 2026-10-14 (links completos na Parte A, seção A7).
 
 @prefix rfbo: <https://github.com/llrt/dbt-pipeline-rfb-v2/ontologia/rfb_cnpj#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
@@ -23,8 +23,10 @@
         <http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=127567> ,
         <https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm> ,
         <http://normas.receita.fazenda.gov.br/sijut2consulta/link.action?idAto=92278> ,
-        <https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html> ;
-    owl:versionInfo "2026-10-10" .
+        <https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html> ,
+        <https://agenciadenoticias.ibge.gov.br/media/com_mediaibge/arquivos/e1be87301fe780c6ccf8aeab200e71ea.pdf> ,
+        <https://biblioteca.ibge.gov.br/visualizacao/livros/liv101728.pdf> ;
+    owl:versionInfo "2026-10-14" .
 
 # ---------------------------------------------------------------------------------------------------------
 # Propriedades de anotação (mapeamento para o projeto)
@@ -429,6 +431,65 @@ rfbo:pertenceARegiao a owl:ObjectProperty ;
     rdfs:label "pertence à região"@pt ;
     rdfs:domain rfbo:Municipio ;
     rdfs:range rfbo:RegiaoGeografica .
+
+# ---------------------------------------------------------------------------------------------------------
+# Rede urbana, renda e setor no município (IBGE; incremento enriquecimento_ibge, ADR-0022)
+# ---------------------------------------------------------------------------------------------------------
+
+rfbo:HierarquiaUrbana a owl:Class ;
+    rdfs:label "Hierarquia urbana"@pt ;
+    rdfs:comment "Nível do município na rede urbana da REGIC 2018 (1 Metrópole, 2 Capital Regional, 3 Centro Sub-Regional, 4 Centro de Zona, 5 Centro Local, com subníveis A a C). Integrante de arranjo populacional herda o nível do arranjo. Atributo do município, não entidade própria."@pt ;
+    rfbo:modeloDbt "stg_ibge__regic_hierarquia" ;
+    rfbo:colunaDbt "stg_ibge__regic_hierarquia.codigo_hierarquia" , "dim_municipio.regic_hierarquia" ,
+        "dim_municipio.regic_hierarquia_codigo" , "dim_municipio.regic_arranjo_populacional" ;
+    rfbo:dimensaoSemantica "municipio__regic_hierarquia" , "municipio__regic_hierarquia_codigo" ,
+        "municipio__regic_arranjo_populacional" , "municipio__regic_regiao_influencia" .
+
+rfbo:temHierarquiaUrbana a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "tem hierarquia urbana"@pt ;
+    rdfs:domain rfbo:Municipio ;
+    rdfs:range rfbo:HierarquiaUrbana ;
+    rfbo:colunaDbt "dim_municipio.regic_hierarquia_codigo" .
+
+rfbo:compraEm a owl:ObjectProperty ;
+    rdfs:label "compra em"@pt ;
+    rdfs:comment "Os moradores do município de origem vão ao município de destino comprar, num tema (vestuário e calçados, Q1; móveis e eletroeletrônicos, Q2), com o percentual dos deslocamentos para fora (REGIC 2018). Não mede quanto da compra fica na origem. O destino de maior percentual em Q2 é o polo de compras."@pt ;
+    rdfs:domain rfbo:Municipio ;
+    rdfs:range rfbo:Municipio ;
+    rfbo:modeloDbt "bridge_municipio_destino_compras" , "int_regic__destinos_compras" , "stg_ibge__regic_ligacoes" ;
+    rfbo:colunaDbt "bridge_municipio_destino_compras.tema" , "bridge_municipio_destino_compras.pct" ,
+        "dim_municipio.id_municipio_polo_compras" , "dim_municipio.pct_compras_no_polo" ;
+    rfbo:dimensaoSemantica "municipio__nome_municipio_polo_compras" .
+
+rfbo:rendaPerCapita a owl:DatatypeProperty ;
+    rdfs:label "renda per capita"@pt ;
+    rdfs:comment "Rendimento domiciliar per capita médio e mediano do município no Censo 2022 (reais nominais de 2022)."@pt ;
+    rdfs:domain rfbo:Municipio ;
+    rdfs:range xsd:decimal ;
+    rfbo:colunaDbt "stg_ibge__renda_municipio.renda_per_capita_media" , "dim_municipio.renda_per_capita_media_2022" ,
+        "dim_municipio.renda_per_capita_mediana_2022" ;
+    rfbo:dimensaoSemantica "municipio__renda_per_capita_media_2022" , "municipio__renda_per_capita_mediana_2022" .
+
+rfbo:SetorNoMunicipio a owl:Class ;
+    rdfs:label "Setor no município"@pt ;
+    rdfs:comment "Uma classe CNAE num município, medida pelo CEMPRE do IBGE (unidades locais com sinal de atividade, pessoal ocupado e salários em 31/12, sem MEI e com sigilo nunca imputado) ao lado dos estabelecimentos ativos da RFB. Os anos são diferentes."@pt ;
+    rfbo:entidadeSemantica "emprego_setor_municipio" ;
+    rfbo:modeloDbt "mart_emprego_setor_municipio" , "stg_ibge__cempre_municipio_classe" ;
+    rfbo:colunaDbt "mart_emprego_setor_municipio.tem_sigilo" , "mart_emprego_setor_municipio.ativos_rfb_sem_mei" ;
+    rfbo:dimensaoSemantica "emprego_setor_municipio__classe_cnae" , "emprego_setor_municipio__ano_cempre" ;
+    rfbo:metricaDbt "unidades_locais_cempre" , "pessoal_ocupado_cempre" , "ativos_rfb" .
+
+rfbo:noMunicipio a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "no município"@pt ;
+    rdfs:domain rfbo:SetorNoMunicipio ;
+    rdfs:range rfbo:Municipio ;
+    rfbo:colunaDbt "mart_emprego_setor_municipio.sk_municipio" .
+
+rfbo:naClasse a owl:ObjectProperty , owl:FunctionalProperty ;
+    rdfs:label "na classe CNAE"@pt ;
+    rdfs:domain rfbo:SetorNoMunicipio ;
+    rdfs:range rfbo:ClasseCnae ;
+    rfbo:colunaDbt "mart_emprego_setor_municipio.classe_cnae" .
 
 # ---------------------------------------------------------------------------------------------------------
 # Conceitos analíticos do projeto (definidos pelas regras do projeto, não pela RFB)

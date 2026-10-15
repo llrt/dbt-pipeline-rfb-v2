@@ -1,0 +1,737 @@
+version: 2
+
+# incremento: enriquecimento_ibge — fontes baixadas direto do IBGE por `rfb_pipeline/ibge.py`.
+sources:
+  - name: ibge
+    description: >
+      Fontes gratuitas baixadas direto do IBGE (API SIDRA `apisidra.ibge.gov.br` e planilhas da
+      REGIC 2018 no `geoftp.ibge.gov.br`) por `rfb_pipeline/ibge.py`, convertidas para Parquet raw.
+      Todas as colunas são VARCHAR, como publicadas (ARCHITECTURE.md §4.2, ADR-0002); a tipagem
+      e o tratamento dos símbolos do IBGE (`-`, `X`, `..`, `...`) acontecem no staging. Nas respostas
+      SIDRA, as colunas são as chaves do JSON em minúsculas (`/f/c/h/n`: só códigos, sem cabeçalho);
+      nas planilhas, o cabeçalho sem acento e em `snake_case` (o publicado fica em `meta.campo_ibge`).
+    loader: rfb_pipeline (Python, API SIDRA + openpyxl)
+    tables:
+      - name: cempre_categorias_cnae
+        description: >
+          CEMPRE (SIDRA, tabela 9528), nível Brasil, variável 706, todas as 1.067 categorias da classificação 12762 (CNAE 2.0) com códigos e nomes (`/f/a`), no período baixado. Serve para escolher as classes CNAE (nome `NN.NN-N ...`) e dar o código e o nome da classe ao staging.
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_ibge]
+          meta:
+            escopo: adicao
+            grao: "categoria da CNAE 2.0 na SIDRA (`d4c`)"
+            origem_ibge: "SIDRA 9528 /n1/all/v/706/c12762/all/f/a"
+            incremento: enriquecimento_ibge
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/ibge/cempre_categorias_cnae/*.parquet')
+        columns:
+          - name: nc
+            data_type: varchar
+            config: { meta: { campo_ibge: "Nível Territorial (Código)" } }
+            description: >-
+              Código do nível territorial (`6` = município, `1` = Brasil).
+          - name: nn
+            data_type: varchar
+            config: { meta: { campo_ibge: "Nível Territorial" } }
+            description: >-
+              Nome do nível territorial (`Brasil`).
+          - name: mc
+            data_type: varchar
+            config: { meta: { campo_ibge: "Unidade de Medida (Código)" } }
+            description: >-
+              Código da unidade de medida do valor (ex.: `1020` unidades, `45` pessoas, `40` mil reais, `38` reais).
+          - name: mn
+            data_type: varchar
+            config: { meta: { campo_ibge: "Unidade de Medida" } }
+            description: >-
+              Nome da unidade de medida (`Unidades`).
+          - name: v
+            data_type: varchar
+            config: { meta: { campo_ibge: "Valor" } }
+            description: >-
+              Valor como publicado, em texto: número com ponto decimal ou símbolo do IBGE — `-` zero absoluto, `X` valor inibido por sigilo, `..` não se aplica, `...` não disponível.
+          - name: d1c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Brasil (Código)" } }
+            description: >-
+              Código da localidade (`1` = Brasil).
+          - name: d1n
+            data_type: varchar
+            config: { meta: { campo_ibge: "Brasil" } }
+            description: >-
+              Nome da localidade.
+          - name: d2c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Variável (Código)" } }
+            description: >-
+              Código da variável (`706` = número de unidades locais).
+          - name: d2n
+            data_type: varchar
+            config: { meta: { campo_ibge: "Variável" } }
+            description: >-
+              Nome da variável.
+          - name: d3c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Ano (Código)" } }
+            description: >-
+              Ano de referência do CEMPRE (período baixado).
+          - name: d3n
+            data_type: varchar
+            config: { meta: { campo_ibge: "Ano" } }
+            description: >-
+              Ano de referência, como nome.
+          - name: d4c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Classificação Nacional de Atividades Econômicas (CNAE 2.0) (Código)" } }
+            description: >-
+              Id da categoria na SIDRA (ex.: `117453`; `117897` = Total). Não é o código CNAE.
+            data_tests:
+              - unique
+              - not_null
+          - name: d4n
+            data_type: varchar
+            config: { meta: { campo_ibge: "Classificação Nacional de Atividades Econômicas (CNAE 2.0)" } }
+            description: >-
+              Nome da categoria, começando pelo código CNAE: `Total`, seção (`G ...`), divisão (`47 ...`), grupo (`47.4 ...`) ou classe (`47.41-5 ...`).
+          - name: _arquivo_origem
+            data_type: varchar
+            description: >-
+              Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: >-
+              Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão.
+
+      - name: cempre_municipio_cnae
+        description: >
+          CEMPRE (SIDRA, tabela 9528) por município (N6): unidades locais (706), pessoal ocupado total (707), pessoal ocupado assalariado (708) e salários e outras remunerações (662, mil reais), para cada classe CNAE e o Total (117897), num único ano. Baixado em fatias de no máximo 50.000 valores (`/f/c/h/n`).
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_ibge]
+          meta:
+            escopo: adicao
+            grao: "município × variável × ano × categoria CNAE (`d1c`, `d2c`, `d3c`, `d4c`)"
+            origem_ibge: "SIDRA 9528 /n6/all/v/706,707,708,662/c12762/<classes e Total>/f/c"
+            incremento: enriquecimento_ibge
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/ibge/cempre_municipio_cnae/*.parquet')
+        columns:
+          - name: nc
+            data_type: varchar
+            config: { meta: { campo_ibge: "Nível Territorial (Código)" } }
+            description: >-
+              Código do nível territorial (`6` = município, `1` = Brasil).
+          - name: mc
+            data_type: varchar
+            config: { meta: { campo_ibge: "Unidade de Medida (Código)" } }
+            description: >-
+              Código da unidade de medida do valor (ex.: `1020` unidades, `45` pessoas, `40` mil reais, `38` reais).
+          - name: v
+            data_type: varchar
+            config: { meta: { campo_ibge: "Valor" } }
+            description: >-
+              Valor como publicado, em texto: número com ponto decimal ou símbolo do IBGE — `-` zero absoluto, `X` valor inibido por sigilo, `..` não se aplica, `...` não disponível.
+          - name: d1c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Município (Código)" } }
+            description: >-
+              Geocódigo IBGE do município (7 dígitos).
+          - name: d2c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Variável (Código)" } }
+            description: >-
+              Código da variável: `706` unidades locais, `707` pessoal ocupado total, `708` pessoal ocupado assalariado, `662` salários e outras remunerações (mil reais).
+          - name: d3c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Ano (Código)" } }
+            description: >-
+              Ano de referência do CEMPRE.
+          - name: d4c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Classificação Nacional de Atividades Econômicas (CNAE 2.0) (Código)" } }
+            description: >-
+              Id da categoria na SIDRA (classe CNAE ou `117897` = Total); o nome está em `cempre_categorias_cnae.d4n`.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: >-
+              Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: >-
+              Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão.
+
+      - name: renda_censo_2022_municipio
+        description: >
+          Censo 2022 (SIDRA, tabela 10295) por município: moradores em domicílios particulares permanentes ocupados (13604) e rendimento nominal mensal domiciliar per capita médio (13431) e mediano (13534), em reais, nos totais das classificações 2 (sexo), 86 (cor ou raça) e 58 (grupo de idade).
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_ibge]
+          meta:
+            escopo: adicao
+            grao: "município × variável (`d1c`, `d2c`)"
+            origem_ibge: "SIDRA 10295 /n6/all/v/13604,13431,13534/p/2022/c2/6794/c86/95251/c58/95253/f/c"
+            incremento: enriquecimento_ibge
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/ibge/renda_censo_2022_municipio/*.parquet')
+        columns:
+          - name: nc
+            data_type: varchar
+            config: { meta: { campo_ibge: "Nível Territorial (Código)" } }
+            description: >-
+              Código do nível territorial (`6` = município, `1` = Brasil).
+          - name: mc
+            data_type: varchar
+            config: { meta: { campo_ibge: "Unidade de Medida (Código)" } }
+            description: >-
+              Código da unidade de medida do valor (ex.: `1020` unidades, `45` pessoas, `40` mil reais, `38` reais).
+          - name: v
+            data_type: varchar
+            config: { meta: { campo_ibge: "Valor" } }
+            description: >-
+              Valor como publicado, em texto: número com ponto decimal ou símbolo do IBGE — `-` zero absoluto, `X` valor inibido por sigilo, `..` não se aplica, `...` não disponível.
+          - name: d1c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Município (Código)" } }
+            description: >-
+              Geocódigo IBGE do município (7 dígitos).
+          - name: d2c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Variável (Código)" } }
+            description: >-
+              Código da variável: `13604` moradores, `13431` rendimento domiciliar per capita médio (R$), `13534` mediano (R$).
+          - name: d3c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Ano (Código)" } }
+            description: >-
+              Ano do Censo (`2022`).
+          - name: d4c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Sexo (Código)" } }
+            description: >-
+              Categoria da classificação 2 (`6794` = Total).
+          - name: d5c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Cor ou raça (Código)" } }
+            description: >-
+              Categoria da classificação 86 (`95251` = Total).
+          - name: d6c
+            data_type: varchar
+            config: { meta: { campo_ibge: "Grupo de idade (Código)" } }
+            description: >-
+              Categoria da classificação 58 (`95253` = Total).
+          - name: _arquivo_origem
+            data_type: varchar
+            description: >-
+              Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: >-
+              Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão.
+
+      - name: regic_2018_hierarquia
+        description: >
+          REGIC 2018 (Regiões de Influência das Cidades), aba `Hierarquia e região` de `REGIC2018_Municipios_Hierarquia_e_regiao.xlsx`: hierarquia urbana e região de influência de cada um dos 5.570 municípios.
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_ibge]
+          meta:
+            escopo: adicao
+            grao: "município (`codmun`)"
+            origem_ibge: "geoftp REGIC2018_Municipios_Hierarquia_e_regiao.xlsx, aba Hierarquia e região"
+            incremento: enriquecimento_ibge
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/ibge/regic_2018_hierarquia/*.parquet')
+        columns:
+          - name: coduf
+            data_type: varchar
+            config: { meta: { campo_ibge: "coduf" } }
+            description: >-
+              Código IBGE da UF.
+          - name: siguf
+            data_type: varchar
+            config: { meta: { campo_ibge: "siguf" } }
+            description: >-
+              Sigla da UF.
+          - name: uf
+            data_type: varchar
+            config: { meta: { campo_ibge: "UF" } }
+            description: >-
+              Nome da UF.
+          - name: grande_regiao
+            data_type: varchar
+            config: { meta: { campo_ibge: "Grande Região" } }
+            description: >-
+              Grande região.
+          - name: codmun
+            data_type: varchar
+            config: { meta: { campo_ibge: "codmun" } }
+            description: >-
+              Geocódigo IBGE do município (7 dígitos).
+            data_tests:
+              - unique
+              - not_null
+          - name: municipio
+            data_type: varchar
+            config: { meta: { campo_ibge: "Município" } }
+            description: >-
+              Nome do município.
+          - name: categoria
+            data_type: varchar
+            config: { meta: { campo_ibge: "Categoria" } }
+            description: >-
+              Recorte espacial da REGIC: `Município isolado` ou `Arranjo Populacional` (município integrante de arranjo).
+          - name: codap
+            data_type: varchar
+            config: { meta: { campo_ibge: "codap" } }
+            description: >-
+              Geocódigo do arranjo populacional (vazio para município isolado).
+          - name: arranjo_populacional
+            data_type: varchar
+            config: { meta: { campo_ibge: "Arranjo Populacional" } }
+            description: >-
+              Nome do arranjo populacional.
+          - name: codcid
+            data_type: varchar
+            config: { meta: { campo_ibge: "codcid" } }
+            description: >-
+              Código da cidade da REGIC (o arranjo ou o próprio município isolado).
+          - name: hierarquia
+            data_type: varchar
+            config: { meta: { campo_ibge: "Hierarquia" } }
+            description: >-
+              Hierarquia urbana da cidade, por extenso com o código (ex.: `Centro Local (5)`).
+          - name: hierarquia_2
+            data_type: varchar
+            config: { meta: { campo_ibge: "Hierarquia 2" } }
+            description: >-
+              Nome da hierarquia urbana (ex.: `Centro Local`).
+          - name: hierarquia_3
+            data_type: varchar
+            config: { meta: { campo_ibge: "Hierarquia 3" } }
+            description: >-
+              Código da hierarquia urbana: `1A`, `1B`, `1C`, `2A`... `5` (com sufixo para integrante de arranjo).
+          - name: hierarquia_grupo
+            data_type: varchar
+            config: { meta: { campo_ibge: "Hierarquia - grupo" } }
+            description: >-
+              Grupo da hierarquia (`1 - Metrópole` ... `5 - Centro Local`).
+          - name: multiplas_subordinacoes
+            data_type: varchar
+            config: { meta: { campo_ibge: "Múltiplas Subordinações" } }
+            description: >-
+              Número de cidades a que o município se subordina diretamente.
+          - name: regiao_de_influencia_vinculacao_imediata_consolidada
+            data_type: varchar
+            config: { meta: { campo_ibge: "Região de influência - vínculação imediata consolidada" } }
+            description: >-
+              Cidade(s) de vinculação imediata, com a hierarquia de cada uma.
+          - name: regiao_de_influencia_1
+            data_type: varchar
+            config: { meta: { campo_ibge: "Região de influência 1" } }
+            description: >-
+              Primeira cidade de vinculação.
+          - name: regiao_de_influencia_2
+            data_type: varchar
+            config: { meta: { campo_ibge: "Região de influência 2" } }
+            description: >-
+              Segunda cidade de vinculação (se houver).
+          - name: regiao_de_influencia_3
+            data_type: varchar
+            config: { meta: { campo_ibge: "Região de influência 3" } }
+            description: >-
+              Terceira cidade de vinculação (se houver).
+          - name: regiao_de_influencia_4
+            data_type: varchar
+            config: { meta: { campo_ibge: "Região de influência 4" } }
+            description: >-
+              Quarta cidade de vinculação (se houver).
+          - name: _arquivo_origem
+            data_type: varchar
+            description: >-
+              Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: >-
+              Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão.
+
+      - name: regic_2018_ligacoes
+        description: >
+          REGIC 2018, aba `BD_LIG_MUN_QUEST` de `REGIC2018_Quest_Ligacoes_entre_Municipios.xlsx` (zip `REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip`): ligações origem → destino dos questionários, com o percentual dos deslocamentos para cada tema (Q1 a Q10) e os índices de atração.
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_ibge]
+          meta:
+            escopo: adicao
+            grao: "ligação origem → destino (`mun_origem`, `mun_destino`)"
+            origem_ibge: "geoftp REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip / REGIC2018_Quest_Ligacoes_entre_Municipios.xlsx, aba BD_LIG_MUN_QUEST"
+            incremento: enriquecimento_ibge
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/ibge/regic_2018_ligacoes/*.parquet')
+        columns:
+          - name: id
+            data_type: varchar
+            config: { meta: { campo_ibge: "ID" } }
+            description: >-
+              Identificador da ligação: geocódigo de origem concatenado ao de destino.
+            data_tests:
+              - unique
+              - not_null
+          - name: uf_origem
+            data_type: varchar
+            config: { meta: { campo_ibge: "UF_ORIGEM" } }
+            description: >-
+              UF do município de origem.
+          - name: mun_origem
+            data_type: varchar
+            config: { meta: { campo_ibge: "MUN_ORIGEM" } }
+            description: >-
+              Geocódigo do município de origem (texto, 7 dígitos).
+          - name: mun_or
+            data_type: varchar
+            config: { meta: { campo_ibge: "MUN_OR" } }
+            description: >-
+              Geocódigo do município de origem (formato numérico).
+          - name: nome_origem
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_ORIGEM" } }
+            description: >-
+              Nome do município de origem.
+          - name: pop2018_o
+            data_type: varchar
+            config: { meta: { campo_ibge: "POP2018_O" } }
+            description: >-
+              População do município de origem em 2018.
+          - name: cod_arr_o
+            data_type: varchar
+            config: { meta: { campo_ibge: "COD_ARR_O" } }
+            description: >-
+              Geocódigo do arranjo de origem (quando o município integra arranjo).
+          - name: nome_arr_o
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_ARR_O" } }
+            description: >-
+              Nome do arranjo de origem.
+          - name: hierar_mun_o
+            data_type: varchar
+            config: { meta: { campo_ibge: "HIERAR_MUN_O" } }
+            description: >-
+              Hierarquia do município de origem na REGIC 2018.
+          - name: hierar_cid
+            data_type: varchar
+            config: { meta: { campo_ibge: "HIERAR_CID" } }
+            description: >-
+              Código da hierarquia da cidade de origem.
+          - name: nome_hierar_cid
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_HIERAR_CID" } }
+            description: >-
+              Nome da hierarquia da cidade de origem.
+          - name: uf_destino
+            data_type: varchar
+            config: { meta: { campo_ibge: "UF_DESTINO" } }
+            description: >-
+              UF do município de destino.
+          - name: mun_destino
+            data_type: varchar
+            config: { meta: { campo_ibge: "MUN_DESTINO" } }
+            description: >-
+              Geocódigo do município de destino (texto, 7 dígitos).
+          - name: mun_dest
+            data_type: varchar
+            config: { meta: { campo_ibge: "MUN_DEST" } }
+            description: >-
+              Geocódigo do município de destino (formato numérico).
+          - name: nome_destino
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_DESTINO" } }
+            description: >-
+              Nome do município de destino.
+          - name: pop2018_d
+            data_type: varchar
+            config: { meta: { campo_ibge: "POP2018_D" } }
+            description: >-
+              População do município de destino em 2018.
+          - name: cod_arr_d
+            data_type: varchar
+            config: { meta: { campo_ibge: "COD_ARR_D" } }
+            description: >-
+              Geocódigo do arranjo de destino (quando o município integra arranjo).
+          - name: nome_arr_d
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_ARR_D" } }
+            description: >-
+              Nome do arranjo de destino.
+          - name: hierar_mun_d
+            data_type: varchar
+            config: { meta: { campo_ibge: "HIERAR_MUN_D" } }
+            description: >-
+              Hierarquia do município de destino na REGIC 2018.
+          - name: hierar_cid_d
+            data_type: varchar
+            config: { meta: { campo_ibge: "HIERAR_CID_D" } }
+            description: >-
+              Código da hierarquia da cidade de destino.
+          - name: nome_hierar_cid_d
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_HIERAR_CID_D" } }
+            description: >-
+              Nome da hierarquia da cidade de destino.
+          - name: q1
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q1" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para compra de vestuário e calçados.
+          - name: q2
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q2" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para compra de móveis e eletroeletrônicos.
+          - name: q3
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q3" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para serviços de saúde de baixa e média complexidades.
+          - name: q4
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q4" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para serviços de saúde de alta complexidade.
+          - name: q5
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q5" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para ensino superior.
+          - name: q6
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q6" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para atividades culturais.
+          - name: q7
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q7" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para atividades esportivas.
+          - name: q8
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q8" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para aeroporto.
+          - name: q9
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q9" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para jornais (participação dos jornais editados no destino que circulam na origem).
+          - name: q10
+            data_type: varchar
+            config: { meta: { campo_ibge: "Q10" } }
+            description: >-
+              Percentual estimado de participação do destino nos deslocamentos dos moradores da origem para transporte público coletivo (participação do destino entre os mais frequentes).
+          - name: ia_q1
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q1" } }
+            description: >-
+              Índice de atração do destino sobre a origem para compra de vestuário e calçados.
+          - name: ia_q2
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q2" } }
+            description: >-
+              Índice de atração do destino sobre a origem para compra de móveis e eletroeletrônicos.
+          - name: ia_q3
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q3" } }
+            description: >-
+              Índice de atração do destino sobre a origem para serviços de saúde de baixa e média complexidades.
+          - name: ia_q4
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q4" } }
+            description: >-
+              Índice de atração do destino sobre a origem para serviços de saúde de alta complexidade.
+          - name: ia_q5
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q5" } }
+            description: >-
+              Índice de atração do destino sobre a origem para ensino superior.
+          - name: ia_q6
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q6" } }
+            description: >-
+              Índice de atração do destino sobre a origem para atividades culturais.
+          - name: ia_q7
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q7" } }
+            description: >-
+              Índice de atração do destino sobre a origem para atividades esportivas.
+          - name: ia_q8
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q8" } }
+            description: >-
+              Índice de atração do destino sobre a origem para aeroporto.
+          - name: ia_q9
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q9" } }
+            description: >-
+              Índice de atração do destino sobre a origem para jornais (participação dos jornais editados no destino que circulam na origem).
+          - name: ia_q10
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q10" } }
+            description: >-
+              Índice de atração do destino sobre a origem para transporte público coletivo (participação do destino entre os mais frequentes).
+          - name: perc_lig
+            data_type: varchar
+            config: { meta: { campo_ibge: "PERC_LIG" } }
+            description: >-
+              Percentual estimado de participação do destino no total de deslocamentos da origem para bens e serviços em outros municípios.
+          - name: ia
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA" } }
+            description: >-
+              Índice de atração geral do destino sobre a origem.
+          - name: x_origem
+            data_type: varchar
+            config: { meta: { campo_ibge: "X_ORIGEM" } }
+            description: >-
+              Longitude da sede municipal de origem.
+          - name: y_origem
+            data_type: varchar
+            config: { meta: { campo_ibge: "Y_ORIGEM" } }
+            description: >-
+              Latitude da sede municipal de origem.
+          - name: x_destino
+            data_type: varchar
+            config: { meta: { campo_ibge: "X_DESTINO" } }
+            description: >-
+              Longitude da sede municipal de destino.
+          - name: y_destino
+            data_type: varchar
+            config: { meta: { campo_ibge: "Y_DESTINO" } }
+            description: >-
+              Latitude da sede municipal de destino.
+          - name: _arquivo_origem
+            data_type: varchar
+            description: >-
+              Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: >-
+              Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão.
+
+      - name: regic_2018_atracao
+        description: >
+          REGIC 2018, aba `BD_MUN_QUEST` de `REGIC2018_Quest_Atracao_Municipios.xlsx` (mesmo zip das ligações): índice de atração de cada município que recebe deslocamentos, geral e por tema.
+        config:
+          tags: [escopo_adicao, incremento_enriquecimento_ibge]
+          meta:
+            escopo: adicao
+            grao: "município (`codmun`)"
+            origem_ibge: "geoftp REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip / REGIC2018_Quest_Atracao_Municipios.xlsx, aba BD_MUN_QUEST"
+            incremento: enriquecimento_ibge
+            external_location: >-
+              read_parquet('{{ env_var('RAIZ_DADOS', '../dados') }}/raw/ibge/regic_2018_atracao/*.parquet')
+        columns:
+          - name: codmun
+            data_type: varchar
+            config: { meta: { campo_ibge: "CODMUN" } }
+            description: >-
+              Geocódigo do município (formato numérico).
+            data_tests:
+              - unique
+              - not_null
+          - name: nome_mun
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_MUN" } }
+            description: >-
+              Nome do município.
+          - name: hierar_mun
+            data_type: varchar
+            config: { meta: { campo_ibge: "HIERAR_MUN" } }
+            description: >-
+              Hierarquia do município na REGIC 2018.
+          - name: int_arr
+            data_type: varchar
+            config: { meta: { campo_ibge: "INT_ARR" } }
+            description: >-
+              `SIM` se o município integra arranjo populacional.
+          - name: hierar_cid
+            data_type: varchar
+            config: { meta: { campo_ibge: "HIERAR_CID" } }
+            description: >-
+              Código da hierarquia da cidade.
+          - name: nome_hierar_cid
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_HIERAR_CID" } }
+            description: >-
+              Nome da hierarquia da cidade.
+          - name: cod_arr
+            data_type: varchar
+            config: { meta: { campo_ibge: "COD_ARR" } }
+            description: >-
+              Geocódigo do arranjo (quando integra).
+          - name: nome_arr
+            data_type: varchar
+            config: { meta: { campo_ibge: "NOME_ARR" } }
+            description: >-
+              Nome do arranjo.
+          - name: pop2018
+            data_type: varchar
+            config: { meta: { campo_ibge: "POP2018" } }
+            description: >-
+              População em 2018.
+          - name: ia
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA" } }
+            description: >-
+              Índice de atração geral do município (soma sobre as origens).
+          - name: ia_q1
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q1" } }
+            description: >-
+              Índice de atração do município para compra de vestuário e calçados.
+          - name: ia_q2
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q2" } }
+            description: >-
+              Índice de atração do município para compra de móveis e eletroeletrônicos.
+          - name: ia_q3
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q3" } }
+            description: >-
+              Índice de atração do município para serviços de saúde de baixa e média complexidades.
+          - name: ia_q4
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q4" } }
+            description: >-
+              Índice de atração do município para serviços de saúde de alta complexidade.
+          - name: ia_q5
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q5" } }
+            description: >-
+              Índice de atração do município para ensino superior.
+          - name: ia_q6
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q6" } }
+            description: >-
+              Índice de atração do município para atividades culturais.
+          - name: ia_q7
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q7" } }
+            description: >-
+              Índice de atração do município para atividades esportivas.
+          - name: ia_q8
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q8" } }
+            description: >-
+              Índice de atração do município para aeroporto.
+          - name: ia_q9
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q9" } }
+            description: >-
+              Índice de atração do município para jornais (participação dos jornais editados no destino que circulam na origem).
+          - name: ia_q10
+            data_type: varchar
+            config: { meta: { campo_ibge: "IA_Q10" } }
+            description: >-
+              Índice de atração do município para transporte público coletivo (participação do destino entre os mais frequentes).
+          - name: _arquivo_origem
+            data_type: varchar
+            description: >-
+              Origem da linha: URL da requisição SIDRA, ou nome do arquivo (JSON local, planilha xlsx). Coluna técnica da ingestão.
+          - name: _ingerido_em
+            data_type: timestamp
+            description: >-
+              Instante (UTC) em que a ingestão converteu a linha para Parquet. Coluna técnica da ingestão.

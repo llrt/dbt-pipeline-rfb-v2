@@ -40,6 +40,10 @@ models:
       +meta:
         escopo: adicao
       +tags: ["escopo_adicao"]
+      ibge:  # incremento: enriquecimento_ibge (fontes do IBGE)
+        +meta:
+          incremento: enriquecimento_ibge
+        +tags: ["incremento_enriquecimento_ibge"]
     intermediate:
       +materialized: table
       +meta:
@@ -79,6 +83,11 @@ data_tests:
   rfb:
     +meta:
       escopo: adicao
+    staging:
+      ibge:  # incremento: enriquecimento_ibge — 100% adição, inclusive os testes das fontes
+        +meta:
+          incremento: enriquecimento_ibge
+        +tags: ["escopo_adicao", "incremento_enriquecimento_ibge"]
     marts:
       core:
         +tags: ["escopo_adicao"]
@@ -92,6 +101,11 @@ unit_tests:
     +meta:
       escopo: adicao
     +tags: ["escopo_adicao"]
+    staging:
+      ibge:  # incremento: enriquecimento_ibge
+        +meta:
+          incremento: enriquecimento_ibge
+        +tags: ["incremento_enriquecimento_ibge"]
 
 # ADR-0017: YAML no formato aceito pelo dbt-core 1.12+ (mínimo do ADR-0018) e pelo dbt v2 (Fusion) — `meta`, `tags`, `freshness` e
 # `loaded_at_field` dentro de `config:` (dbt-autofix). A flag faz os argumentos de testes genéricos virem só de

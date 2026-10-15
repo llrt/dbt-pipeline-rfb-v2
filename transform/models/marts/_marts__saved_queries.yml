@@ -63,3 +63,27 @@ saved_queries:
       group_by:
         - "TimeDimension('metric_time', 'year')"
         - "Dimension('porte__rotulo_porte')"
+
+  # incremento: enriquecimento_ibge (ADR-0022)
+  - name: polo_compras_concorrencia_caso
+    label: Polo de compras e concorrência do caso
+    description: >
+      Para cada município da UF do caso: o polo de compras de bens duráveis (REGIC 2018, maior % em móveis e
+      eletroeletrônicos) e o % dos deslocamentos que vão a ele, a renda per capita e a hierarquia urbana, com os
+      ativos do CNAE do caso (lojas de tintas, 4741500) por mês. Mostra onde o morador já compra e quanta
+      concorrência há lá. Para os ativos no próprio polo, veja `mart_concorrencia_area_mercado.ativos_no_polo`.
+    config:
+      meta: { escopo: adicao, incremento: enriquecimento_ibge }
+      tags: [escopo_adicao, incremento_enriquecimento_ibge]
+    query_params:
+      metrics: [qtd_ativos]
+      group_by:
+        - "TimeDimension('metric_time', 'month')"
+        - "Dimension('municipio__nome_municipio')"
+        - "Dimension('municipio__nome_municipio_polo_compras')"
+        - "Dimension('municipio__pct_compras_no_polo')"
+        - "Dimension('municipio__regic_hierarquia')"
+        - "Dimension('municipio__renda_per_capita_media_2022')"
+      where:
+        - "{{ Dimension('municipio__sigla_uf') }} = 'ES'"
+        - "{{ Dimension('cnae__codigo_subclasse') }} = '4741500'"

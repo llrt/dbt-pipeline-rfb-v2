@@ -1,6 +1,6 @@
 """CLI de linha de comando do pipeline RFB/CNPJ.
 
-`rfb ingerir` liga cliente WebDAV/BD, conversão e manifesto (T10). `rfb sincronizar` publica
+`rfb ingerir` liga cliente WebDAV/BD/IBGE, conversão e manifesto (T10). `rfb sincronizar` publica
 raw/gold no S3/Tigris (T11). `rfb relatorio` gera o relatório do estudo de caso (T27). `rfb regras`
 gera o relatório das regras de negócio (ADR-0020).
 `rfb pipeline` (T28) e `rfb atualizar` (T36) orquestram tudo (ver `orquestracao.py`).
@@ -31,6 +31,7 @@ from rfb_pipeline.esquemas import (
     arquivos_faltantes,
     entidade_do_zip,
 )
+from rfb_pipeline.ibge import garantir_raw_ibge, ingerir_ibge, ler_manifesto_ibge
 from rfb_pipeline.manifesto import (
     ArquivoManifesto,
     Manifesto,
@@ -44,6 +45,7 @@ from rfb_pipeline.orquestracao import (
     OpcoesPipeline,
     atualizar,
     executar_pipeline,
+    garantir_raw_ibge_local,
     verificar_gold_consistente,
 )
 from rfb_pipeline.publicacao import publicar_motherduck
@@ -68,7 +70,7 @@ def _limpar_residuos(configuracao: Configuracao) -> None:
         for padrao in (".tmp-*", ".old-*"):
             residuos.extend(configuracao.raw_dir.rglob(padrao))
     if configuracao.manifestos_dir.is_dir():
-        residuos.extend(configuracao.manifestos_dir.glob(".tmp-*"))
+        residuos.extend(configuracao.manifestos_dir.rglob(".tmp-*"))
     tmp_dir = configuracao.raiz_dados / "_tmp"
     if tmp_dir.is_dir():
         residuos.extend(tmp_dir.glob("extracao-*"))
@@ -177,8 +179,15 @@ def ingerir(
     forcar: bool = False,
     ingerido_em: datetime | None = None,
     permitir_incompleto: bool = False,
+    renovar_ibge: bool = False,
+    sem_ibge: bool = False,
 ) -> Manifesto:
-    """Executa a ingestão completa (RFB + Base dos Dados) e grava o manifesto do mês.
+    """Executa a ingestão completa (RFB + Base dos Dados + IBGE) e grava o manifesto do mês.
+
+    As tabelas IBGE (`ibge.py`) são anuais ou estáticas: só são baixadas de novo se mudar o
+    período/arquivo ou com `renovar_ibge` (`--renovar-ibge`). Falha do IBGE é aviso, não erro
+    (RIBG-02); `sem_ibge` (`--sem-ibge`) não consulta o IBGE e só garante o raw IBGE (vazio se
+    ausente).
 
     Levanta `ErroIngestao` (ou subclasses) em qualquer falha; nesse caso a partição anterior de
     cada entidade permanece intacta e nada é gravado para as entidades ainda não convertidas. O
@@ -194,6 +203,8 @@ def ingerir(
             forcar=forcar,
             ingerido_em=ingerido_em,
             permitir_incompleto=permitir_incompleto,
+            renovar_ibge=renovar_ibge,
+            sem_ibge=sem_ibge,
         )
 
 
@@ -205,7 +216,11 @@ def _ingerir(
     forcar: bool,
     ingerido_em: datetime | None,
     permitir_incompleto: bool,
+    renovar_ibge: bool = False,
+    sem_ibge: bool = False,
 ) -> Manifesto:
+    if renovar_ibge and sem_ibge:
+        raise ErroIngestao("--renovar-ibge e --sem-ibge não podem ser usadas juntas")
     ingerido_em = ingerido_em or datetime.now(UTC)
 
     cliente = ClienteRFB(configuracao) if origem_local is None else None
@@ -324,12 +339,23 @@ def _ingerir(
         )
         print(f"bd.{nome_tabela}: {resultado.linhas} linhas, {time.monotonic() - inicio:.1f}s")
 
+    if sem_ibge:  # incremento: enriquecimento_ibge (RIBG-02)
+        print("ibge: pulado (--sem-ibge); o raw IBGE existente fica como está", flush=True)
+        garantir_raw_ibge(configuracao)
+        anteriores = ler_manifesto_ibge(configuracao)
+        entradas_ibge = tuple(anteriores[nome] for nome in sorted(anteriores))
+    else:
+        entradas_ibge = ingerir_ibge(  # incremento: enriquecimento_ibge
+            configuracao, ingerido_em=ingerido_em, origem_local=origem_local, renovar=renovar_ibge
+        )
+
     manifesto = Manifesto(
         mes_referencia=mes_resolvido,
         data_referencia=data_referencia.isoformat() if data_referencia else None,
         iniciado_em=ingerido_em.isoformat(),
         concluido_em=datetime.now(UTC).isoformat(),
         arquivos=tuple(entradas),
+        ibge=tuple(e.to_dict() for e in entradas_ibge),
     )
     escrever_manifesto(configuracao, manifesto)
     return manifesto
@@ -343,6 +369,8 @@ def _cmd_ingerir(argumentos: argparse.Namespace) -> int:
         origem_local=argumentos.origem_local,
         forcar=argumentos.forcar,
         permitir_incompleto=argumentos.permitir_incompleto,
+        renovar_ibge=argumentos.renovar_ibge,
+        sem_ibge=argumentos.sem_ibge,
     )
     return 0
 
@@ -373,6 +401,8 @@ def _opcoes_pipeline(argumentos: argparse.Namespace) -> OpcoesPipeline:
         origem_local=argumentos.origem_local,
         permitir_incompleto=argumentos.permitir_incompleto,
         forcar=argumentos.forcar,
+        renovar_ibge=argumentos.renovar_ibge,
+        sem_ibge=argumentos.sem_ibge,
         ingerir=not getattr(argumentos, "sem_ingestao", False),
         target=argumentos.target,
         saida_relatorio=None if argumentos.sem_relatorio else argumentos.saida_relatorio,
@@ -398,6 +428,7 @@ def _cmd_atualizar(argumentos: argparse.Namespace) -> int:
 def _cmd_relatorio(argumentos: argparse.Namespace) -> int:
     configuracao = carregar_configuracao()
     verificar_gold_consistente(configuracao, "relatorio")  # R4-03
+    garantir_raw_ibge_local(configuracao)  # RIBG-01
     saida = gerar_relatorio(configuracao, saida=argumentos.saida, target=argumentos.target)
     print(f"relatório escrito em {saida}")
     return 0
@@ -407,6 +438,7 @@ def _cmd_regras(argumentos: argparse.Namespace) -> int:
     """Sai com 0 mesmo com regras violadas: inconsistência é conteúdo do relatório (ADR-0020)."""
     configuracao = carregar_configuracao()
     verificar_gold_consistente(configuracao, "regras")  # R4-03
+    garantir_raw_ibge_local(configuracao)  # RIBG-01: a RN-30 lê a fonte do CEMPRE
     saida, regras, violadas, aviso = gerar_relatorio_regras(
         configuracao, saida=argumentos.saida, target=argumentos.target
     )
@@ -416,13 +448,39 @@ def _cmd_regras(argumentos: argparse.Namespace) -> int:
     return 0
 
 
+# incremento: enriquecimento_ibge
+_AJUDA_RENOVAR_IBGE = (
+    "Baixa de novo as tabelas do IBGE (CEMPRE, renda do Censo 2022, REGIC 2018) mesmo que o raw já "
+    "tenha o mesmo período/arquivo (o CEMPRE nacional leva dezenas de minutos). Em `atualizar` "
+    "sem mês novo, renova só o IBGE e reconstrói o gold do mês corrente."
+)
+_AJUDA_SEM_IBGE = (
+    "Não consulta o IBGE (SIDRA e geoftp) nesta execução: o raw IBGE existente fica como está e o "
+    "ausente é publicado vazio (colunas do IBGE NULL). Útil para adiar o primeiro download do "
+    "CEMPRE ou em rede que só libera a RFB e a Base dos Dados."
+)
+_AJUDA_ORIGEM_LOCAL = (
+    "Usa arquivos locais em vez da rede (layout <dir>/rfb/<AAAA-MM>/*.zip, "
+    "<dir>/bd/<tabela>.csv.gz e <dir>/ibge/: respostas SIDRA <tabela>.json e planilhas REGIC; "
+    "ver rfb_pipeline/ibge.py)."
+)
+
+
+def _argumentos_ibge(analisador: argparse.ArgumentParser) -> None:
+    grupo = analisador.add_mutually_exclusive_group()
+    grupo.add_argument(
+        "--renovar-ibge", dest="renovar_ibge", action="store_true", help=_AJUDA_RENOVAR_IBGE
+    )
+    grupo.add_argument("--sem-ibge", dest="sem_ibge", action="store_true", help=_AJUDA_SEM_IBGE)
+
+
 def _argumentos_orquestracao(analisador: argparse.ArgumentParser) -> None:
     analisador.add_argument(
         "--origem-local",
         dest="origem_local",
         type=Path,
         default=None,
-        help="Usa fixtures locais em vez da rede (layout <dir>/rfb, <dir>/bd).",
+        help=_AJUDA_ORIGEM_LOCAL,
     )
     analisador.add_argument(
         "--permitir-incompleto",
@@ -433,6 +491,7 @@ def _argumentos_orquestracao(analisador: argparse.ArgumentParser) -> None:
     analisador.add_argument(
         "--forcar", action="store_true", help="Reconverte mesmo se o manifesto não mudou."
     )
+    _argumentos_ibge(analisador)
     analisador.add_argument(
         "--target", default=None, help="Target dbt (padrão: o do profile; `s3` com s3://)."
     )
@@ -461,18 +520,19 @@ def _construir_analisador() -> argparse.ArgumentParser:
     )
     sub = analisador.add_subparsers(dest="comando", required=True)
 
-    p_ingerir = sub.add_parser("ingerir", help="Ingesta os dados RFB/BD para a camada raw.")
+    p_ingerir = sub.add_parser("ingerir", help="Ingesta os dados RFB/BD/IBGE para a camada raw.")
     p_ingerir.add_argument("--mes", default=None, help="Mês YYYY-MM (padrão: o mais recente).")
     p_ingerir.add_argument(
         "--origem-local",
         dest="origem_local",
         type=Path,
         default=None,
-        help="Usa fixtures locais em vez de baixar da rede (layout <dir>/rfb, <dir>/bd).",
+        help=_AJUDA_ORIGEM_LOCAL,
     )
     p_ingerir.add_argument(
         "--forcar", action="store_true", help="Reconverte mesmo se o manifesto não mudou."
     )
+    _argumentos_ibge(p_ingerir)
     p_ingerir.add_argument(
         "--permitir-incompleto",
         dest="permitir_incompleto",

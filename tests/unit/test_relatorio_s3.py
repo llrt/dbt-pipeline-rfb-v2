@@ -117,8 +117,9 @@ def test_gerar_relatorio_em_s3_compila_com_a_uri_e_prepara_a_conexao(
     configuracao = carregar_configuracao(env)
     chamadas: dict = {}
 
-    def _compilar(dir_transform, raiz, target, raiz_local=None):
+    def _compilar(dir_transform, raiz, target, raiz_local=None, padrao=None):
         chamadas["compile"] = (raiz, target, raiz_local)
+        chamadas["padrao"] = padrao
         return {"q": "select 1"}
 
     def _executar(warehouse, sqls, preparo=None, segredos=()):
@@ -128,9 +129,10 @@ def test_gerar_relatorio_em_s3_compila_com_a_uri_e_prepara_a_conexao(
     monkeypatch.setattr(relatorio, "compilar_analises", _compilar)
     monkeypatch.setattr(relatorio, "executar_analises", _executar)
     monkeypatch.setattr(relatorio, "ler_qualidade", lambda _w: None)
-    monkeypatch.setattr(relatorio, "renderizar", lambda _r, _q: "ok\n")
+    monkeypatch.setattr(relatorio, "renderizar", lambda _r, _q, _a=None: "ok\n")
     relatorio.gerar_relatorio(configuracao, saida=tmp_path / "r.md")
     assert chamadas["compile"] == ("s3://balde/prefixo", "s3", tmp_path / "local")
+    assert chamadas["padrao"] == relatorio.PADRAO_RELATORIO  # caso e cenários (enriquecimento_ibge)
     warehouse, preparo, segredos = chamadas["executar"]
     assert warehouse == tmp_path / "local" / "warehouse.duckdb"
     assert any("CREATE OR REPLACE TEMPORARY SECRET" in c for c in preparo)

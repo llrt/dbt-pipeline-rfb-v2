@@ -23,6 +23,7 @@ flowchart LR
     subgraph RAW["raw/ (bronze) — Parquet"]
       R1[(rfb/&lt;entidade&gt;/<br/>mes_referencia=YYYY-MM)]
       R2[(bd/&lt;tabela&gt;)]
+      R3[(ibge/&lt;tabela&gt;<br/>SIDRA e REGIC)]
     end
     subgraph DBT["T — dbt-duckdb (transform/)"]
       SRC[sources<br/>+ testes de fonte<br/>+ freshness]
@@ -30,7 +31,7 @@ flowchart LR
       INT[intermediate<br/>enriquecimento]
       ORI[marts/original<br/>bh_empresas, agg_empresas]
       CORE[marts/core<br/>dims + fato + bridge]
-      ANA[marts/analytics<br/>densidade, sobrevivência,<br/>dinâmica, fornecedores]
+      ANA[marts/analytics<br/>densidade, sobrevivência,<br/>dinâmica, fornecedores,<br/>CEMPRE × RFB]
       OBS[observability<br/>histórico DQ]
     end
     GOLD[(gold/ — Parquet<br/>external materialization)]
@@ -39,8 +40,11 @@ flowchart LR
     RFB --> DL --> CV --> MF --> R1
     BD --> DL
     CV --> R2
+    IBGE[IBGE<br/>API SIDRA + geoftp] --> DL
+    CV --> R3
     R1 --> SRC
     R2 --> SRC
+    R3 --> SRC
     SRC --> STG --> INT --> ORI
     INT --> CORE --> ANA
     ORI --> GOLD
@@ -95,10 +99,11 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   │   ├── marts/analytics/     # marts analíticos              (adição)
 │   │   ├── observability/    # histórico e resumo de DQ      (adição)
 │   │   └── audit/            # tradução literal do SQL original (paridade; efêmero)
-│   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso)
+│   ├── seeds/  macros/  tests/ (singulares)  analyses/ (estudo de caso, cenários de uso e regras de negócio)
 ├── dados/ (gitignored)          # RAIZ_DADOS padrão
 │   ├── raw/rfb/<entidade>/mes_referencia=YYYY-MM/*.parquet
 │   ├── raw/bd/<tabela>/*.parquet
+│   ├── raw/ibge/<tabela>/*.parquet   # SIDRA e REGIC (incremento enriquecimento_ibge)
 │   ├── raw/_rejeitos/  _manifestos/  _baixados/ (cache de zips)
 │   ├── gold/<modelo>.parquet
 │   └── warehouse.duckdb
@@ -113,6 +118,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 |---|---|---|
 | RFB CNPJ | WebDAV público `https://arquivos.receitafederal.gov.br/public.php/webdav/` (usuário = token do share `YggdBLfdninEJX9`, senha vazia), pastas `YYYY-MM/` | `Empresas{0..9}.zip`, `Estabelecimentos{0..9}.zip`, `Simples.zip`, `Cnaes.zip`, `Municipios.zip`, `Naturezas.zip`, `Motivos.zip`, `Paises.zip`, `Qualificacoes.zip` (**não** `Socios*`) |
 | Base dos Dados | API `https://basedosdados.org/api/tables/downloadTable?p=<b64 dataset>&q=<b64 tabela>&d=<b64 "true">&s=<b64 "free">` (gzip, grátis até 100 MB; ADR-0015) | `br_bd_diretorios_brasil/municipio`, `br_bd_diretorios_brasil/cnae_2`, `br_ibge_populacao/municipio`, `br_ibge_pib/municipio`; **incremento enriquecimento BD (ADR-0015):** `br_ibge_censo_2022/municipio`, `br_geobr_mapas/regiao_metropolitana_2017`, `br_bd_vizinhanca/municipio` |
+| IBGE (**incremento enriquecimento IBGE**, [ADR-0022](docs/adr/0022-enriquecimento-fontes-gratuitas-ibge.md)) | API SIDRA `https://apisidra.ibge.gov.br/values/...` (≤ 50.000 valores por requisição; CEMPRE fatiado e retomável) e planilhas da REGIC 2018 em `https://geoftp.ibge.gov.br/` | SIDRA 9528 (CEMPRE: categorias CNAE e município × classe, 4 variáveis, ano mais recente), SIDRA 10295 (renda per capita do Censo 2022), REGIC 2018 (hierarquia, ligações, atração); gratuitas, sem conta nem chave |
 
 A URL antiga do original (`/dados/cnpj/dados_abertos_cnpj/2025-02/`) retorna 404 e o mês 2025-02 não está
 mais publicado — ver [ADR-0003](docs/adr/0003-fonte-rfb-webdav.md).
@@ -231,12 +237,19 @@ flowchart LR
   (subclasse lpad 7), `stg_bd__populacao`, `stg_bd__pib`; **incremento enriquecimento BD (ADR-0015):**
   `stg_bd__censo_2022_municipio`, `stg_bd__regioes_metropolitanas` (uma região por município; descarta a
   `geometria`), `stg_bd__vizinhanca`.
+- **Incremento enriquecimento IBGE (ADR-0022):** `stg_ibge__cempre_municipio_classe` (município × classe CNAE de
+  5 dígitos × ano; `X` → NULL com `tem_sigilo`), `stg_ibge__cempre_municipio_total`, `stg_ibge__renda_municipio`,
+  `stg_ibge__regic_hierarquia`, `stg_ibge__regic_ligacoes` (destino "Outros" com `destino_outros`),
+  `stg_ibge__regic_atracao`.
 
 **Intermediate:**
 - `int_municipios__conformados`: RFB ↔ IBGE (via BD) + região imediata/intermediária, micro/meso, população do ano, PIB.
 - `int_estabelecimentos__enriquecidos`: estabelecimento × empresa × domínios, com **left joins** e flags de
   correspondência (`tem_cnae_bd`, `tem_municipio_bd`, ...). Base de `bh_empresas` e do core.
 - `int_cnaes_secundarios__explodidos`: uma linha por (estabelecimento, CNAE secundário).
+- **Incremento enriquecimento IBGE:** `int_regic__destinos_compras` (REGIC em formato longo nos temas de compra Q1 e
+  Q2, com o posto de cada destino) e `int_municipios__perfil_ibge` (renda, VA com `ano_va` próprio, hierarquia,
+  atração, polo de compras e total do CEMPRE por município).
 
 **Original (paridade — [ADR-0005](docs/adr/0005-paridade-modelos-originais.md)):**
 - `bh_empresas`: mesmas 15 colunas e regras do notebook 3 (inner joins, `porte` N/A/MICRO/PEQUENA/DEMAIS,
@@ -275,13 +288,22 @@ erDiagram
   `area_km2`, `densidade_hab_km2`, `taxa_alfabetizacao`, `idade_mediana`, `indice_envelhecimento`, `razao_sexo` e
   `nome_regiao_metropolitana` (`NÃO PERTENCE` fora de RM); `bridge_municipio_vizinho` (pares simétricos, ano mais
   recente, sem autopares; opcional no BI).
+- **Incremento enriquecimento IBGE (ADR-0022):** `dim_municipio` ganha a renda per capita do Censo 2022, o VA por
+  atividade (`ano_va`, independente de `ano_pib`), a hierarquia e o índice de atração da REGIC 2018, o polo de
+  compras (`id_municipio_polo_compras`, maior % em móveis e eletroeletrônicos) e o total do CEMPRE;
+  `bridge_municipio_destino_compras` (origem × destino × tema; "Outros" = `-1`; opcional no BI).
 
 **Análises (adição):**
 - `mart_concorrencia_municipio`: CNAE × município → ativos, inativos, ativos por 10 mil hab., ranking na UF.
 - `mart_concorrencia_area_mercado` (**incremento enriquecimento BD**): CNAE × município (pares com estabelecimento local **e** vazios de
   mercado: vizinhos ou RM com ≥ 1 ativo do CNAE e `tem_estabelecimento_local` = false, local 0) → ativos/inativos no
   município, nos vizinhos e na região metropolitana, e ativos por mil domicílios e por km² (município e área =
-  município + vizinhos; NULL sem denominador).
+  município + vizinhos; NULL sem denominador). **Incremento enriquecimento IBGE:** o polo de compras do município e
+  `ativos_no_polo`, sem mudar grão nem colunas.
+- `mart_emprego_setor_municipio` (**incremento enriquecimento IBGE**): município × classe CNAE → CEMPRE (unidades,
+  pessoal, assalariados, salários, `tem_sigilo`) ao lado dos ativos RFB com e sem MEI; anos diferentes
+  (`ano_cempre` × `mes_referencia_rfb`). Linhagem: `stg_ibge__cempre_municipio_classe` + `fct_estabelecimentos` +
+  `dim_cnae` + `dim_municipio`.
 - `mart_sobrevivencia_coorte`: coorte (ano de início) × CNAE × porte × UF → n, sobreviventes a 1/3/5 anos, taxas.
   Sobrevivência a N anos: início ≤ `data_referencia − N anos` e (ativa **ou** data de baixa ≥ início + N anos).
 - `mart_dinamica_mercado`: ano × CNAE × município → aberturas, encerramentos (situação 08 com `dat_situacao`), saldo.

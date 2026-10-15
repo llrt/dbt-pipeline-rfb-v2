@@ -1,9 +1,10 @@
-"""Gerador determinístico de fixtures sintéticas RFB/CNPJ e Base dos Dados.
+"""Gerador determinístico de fixtures sintéticas RFB/CNPJ, Base dos Dados e IBGE.
 
 Reproduz o formato real dos arquivos publicados no WebDAV da RFB para o mês
 2026-09 (zips com um único arquivo interno, latin-1, separador `;`, todos os
 campos entre aspas, fim de linha LF) e os csv.gz da Base dos Dados
-(API downloadTable: UTF-8, vírgula, cabecalho). Duas execuções produzem bytes
+(API downloadTable: UTF-8, vírgula, cabecalho), além das respostas da API SIDRA e das planilhas
+REGIC do IBGE em `ibge/` (formato lido por `rfb_pipeline.ibge`). Duas execuções produzem bytes
 idênticos: timestamps de zip/gzip são fixados e a ordem de escrita é estável.
 
 O cenário de dados (municípios, CNAEs, naturezas, empresas e estabelecimentos)
@@ -18,8 +19,13 @@ import argparse
 import csv
 import gzip
 import io
+import json
+import re
 import zipfile
+from datetime import datetime
 from pathlib import Path
+
+import openpyxl
 
 MES_REFERENCIA = "2026-09"
 DATA_REFERENCIA_TAG = "D60912"  # último dígito do ano (2026 -> 6) + 0912
@@ -1015,8 +1021,755 @@ def gerar_vizinhanca_bd(saida_dir: Path) -> Path:
     )
 
 
+# ---------------------------------------------------------------------------
+# IBGE — respostas SIDRA (JSON) e planilhas REGIC 2018 (xlsx), como `rfb_pipeline.ibge` as lê
+# incremento: enriquecimento_ibge
+# ---------------------------------------------------------------------------
+
+XLSX_DATE_TIME = (2020, 7, 31, 16, 30, 0)
+_MUNICIPIOS_IBGE = (
+    "3202207",
+    "3203205",
+    "3200607",
+    "3205002",
+    "3205309",
+    "2700102",
+    "2200202",
+    "2500106",
+)  # noqa: E501
+_PERIODO_CEMPRE = "2024"
+_TOTAL_CEMPRE = "117897"
+# Categorias da classificação 12762 (CNAE 2.0) com os ids reais da SIDRA. `20.5` é um grupo que a
+# SIDRA marca como nível 4: não é classe (`NN.NN-N`) e não pode ser baixado (contaria em dobro).
+_CATEGORIAS_CEMPRE = [
+    ("117897", "Total", "11867005"),
+    ("116833", "01.11-3 Cultivo de cereais", "47099"),
+    ("117065", "20.5 Fabricação de defensivos agrícolas e desinfestantes domissanitários", "579"),
+    ("117066", "20.51-7 Fabricação de defensivos agrícolas", "295"),
+    ("117073", "20.71-1 Fabricação de tintas, vernizes, esmaltes e lacas", "1894"),
+    ("117299", "35.11-5 Geração de energia elétrica", "14887"),
+    ("117363", "G Comércio; reparação de veículos automotores e motocicletas", "3319852"),
+    (
+        "117424",
+        "46.79-6 Comércio atacadista especializado de materiais de construção não especificados anteriormente e de materiais de construção em geral",  # noqa: E501
+        "16511",
+    ),
+    ("117438", "47 Comércio varejista", "2291295"),
+    (
+        "117440",
+        "47.11-3 Comércio varejista de mercadorias em geral, com predominância de produtos alimentícios - hipermercados e supermercados",  # noqa: E501
+        "55169",
+    ),
+    ("117452", "47.4 Comércio varejista de material de construção", "293179"),
+    ("117453", "47.41-5 Comércio varejista de tintas e materiais para pintura", "15716"),
+    (
+        "117456",
+        "47.44-0 Comércio varejista de ferragens, madeira e materiais de construção",
+        "231116",
+    ),
+]
+_CLASSES_CEMPRE = ["116833", "117066", "117073", "117299", "117424", "117440", "117453", "117456"]
+_VARIAVEIS_CEMPRE = (
+    ("706", "1020"),
+    ("707", "45"),
+    ("708", "45"),
+    ("662", "40"),
+)  # (variável, unidade)
+# (município, categoria) -> (unidades locais, pessoal ocupado, assalariado, salários em mil R$);
+# o que não está aqui é `-` (zero absoluto). Fundão: Total e 47.41-5 reais (CEMPRE 2024); Serra e
+# Vitória em 47.41-5: as 4 variáveis reais. `X` = sigilo, `...` = não disponível, `..` = não se
+# aplica.
+_VALORES_CEMPRE = {
+    ("3202207", "117897"): ("1054", "5125", "3831", "96332"),
+    ("3202207", "117456"): ("20", "90", "60", "1700"),
+    ("3202207", "117440"): ("4", "60", "55", "1500"),
+    ("3203205", "117897"): ("6200", "41000", "33000", "1150000"),
+    ("3203205", "117453"): ("12", "X", "X", "X"),
+    ("3203205", "116833"): ("5", "12", "8", "..."),
+    ("3200607", "117897"): ("3900", "30500", "26000", "980000"),
+    ("3200607", "117453"): ("3", "X", "X", "X"),
+    ("3200607", "117299"): ("1", "..", "..", ".."),
+    ("3205002", "117897"): ("16000", "160000", "140000", "5100000"),
+    ("3205002", "117453"): ("33", "196", "167", "6358"),
+    ("3205002", "117073"): ("2", "X", "X", "X"),
+    ("3205002", "117424"): ("10", "80", "70", "2500"),
+    # 20.51-7 não está na CNAE das fixtures da RFB: classe do CEMPRE sem par (RIBG-09, como a
+    # 70.10-7 no real); o mart a descreve pelo CEMPRE e a RN-30 não a avalia
+    ("3205002", "117066"): ("4", "20", "15", "400"),
+    ("3205309", "117897"): ("21000", "290000", "250000", "11200000"),
+    ("3205309", "117453"): ("25", "164", "144", "5892"),
+    ("3205309", "117424"): ("8", "50", "45", "1800"),
+    ("2700102", "117897"): ("150", "900", "600", "15000"),
+    ("2200202", "117897"): ("220", "1500", "1100", "26000"),
+    ("2500106", "117897"): ("90", "600", "400", "9000"),
+}
+# Renda do Censo 2022 (tabela 10295): moradores, média e mediana do rendimento domiciliar per capita
+# (R$). Fundão e Vitória reais; demais sintéticos; Água Branca/PI com mediana `...` (a 10295 real
+# não tem nenhum símbolo: o `...` só prova o tratamento).
+_RENDA_2022 = {
+    "3202207": ("17961", "1406.78", "1040.00"),
+    "3203205": ("166000", "1650.20", "1100.00"),
+    "3200607": ("94500", "1580.35", "1050.00"),
+    "3205002": ("518000", "1720.10", "1200.00"),
+    "3205309": ("321973", "3351.64", "1750.00"),
+    "2700102": ("19300", "520.40", "330.00"),
+    "2200202": ("16800", "610.15", "..."),
+    "2500106": ("9800", "540.90", "350.00"),
+}
+
+_CABECALHO_REGIC_HIERARQUIA = [
+    "coduf", "siguf", "UF", "Grande Região", "codmun", "Município", "Categoria", "codap",
+    "Arranjo Populacional", "codcid", "Hierarquia", "Hierarquia 2", "Hierarquia 3",
+    "Hierarquia - grupo", "Múltiplas Subordinações",
+    "Região de influência - vínculação imediata consolidada", "Região de influência 1",
+    "Região de influência 2", "Região de influência 3", "Região de influência 4",
+]  # fmt: skip
+_AP_VITORIA = "Arranjo Populacional de Vitória/ES"
+_INTEGRANTE_VITORIA = (
+    "Metrópole (1C) - Município integrante do Arranjo Populacional de Vitória/ES",
+    "Metrópole - Integrante de Arranjo Populacional",
+    "1C - Integrante de Arranjo Populacional",
+    "1 - Metrópole - Integrante de Arranjo Populacional",
+)
+_VINCULO_VITORIA = (f"{_AP_VITORIA} - Metrópole (1C)", _AP_VITORIA, None, None, None)
+# Linhas reais da REGIC 2018 (aba `Hierarquia e região`) dos municípios das fixtures.
+_REGIC_HIERARQUIA = [
+    (
+        "22",
+        "PI",
+        "Piauí",
+        "Nordeste",
+        "2200202",
+        "Água Branca",
+        "Município isolado",
+        None,
+        None,
+        "2200202",
+        "Centro de Zona A (4A)",
+        "Centro de Zona A",
+        "4A",
+        "4 - Centro de Zona",
+        1,
+        "Arranjo Populacional de Teresina/PI - Capital Regional A (2A)",
+        "Arranjo Populacional de Teresina/PI",
+        None,
+        None,
+        None,
+    ),
+    (
+        "25",
+        "PB",
+        "Paraíba",
+        "Nordeste",
+        "2500106",
+        "Água Branca",
+        "Município isolado",
+        None,
+        None,
+        "2500106",
+        "Centro Local (5)",
+        "Centro Local",
+        "5",
+        "5 - Centro Local",
+        2,
+        "Arranjo Populacional de Patos/PB - Centro Sub-Regional A (3A); Tabira (PE) - Centro de Zona B (4B)",  # noqa: E501
+        "Arranjo Populacional de Patos/PB",
+        "Tabira (PE)",
+        None,
+        None,
+    ),
+    (
+        "27",
+        "AL",
+        "Alagoas",
+        "Nordeste",
+        "2700102",
+        "Água Branca",
+        "Município isolado",
+        None,
+        None,
+        "2700102",
+        "Centro Local (5)",
+        "Centro Local",
+        "5",
+        "5 - Centro Local",
+        1,
+        "Delmiro Gouveia (AL) - Centro Sub-Regional B (3B)",
+        "Delmiro Gouveia (AL)",
+        None,
+        None,
+        None,
+    ),
+    (
+        "32",
+        "ES",
+        "Espírito Santo",
+        "Sudeste",
+        "3200607",
+        "Aracruz",
+        "Município isolado",
+        None,
+        None,
+        "3200607",
+        "Centro Sub-Regional B (3B)",
+        "Centro Sub-Regional B",
+        "3B",
+        "3 - Centro Sub-Regional",
+        1,
+        *_VINCULO_VITORIA,
+    ),
+    (
+        "32",
+        "ES",
+        "Espírito Santo",
+        "Sudeste",
+        "3202207",
+        "Fundão",
+        "Arranjo Populacional",
+        "3205309",
+        _AP_VITORIA,
+        "3205309",
+        *_INTEGRANTE_VITORIA,
+        1,
+        *_VINCULO_VITORIA,
+    ),
+    (
+        "32",
+        "ES",
+        "Espírito Santo",
+        "Sudeste",
+        "3203205",
+        "Linhares",
+        "Município isolado",
+        None,
+        None,
+        "3203205",
+        "Centro Sub-Regional A (3A)",
+        "Centro Sub-Regional A",
+        "3A",
+        "3 - Centro Sub-Regional",
+        1,
+        *_VINCULO_VITORIA,
+    ),
+    (
+        "32",
+        "ES",
+        "Espírito Santo",
+        "Sudeste",
+        "3205002",
+        "Serra",
+        "Arranjo Populacional",
+        "3205309",
+        _AP_VITORIA,
+        "3205309",
+        *_INTEGRANTE_VITORIA,
+        1,
+        *_VINCULO_VITORIA,
+    ),
+    (
+        "32",
+        "ES",
+        "Espírito Santo",
+        "Sudeste",
+        "3205309",
+        "Vitória",
+        "Arranjo Populacional",
+        "3205309",
+        _AP_VITORIA,
+        "3205309",
+        *_INTEGRANTE_VITORIA,
+        1,
+        *_VINCULO_VITORIA,
+    ),
+]
+
+_CABECALHO_REGIC_ATRACAO = [
+    "CODMUN", "NOME_MUN", "HIERAR_MUN", "INT_ARR", "HIERAR_CID", "NOME_HIERAR_CID", "COD_ARR",
+    "NOME_ARR", "POP2018", "IA", *(f"IA_Q{i}" for i in range(1, 11)),
+]  # fmt: skip
+_HIERAR_INTEGRANTE = "Município integrante do Arranjo Populacional de Vitória/ES - Metrópole (1C)"
+# (município, nome, hierarquia do município, integra arranjo?, código e nome da hierarquia da
+# cidade, população 2018, IA, IA_Q1..IA_Q10) — valores reais arredondados.
+_REGIC_ATRACAO = [
+    (
+        "3205309",
+        "Vitória",
+        _HIERAR_INTEGRANTE,
+        "SIM",
+        "1C",
+        "Metrópole",
+        358267,
+        1315461.60605983,
+        (
+            817684.7,
+            978672.3,
+            1030736.68,
+            1766212.5,
+            919613.63,
+            913435.43,
+            949170.18,
+            2957936.63,
+            2537671.75,
+            281181.21,
+        ),
+    ),
+    (
+        "3205002",
+        "Serra",
+        _HIERAR_INTEGRANTE,
+        "SIM",
+        "1C",
+        "Metrópole",
+        507598,
+        81584.2276825206,
+        (
+            95136.28,
+            84504.37,
+            96407.45,
+            140490.93,
+            45170.03,
+            169616.4,
+            117383.92,
+            0,
+            7407.47,
+            59725.43,
+        ),
+    ),
+    (
+        "3203205",
+        "Linhares",
+        "Centro Subregional A (3A)",
+        "NÃO",
+        "3A",
+        "Centro Subregional A",
+        170364,
+        85805.2174216831,
+        (
+            84418.9,
+            174779.93,
+            132565.7,
+            64871.64,
+            105233.94,
+            132475.9,
+            83798.07,
+            0,
+            18143.43,
+            61764.66,
+        ),
+    ),
+    (
+        "3202207",
+        "Fundão",
+        _HIERAR_INTEGRANTE,
+        "SIM",
+        "1C",
+        "Metrópole",
+        21061,
+        4580.80969216309,
+        (0, 0, 0, 0, 0, 0, 0, 0, 0, 45808.0969216309),
+    ),
+    (
+        "3200607",
+        "Aracruz",
+        "Centro Subregional B (3B)",
+        "NÃO",
+        "3B",
+        "Centro Subregional B",
+        99305,
+        14592.5630619228,
+        (21580.27, 20749.57, 18241.58, 3510.17, 37738.63, 14338.82, 19267.52, 0, 824.33, 9674.75),
+    ),
+    (
+        "2700102",
+        "Água Branca",
+        "Centro Local (5)",
+        "NÃO",
+        "5",
+        "Centro Local",
+        20162,
+        1259.49666666667,
+        (0, 0, 0, 0, 0, 4015.63, 7412.87, 0, 0, 0),
+    ),
+    (
+        "2500106",
+        "Água Branca",
+        "Centro Local (5)",
+        "NÃO",
+        "5",
+        "Centro Local",
+        10161,
+        2605.34054189714,
+        (1217.83, 1217.83, 0, 0, 0, 8684.45, 6881.97, 0, 0, 6272.5),
+    ),
+    (
+        "2200202",
+        "Água Branca",
+        "Centro de Zona A (4A)",
+        "NÃO",
+        "4A",
+        "Centro de Zona A",
+        17349,
+        25331.0973656827,
+        (54645.47, 45399.87, 23399.92, 866.97, 22901.27, 26959.01, 25712.77, 0, 0, 35194.04),
+    ),
+    # pseudo-destino "Outros / Não circula jornal" (no real: `CODMUN` 0, sem hierarquia e população)
+    (
+        "0",
+        "Outros / Não circula jornal",
+        None,
+        None,
+        None,
+        None,
+        None,
+        2379854.69235186,
+        (
+            1394139.13,
+            1324777.16,
+            1172195.21,
+            1125295.7,
+            1621141.86,
+            1750225.56,
+            2065193.26,
+            959544.76,
+            33672992.69,
+            0,
+        ),
+    ),  # fmt: skip
+]
+
+_CABECALHO_REGIC_LIGACOES = [
+    "ID", "UF_ORIGEM", "MUN_ORIGEM", "MUN_OR", "NOME_ORIGEM", "POP2018_O", "COD_ARR_O",
+    "NOME_ARR_O", "HIERAR_MUN_O", "HIERAR_CID", "NOME_HIERAR_CID", "UF_DESTINO", "MUN_DESTINO",
+    "MUN_DEST", "NOME_DESTINO", "POP2018_D", "COD_ARR_D", "NOME_ARR_D", "HIERAR_MUN_D",
+    "HIERAR_CID_D", "NOME_HIERAR_CID_D", *(f"Q{i}" for i in range(1, 11)),
+    *(f"IA_Q{i}" for i in range(1, 11)), "PERC_LIG", "IA", "X_ORIGEM", "Y_ORIGEM", "X_DESTINO",
+    "Y_DESTINO",
+]  # fmt: skip
+_SEDES = {  # longitude, latitude da sede municipal
+    "3202207": (-40.4067, -19.9329), "3203205": (-40.0683, -19.398),
+    "3200607": (-40.2648, -19.825), "3205002": (-40.3079, -20.1209),
+    "3205309": (-40.3128, -20.3155),
+    "2500106": (-37.6357, -7.5121), "2200202": (-42.6366, -5.8925),
+}  # fmt: skip
+_UF_POR_CODIGO = {"32": "ES", "27": "AL", "22": "PI", "25": "PB"}
+# (origem, destino, Q1..Q10, PERC_LIG) — reais. Fundão -> Serra e Fundão -> Vitória são os oráculos
+# (Q1 vestuário e calçados, Q2 móveis e eletroeletrônicos). Vitória não tem ligação de origem.
+_REGIC_LIGACOES = [
+    (
+        "3202207",
+        "3205309",
+        (
+            30,
+            38.3333333333333,
+            26.6666666666667,
+            43.3333333333333,
+            18.3333333333333,
+            30,
+            25,
+            100,
+            0,
+            20.5,
+        ),
+        31.1,
+    ),
+    (
+        "3202207",
+        "3205002",
+        (
+            46.6666666666667,
+            45,
+            11.6666666666667,
+            28.3333333333333,
+            31.6666666666667,
+            20,
+            15,
+            0,
+            0,
+            30.2,
+        ),
+        25.4,
+    ),
+    (
+        "3202207",
+        "3200607",
+        (
+            16.6666666666667,
+            16.6666666666667,
+            28.3333333333333,
+            16.6666666666667,
+            23.3333333333333,
+            18.3333333333333,
+            8.33333333333333,
+            0,
+            0,
+            12.5675012272951,
+        ),
+        15.1,
+    ),
+    (
+        "3202207",
+        "3203205",
+        (0, 0, 0, 0, 0, 0, 0, 0, 6.66666666666667, 0),
+        0.666666666666667,
+    ),
+    (
+        "3203205",
+        "3205309",
+        (
+            65,
+            88.3333333333333,
+            60,
+            73.3333333333333,
+            80,
+            71.6666666666667,
+            70,
+            100,
+            100,
+            11.2757731958763,
+        ),
+        71.9,
+    ),
+    (
+        "3200607",
+        "3205309",
+        (60, 58.3333333333333, 60, 80, 60, 40, 60, 100, 86.6666666666667, 21.2719298245614),
+        62.6,
+    ),
+    (
+        "3200607",
+        "3205002",
+        (
+            13.3333333333333,
+            13.3333333333333,
+            5,
+            5,
+            6.66666666666667,
+            36.6666666666667,
+            40,
+            0,
+            0,
+            9.75877192982456,
+        ),
+        12.9,
+    ),
+    # Destino `0` = "Outros / Não circula jornal": a parcela dos deslocamentos para lugares não
+    # listados (no real, 3.888 origens têm essa linha). Sintético, no formato do real. As fixtures
+    # são um subconjunto das ligações reais; o "Outros" fecha 100 em Q1 e Q2 em cada origem, como
+    # no real (RIBG-11: `destino_compras_soma_100` volta a ser sinal). Em Fundão só o Q1 (o Q2, o
+    # do caso, já soma 100 e não muda).
+    ("3202207", "0", (6.66666666666667, 0, 0, 0, 0, 0, 0, 0, 0, 0), 0.0666666666666667),
+    (
+        "3203205",
+        "0",
+        (35, 11.6666666666667, 0, 3.33, 8.33, 6.67, 8.33, 0, 6.67, 0),
+        0.0366666666666667,
+    ),
+    ("3200607", "0", (26.6666666666667, 28.3333333333333, 0, 0, 0, 0, 0, 0, 0, 0), 0.245),
+    # Polo noutra UF (RIBG-03; no real, 314 origens, como Iúna/ES -> Manhuaçu/MG): sintético, Água
+    # Branca/PB -> Água Branca/PI
+    ("2500106", "2200202", (60, 70, 50, 60, 55, 50, 40, 0, 0, 30), 45.0),
+    ("2500106", "0", (40, 30, 50, 40, 45, 50, 60, 100, 100, 70), 55.0),
+]
+_DESTINO_OUTROS = "0"
+_NOME_OUTROS = "Outros / Não circula jornal"
+
+
+def _escrever_json_ibge(saida_dir: Path, nome: str, registros: list[dict]) -> Path:
+    destino = saida_dir / "ibge" / f"{nome}.json"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(json.dumps(registros, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return destino
+
+
+def gerar_cempre_categorias_ibge(saida_dir: Path) -> Path:
+    """Resposta SIDRA `/t/9528/n1/all/v/706/p/last 1/c12762/all/f/a/h/n` (com nomes)."""
+    registros = [
+        {
+            "NC": "1",
+            "NN": "Brasil",
+            "MC": "1020",
+            "MN": "Unidades",
+            "V": total,
+            "D1C": "1",
+            "D1N": "Brasil",
+            "D2C": "706",
+            "D2N": "Número de unidades locais",
+            "D3C": _PERIODO_CEMPRE,
+            "D3N": _PERIODO_CEMPRE,
+            "D4C": categoria,
+            "D4N": nome,
+        }  # fmt: skip
+        for categoria, nome, total in _CATEGORIAS_CEMPRE
+    ]
+    return _escrever_json_ibge(saida_dir, "cempre_categorias_cnae", registros)
+
+
+def gerar_cempre_municipio_ibge(saida_dir: Path) -> Path:
+    """Respostas SIDRA `/t/9528/n6/all/v/706,707,708,662/p/2024/c12762/<cats>/f/c/h/n`, juntas."""
+    registros = []
+    for categoria in [*_CLASSES_CEMPRE, _TOTAL_CEMPRE]:
+        for municipio in _MUNICIPIOS_IBGE:
+            valores = _VALORES_CEMPRE.get((municipio, categoria), ("-", "-", "-", "-"))
+            for (variavel, unidade), valor in zip(_VARIAVEIS_CEMPRE, valores, strict=True):
+                registros.append(
+                    {
+                        "NC": "6",
+                        "MC": unidade,
+                        "V": valor,
+                        "D1C": municipio,
+                        "D2C": variavel,
+                        "D3C": _PERIODO_CEMPRE,
+                        "D4C": categoria,
+                    }  # fmt: skip
+                )
+    return _escrever_json_ibge(saida_dir, "cempre_municipio_cnae", registros)
+
+
+def gerar_renda_ibge(saida_dir: Path) -> Path:
+    """Resposta SIDRA `/t/10295/n6/all/v/13604,13431,13534/p/2022/c2/6794/c86/95251/c58/95253`."""
+    registros = []
+    for municipio in _MUNICIPIOS_IBGE:
+        moradores, media, mediana = _RENDA_2022[municipio]
+        for variavel, unidade, valor in (
+            ("13604", "45", moradores),
+            ("13431", "38", media),
+            ("13534", "38", mediana),
+        ):
+            registros.append(
+                {
+                    "NC": "6",
+                    "MC": unidade,
+                    "V": valor,
+                    "D1C": municipio,
+                    "D2C": variavel,
+                    "D3C": "2022",
+                    "D4C": "6794",
+                    "D5C": "95251",
+                    "D6C": "95253",
+                }  # fmt: skip
+            )
+    return _escrever_json_ibge(saida_dir, "renda_censo_2022_municipio", registros)
+
+
+def _xlsx_deterministico(abas: list[tuple[str, list[str], list[tuple]]]) -> bytes:
+    """xlsx com as `abas` (nome, cabeçalho, linhas), regravado com datas fixas (bytes estáveis)."""
+    livro = openpyxl.Workbook()
+    livro.remove(livro.active)
+    for nome, cabecalho, linhas in abas:
+        aba = livro.create_sheet(nome)
+        aba.append(cabecalho)
+        for linha in linhas:
+            aba.append(list(linha))
+    momento = datetime(*XLSX_DATE_TIME)
+    livro.properties.created = momento
+    livro.properties.modified = momento
+    bruto = io.BytesIO()
+    livro.save(bruto)
+    return _rezipar(bruto.getvalue())
+
+
+_RE_DATA_CORE = re.compile(rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*(</dcterms:)")
+
+
+def _rezipar(conteudo_zip: bytes) -> bytes:
+    """Regrava um xlsx com ordem, datas das entradas e datas de `docProps/core.xml` fixas.
+
+    O `save()` do openpyxl grava a hora atual nas entradas do zip e em `dcterms:modified` (ignora
+    `properties.modified`): sem isto, duas gerações em segundos diferentes dariam bytes diferentes.
+    """
+    fixa = datetime(*XLSX_DATE_TIME).strftime("%Y-%m-%dT%H:%M:%SZ").encode("ascii")
+    saida = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(conteudo_zip)) as origem:
+        with zipfile.ZipFile(saida, "w", compression=zipfile.ZIP_DEFLATED) as destino:
+            for nome in sorted(origem.namelist()):
+                conteudo = origem.read(nome)
+                if nome == "docProps/core.xml":
+                    conteudo = _RE_DATA_CORE.sub(rb"\g<1>" + fixa + rb"\g<2>", conteudo)
+                info = zipfile.ZipInfo(nome, date_time=XLSX_DATE_TIME)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o600 << 16
+                destino.writestr(info, conteudo)
+    return saida.getvalue()
+
+
+def _linha_ligacao(origem: str, destino: str, qs: tuple, perc_lig: float) -> tuple:
+    atracao = {m[0]: m for m in _REGIC_ATRACAO}
+
+    def lado(municipio: str) -> tuple:
+        _, nome, hierar_mun, integra, hierar_cid, nome_hierar, pop, *_ = atracao[municipio]
+        arranjo = ("3205309", _AP_VITORIA) if integra == "SIM" else (None, None)
+        return (municipio, int(municipio), nome, pop, *arranjo, hierar_mun, hierar_cid, nome_hierar)
+
+    o = lado(origem)
+    if destino == _DESTINO_OUTROS:  # como no real: sem UF, população, hierarquia nem sede
+        uf_d, sede_d = None, (None, None)
+        d = ("0", 0, _NOME_OUTROS, None, None, None, None, None, None)
+    else:
+        uf_d, d, sede_d = _UF_POR_CODIGO[destino[:2]], lado(destino), _SEDES[destino]
+    pop_o = o[3]
+    ias = [round(q * pop_o / 100, 4) for q in qs]
+    return (
+        int(origem + destino), _UF_POR_CODIGO[origem[:2]], *o[:9], uf_d, *d[:9], *qs, *ias,
+        perc_lig, round(perc_lig * pop_o / 100, 4), *_SEDES[origem], *sede_d,
+    )  # fmt: skip
+
+
+def gerar_regic_ibge(saida_dir: Path) -> tuple[Path, Path]:
+    """`REGIC2018_Municipios_Hierarquia_e_regiao.xlsx` e o zip de ligações e atração (geoftp)."""
+    pasta = saida_dir / "ibge"
+    pasta.mkdir(parents=True, exist_ok=True)
+    notas = ("Notas, fonte e dicionário", ["Notas:"], [("Fixture sintética (REGIC 2018).",)])
+    hierarquia = pasta / "REGIC2018_Municipios_Hierarquia_e_regiao.xlsx"
+    hierarquia.write_bytes(
+        _xlsx_deterministico(
+            [("Hierarquia e região", _CABECALHO_REGIC_HIERARQUIA, _REGIC_HIERARQUIA), notas]
+        )
+    )
+    atracao = _xlsx_deterministico(
+        [
+            (
+                "BD_MUN_QUEST",
+                _CABECALHO_REGIC_ATRACAO,
+                [
+                    (
+                        int(m[0]),
+                        *m[1:6],
+                        *(("3205309", _AP_VITORIA) if m[3] == "SIM" else (None, None)),
+                        m[6],
+                        m[7],
+                        *m[8],
+                    )
+                    for m in _REGIC_ATRACAO
+                ],  # fmt: skip
+            ),
+            ("Descrição de variáveis", ["VARIÁVEL", "DESCRIÇÃO"], [("CODMUN", "Geocódigo")]),
+        ]
+    )
+    ligacoes = _xlsx_deterministico(
+        [
+            (
+                "BD_LIG_MUN_QUEST",
+                _CABECALHO_REGIC_LIGACOES,
+                [_linha_ligacao(o, d, qs, p) for o, d, qs, p in _REGIC_LIGACOES],
+            ),
+            ("Descrição das variáveis ", ["VARIÁVEL", "DESCRIÇÃO"], [("Q1", "Vestuário")]),
+        ]
+    )
+    pacote = pasta / "REGIC2018_Municipios_Ligacoes_e_atracao_xlsx.zip"
+    with zipfile.ZipFile(pacote, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for nome, conteudo in (
+            ("REGIC2018_Quest_Atracao_Municipios.xlsx", atracao),
+            ("REGIC2018_Quest_Ligacoes_entre_Municipios.xlsx", ligacoes),
+        ):
+            info = zipfile.ZipInfo(nome, date_time=XLSX_DATE_TIME)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o600 << 16
+            zf.writestr(info, conteudo)
+    return hierarquia, pacote
+
+
 def main(argv: list[str] | None = None) -> int:
-    analisador = argparse.ArgumentParser(description="Gera fixtures sintéticas RFB/BD.")
+    analisador = argparse.ArgumentParser(description="Gera fixtures sintéticas RFB/BD/IBGE.")
     analisador.add_argument(
         "--saida",
         type=Path,
@@ -1223,6 +1976,12 @@ def gerar_fixtures(saida_dir: Path) -> None:
     gerar_censo_2022_bd(saida_dir)  # incremento: enriquecimento_bd
     gerar_regiao_metropolitana_bd(saida_dir)  # incremento: enriquecimento_bd
     gerar_vizinhanca_bd(saida_dir)  # incremento: enriquecimento_bd
+
+    # IBGE — incremento: enriquecimento_ibge
+    gerar_cempre_categorias_ibge(saida_dir)
+    gerar_cempre_municipio_ibge(saida_dir)
+    gerar_renda_ibge(saida_dir)
+    gerar_regic_ibge(saida_dir)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,9 @@
 -- membro -1 "NÃO INFORMADO" para estabelecimentos sem município na Base dos Dados (ex.: exterior).
 -- incremento: enriquecimento_bd (ADR-0015): atributos do Censo 2022 e região metropolitana
 -- (`NÃO PERTENCE` quando o município não está em nenhuma; densidade NULL sem Censo ou sem área).
+-- incremento: enriquecimento_ibge (ADR-0022): renda do Censo 2022, valor adicionado por atividade (ano
+-- próprio, `ano_va`), hierarquia e polo de compras da REGIC 2018 e o total do CEMPRE, de
+-- `int_municipios__perfil_ibge`; NULL sem a fonte e no membro -1.
 select
   mun.sk_municipio,
   mun.id_municipio_ibge,
@@ -33,12 +36,38 @@ select
   cen.idade_mediana,
   cen.indice_envelhecimento,
   cen.razao_sexo,
-  coalesce(rm.nome_regiao_metropolitana, 'NÃO PERTENCE') as nome_regiao_metropolitana
+  coalesce(rm.nome_regiao_metropolitana, 'NÃO PERTENCE') as nome_regiao_metropolitana,
+  -- incremento: enriquecimento_ibge
+  ibge.renda_per_capita_media_2022,
+  ibge.renda_per_capita_mediana_2022,
+  ibge.moradores_renda_2022,
+  ibge.ano_va,
+  ibge.va_agropecuaria,
+  ibge.va_industria,
+  ibge.va_servicos,
+  ibge.va_adm_publica,
+  ibge.pct_va_agropecuaria,
+  ibge.pct_va_industria,
+  ibge.pct_va_servicos,
+  ibge.pct_va_adm_publica,
+  ibge.regic_hierarquia_codigo,
+  ibge.regic_hierarquia,
+  ibge.regic_arranjo_populacional,
+  ibge.regic_regiao_influencia,
+  ibge.regic_indice_atracao,
+  ibge.id_municipio_polo_compras,
+  ibge.nome_municipio_polo_compras,
+  ibge.pct_compras_no_polo,
+  ibge.ano_cempre,
+  ibge.unidades_locais_cempre,
+  ibge.pessoal_ocupado_cempre
 from {{ ref('int_municipios__conformados') }} as mun
 left join {{ ref('stg_bd__censo_2022_municipio') }} as cen
   on mun.id_municipio_ibge = cen.id_municipio
 left join {{ ref('stg_bd__regioes_metropolitanas') }} as rm
   on mun.id_municipio_ibge = rm.id_municipio
+left join {{ ref('int_municipios__perfil_ibge') }} as ibge  -- incremento: enriquecimento_ibge
+  on mun.id_municipio_ibge = ibge.id_municipio_ibge
 
 union all
 
@@ -72,4 +101,28 @@ select
   null::double as idade_mediana,
   null::double as indice_envelhecimento,
   null::double as razao_sexo,
-  'NÃO INFORMADO' as nome_regiao_metropolitana
+  'NÃO INFORMADO' as nome_regiao_metropolitana,
+  -- incremento: enriquecimento_ibge
+  null::decimal(12, 2) as renda_per_capita_media_2022,
+  null::decimal(12, 2) as renda_per_capita_mediana_2022,
+  null::bigint as moradores_renda_2022,
+  null::integer as ano_va,
+  null::double as va_agropecuaria,
+  null::double as va_industria,
+  null::double as va_servicos,
+  null::double as va_adm_publica,
+  null::double as pct_va_agropecuaria,
+  null::double as pct_va_industria,
+  null::double as pct_va_servicos,
+  null::double as pct_va_adm_publica,
+  null::varchar as regic_hierarquia_codigo,
+  null::varchar as regic_hierarquia,
+  null::varchar as regic_arranjo_populacional,
+  null::varchar as regic_regiao_influencia,
+  null::double as regic_indice_atracao,
+  null::varchar as id_municipio_polo_compras,
+  null::varchar as nome_municipio_polo_compras,
+  null::double as pct_compras_no_polo,
+  null::integer as ano_cempre,
+  null::bigint as unidades_locais_cempre,
+  null::bigint as pessoal_ocupado_cempre

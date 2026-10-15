@@ -554,6 +554,54 @@ testes ao build.
   ou arquivo duplicado.
 - **Analysis:** `transform/analyses/regras_negocio/rn_24_grao_fontes_e_dominios.sql`.
 
+### Coerência entre as bases (incremento enriquecimento IBGE)
+
+<a id="rn-30"></a>
+### RN-30 — CEMPRE e RFB concordam sobre a presença do setor no município (observação)
+
+- **Enunciado:** onde o CEMPRE do IBGE vê ao menos 3 unidades locais de uma classe CNAE num município, a RFB tem ao
+  menos um estabelecimento ativo da classe que não é de empresa optante pelo MEI.
+- **Tipo:** coerência do projeto.
+- **Fonte:** observação do projeto, **não regra**: nenhuma das duas bases promete bater com a outra. O que a
+  sustenta é a metodologia do CEMPRE [IBGE-CEMPRE]: desde o ano-base 2022 ele inclui as empresas e outras
+  organizações com "situação cadastral ativa em 31.12 na Receita Federal" que não tenham indicativo de inatividade
+  nas pesquisas estruturais do IBGE, mais as que declararam o eSocial ou responderam às pesquisas, e **exclui os
+  MEI**. Por isso a comparação é com os ativos **sem MEI**. O CEMPRE conta também unidades sem empregado (71,6 % das
+  empresas de 2024 não tinham assalariado em 31.12): não é um cadastro só de quem emprega. O que **não** se sabe:
+  como o IBGE classifica a atividade de cada unidade local (o CNAE das pesquisas do IBGE prevalece sobre o dos
+  registros administrativos, e a publicação não diz se a unidade herda a classe da empresa), nem quantas unidades o
+  filtro de inatividade tira em cada classe.
+- **Limiar:** 3 unidades. Com 1 ou 2, a diferença cabe na defasagem: o CEMPRE é de 31/12 do `ano_cempre` (hoje
+  2024) e o extrato da RFB é de quase dois anos depois, e uma ou duas baixas ou reclassificações bastam para zerar
+  a classe. A metodologia não indica outro limiar; se a leitura do dado real mostrar que o 3 só pega ruído, ele
+  sobe.
+- **Dados:** a fonte `ibge.cempre_municipio_cnae` (variável 706, unidades locais, no ano mais recente, classes CNAE
+  `NN.NN-N` de `ibge.cempre_categorias_cnae`) × [`fct_estabelecimentos`](DICIONARIO_DADOS.md#fct_estabelecimentos)
+  ativos (`eh_ativa`, `opcao_mei`) × [`dim_cnae`](DICIONARIO_DADOS.md#dim_cnae)`.codigo_classe` ×
+  [`dim_municipio`](DICIONARIO_DADOS.md#dim_municipio). Universo: os pares município × classe com unidade local no
+  CEMPRE ou ativo na RFB (o grão de [`mart_emprego_setor_municipio`](DICIONARIO_DADOS.md#mart_emprego_setor_municipio)),
+  sem município e CNAE desconhecidos (-1), por UF e faixa da razão unidades CEMPRE ÷ ativos RFB sem MEI. Só entram
+  as classes do CEMPRE que existem na CNAE da RFB (`dim_cnae.codigo_classe`): no dado real, 2 das 673 não existem,
+  70.10-7 ("Sedes de empresas e unidades administrativas locais", 92 unidades no Brasil) e 47.90-3 (nenhuma
+  unidade), e uma classe sem par nunca teria ativo na RFB: seria violação estrutural, não divergência. No
+  `mart_emprego_setor_municipio` esses pares ficam, com a descrição da classe pelo CEMPRE. Lê o
+  CEMPRE pela fonte, e não pelo staging, para rodar sobre um warehouse que ainda não tem os modelos do IBGE.
+  Sem `ibge/` (modo offline) o CEMPRE é vazio e a regra avalia só os pares da RFB, sem violação.
+- **Conceito:** [CEMPRE](CAMADA_SEMANTICA.md#cempre-unidades-locais-e-pessoal-ocupado) e
+  [CNAE principal e secundárias](CAMADA_SEMANTICA.md#cnae-principal-e-secundárias).
+- **Leitura de uma violação:** divergência de classificação CNAE entre o IBGE e a RFB (a unidade está noutra classe
+  no CNPJ) ou defasagem do cadastro (unidades encerradas entre 31/12 e o mês do extrato), sem afirmar qual. Não é
+  erro de nenhuma das bases. Faixas: `sem ativo RFB sem MEI` (onde as violações estão), `sem unidade no CEMPRE`, e
+  as razões `< 0,5`, `de 0,5 a 2` e `> 2`.
+- **Fixtures e injeção:** nas fixtures, as classes do CEMPRE de Serra, Vitória, Linhares e Aracruz em 47.41-5 e de
+  Fundão em 47.11-3 e 47.44-0 têm 3 ou mais unidades sem ativo RFB sem MEI (Serra só tem um MEI: é o caso que separa
+  "com MEI" de "sem MEI"); Aracruz tem exatamente 3 (a fronteira). Os casos injetados em
+  `tests/integration/test_regras_negocio.py` põem um ativo sem MEI onde havia violação (sai da violação e muda de
+  faixa), um MEI (não muda nada) e um ativo numa classe sem CEMPRE (entra no universo sem violar). Serra tem 4
+  unidades em 20.51-7 e Aracruz 1 em 35.11-5, classes que não estão na CNAE das fixtures: ficam fora da regra (como
+  a 70.10-7 no real), e a de Serra seria violação.
+- **Analysis:** `transform/analyses/regras_negocio/rn_30_cempre_coerente_com_rfb.sql`.
+
 ## Fontes
 
 Conferidas em **2026-10-13** (texto lido na fonte, não só citado). As linhas LC 128, CONCLA e CGSN 190/194 e os
@@ -571,10 +619,11 @@ trechos novos da LC 123 (art. 88) e da IN 2.119 (art. 21, IV) entraram com o lot
 | CGSN 190 | Resolução CGSN nº 190/2026, publicada em 10/08/2026 (listada no [Sijut, resoluções do CGSN](https://normas.receita.fazenda.gov.br/sijut2consulta/consulta.action?lblTiposAtosSelecionados=Res.&orgaosSelecionados=CGSN&tipoData=2&tiposAtosSelecionados=67)), lida na notícia oficial da Receita Federal [CGSN atualiza regras do Simples Nacional](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/agosto/cgsn-atualiza-regras-do-simples-nacional-para-adequacao-a-reforma-tributaria-do-consumo) | a opção feita em setembro de 2026 é "para produzir efeitos a partir de 1º de janeiro do ano seguinte" (RN-13). O texto da resolução não foi aberto: o Sijut só a lista |
 | CGSN 194 | Resolução CGSN nº 194/2026, publicada no DOU de 28/09/2026 (listada no Sijut, como a 190), lida na notícia oficial da Receita Federal [Simples Nacional 2027: entenda os novos prazos](https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2026/setembro/simples-nacional-2027-entenda-os-novos-prazos-e-faca-sua-escolha-com-consciencia-e-tranquilidade) | opção para 2027 de 1º/9 a 15/10/2026; "A opção, quando confirmada, produzirá efeitos a partir de 1º de janeiro de 2027" (RN-13) |
 | CONCLA | IBGE/CONCLA, [Tabela de Natureza Jurídica 2021](https://concla.ibge.gov.br/estrutura/natjur-estrutura/natureza-juridica-2021.html) | os códigos e nomes das naturezas de sociedade (RN-29) |
+| IBGE-CEMPRE | IBGE, [Estatísticas do Cadastro Central de Empresas 2024](https://agenciadenoticias.ibge.gov.br/media/com_mediaibge/arquivos/e1be87301fe780c6ccf8aeab200e71ea.pdf) (apresentação, "Notas técnicas"; conferida em 2026-10-14) | fontes do CEMPRE (CNPJ, RAIS, CAGED, eSocial e as pesquisas anuais do IBGE, que prevalecem); critérios de unidade ativa (eSocial, pesquisas ou CNPJ ativo em 31.12 sem indicativo de inatividade); exclusão dos MEI; quebra de série em 2022; 71,6 % das empresas sem assalariado em 31.12 (RN-30) |
 
 **Não confirmado.** Nenhuma fonte diz que o ATIVO tem motivo 00, que o não ativo tem data da situação, que a
 situação não antecede o início de atividade, que os CNAEs secundários não repetem o principal, que há uma única
 matriz por CNPJ básico ou que a filial não começa atividade depois do fim da matriz (a IN fala da inscrição): por
 isso RN-03, RN-04, RN-09 a RN-13, RN-15, RN-16, RN-21 e RN-27 são "coerência do projeto" ou "estrutural". O corte
 D+1 da RN-13 é medido no dado, não documentado pela RFB. A natureza 213-5 do MEI (RN-08) e a opção antes do início
-de atividade (RN-28) são observações, não regras.
+de atividade (RN-28) são observações, não regras, assim como a coerência entre o CEMPRE e a RFB (RN-30).

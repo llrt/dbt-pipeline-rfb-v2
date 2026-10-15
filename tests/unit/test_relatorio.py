@@ -218,3 +218,74 @@ def test_compilar_analises_separa_estudo_de_caso_e_regras(
         assert comando[comando.index("--exclude") : comando.index("--exclude") + 2] == exclusao
     else:
         assert "--exclude" not in comando
+
+
+# incremento: enriquecimento_ibge
+_COLUNAS_IBGE = [
+    "ordem", "escopo", "municipio", "regic_hierarquia", "renda_per_capita_media_2022",
+    "renda_per_capita_mediana_2022", "polo_compras", "pct_compras_no_polo", "ativos_cnae",
+    "unidades_locais_cempre", "pessoal_ocupado_cempre", "tem_sigilo", "ano_cempre", "uf",
+]  # fmt: skip
+
+
+def _caso_ibge(*linhas: tuple) -> dict:
+    tabelas = _tabelas()
+    tabelas[f"{P}enriquecimento_ibge"] = (_COLUNAS_IBGE, list(linhas))
+    return tabelas
+
+
+_CASO = (1, "município do caso", "Iúna", "Centro Local", 900.0, 700.0, "Manhuaçu", 56.67, 0, 2, 9,
+         False, 2024, "ES")  # fmt: skip
+_UF = (3, "UF", "ES", None, 1650.0, None, None, None, 30, 281, 1207, True, 2024, "ES")
+
+
+def test_relatorio_polo_noutra_uf_e_mostrado_com_a_uf() -> None:
+    """RIBG-03: polo noutra UF (Iúna/ES -> Manhuaçu/MG) não vira "não tem polo"."""
+    polo = (2, "polo de compras", "Manhuaçu", "Centro Sub-Regional A", 1500.0, 1000.0,
+            "Belo Horizonte", 30.0, 4, 6, 20, False, 2024, "MG")  # fmt: skip
+    texto = renderizar(_caso_ibge(_CASO, polo, _UF), None)
+    assert "vão principalmente a **Manhuaçu/MG** (56,7 % desses deslocamentos)" in texto
+    assert "não tem polo" not in texto
+
+
+def test_relatorio_polo_fora_da_dimensao_ainda_e_citado_e_sem_polo_so_quando_nulo() -> None:
+    texto = renderizar(_caso_ibge(_CASO, _UF), None)
+    assert "vão principalmente a **Manhuaçu** (56,7 % desses deslocamentos)." in texto
+    sem_polo = _CASO[:6] + (None, None) + _CASO[8:]
+    assert "não tem polo de compras na REGIC 2018" in renderizar(_caso_ibge(sem_polo, _UF), None)
+
+
+# incremento: enriquecimento_ibge — warehouse da v1.3 ainda não reconstruído (Greptile PR #7)
+def test_relatorio_sem_o_gold_do_ibge_troca_a_secao_pelo_aviso() -> None:
+    from rfb_pipeline.relatorio import AVISO_IBGE_NAO_CONSTRUIDO
+
+    texto = renderizar(_tabelas(), None, AVISO_IBGE_NAO_CONSTRUIDO)
+    assert "## Enriquecimento com o IBGE (renda, rede urbana e CEMPRE)" in texto
+    assert (
+        "> **Aviso:** dados do IBGE ainda não construídos; rode `rfb pipeline` ou "
+        "`rfb atualizar --renovar-ibge`."
+    ) in texto
+    assert "Em Fundão/ES há **1** concorrente ativo" in texto
+    assert "## Qualidade dos dados" in texto
+
+
+def test_faltas_ibge_por_introspeccao_do_warehouse(tmp_path: Path) -> None:
+    from rfb_pipeline.relatorio import REQUISITOS_IBGE, faltas_ibge
+
+    warehouse = tmp_path / "warehouse.duckdb"
+    with duckdb.connect(str(warehouse)) as con:  # forma da v1.3: dim e área sem as colunas novas
+        con.execute(
+            "create view dim_municipio as select 1 as sk_municipio, '1' as id_municipio_ibge"
+        )
+        con.execute("create view mart_concorrencia_area_mercado as select 1 as sk_cnae")
+    faltas = faltas_ibge(warehouse)
+    assert "mart_emprego_setor_municipio" in faltas
+    assert "bridge_municipio_destino_compras" in faltas
+    assert "dim_municipio.renda_per_capita_media_2022" in faltas
+    assert "mart_concorrencia_area_mercado.ativos_no_polo" in faltas
+
+    with duckdb.connect(str(warehouse)) as con:  # forma da v1.4
+        for relacao, colunas in REQUISITOS_IBGE.items():
+            selecao = ", ".join(["1 as sk", *(f"1 as {c}" for c in colunas)])
+            con.execute(f"create or replace view {relacao} as select {selecao}")
+    assert faltas_ibge(warehouse) == []

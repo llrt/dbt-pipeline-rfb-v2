@@ -239,3 +239,39 @@ def test_mes_anterior_tem_todos_os_zips_do_mes_atual(tmp_path: Path) -> None:
 
     assert atual == anterior
     assert len(atual) == 9
+
+
+# incremento: enriquecimento_ibge
+def test_ibge_bytes_identicos_com_relogio_diferente(tmp_path: Path, monkeypatch) -> None:
+    """O `save()` do openpyxl grava a hora atual (entradas do zip e `dcterms:modified`): as
+    fixtures IBGE não podem depender dela. Simula duas gerações em instantes distantes."""
+    import datetime as dt
+    import types
+
+    import openpyxl.writer.excel
+
+    def relogio(instante: dt.datetime) -> types.SimpleNamespace:
+        class Fixo(dt.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return instante.replace(tzinfo=tz)
+
+        return types.SimpleNamespace(datetime=Fixo, timezone=dt.timezone)
+
+    monkeypatch.setattr(
+        openpyxl.writer.excel, "datetime", relogio(dt.datetime(2001, 1, 1, 0, 0, 1))
+    )
+    monkeypatch.setattr(zipfile.time, "time", lambda: 978307201.0)
+    gerar_fixtures.gerar_regic_ibge(tmp_path / "a")
+    monkeypatch.setattr(
+        openpyxl.writer.excel, "datetime", relogio(dt.datetime(2030, 6, 15, 9, 8, 7))
+    )
+    monkeypatch.setattr(zipfile.time, "time", lambda: 1907571000.0)
+    gerar_fixtures.gerar_regic_ibge(tmp_path / "b")
+
+    assert _hash_tree(tmp_path / "a") == _hash_tree(tmp_path / "b")
+    with zipfile.ZipFile(
+        tmp_path / "a" / "ibge" / "REGIC2018_Municipios_Hierarquia_e_regiao.xlsx"
+    ) as zf:
+        core = zf.read("docProps/core.xml").decode("utf-8")
+    assert "2001-01-01" not in core and "2020-07-31T16:30:00Z" in core

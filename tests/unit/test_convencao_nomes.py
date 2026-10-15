@@ -27,6 +27,7 @@ SUBPASTAS_MODELS = {
     "staging",
     "staging/rfb",
     "staging/basedosdados",
+    "staging/ibge",  # incremento: enriquecimento_ibge (nome da fonte, como basedosdados)
     "intermediate",
     "marts",
     "marts/original",
@@ -47,6 +48,7 @@ MODULOS_ESPERADOS = {
     "conversao",
     "erros",
     "esquemas",
+    "ibge",  # incremento: enriquecimento_ibge
     "manifesto",
     "orquestracao",
     "publicacao",

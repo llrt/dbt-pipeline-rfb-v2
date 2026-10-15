@@ -176,6 +176,9 @@ direção "ambos": ela cria ambiguidade e deixa o modelo lento.
 | `dim_cnae_secundario[sk_cnae]` (cópia de `dim_cnae`) | `bridge_estabelecimento_cnae_secundario[sk_cnae]` | opcional |
 | `dim_municipio[sk_municipio]` | `bridge_municipio_vizinho[sk_municipio]` | opcional (**incremento enriquecimento BD**) |
 | `dim_municipio_vizinho[sk_municipio]` (cópia de `dim_municipio`) | `bridge_municipio_vizinho[sk_municipio_vizinho]` | opcional (**incremento enriquecimento BD**) |
+| `dim_municipio[sk_municipio]` | `bridge_municipio_destino_compras[sk_municipio_origem]` | opcional (**incremento enriquecimento IBGE**) |
+| `dim_municipio_destino[sk_municipio]` (cópia de `dim_municipio`) | `bridge_municipio_destino_compras[sk_municipio_destino]` | opcional (**incremento enriquecimento IBGE**) |
+| `dim_municipio[sk_municipio]` | `mart_emprego_setor_municipio[sk_municipio]` | opcional (**incremento enriquecimento IBGE**) |
 
 - **Bridge sem caminho ambíguo.** Se `dim_cnae` se relacionasse com a bridge e com a fato, haveria dois
   caminhos entre `dim_cnae` e a bridge (direto e via `fct_estabelecimentos`) e o Power BI desativaria um
@@ -188,6 +191,24 @@ direção "ambos": ela cria ambiguidade e deixa o modelo lento.
 - **Tabela de datas.** `dim_data` e `dim_mes` agora podem ser marcadas como **tabela de datas** (coluna
   `data`: única, sem vazios, contínua; `-1` e `-2` têm datas sentinela contíguas). Sem a marcação,
   `DATEADD` não funciona.
+- **Destinos de compra (REGIC 2018).** `bridge_municipio_destino_compras` tem uma linha por origem × destino ×
+  tema (`vestuario_calcados`, `moveis_eletro`), com o % dos deslocamentos de compra; ela liga a origem a
+  `dim_municipio` e o destino a uma **cópia** (`dim_municipio_destino`), pelo mesmo motivo da cópia dos
+  vizinhos. O destino "Outros" (lugares não listados) é `sk_municipio_destino = -1` com `eh_outros`. Filtre um
+  tema antes de somar `pct`: por origem e tema a soma dá ~100. O polo (o destino de maior % em
+  `moveis_eletro`) já está em `dim_municipio` (`nome_municipio_polo_compras`, `pct_compras_no_polo`), e pode
+  ficar noutra UF.
+- **CEMPRE × RFB.** `mart_emprego_setor_municipio` (município × classe CNAE de 5 dígitos) liga-se a
+  `dim_municipio`; a classe não tem chave para `dim_cnae` (que é por subclasse): use `classe_cnae` e
+  `descricao_classe` do próprio mart. Pessoal e salários com sigilo do IBGE (`tem_sigilo`) vêm vazios e
+  somas os subestimam.
+- **Linha toda NULL num Parquet vazio.** Quando um modelo `external` do dbt-duckdb sai vazio, o Parquet
+  traz **uma linha com todas as colunas NULL** (comportamento do adaptador; a view do warehouse a filtra). No
+  gold isso só acontece com `bridge_municipio_destino_compras`, e só sem dado do IBGE (espelho offline sem
+  `ibge/`, `--sem-ibge` desde o início ou falha do IBGE sem raw anterior; ver [OPERACAO.md](OPERACAO.md)).
+  Lida pelo Power BI, ela aparece como um membro em branco na relação com `dim_municipio` e soma 1 na contagem
+  de linhas; filtre `sk_municipio_origem` não vazio na consulta (M:
+  `Table.SelectRows(Fonte, each [sk_municipio_origem] <> null)`).
 - Esconda as colunas `sk_*` das fatos.
 
 ## 2. Atualização incremental por mês

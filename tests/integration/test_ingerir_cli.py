@@ -319,3 +319,81 @@ class TestLigacaoDoCli:
         assert "estabelecimentos" in erro
         assert "0 linhas" in erro
         assert "Estabelecimentos3.zip" in erro
+
+
+class TestIBGEOpcional:
+    """RIBG-02: o IBGE não derruba o mês e pode ser desligado (`--sem-ibge`)."""
+
+    def test_sidra_indisponivel_o_mes_conclui_com_aviso(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import httpx
+
+        from rfb_pipeline import ibge
+        from rfb_pipeline.esquemas import TABELAS_IBGE
+
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+        pedidos: list[str] = []
+
+        def _fora_do_ar(request: httpx.Request) -> httpx.Response:
+            pedidos.append(request.url.host)
+            return httpx.Response(503, text="Service Unavailable")
+
+        http = httpx.Client(transport=httpx.MockTransport(_fora_do_ar))
+
+        def _ibge_em_rede(configuracao, *, ingerido_em, origem_local, renovar):  # noqa: ARG001
+            # a RFB e a BD vêm da origem local; o IBGE vai à "rede" simulada
+            return ibge.ingerir_ibge(
+                configuracao, ingerido_em=ingerido_em, renovar=renovar, http=http,
+                dormir=lambda _s: None,
+            )  # fmt: skip
+
+        monkeypatch.setattr(cli, "ingerir_ibge", _ibge_em_rede)
+
+        assert cli.main(_argumentos(origem_local, "--permitir-incompleto")) == 0
+
+        assert {"apisidra.ibge.gov.br", "geoftp.ibge.gov.br"} <= set(pedidos)
+        erro = capsys.readouterr().err
+        assert erro.count("aviso: ibge.") == len(TABELAS_IBGE)
+        manifesto = json.loads(
+            (data / "_manifestos" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+        )
+        assert manifesto["concluido_em"] is not None
+        for tabela in TABELAS_IBGE:
+            assert (data / "raw" / "ibge" / tabela / f"{tabela}.parquet").is_file()
+        falhas = json.loads((data / "_manifestos" / "ibge" / "manifesto.json").read_text("utf-8"))
+        assert sorted(falhas["falhas"]) == sorted(TABELAS_IBGE)
+
+    def test_sem_ibge_nao_consulta_e_garante_o_raw_vazio(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import duckdb
+
+        from rfb_pipeline.esquemas import TABELAS_IBGE
+
+        origem_local, data = _fixtures(tmp_path, monkeypatch)
+
+        def _proibido(*_a: object, **_k: object) -> None:
+            raise AssertionError("--sem-ibge consultou o IBGE")
+
+        monkeypatch.setattr(cli, "ingerir_ibge", _proibido)
+
+        assert cli.main(_argumentos(origem_local, "--permitir-incompleto", "--sem-ibge")) == 0
+
+        assert "ibge: pulado (--sem-ibge)" in capsys.readouterr().out
+        for tabela in TABELAS_IBGE:
+            parquet = data / "raw" / "ibge" / tabela / f"{tabela}.parquet"
+            assert duckdb.sql(f"select count(*) from '{parquet}'").fetchone() == (0,)
+        manifesto = json.loads(
+            (data / "_manifestos" / f"{gerar_fixtures.MES_REFERENCIA}.json").read_text("utf-8")
+        )
+        assert manifesto["concluido_em"] is not None and manifesto["ibge"] == []
+
+    def test_sem_ibge_e_renovar_ibge_sao_excludentes(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        for comando in ("ingerir", "pipeline", "atualizar"):
+            with pytest.raises(SystemExit) as saida:
+                cli.main([comando, "--sem-ibge", "--renovar-ibge"])
+            assert saida.value.code == 2
+            assert "not allowed with argument" in capsys.readouterr().err

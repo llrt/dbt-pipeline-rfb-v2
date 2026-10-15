@@ -4,8 +4,9 @@
 
 Port do [MVP de Engenharia de Dados (PUC-Rio)](https://github.com/llrt/pos_dados_puc_rio-mvp_sprint_eng_dados)
 — originalmente notebooks Spark no Databricks Community Edition — para um pipeline **dbt** com **DuckDB**
-sobre arquivos **Parquet** locais (ou em S3/Tigris). Base: dados abertos de CNPJ da Receita Federal e
-tabelas da [Base dos Dados](https://basedosdados.org/).
+sobre arquivos **Parquet** locais (ou em S3/Tigris). Base: dados abertos de CNPJ da Receita Federal,
+tabelas da [Base dos Dados](https://basedosdados.org/) e fontes gratuitas baixadas direto do IBGE (CEMPRE, renda do
+Censo 2022 e REGIC 2018).
 
 > Pergunta-guia (do original): *"É viável abrir uma loja de tintas em Fundão/ES? Há muitos concorrentes? Há
 > fornecedores por perto?"* — agora generalizável para qualquer atividade (CNAE) e município.
@@ -13,7 +14,9 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 ## Por que isso é interessante para você
 
 - **Consultor(a) / empreendedor(a):** concorrentes, idade média, porte, **taxa de sobrevivência em 3 anos** e
-  **fornecedores num raio de X km** para qualquer CNAE e município do Brasil — numa consulta.
+  **fornecedores num raio de X km** para qualquer CNAE e município do Brasil — numa consulta. E, com as fontes
+  do IBGE, a renda da população, **para onde os moradores vão comprar** e **quantas pessoas trabalham no setor**
+  ([cenários de uso](docs/CENARIOS_DE_USO.md)).
 - **Analista de mercado / BI:** pipeline mensal, idempotente e testado; agende `make atualizar` e, a cada mês novo
   da RFB, receba um **modelo estrela pronto para o Power BI** (Parquet) com série histórica e relatório de qualidade.
 - **Quem está aprendendo dbt:** um projeto real, em português, com fontes, staging, marts, testes genéricos,
@@ -33,9 +36,10 @@ tabelas da [Base dos Dados](https://basedosdados.org/).
 | [docs/OPERACAO.md](docs/OPERACAO.md) | pipeline real, atualização mensal, retenção, agendamento, requisitos de máquina |
 | [docs/EXECUCAO_REAL.md](docs/EXECUCAO_REAL.md) | execução real (2026-09), tempos, volumes, avisos e paridade com o notebook 4 |
 | [docs/POWER_BI.md](docs/POWER_BI.md) | modelo estrela e acesso pelo Power BI |
+| [docs/CENARIOS_DE_USO.md](docs/CENARIOS_DE_USO.md) | cenários de uso das fontes do IBGE (renda, REGIC, CEMPRE, valor adicionado): a pergunta de negócio, a consulta pronta e como ler o resultado, com exemplos do dado real |
 | [docs/CAMADA_SEMANTICA.md](docs/CAMADA_SEMANTICA.md) | camada semântica (dbt/MetricFlow): conceitos de negócio do CNPJ (empresa × estabelecimento, porte, MEI, situação cadastral), ontologia, entidades, métricas e consultas salvas |
 | [docs/DICIONARIO_DADOS.md](docs/DICIONARIO_DADOS.md) | dicionário de dados: o detalhe dos campos de cada tabela (fontes, staging, gold...), com tipo, grão, chaves, valores dos domínios, origem e linhagem entre tabelas; gerado e conferido no CI |
-| [docs/REGRAS_NEGOCIO.md](docs/REGRAS_NEGOCIO.md) | catálogo das regras e invariantes de negócio do cadastro (RN-01 a RN-29), com fonte primária e leitura de cada violação |
+| [docs/REGRAS_NEGOCIO.md](docs/REGRAS_NEGOCIO.md) | catálogo das regras e invariantes de negócio do cadastro (RN-01 a RN-30), com fonte primária e leitura de cada violação |
 | [docs/RELATORIO_REGRAS_NEGOCIO.md](docs/RELATORIO_REGRAS_NEGOCIO.md) | inconsistências encontradas no dado real (2026-09), só com contagens, e a interpretação delas |
 | [docs/guia-dbt/](docs/guia-dbt/README.md) | guia de uso do dbt |
 | [.specs/features/rfb-dbt-port/](.specs/features/rfb-dbt-port/spec.md) | spec (EARS) e tarefas |
