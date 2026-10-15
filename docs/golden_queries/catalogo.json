@@ -3448,7 +3448,9 @@
       "privacidade": "agregado",
       "armadilhas": [
         "O VA vai até `ano_va` (hoje 2021), o PIB total até `ano_pib` (2023): cite o ano.",
-        "VA negativo existe (indústria de Cachoeira Dourada/GO em 2021): aí as participações saem de 0–100."
+        "VA negativo existe (indústria de Cachoeira Dourada/GO em 2021): aí as participações saem de 0–100.",
+        "Sem VA (as quatro participações NULL, ou alguma faltando), `predominante` é NULL: ausência de dado não é atividade. Nunca use `else '<atividade>'` no CASE; cada ramo testa a sua participação.",
+        "Empate (participações iguais, já arredondadas a 2 casas) fica com a primeira na ordem serviços, indústria, agropecuária, administração pública; mostre as participações ao responder."
       ],
       "variacoes": [
         "Um município: filtre nome e UF."
@@ -3464,7 +3466,7 @@
         "pct_va_adm_publica"
       ],
       "arquivo": "transform/analyses/golden/gq_core__valor_adicionado__01.sql",
-      "sql": "select\n  nome_municipio,\n  ano_va,\n  pct_va_agropecuaria,\n  pct_va_industria,\n  pct_va_servicos,\n  pct_va_adm_publica,\n  case greatest(pct_va_agropecuaria, pct_va_industria, pct_va_servicos, pct_va_adm_publica)\n    when pct_va_servicos then 'serviços'\n    when pct_va_industria then 'indústria'\n    when pct_va_agropecuaria then 'agropecuária'\n    else 'administração pública'\n  end as predominante\nfrom main.dim_municipio\nwhere sigla_uf = 'ES'\norder by nome_municipio\n",
+      "sql": "with va as (\n  select\n    nome_municipio,\n    ano_va,\n    pct_va_agropecuaria,\n    pct_va_industria,\n    pct_va_servicos,\n    pct_va_adm_publica,\n    -- A maior participação só existe com as quatro; sem VA (ou com uma faltando) fica NULL.\n    case\n      when\n        pct_va_agropecuaria is not null and pct_va_industria is not null\n        and pct_va_servicos is not null and pct_va_adm_publica is not null\n        then greatest(pct_va_agropecuaria, pct_va_industria, pct_va_servicos, pct_va_adm_publica)\n    end as maior_pct\n  from main.dim_municipio\n  where sigla_uf = 'ES'\n)\n\nselect\n  nome_municipio,\n  ano_va,\n  pct_va_agropecuaria,\n  pct_va_industria,\n  pct_va_servicos,\n  pct_va_adm_publica,\n  -- Sem `else`: sem VA, nenhum ramo casa e a atividade sai NULL. Empate: vence o primeiro ramo.\n  case\n    when pct_va_servicos = maior_pct then 'serviços'\n    when pct_va_industria = maior_pct then 'indústria'\n    when pct_va_agropecuaria = maior_pct then 'agropecuária'\n    when pct_va_adm_publica = maior_pct then 'administração pública'\n  end as predominante\nfrom va\norder by nome_municipio\n",
       "resposta_esperada_fixtures": {
         "colunas": [
           "nome_municipio",

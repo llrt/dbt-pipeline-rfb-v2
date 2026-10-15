@@ -159,6 +159,36 @@ def test_porte_original_pondera_estratos_de_tamanhos_diferentes(compilados) -> N
     assert por_estrato[("MICRO", "ATIVA")] == (1, 3.9)
 
 
+def test_valor_adicionado_sem_va_nao_vira_atividade(compilados) -> None:
+    """Greptile PR #8 (gq_core__valor_adicionado__01:42): municípios do ES injetados em `dim_municipio`. Sem VA (as
+    quatro participações NULL) ou com uma faltando, `predominante` é NULL, nunca "administração pública"; a
+    administração pública só sai quando é a maior; no empate, vence a primeira na ordem serviços, indústria."""
+    caso = (
+        "select * replace ('{nome}' as nome_municipio, {agro}::double as pct_va_agropecuaria, "
+        "{ind}::double as pct_va_industria, {serv}::double as pct_va_servicos, {adm}::double as pct_va_adm_publica) "
+        "from wh.main.dim_municipio where nome_municipio = 'Fundão' and sigla_uf = 'ES'"
+    )
+    casos = {
+        "ZZ Sem VA": ("null", "null", "null", "null", None),
+        "ZZ Parcial": ("10", "null", "60", "30", None),
+        "ZZ Adm": ("10", "20", "20", "50", "administração pública"),
+        "ZZ Empate": ("10", "40", "40", "10", "serviços"),
+        "ZZ Empate agro adm": ("40", "10", "10", "40", "agropecuária"),
+    }
+    extra = " union all ".join(
+        caso.format(nome=nome, agro=a, ind=i, serv=s, adm=p)
+        for nome, (a, i, s, p, _) in casos.items()
+    )
+    linhas = _executar_com_linhas_injetadas(
+        compilados["gq_core__valor_adicionado__01"], "dim_municipio", extra
+    )
+    predominante = {linha[0]: linha[-1] for linha in linhas}
+    assert {nome: predominante[nome] for nome in casos} == {
+        nome: c[-1] for nome, c in casos.items()
+    }
+    assert predominante["Vitória"] == "serviços"
+
+
 @pytest.mark.parametrize("nome", sorted(GOLDEN))
 def test_golden_query_sql_nao_expoe_pessoa(compilados, resultados, nome: str) -> None:
     """Pelo resultado (nome de coluna e valor) e pela linhagem do SQL compilado (alias, função, CTE)."""

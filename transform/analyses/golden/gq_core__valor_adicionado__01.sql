@@ -11,6 +11,8 @@ colunas_chave: [ano_va, pct_va_agropecuaria, pct_va_industria, pct_va_servicos, 
 armadilhas:
   - "O VA vai até `ano_va` (hoje 2021), o PIB total até `ano_pib` (2023): cite o ano."
   - "VA negativo existe (indústria de Cachoeira Dourada/GO em 2021): aí as participações saem de 0–100."
+  - "Sem VA (as quatro participações NULL, ou alguma faltando), `predominante` é NULL: ausência de dado não é atividade. Nunca use `else '<atividade>'` no CASE; cada ramo testa a sua participação."
+  - "Empate (participações iguais, já arredondadas a 2 casas) fica com a primeira na ordem serviços, indústria, agropecuária, administração pública; mostre as participações ao responder."
 variacoes:
   - "Um município: filtre nome e UF."
 resposta_esperada_fixtures:
@@ -27,6 +29,25 @@ resposta_esperada_fixtures:
     meta={'escopo': 'adicao', 'incremento': 'enriquecimento_ibge'}
 ) }}
 
+with va as (
+  select
+    nome_municipio,
+    ano_va,
+    pct_va_agropecuaria,
+    pct_va_industria,
+    pct_va_servicos,
+    pct_va_adm_publica,
+    -- A maior participação só existe com as quatro; sem VA (ou com uma faltando) fica NULL.
+    case
+      when
+        pct_va_agropecuaria is not null and pct_va_industria is not null
+        and pct_va_servicos is not null and pct_va_adm_publica is not null
+        then greatest(pct_va_agropecuaria, pct_va_industria, pct_va_servicos, pct_va_adm_publica)
+    end as maior_pct
+  from {{ ref('dim_municipio') }}
+  where sigla_uf = 'ES'
+)
+
 select
   nome_municipio,
   ano_va,
@@ -34,12 +55,12 @@ select
   pct_va_industria,
   pct_va_servicos,
   pct_va_adm_publica,
-  case greatest(pct_va_agropecuaria, pct_va_industria, pct_va_servicos, pct_va_adm_publica)
-    when pct_va_servicos then 'serviços'
-    when pct_va_industria then 'indústria'
-    when pct_va_agropecuaria then 'agropecuária'
-    else 'administração pública'
+  -- Sem `else`: sem VA, nenhum ramo casa e a atividade sai NULL. Empate: vence o primeiro ramo.
+  case
+    when pct_va_servicos = maior_pct then 'serviços'
+    when pct_va_industria = maior_pct then 'indústria'
+    when pct_va_agropecuaria = maior_pct then 'agropecuária'
+    when pct_va_adm_publica = maior_pct then 'administração pública'
   end as predominante
-from {{ ref('dim_municipio') }}
-where sigla_uf = 'ES'
+from va
 order by nome_municipio

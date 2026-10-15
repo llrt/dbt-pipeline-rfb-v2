@@ -7,6 +7,8 @@
 -- do caso pela participação de cada atividade no valor adicionado (PIB dos Municípios, `ano_va`, hoje
 -- 2021: as aberturas por atividade saem depois do PIB total), com a atividade predominante e a densidade
 -- do CNAE do caso (ativos por 10 mil habitantes). O VA é de um ano, os ativos de outro. Só agregados.
+-- A atividade predominante não tem `else`: sem VA sai NULL (as quatro participações vêm juntas); empate fica
+-- com o primeiro ramo (serviços, indústria, agropecuária, administração pública).
 select
   mun.nome_municipio as municipio,
   mun.ano_va,
