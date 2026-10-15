@@ -34,6 +34,7 @@ Só os links quebrados por mudanças de lugar foram corrigidos; a prosa fica com
 | [RRN](revisoes/RRN.md) | regras e invariantes de negócio | v1.3.0 |
 | [RIBG](revisoes/RIBG.md) | enriquecimento IBGE | v1.4.0 |
 | [RGQ](revisoes/RGQ.md) | golden queries e guia para agente | v1.4.1 |
+| [RD](revisoes/RD.md) | reorganização da documentação | v1.5.0 |
 
 Até a v1.4 cada triagem era um arquivo à parte (`<revisão>-triagem.md`); na v1.5.0 foi anexada ao fim da revisão,
 sem mudar o texto.
