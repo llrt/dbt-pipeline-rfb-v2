@@ -1,5 +1,8 @@
 # Guia Power BI
 
+> **Para quem:** quem monta um painel no Power BI sobre o gold · **Quando ler:** ao conectar o Power BI, configurar
+> a atualização incremental ou criar as medidas DAX.
+
 Este guia mostra como montar um painel no Power BI sobre o modelo estrela publicado em `gold/`
 (ADR-0013). Tudo aqui é **adição** ao projeto original (ADR-0006): o original só entregava tabelas
 analíticas, sem modelo para BI.
@@ -118,44 +121,29 @@ o conector, o modo de consulta e a operação de atualização.
 
 ## 1. O modelo estrela
 
-```mermaid
-erDiagram
-    dim_mes ||--o{ fct_resumo_mensal : "sk_data = sk_mes_referencia"
-    dim_municipio ||--o{ fct_resumo_mensal : sk_municipio
-    dim_cnae ||--o{ fct_resumo_mensal : sk_cnae
-    dim_porte ||--o{ fct_resumo_mensal : sk_porte
-    dim_situacao_cadastral ||--o{ fct_resumo_mensal : sk_situacao_cadastral
-    dim_data ||--o{ fct_estabelecimentos : "início de atividade"
-    dim_data ||--o{ fct_estabelecimentos : "data da situação (inativa)"
-    dim_municipio ||--o{ fct_estabelecimentos : sk_municipio
-    dim_cnae ||--o{ fct_estabelecimentos : sk_cnae
-    dim_porte ||--o{ fct_estabelecimentos : sk_porte
-    dim_natureza_juridica ||--o{ fct_estabelecimentos : sk_natureza_juridica
-    dim_situacao_cadastral ||--o{ fct_estabelecimentos : sk_situacao_cadastral
-    fct_estabelecimentos ||--o{ bridge_estabelecimento_cnae_secundario : cnpj_completo
-    dim_cnae_secundario ||--o{ bridge_estabelecimento_cnae_secundario : sk_cnae
-```
+As tabelas, o grão e as chaves estão no [dicionário de dados](../referencia/dicionario-dados.md) (com o diagrama do
+[modelo estrela](../referencia/dicionario-dados.md#modelo-estrela)) e as camadas no
+[ARCHITECTURE](../../ARCHITECTURE.md#53-modelos); o que cada conceito significa, em [conceitos](../conceitos.md).
+Aqui ficam só as tabelas que entram no Power BI e o papel de cada uma:
 
-`dim_mes` e `dim_cnae_secundario` não existem em `gold/`: são **cópias** (referência no Power Query) de
-`dim_data` e `dim_cnae` criadas no modelo, pelos motivos das §1 (relacionamentos) e §3. A natureza
-jurídica **não** está no resumo mensal (emenda R3 do ADR-0013): use `fct_estabelecimentos` (via DuckDB)
-ou outra consulta detalhada para essa quebra, e `mart_sobrevivencia_coorte` para o ano de início.
+| Tabela | Papel no Power BI | Grão |
+|---|---|---|
+| `fct_resumo_mensal` | fato principal, modo **Import** (últimos 24 meses) | mês × município × CNAE × porte × situação × MEI |
+| `fct_estabelecimentos` | detalhe via DuckDB/ODBC, **não** no Import | estabelecimento, só o mês corrente |
+| `dim_municipio`, `dim_cnae`, `dim_porte`, `dim_situacao_cadastral`, `dim_natureza_juridica` | dimensões (filtros e eixos) | um código, mais o membro `-1` NÃO INFORMADO |
+| `dim_data` | calendário da fato detalhada; base da cópia `dim_mes` | dia, mais os membros `-1` e `-2` (só a fato detalhada aponta para `-2`) |
+| `dim_mes` (cópia de `dim_data`) | calendário do resumo (`sk_mes_referencia = yyyymm01`) | dia |
+| `bridge_estabelecimento_cnae_secundario` + `dim_cnae_secundario` (cópia de `dim_cnae`) | CNAE secundário, opcional | estabelecimento × CNAE secundário |
+| `bridge_municipio_vizinho`, `bridge_municipio_destino_compras` (+ cópias de `dim_municipio`) | vizinhança e destinos de compra, opcionais (incrementos) | par de municípios; origem × destino × tema |
+| `mart_emprego_setor_municipio` | CEMPRE × RFB, opcional (incremento IBGE) | município × classe CNAE |
 
-Convenções (valem para todas as dimensões):
-
-- Chaves `sk_*` **inteiras** e determinísticas (não mudam entre execuções).
-- Membro **`-1` = "NÃO INFORMADO"** em toda dimensão: a fato nunca tem chave nula nem perde linhas.
-- `dim_data` é um calendário diário de **1900-01-01** até `data_referencia` (ou a maior data observada),
-  com `sk_data = yyyymmdd`. O **mês de referência** de `fct_resumo_mensal` é o **primeiro dia do mês**:
-  `sk_mes_referencia = yyyymm01` (ex.: `20260901`), que casa com `dim_data[sk_data]`.
-- `dim_data` tem dois membros especiais **com data própria**, para que a coluna `data` não tenha vazios:
-  `-1` NÃO INFORMADO (data nula) = `1899-12-31` e `-2` DATA INVÁLIDA (data anterior a 1900 na RFB,
-  ex.: 1194-08-15) = `1899-12-30`. `ano`, `mes` etc. são nulos neles. Só `fct_estabelecimentos` aponta
-  para `-2`.
-- Hierarquias prontas em colunas: `dim_municipio` (nome_regiao → sigla_uf → nome_mesorregiao →
-  nome_microrregiao → nome_municipio; e nome_regiao_intermediaria → nome_regiao_imediata) e `dim_cnae`
-  (descricao_secao → descricao_divisao → descricao_grupo → descricao_classe → descricao_subclasse).
-  No Power BI, crie as hierarquias arrastando uma coluna sobre a outra no painel de Campos.
+`dim_mes`, `dim_cnae_secundario`, `dim_municipio_vizinho` e `dim_municipio_destino` **não existem em `gold/`**: são
+cópias (referência no Power Query) criadas no modelo, pelos motivos da seção Relacionamentos abaixo. A natureza
+jurídica **não** está no resumo mensal (emenda R3 do ADR-0013): use `fct_estabelecimentos` (via DuckDB) para essa
+quebra, e `mart_sobrevivencia_coorte` para o ano de início. As chaves `sk_*` são inteiras e determinísticas, e
+toda dimensão tem o membro `-1`: a fato nunca tem chave nula. Para as hierarquias de `dim_municipio` (região → UF
+→ meso → micro → município) e de `dim_cnae` (seção → … → subclasse), arraste uma coluna sobre a outra no painel de
+Campos.
 
 ### Relacionamentos
 
@@ -188,9 +176,9 @@ direção "ambos": ela cria ambiguidade e deixa o modelo lento.
   referência do resumo com significados diferentes (uma segmentação em `ano_mes` mudaria de sentido entre
   as fatos). Crie `dim_mes` como cópia (referência) de `dim_data` e ligue-a só ao resumo; `dim_data`
   fica para `fct_estabelecimentos`.
-- **Tabela de datas.** `dim_data` e `dim_mes` agora podem ser marcadas como **tabela de datas** (coluna
-  `data`: única, sem vazios, contínua; `-1` e `-2` têm datas sentinela contíguas). Sem a marcação,
-  `DATEADD` não funciona.
+- **Tabela de datas.** `dim_data` e `dim_mes` podem ser marcadas como **tabela de datas** (coluna `data`: única,
+  sem vazios, contínua; os membros `-1` NÃO INFORMADO e `-2` DATA INVÁLIDA têm as datas sentinela contíguas
+  1899-12-31 e 1899-12-30, com `ano`, `mes` etc. nulos). Sem a marcação, `DATEADD` não funciona.
 - **Destinos de compra (REGIC 2018).** `bridge_municipio_destino_compras` tem uma linha por origem × destino ×
   tema (`vestuario_calcados`, `moveis_eletro`), com o % dos deslocamentos de compra; ela liga a origem a
   `dim_municipio` e o destino a uma **cópia** (`dim_municipio_destino`), pelo mesmo motivo da cópia dos
@@ -230,7 +218,7 @@ muda. No Power BI:
 ## 3. Medidas DAX sugeridas
 
 As medidas usam as tabelas e colunas reais do modelo. Crie-as numa tabela `Medidas`. Cada uma tem uma métrica
-equivalente na [camada semântica](../referencia/camada-semantica.md#b3-métricas) (MetricFlow, ADR-0018). Use
+equivalente na [camada semântica](../referencia/camada-semantica.md#3-métricas) (MetricFlow, ADR-0018). Use
 `mf query --metrics ...` para conferir um número do painel **num mês**. A equivalência vale no grão mensal: num
 visual por ano, `SUM` soma os meses e a métrica do MetricFlow usa o último mês (fotografia). Para comparar,
 filtre um mês nos dois.
