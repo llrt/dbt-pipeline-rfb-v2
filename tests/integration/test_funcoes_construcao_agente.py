@@ -112,6 +112,26 @@ def test_conexao_endurecida_recusa_sair_da_raiz(conexao, tmp_path: Path, sql: st
 @pytest.mark.parametrize(
     "sql",
     [
+        "set allowed_directories = ['/']",
+        "reset allowed_directories",
+        "set enable_external_access = true",
+        "set autoinstall_known_extensions = true",
+        "set autoload_known_extensions = true",
+        "reset autoinstall_known_extensions",
+        "set lock_configuration = false",
+    ],
+)
+def test_conexao_endurecida_trava_a_configuracao(conexao, sql: str) -> None:
+    """RGA-01: direto na conexão, sem `exigir_leitura`, o SQL do modelo não desfaz o endurecimento: quem recusa é o
+    `lock_configuration`. Sem ele, o DuckDB 1.5 já recusa ampliar `allowed_directories` e religar o acesso externo,
+    mas aceita religar a instalação e a carga automáticas de extensão e destravar a configuração."""
+    with pytest.raises(duckdb.InvalidInputException, match="Cannot change configuration option"):
+        conexao.execute(sql)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
         "copy (select 42) to '{raiz}/copia.csv'",  # dentro da raiz: a conexão aceitaria, o filtro recusa
         "install httpfs",
         "attach ':memory:' as m",
