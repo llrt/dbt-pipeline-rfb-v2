@@ -113,9 +113,10 @@ O guia continua autossuficiente para o agente, que recebe só o guia e o catálo
 |---|---|---|
 | Introdução | mantida | [operacao.md](../operacao.md), com o cabeçalho "Para quem" |
 | — | nova | [Primeira execução](../operacao.md#primeira-execução): o que saiu do README e do ARCHITECTURE §7 |
-| `## Nota de upgrade (v1.5.0)` | mantida | idem |
+| — | nova (D1) | `## Nota de upgrade (v1.5.0)`, criada no D1; no FD foi para [Notas de upgrade](../operacao.md#notas-de-upgrade), no fim (RD-03) |
 | `## Comandos` | mantida | idem, com a tabela nova "Outros alvos" (antes no ARCHITECTURE §7 e no README) |
-| `## Fontes do IBGE`, `## Estado e ordem dos meses`, `## Retenção` | mantida | idem |
+| `### Primeira execução` do README: "Migração (ADR-0014)" | movida | no D2, para Primeira execução; no FD, para [Notas de upgrade](../operacao.md#notas-de-upgrade), com a v1.5.0 e um resumo da v1.4.0 (RD-03) |
+| `## Fontes do IBGE`, `## Estado e ordem dos meses`, `## Retenção` | mantida | idem; no FD, Fontes do IBGE passou para depois de Agendamento (RD-03) |
 | `## Publicação e S3` | mantida | idem (+ comparação por tamanho e sha256 do `sincronizar`) |
 | `## Requisitos de máquina (P14)` | mantida (ampliada) | [Requisitos e tempos medidos (P14)](../operacao.md#requisitos-e-tempos-medidos-p14): ganhou a máquina de referência, os tempos por etapa e os volumes de [execucao-real-2026-10.md](execucao-real-2026-10.md), que continua aqui como registro datado |
 | `## Execuções longas`, `## Agendamento` (`### cron`, `### launchd`, `### GitHub Actions`), `## Peculiaridades dos dados reais` | mantida | idem |
@@ -156,6 +157,33 @@ o complemento, que um teste impede de repetir os valores da definição (RD-02).
 | §5 Glossário (tabela de 23 termos) | índice gerado, termo → definição | ver a linha A5 acima |
 | §6 Perguntas frequentes (129 linhas) | [camada-semantica.md, §5](../referencia/camada-semantica.md#perguntas-frequentes) | movida inteira |
 | §7 Fontes | §6 Fontes | só a numeração |
+
+Fora de `conceitos.md`, o FD também mudou:
+
+| Documento | O que mudou |
+|---|---|
+| [operacao.md](../operacao.md) | a primeira tela traz a tabela dos 4 comandos do dia a dia e um sumário; a nota de upgrade da v1.5.0 e a migração do ADR-0014 foram para "Notas de upgrade", no fim; Fontes do IBGE passou para depois de Agendamento (RD-03) |
+| [ARCHITECTURE.md](../../ARCHITECTURE.md#12-como-estender) | §12 nova, "Como estender", com o checklist de fonte, modelo, conceito e documento novos (RD-04) |
+| [uso/cenarios.md](../uso/cenarios.md#estudo-de-caso-de-fundão) | seção nova "Estudo de caso de Fundão", que aponta para o [relatório do caso](../relatorios/estudo-caso.md) sem copiá-lo; o README liga o relatório no pitch do consultor (RD-05) |
+| [referencia/camada-semantica.md](../referencia/camada-semantica.md#perguntas-frequentes) | recebeu as perguntas frequentes de `conceitos.md` (§5) |
+| [referencia/ontologia/README.md](../referencia/ontologia/README.md) | nova, com a antiga §4 de `conceitos.md` |
+| [docs/CAMADA_SEMANTICA.md](../CAMADA_SEMANTICA.md) (ponte) | aponta para os dois lugares: conceitos (Parte A) e referência técnica (Parte B) (RD-06) |
+
+**Não feito de propósito** (RD-05). A proposta de reorganização aprovada pelo usuário previa três coisas que a
+v1.5.0 não entrega:
+
+- **Os cenários com as perguntas do estudo de caso.** Os cenários continuam com as cinco perguntas do IBGE e agora
+  apontam para o relatório do caso; as respostas de "abrir uma loja" (concorrentes, idade, porte, fornecedores,
+  sobrevivência) ficam no relatório, que é gerado do dado real a cada mês. Absorvê-las nos cenários fica para a v1.6, se
+  o usuário quiser.
+- **O guia do agente enxuto.** Ele foi de 816 para 828 linhas: o agente recebe só o guia e o catálogo
+  ([ADR-0023](../adr/0023-golden-queries-e-guia-para-agente.md)), e o guia precisa continuar autossuficiente (a RD
+  confirmou com 3 perguntas livres). O ganho foi tirar dele as definições, que agora vêm do catálogo.
+- **O efeito "~6.000 → ~2.500 linhas lidas".** Medido de novo no FD, só o caminho de leitura de quem é de negócio
+  (conceitos + cenários + guia do agente + Power BI): 2.354 linhas na v1.4.1 (CAMADA_SEMANTICA + cenários + guia +
+  POWER_BI), 2.350 no D2 e **2.037** no FD (`conceitos.md`: 1.019 → 1.012 → 687, das quais 50 são marcadores
+  invisíveis do bloco gerado). O "~2.500" da proposta contava também o REGRAS_NEGOCIO (629 linhas), que virou
+  referência e saiu desse caminho.
 
 **O que saiu de cada complemento por repetir a definição** (e onde o fato está agora: sempre na definição do
 mesmo conceito, salvo indicação):

@@ -18,7 +18,8 @@ Censo 2022 e REGIC 2018).
 - **Consultor(a) / empreendedor(a):** concorrentes, idade média, porte, **taxa de sobrevivência em 3 anos** e
   **fornecedores num raio de X km** para qualquer CNAE e município do Brasil — numa consulta. E, com as fontes
   do IBGE, a renda da população, **para onde os moradores vão comprar** e **quantas pessoas trabalham no setor**
-  ([cenários de uso](docs/uso/cenarios.md)).
+  ([cenários de uso](docs/uso/cenarios.md); a resposta da pergunta-guia no dado real está no
+  [relatório do estudo de caso](docs/relatorios/estudo-caso.md)).
 - **Analista de mercado / BI:** pipeline mensal, idempotente e testado; agende `make atualizar` e, a cada mês novo
   da RFB, receba um **modelo estrela pronto para o Power BI** (Parquet) com série histórica e relatório de qualidade.
 - **Quem quer perguntar em linguagem natural:** entregue a um agente (LLM) o [guia de consulta](docs/uso/consulta-agente.md),

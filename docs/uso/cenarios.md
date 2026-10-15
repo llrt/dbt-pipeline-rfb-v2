@@ -6,8 +6,20 @@
 > **Adição**, incremento `enriquecimento_ibge` ([ADR-0022](../adr/0022-enriquecimento-fontes-gratuitas-ibge.md)). Cinco
 > perguntas de negócio para quem vai abrir um negócio ou estuda um setor, cada uma respondida por uma das bases
 > novas do IBGE e por uma consulta pronta em `transform/analyses/`. O exemplo é o estudo de caso do projeto: uma loja
-> de tintas (CNAE 4741500) em Fundão/ES. O que cada base é e como ela foi construída está na
+> de tintas (CNAE 4741500) em Fundão/ES. O que cada base é e como ela foi construída está nos
 > [conceitos](../conceitos.md#1-as-bases).
+
+## Estudo de caso de Fundão
+
+As respostas da pergunta-guia no dado real do mês estão no
+[relatório do estudo de caso](../relatorios/estudo-caso.md), gerado a cada mês novo (`make relatorio`):
+
+- concorrentes ativos e inativos, idade média e porte das lojas de tintas em Fundão (as perguntas do notebook 4);
+- fornecedores potenciais no município, na micro e na mesorregião, e os ativos em até 100 km;
+- densidade de concorrência, sobrevivência das coortes, aberturas e encerramentos por ano e a área de mercado;
+- a seção do IBGE, resumida [abaixo](#o-caso-fundão-o-seu-polo-de-compras-e-a-uf).
+
+Este documento cobre as cinco perguntas das bases do IBGE; as do relatório não se repetem aqui.
 
 ## Como rodar
 
