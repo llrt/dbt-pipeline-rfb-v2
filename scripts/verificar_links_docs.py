@@ -5,9 +5,10 @@ Uso: `uv run python scripts/verificar_links_docs.py [arquivo.md ...]` (sem argum
 `.md` de `git ls-files`: README, raiz, `docs/`, `.specs/`, `transform/`). Sai com 1 e lista cada
 problema (`arquivo:linha: ...`) se um link relativo aponta para arquivo inexistente ou se a âncora
 não existe no destino. O nome do arquivo tem de bater também na caixa (`os.listdir`), porque no
-macOS o disco não distingue `OPERACAO.md` de `operacao.md` e o CI no Linux distingue. URLs externas (`http:`, `https:`, `mailto:` etc.) são ignoradas. O slug dos
-cabeçalhos segue o GitHub: minúsculas, sem pontuação, espaços viram hífens, acentos são mantidos e
-repetidos ganham `-1`, `-2`. Python puro, sem dependência.
+macOS o disco não distingue `OPERACAO.md` de `operacao.md` e o CI no Linux distingue. URLs externas
+(`http:`, `https:`, `mailto:` etc.) são ignoradas. O slug dos cabeçalhos segue o GitHub: minúsculas,
+sem pontuação, espaços viram hífens, acentos são mantidos e repetidos ganham `-1`, `-2`.
+Python puro, sem dependência.
 """
 
 from __future__ import annotations
