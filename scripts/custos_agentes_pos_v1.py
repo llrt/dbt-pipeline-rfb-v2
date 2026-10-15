@@ -5,9 +5,15 @@ Fonte: transcripts do Claude Code (~/.claude/projects), deduplicados por (messag
 Preços (US$/M tokens): Opus 5.5 4/20, leitura de cache 0,20; Sonnet 5/5.5 2/10, leitura 0,20; escrita de
 cache = 2× a entrada (TTL de 1 h). Líder: sessões 96cb3a2c e 07fdca18 (a 2ª continua a 1ª e repete o
 histórico; a deduplicação por chave evita contar duas vezes), só mensagens depois do commit da RETRO v1.
+
+Se faltar um transcript (sessão do líder ou arquivo de um agente), o script falha: totais sem ele sairiam
+subestimados como se fossem completos. Fora desta máquina, `--parcial` segue sem os que faltam e abre a saída
+com o aviso "TOTAIS PARCIAIS: faltam ...".
 """
 
+import argparse
 import json
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -75,14 +81,39 @@ SESSOES_LIDER = [
 
 def linhas_de(arquivos: list[Path]):
     for f in arquivos:
-        if f.exists():
-            yield from f.open()
+        yield from f.open()
 
 
-def arquivo(rel: str) -> Path:
+def arquivo(rel: str) -> Path | None:
+    """Transcript de um agente (`pasta/sessão`), ou None se não existir nesta máquina."""
     pasta, sessao = rel.split("/")
-    d = next(P.glob(f"*rfb-v2-{pasta}"))
-    return next(d.glob(f"{sessao}*.jsonl"))
+    for d in P.glob(f"*rfb-v2-{pasta}"):
+        for f in d.glob(f"{sessao}*.jsonl"):
+            return f
+    return None
+
+
+analisador = argparse.ArgumentParser(description="Custo por agente dos lotes pós-v1.")
+analisador.add_argument(
+    "--parcial",
+    action="store_true",
+    help="segue sem os transcripts que faltam e avisa que os totais são parciais",
+)
+args = analisador.parse_args()
+sessoes_lider = [f for f in SESSOES_LIDER if f.is_file()]
+faltas = [f"sessão do líder {f.name}" for f in SESSOES_LIDER if not f.is_file()]
+arquivos_agentes = {rel: arquivo(rel) for _, _, _, rel in AGENTES}
+faltas += [f"agente {rel}" for rel, f in arquivos_agentes.items() if f is None]
+if faltas and not args.parcial:
+    sys.exit(
+        "erro: transcripts ausentes em "
+        + str(P)
+        + ": "
+        + "; ".join(faltas)
+        + ". Sem eles os totais saem subestimados; use --parcial para seguir mesmo assim."
+    )
+if faltas:
+    print("TOTAIS PARCIAIS: faltam " + "; ".join(faltas))
 
 
 def medir(arquivos: list[Path], desde: datetime | None = None) -> dict:
@@ -141,7 +172,7 @@ def nome_modelo(modelos: set) -> str:
 
 
 linhas = []
-lider = medir(SESSOES_LIDER, CORTE)
+lider = medir(sessoes_lider, CORTE)
 linhas.append(
     (
         "Líder (pós-v1: publicação, CI, releases, Fusion, lotes AF/SEM inline, avaliações, orquestração)",
@@ -151,7 +182,8 @@ linhas.append(
     )
 )
 for nome, papel, versao, rel in AGENTES:
-    linhas.append((nome, papel, versao, medir([arquivo(rel)])))
+    if arquivos_agentes[rel] is not None:
+        linhas.append((nome, papel, versao, medir([arquivos_agentes[rel]])))
 
 print(
     json.dumps(
@@ -189,7 +221,7 @@ lim = [datetime.fromisoformat(t) for _, t in FASES] + [
     datetime.fromisoformat("2099-01-01T00:00:00+00:00")
 ]
 fase_usd, fase_t, vistos = [0.0] * len(FASES), [set() for _ in FASES], set()
-for linha in linhas_de(SESSOES_LIDER):
+for linha in linhas_de(sessoes_lider):
     try:
         o = json.loads(linha)
     except json.JSONDecodeError:
