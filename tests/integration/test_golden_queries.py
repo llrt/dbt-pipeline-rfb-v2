@@ -236,6 +236,7 @@ def test_exemplo_sql_do_guia_executa_nas_fixtures(exemplo: str) -> None:
         colunas, linhas = [d[0] for d in cursor.description], cursor.fetchall()
     assert _checagem_do_guia()(colunas, linhas) == []
     assert g.colunas_derivadas_proibidas(sql) == []
+    assert g.municipio_sem_uf(sql) == []
 
 
 def test_ids_citados_no_guia_e_nos_cabecalhos_existem() -> None:

@@ -182,6 +182,7 @@ Regras de join:
 | setor, ramo, atividade, segmento | CNAE principal (`dim_cnae`) | qual nível: seção, divisão, grupo, classe, subclasse? Incluir quem tem a atividade como **secundária**? Ache o código pela descrição (`gq_core__cnae_principal__02`, que traz o volume de estabelecimentos e de ativos de cada subclasse). Quando houver mais de uma candidata, **mostre as candidatas com o volume e pergunte** qual vale (ou some as aceitas); nunca escolha só pelo nome. A atividade popular pode estar em fabricação (padaria = 1091102, não só 4721102), e a subclasse quase sem estabelecimento costuma ser obsoleta |
 | cidade, município | `dim_municipio` (nome + `sigla_uf`) | homônimos: Água Branca existe em AL, PB e PI. Sem UF, pergunte |
 | estado | `sigla_uf` | — |
+| população, habitantes, tamanho da cidade, PIB, PIB per capita, perfil do município | `dim_municipio`: `populacao` (estimativa do `ano_populacao`), `populacao_censo_2022`, `pib` (R$, `ano_pib`), `domicilios_2022`, `area_km2`, `densidade_hab_km2`, indicadores do Censo (`gq_core__perfil_municipio__01`, `__02`) | duas populações (estimativa × Censo 2022): diga qual e o ano. PIB per capita não é coluna: `pib / populacao` mistura anos, então é aproximado. Município pelo nome **e** UF |
 | região | grande região (`nome_regiao`), região metropolitana, intermediária, imediata, meso ou microrregião | pergunte qual, ou declare a escolha |
 | região metropolitana, Grande X | `nome_regiao_metropolitana` | 'NÃO PERTENCE' = fora de RM |
 | vizinho, ao redor, entorno | `bridge_municipio_vizinho` (fronteira) | fronteira × raio em km × fluxo de compra (REGIC) |
@@ -246,7 +247,11 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
     intermediate rodam só no local. O `sql` do gold e da semântica roda nos dois, com o nome `main.<tabela>`.
 17. **CNAE secundário fora da semântica.** "Quem trabalha com X" pode incluir o secundário; só a ponte responde.
     Certo: `gq_core__cnae_secundario__01`.
-18. **Fornecedores parametrizados.** `mart_fornecedores_proximos` só vale para o caso das vars do build (Fundão/ES,
+18. **Duas populações e PIB per capita.** `dim_municipio.populacao` é a estimativa do `ano_populacao` (2024);
+    `populacao_censo_2022` é a contagem do Censo; a densidade é do Censo. O PIB per capita não é coluna, e
+    `pib / populacao` divide o PIB de `ano_pib` pela população de outro ano: diga "aproximado" e os anos. Certo:
+    `gq_core__perfil_municipio__01`; série da estimativa em `gq_staging__perfil_municipio__01`.
+19. **Fornecedores parametrizados.** `mart_fornecedores_proximos` só vale para o caso das vars do build (Fundão/ES,
     CNAEs de tinta, 100 km). Outro município ou CNAE exige outra consulta. Certo: `gq_analytics__fornecedores_proximos__01`.
 
 ## 7. Privacidade (regra dura, [ADR-0008](adr/0008-minimizacao-dados-pessoais.md))
@@ -484,7 +489,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 
 <!-- INÍCIO do bloco gerado por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->
 
-**90** golden queries em **22** conceitos: raw 12, staging 8, intermediate 3, core 26, analytics 13, original 8, semantica 20. Cada célula tem as golden queries (número = sufixo `__nn`) ou um traço, com o motivo na lista abaixo da tabela.
+**93** golden queries em **23** conceitos: raw 12, staging 9, intermediate 3, core 28, analytics 13, original 8, semantica 20. Cada célula tem as golden queries (número = sufixo `__nn`) ou um traço, com o motivo na lista abaixo da tabela.
 
 | Conceito | raw | staging | intermediate | core | analytics | original | semantica |
 |---|---|---|---|---|---|---|---|
@@ -498,6 +503,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 | `simples_mei` Simples Nacional e MEI | [01](../transform/analyses/golden/gq_raw__simples_mei__01.sql) | [01](../transform/analyses/golden/gq_staging__simples_mei__01.sql) | — | [01](../transform/analyses/golden/gq_core__simples_mei__01.sql) [02](../transform/analyses/golden/gq_core__simples_mei__02.sql) | — | — | [01](golden_queries/semantica.yml) |
 | `capital_social` Capital social | [01](../transform/analyses/golden/gq_raw__capital_social__01.sql) | — | — | [01](../transform/analyses/golden/gq_core__capital_social__01.sql) | — | — | [01](golden_queries/semantica.yml) |
 | `municipio_geografia` Município e hierarquia geográfica | [01](../transform/analyses/golden/gq_raw__municipio_geografia__01.sql) | [01](../transform/analyses/golden/gq_staging__municipio_geografia__01.sql) | — | [01](../transform/analyses/golden/gq_core__municipio_geografia__01.sql) [02](../transform/analyses/golden/gq_core__municipio_geografia__02.sql) | — | — | [01](golden_queries/semantica.yml) |
+| `perfil_municipio` Perfil do município (população, PIB, Censo 2022) | — | [01](../transform/analyses/golden/gq_staging__perfil_municipio__01.sql) | — | [01](../transform/analyses/golden/gq_core__perfil_municipio__01.sql) [02](../transform/analyses/golden/gq_core__perfil_municipio__02.sql) | — | — | — |
 | `data_calendario` Data, calendário, fotografia mensal e data de referência | [01](../transform/analyses/golden/gq_raw__data_calendario__01.sql) | [01](../transform/analyses/golden/gq_staging__data_calendario__01.sql) | — | [01](../transform/analyses/golden/gq_core__data_calendario__01.sql) [02](../transform/analyses/golden/gq_core__data_calendario__02.sql) | — | — | [01](golden_queries/semantica.yml) [02](golden_queries/semantica.yml) |
 | `dinamica_mercado` Abertura, encerramento e saldo (dinâmica) | — | — | — | [01](../transform/analyses/golden/gq_core__dinamica_mercado__01.sql) | [01](../transform/analyses/golden/gq_analytics__dinamica_mercado__01.sql) | — | [01](golden_queries/semantica.yml) [02](golden_queries/semantica.yml) |
 | `sobrevivencia_coorte` Sobrevivência por coorte de abertura | — | — | — | — | [01](../transform/analyses/golden/gq_analytics__sobrevivencia_coorte__01.sql) [02](../transform/analyses/golden/gq_analytics__sobrevivencia_coorte__02.sql) | — | [01](golden_queries/semantica.yml) [02](golden_queries/semantica.yml) |
@@ -543,6 +549,11 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 - `municipio_geografia` × `intermediate`: int_municipios__conformados chega inteiro a dim_municipio; use gq_core__municipio_geografia__01
 - `municipio_geografia` × `analytics`: os marts trazem município e UF como recorte; ver gq_analytics__concorrencia_densidade__01
 - `municipio_geografia` × `original`: agg_empresas traz município, micro e mesorregião em maiúsculas só para paridade; ver gq_original__modelos_originais__02
+- `perfil_municipio` × `raw`: o raw da Base dos Dados (`populacao`, `pib`, `censo_2022`) chega tipado e sem regra ao staging; para auditoria use gq_staging__perfil_municipio__01
+- `perfil_municipio` × `intermediate`: int_municipios__conformados e int_municipios__perfil_ibge chegam inteiros a dim_municipio; use gq_core__perfil_municipio__01
+- `perfil_municipio` × `analytics`: os marts usam a população só como denominador da densidade (`ativos_por_10k_hab`); o perfil está em dim_municipio, gq_core__perfil_municipio__01; ver gq_analytics__concorrencia_densidade__01
+- `perfil_municipio` × `original`: os modelos originais do MVP não têm população, PIB nem Censo
+- `perfil_municipio` × `semantica`: não há métrica de população nem de PIB, e essas colunas não são dimensões da semântica; use gq_core__perfil_municipio__01
 - `data_calendario` × `intermediate`: o intermediate guarda `_mes_referencia` e `_data_referencia` do staging; use gq_staging__data_calendario__01
 - `data_calendario` × `analytics`: os marts são do mês corrente do gold, sem série; a série está em gq_core__data_calendario__01
 - `data_calendario` × `original`: os originais não têm mês: `idade_atual` é relativa à data de referência (ADR-0004); ver gq_staging__data_calendario__01
@@ -616,6 +627,7 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 | [`gq_staging__empresa_estabelecimento__01`](../transform/analyses/golden/gq_staging__empresa_estabelecimento__01.sql) | staging | `empresa_estabelecimento` | No mês selecionado, quantos estabelecimentos e quantas empresas distintas há no staging? | Auditoria do staging: estabelecimentos, CNPJs completos e CNPJs básicos distintos do mês selecionado, depois da tipagem. |
 | [`gq_staging__matriz_filial__01`](../transform/analyses/golden/gq_staging__matriz_filial__01.sql) | staging | `matriz_filial` | Há empresa com mais de uma matriz no extrato? | Auditoria do staging: por CNPJ básico, quantas matrizes e filiais há, resumido em faixas (base da regra RN-16). |
 | [`gq_staging__municipio_geografia__01`](../transform/analyses/golden/gq_staging__municipio_geografia__01.sql) | staging | `municipio_geografia` | Qual o código IBGE de Fundão e o código RFB correspondente? | Linhagem: o diretório de municípios da Base dos Dados, que liga o código RFB (4 dígitos) ao código IBGE (7 dígitos). |
+| [`gq_staging__perfil_municipio__01`](../transform/analyses/golden/gq_staging__perfil_municipio__01.sql) | staging | `perfil_municipio` | A população de Fundão cresceu nos últimos anos? | Auditoria: a série anual da estimativa de população de um município na Base dos Dados (o gold guarda só o `ano_populacao`). |
 | [`gq_staging__regras_qualidade__01`](../transform/analyses/golden/gq_staging__regras_qualidade__01.sql) | staging | `regras_qualidade` | Há datas inválidas ou futuras no cadastro? | Qualidade das datas no staging: início de atividade e data da situação ausentes, anteriores a 1900 ou depois do dia seguinte à data de referência (RN-13). |
 | [`gq_staging__simples_mei__01`](../transform/analyses/golden/gq_staging__simples_mei__01.sql) | staging | `simples_mei` | Em que anos as empresas optaram pelo MEI? | Auditoria do staging: empresas por ano da data de opção pelo MEI, com quantas já têm data de exclusão (as datas não chegam ao gold). |
 | [`gq_staging__situacao_cadastral__01`](../transform/analyses/golden/gq_staging__situacao_cadastral__01.sql) | staging | `situacao_cadastral` | Por que os estabelecimentos fecharam? Qual o motivo da situação cadastral? | Auditoria do staging: situação cadastral × motivo (com a descrição do domínio de motivos), que não chega ao gold. |
@@ -638,6 +650,8 @@ O catálogo legível por máquina, com o SQL de cada golden query e a resposta n
 | [`gq_core__municipio_geografia__01`](../transform/analyses/golden/gq_core__municipio_geografia__01.sql) | core | `municipio_geografia` | Quantos estabelecimentos ativos há em cada região e UF? | Ativos por região, UF e região metropolitana (atributos de dim_municipio). |
 | [`gq_core__municipio_geografia__02`](../transform/analyses/golden/gq_core__municipio_geografia__02.sql) | core | `municipio_geografia` | Quantas empresas tem em Água Branca? | Desambiguação de município homônimo: o mesmo nome em várias UFs, com código IBGE e estabelecimentos de cada um. |
 | [`gq_core__natureza_juridica__01`](../transform/analyses/golden/gq_core__natureza_juridica__01.sql) | core | `natureza_juridica` | Quantos estabelecimentos ativos há por natureza jurídica? | Ativos por natureza jurídica (código e descrição de dim_natureza_juridica). |
+| [`gq_core__perfil_municipio__01`](../transform/analyses/golden/gq_core__perfil_municipio__01.sql) | core | `perfil_municipio` | Qual a população e o PIB de Água Branca, em Alagoas? | Perfil de um município (identificado por nome E UF): as duas populações, PIB, PIB per capita aproximado, domicílios, área e densidade, com o ano de cada fonte. |
+| [`gq_core__perfil_municipio__02`](../transform/analyses/golden/gq_core__perfil_municipio__02.sql) | core | `perfil_municipio` | Quais os municípios mais populosos do Espírito Santo? | Municípios de uma UF ordenados pela população do Censo 2022, com a estimativa mais recente e indicadores do Censo. |
 | [`gq_core__porte__01`](../transform/analyses/golden/gq_core__porte__01.sql) | core | `porte` | Quantos estabelecimentos ativos há por porte, e qual a idade média? | Ativos por porte da empresa (rótulo de dim_porte) e idade média em anos na data de referência. |
 | [`gq_core__regic_polo_compras__01`](../transform/analyses/golden/gq_core__regic_polo_compras__01.sql) | core | `regic_polo_compras` | Onde o pessoal de Fundão vai comprar? | Destinos de compra de um município na REGIC 2018 (bridge_municipio_destino_compras), por tema, com o percentual e o destino 'Outros'. |
 | [`gq_core__regic_polo_compras__02`](../transform/analyses/golden/gq_core__regic_polo_compras__02.sql) | core | `regic_polo_compras` | Quantos municípios há em cada nível da hierarquia urbana? | Municípios e ativos por nível da hierarquia urbana da REGIC 2018 (atributo de dim_municipio). |

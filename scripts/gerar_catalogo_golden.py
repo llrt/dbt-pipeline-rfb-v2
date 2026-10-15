@@ -194,7 +194,21 @@ def validar_cabecalho(cab: dict, nome: str, sql: str, conceitos: set[str]) -> li
         problemas.append("a config deve ter a tag `golden_query` e `meta.escopo: adicao`")
     if not re.search(r"\border\s+by\b", corpo, re.I):
         problemas.append("o SQL precisa de `order by`: a resposta esperada é comparada na ordem")
+    problemas += municipio_sem_uf(corpo)
     return [f"{nome}: {p}" for p in problemas]
+
+
+_RE_FILTRO_MUNICIPIO = re.compile(r"\b(nome_municipio|municipio)\s*(=|in\b|like\b)\s*\(?\s*'", re.I)
+_RE_FILTRO_UF = re.compile(r"\b(sigla_uf|uf)\s*(=|in\b)\s*\(?\s*'", re.I)
+
+
+def municipio_sem_uf(sql: str) -> list[str]:
+    """SQL que filtra o município pelo nome sem filtrar a UF (RGQ-08): há homônimos (Água Branca em AL, PB e PI)."""
+    if _RE_FILTRO_MUNICIPIO.search(sql) and not _RE_FILTRO_UF.search(sql):
+        return [
+            "filtra o município pelo nome sem filtrar a UF (homônimos: Água Branca em AL, PB e PI)"
+        ]
+    return []
 
 
 def validar_semantica(entrada: dict, conceitos: set[str]) -> list[str]:

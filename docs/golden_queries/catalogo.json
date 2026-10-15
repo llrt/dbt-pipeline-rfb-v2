@@ -172,6 +172,20 @@
       }
     },
     {
+      "id": "perfil_municipio",
+      "nome": "Perfil do município (população, PIB, Censo 2022)",
+      "classes_ontologia": [
+        "Municipio"
+      ],
+      "sem_query": {
+        "raw": "o raw da Base dos Dados (`populacao`, `pib`, `censo_2022`) chega tipado e sem regra ao staging; para auditoria use gq_staging__perfil_municipio__01",
+        "intermediate": "int_municipios__conformados e int_municipios__perfil_ibge chegam inteiros a dim_municipio; use gq_core__perfil_municipio__01",
+        "analytics": "os marts usam a população só como denominador da densidade (`ativos_por_10k_hab`); o perfil está em dim_municipio, gq_core__perfil_municipio__01; ver gq_analytics__concorrencia_densidade__01",
+        "original": "os modelos originais do MVP não têm população, PIB nem Censo",
+        "semantica": "não há métrica de população nem de PIB, e essas colunas não são dimensões da semântica; use gq_core__perfil_municipio__01"
+      }
+    },
+    {
       "id": "data_calendario",
       "nome": "Data, calendário, fotografia mensal e data de referência",
       "classes_ontologia": [
@@ -1203,6 +1217,59 @@
             "1003",
             "Água Branca",
             "PI"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "gq_staging__perfil_municipio__01",
+      "conceito": "perfil_municipio",
+      "camada": "staging",
+      "perguntas": [
+        "A população de Fundão cresceu nos últimos anos?",
+        "Qual a série de população estimada de um município?"
+      ],
+      "intencao": "Auditoria: a série anual da estimativa de população de um município na Base dos Dados (o gold guarda só o `ano_populacao`).",
+      "privacidade": "agregado",
+      "armadilhas": [
+        "Só auditoria e série: o gold (`dim_municipio.populacao`) guarda um ano só; use-o para pergunta de negócio.",
+        "O município é o código IBGE de 7 dígitos (`id_municipio`), sem nome: ache o código em `dim_municipio.id_municipio_ibge` pelo nome E pela UF.",
+        "Estimativa ≠ Censo: a série não inclui a contagem do Censo 2022 (`dim_municipio.populacao_censo_2022`)."
+      ],
+      "variacoes": [
+        "Outro município: troque o código IBGE.",
+        "PIB por ano: `stg_bd__pib` (`id_municipio`, `ano`, `pib`), na mesma forma."
+      ],
+      "tabelas": [
+        "stg_bd__populacao"
+      ],
+      "colunas_chave": [
+        "id_municipio",
+        "sigla_uf",
+        "ano",
+        "populacao"
+      ],
+      "arquivo": "transform/analyses/golden/gq_staging__perfil_municipio__01.sql",
+      "sql": "select\n  id_municipio,\n  sigla_uf,\n  ano,\n  populacao\nfrom main.stg_bd__populacao\nwhere id_municipio = '3202207'\norder by ano\n",
+      "resposta_esperada_fixtures": {
+        "colunas": [
+          "id_municipio",
+          "sigla_uf",
+          "ano",
+          "populacao"
+        ],
+        "linhas": [
+          [
+            "3202207",
+            "ES",
+            2023,
+            19000
+          ],
+          [
+            "3202207",
+            "ES",
+            2024,
+            20000
           ]
         ]
       }
@@ -2538,6 +2605,163 @@
             "2135",
             "Empresário (Individual)",
             4
+          ]
+        ]
+      }
+    },
+    {
+      "id": "gq_core__perfil_municipio__01",
+      "conceito": "perfil_municipio",
+      "camada": "core",
+      "perguntas": [
+        "Qual a população e o PIB de Água Branca, em Alagoas?",
+        "Quantos habitantes tem Água Branca (AL), e qual o PIB per capita?",
+        "Me dá o perfil do município de Água Branca/AL."
+      ],
+      "intencao": "Perfil de um município (identificado por nome E UF): as duas populações, PIB, PIB per capita aproximado, domicílios, área e densidade, com o ano de cada fonte.",
+      "privacidade": "agregado",
+      "armadilhas": [
+        "Duas populações: `populacao` é a estimativa do IBGE do `ano_populacao` (2024 no dado real); `populacao_censo_2022` é a contagem do Censo. Diga qual usou e o ano; a densidade (`densidade_hab_km2`) é do Censo.",
+        "PIB per capita não é coluna: `pib / populacao` mistura o ano do PIB (`ano_pib`) com o da estimativa. O IBGE divide pela população do mesmo ano (a série está em gq_staging__perfil_municipio__01). Declare os anos ou chame de aproximado.",
+        "Filtre o município pelo nome E pela UF: Água Branca existe em AL, PB e PI (gq_core__municipio_geografia__02). Sem UF, pergunte.",
+        "`pib` está em reais (R$) nominais do `ano_pib`; NULL é sem dado, nunca zero."
+      ],
+      "variacoes": [
+        "Outro município: troque `nome_municipio` e `sigla_uf`.",
+        "Censo 2022: acrescente `taxa_alfabetizacao`, `idade_mediana`, `indice_envelhecimento`.",
+        "Renda e REGIC: acrescente `renda_per_capita_media_2022` e `regic_hierarquia` (ver gq_core__renda__01 e gq_core__regic_polo_compras__01)."
+      ],
+      "tabelas": [
+        "dim_municipio"
+      ],
+      "colunas_chave": [
+        "nome_municipio",
+        "sigla_uf",
+        "populacao",
+        "ano_populacao",
+        "populacao_censo_2022",
+        "pib",
+        "ano_pib",
+        "domicilios_2022",
+        "area_km2",
+        "densidade_hab_km2"
+      ],
+      "arquivo": "transform/analyses/golden/gq_core__perfil_municipio__01.sql",
+      "sql": "select\n  nome_municipio,\n  sigla_uf,\n  populacao,\n  ano_populacao,\n  populacao_censo_2022,\n  pib,\n  ano_pib,\n  round(pib / nullif(populacao, 0), 2) as pib_per_capita_aprox,\n  domicilios_2022,\n  area_km2,\n  densidade_hab_km2\nfrom main.dim_municipio\nwhere nome_municipio = 'Água Branca' and sigla_uf = 'AL'\norder by nome_municipio\n",
+      "resposta_esperada_fixtures": {
+        "colunas": [
+          "nome_municipio",
+          "sigla_uf",
+          "populacao",
+          "ano_populacao",
+          "populacao_censo_2022",
+          "pib",
+          "ano_pib",
+          "pib_per_capita_aprox",
+          "domicilios_2022",
+          "area_km2",
+          "densidade_hab_km2"
+        ],
+        "linhas": [
+          [
+            "Água Branca",
+            "AL",
+            10000,
+            2024,
+            9873,
+            150000.0,
+            2021,
+            15.0,
+            3300,
+            454.0,
+            21.75
+          ]
+        ]
+      }
+    },
+    {
+      "id": "gq_core__perfil_municipio__02",
+      "conceito": "perfil_municipio",
+      "camada": "core",
+      "perguntas": [
+        "Quais os municípios mais populosos do Espírito Santo?",
+        "Qual cidade do ES tem mais gente, pelo Censo?",
+        "Compare a população, a alfabetização e a idade mediana dos municípios do ES."
+      ],
+      "intencao": "Municípios de uma UF ordenados pela população do Censo 2022, com a estimativa mais recente e indicadores do Censo.",
+      "privacidade": "agregado",
+      "armadilhas": [
+        "Duas populações (estimativa do `ano_populacao` × Censo 2022) podem trocar a ordem entre municípios próximos: diga qual usou.",
+        "`taxa_alfabetizacao` é fração de 0 a 1: multiplique por 100 para falar em %.",
+        "Município sem Censo (NULL) vai para o fim da ordem (`nulls last`), não é zero."
+      ],
+      "variacoes": [
+        "Por estimativa: ordene por `populacao desc`.",
+        "Outra UF: troque `sigla_uf`; Brasil: tire o filtro e use `limit`."
+      ],
+      "tabelas": [
+        "dim_municipio"
+      ],
+      "colunas_chave": [
+        "sigla_uf",
+        "nome_municipio",
+        "populacao_censo_2022",
+        "populacao",
+        "ano_populacao",
+        "taxa_alfabetizacao",
+        "idade_mediana"
+      ],
+      "arquivo": "transform/analyses/golden/gq_core__perfil_municipio__02.sql",
+      "sql": "select\n  nome_municipio,\n  populacao_censo_2022,\n  populacao,\n  ano_populacao,\n  taxa_alfabetizacao,\n  idade_mediana\nfrom main.dim_municipio\nwhere sigla_uf = 'ES'\norder by populacao_censo_2022 desc nulls last, nome_municipio asc\n",
+      "resposta_esperada_fixtures": {
+        "colunas": [
+          "nome_municipio",
+          "populacao_censo_2022",
+          "populacao",
+          "ano_populacao",
+          "taxa_alfabetizacao",
+          "idade_mediana"
+        ],
+        "linhas": [
+          [
+            "Serra",
+            520653,
+            520000,
+            2024,
+            0.97,
+            34.0
+          ],
+          [
+            "Vitória",
+            322869,
+            330000,
+            2024,
+            0.98,
+            40.0
+          ],
+          [
+            "Linhares",
+            166786,
+            180000,
+            2024,
+            0.9391,
+            34.0
+          ],
+          [
+            "Aracruz",
+            94765,
+            100000,
+            2024,
+            0.94,
+            35.0
+          ],
+          [
+            "Fundão",
+            17951,
+            20000,
+            2024,
+            0.93371,
+            37.0
           ]
         ]
       }

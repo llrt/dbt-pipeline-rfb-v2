@@ -90,3 +90,8 @@ catálogo. As analyses de `golden/` ficam fora da compilação do relatório do 
   `Empresa × estabelecimento:` e diz o que conta; o gerador e o teste falham sem isso. As 19 que contavam
   estabelecimentos (ou empresas, nos arquivos por CNPJ básico) sem dizer ganharam a armadilha; as perguntas
   coloquiais ficaram, porque é assim que o usuário pergunta.
+- **Perfil do município e homônimos (RGQ-08).** Conceito novo `perfil_municipio` (população estimada × Censo 2022,
+  PIB, PIB per capita aproximado, domicílios, área, densidade e indicadores do Censo): duas golden queries no core e
+  uma no staging (a série da estimativa); as outras camadas têm motivo, inclusive a semântica, que não tem métrica
+  nem dimensão de população. A primeira usa Água Branca/AL, que tem homônimo nas fixtures, e o gerador recusa SQL
+  que filtra o município pelo nome sem filtrar a UF (vale também para os exemplos do guia).

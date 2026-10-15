@@ -60,6 +60,9 @@ conceitos:
   - id: municipio_geografia
     nome: Município e hierarquia geográfica
     classes_ontologia: [Municipio, UnidadeFederativa, RegiaoGeografica]
+  - id: perfil_municipio
+    nome: Perfil do município (população, PIB, Censo 2022)
+    classes_ontologia: [Municipio]
   - id: data_calendario
     nome: Data, calendário, fotografia mensal e data de referência
     classes_ontologia: [FotografiaMensal]
@@ -138,6 +141,12 @@ sem_query:
     intermediate: "int_municipios__conformados chega inteiro a dim_municipio; use gq_core__municipio_geografia__01"
     analytics: "os marts trazem município e UF como recorte; ver gq_analytics__concorrencia_densidade__01"
     original: "agg_empresas traz município, micro e mesorregião em maiúsculas só para paridade; ver gq_original__modelos_originais__02"
+  perfil_municipio:
+    raw: "o raw da Base dos Dados (`populacao`, `pib`, `censo_2022`) chega tipado e sem regra ao staging; para auditoria use gq_staging__perfil_municipio__01"
+    intermediate: "int_municipios__conformados e int_municipios__perfil_ibge chegam inteiros a dim_municipio; use gq_core__perfil_municipio__01"
+    analytics: "os marts usam a população só como denominador da densidade (`ativos_por_10k_hab`); o perfil está em dim_municipio, gq_core__perfil_municipio__01; ver gq_analytics__concorrencia_densidade__01"
+    original: "os modelos originais do MVP não têm população, PIB nem Censo"
+    semantica: "não há métrica de população nem de PIB, e essas colunas não são dimensões da semântica; use gq_core__perfil_municipio__01"
   data_calendario:
     intermediate: "o intermediate guarda `_mes_referencia` e `_data_referencia` do staging; use gq_staging__data_calendario__01"
     analytics: "os marts são do mês corrente do gold, sem série; a série está em gq_core__data_calendario__01"

@@ -457,3 +457,17 @@ def test_pergunta_por_empresa_exige_contar_empresas_ou_armadilha() -> None:
         == []
     )
     assert g.problemas_empresa({**cab, "perguntas": ["Quantos estabelecimentos?", "b?"]}, "x") == []
+
+
+def test_municipio_pelo_nome_exige_uf() -> None:
+    """RGQ-08 (M4): filtrar o município pelo nome sem a UF é recusado; há homônimos."""
+    com_uf = SQL_VALIDO.replace(
+        "group by all", "where mun.nome_municipio = 'Fundão' and mun.sigla_uf = 'ES'\ngroup by all"
+    )
+    sem_uf = SQL_VALIDO.replace("group by all", "where mun.nome_municipio = 'Fundão'\ngroup by all")
+    assert _validar(com_uf) == []
+    assert any("sem filtrar a UF" in p for p in _validar(sem_uf))
+    assert (
+        g.municipio_sem_uf("select 1 from main.mart_x where municipio = 'FUNDÃO' and uf = 'ES'")
+        == []
+    )
