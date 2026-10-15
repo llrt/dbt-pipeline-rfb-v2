@@ -2,10 +2,11 @@
 
 Fluxo: `dbt compile` das analyses (resolve `ref()` e as vars `caso_*`) -> consulta cada SQL
 compilado no `warehouse.duckdb` (as views dos marts apontam para o Parquet em `gold/`) -> renderiza
-`docs/RELATORIO_ESTUDO_CASO.md`. Com `RAIZ_DADOS=s3://` (R3-06/P19) as analyses são compiladas com a
-URI S3 e target `s3`, e a conexão de leitura carrega `httpfs` e cria um secret S3 temporário (as
-views dos marts apontam para `s3://…/gold`). O corpo é determinístico; só a linha `> Execução dbt`
-do cabeçalho da seção de qualidade carrega identificador e horário da última execução.
+o relatório (`caminhos.RELATORIO_ESTUDO_CASO`). Com `RAIZ_DADOS=s3://` (R3-06/P19) as analyses são
+compiladas com a URI S3 e target `s3`, e a conexão de leitura carrega `httpfs` e cria um secret S3
+temporário (as views dos marts apontam para `s3://…/gold`). O corpo é determinístico; só a linha
+`> Execução dbt` do cabeçalho da seção de qualidade carrega identificador e horário da última
+execução.
 """
 
 from __future__ import annotations
@@ -21,14 +22,13 @@ from pathlib import Path
 
 import duckdb
 
+from rfb_pipeline.caminhos import CENARIOS_DE_USO, RAIZ_REPO, RELATORIO_ESTUDO_CASO, relativo
 from rfb_pipeline.configuracao import Configuracao, CredenciaisS3, ler_credenciais_s3
 from rfb_pipeline.erros import ErroIngestao
 
-RAIZ_REPO = Path(__file__).resolve().parents[2]
 DIR_TRANSFORM = RAIZ_REPO / "transform"
-SAIDA_PADRAO = RAIZ_REPO / "docs" / "RELATORIO_ESTUDO_CASO.md"
 PREFIXO_ANALISES = "estudo_caso_"
-PREFIXO_CENARIOS = "cenario_"  # incremento: enriquecimento_ibge (docs/CENARIOS_DE_USO.md)
+PREFIXO_CENARIOS = "cenario_"  # incremento: enriquecimento_ibge (cenários de uso)
 SUBPASTA_REGRAS = "regras_negocio"  # analyses de `rfb regras` (ADR-0020)
 SUBPASTA_GOLDEN = "golden"  # golden queries (ADR-0023): testadas e catalogadas, fora do relatório
 # Analyses do relatório: as do caso e os cenários de uso (incremento enriquecimento_ibge)
@@ -329,6 +329,9 @@ def renderizar(
     linhas = [
         f"# Relatório do estudo de caso — {local}, CNAE {caso['cnae_alvo']}",
         "",
+        "> **Para quem:** quem quer a resposta da pergunta-guia no dado real do mês · "
+        "**Quando ler:** depois de cada mês novo processado.",
+        "",
         f"> Mês de referência **{caso['mes_referencia']}** (extrato de {caso['data_referencia']}). "
         "Gerado por `rfb relatorio` a partir das analyses `transform/analyses/estudo_caso_*`; "
         "não edite à mão.",
@@ -491,7 +494,7 @@ def _secao_ibge(
         f"CEMPRE da classe do CNAE {caso['cnae_alvo']} (incremento `enriquecimento_ibge`). Os anos "
         "são diferentes: renda de 2022 (nominal), REGIC de 2018, CEMPRE do `ano_cempre` e ativos "
         "da RFB do mês de referência. O CEMPRE não conta MEI; com sigilo do IBGE o pessoal ocupado "
-        "fica vazio, nunca imputado. Como usar cada base: `docs/CENARIOS_DE_USO.md`.",
+        f"fica vazio, nunca imputado. Como usar cada base: `{relativo(CENARIOS_DE_USO)}`.",
         "",
     ]
     dados = _como_dict(tabela)
@@ -580,7 +583,7 @@ def _secao_qualidade(qualidade: tuple[dict, list[tuple]] | None) -> list[str]:
 
 def gerar_relatorio(
     configuracao: Configuracao,
-    saida: Path = SAIDA_PADRAO,
+    saida: Path = RELATORIO_ESTUDO_CASO,
     target: str | None = None,
     dir_transform: Path = DIR_TRANSFORM,
 ) -> Path:

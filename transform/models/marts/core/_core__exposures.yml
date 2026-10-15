@@ -7,7 +7,7 @@ exposures:
     maturity: low
     description: >
       Painel de BI sobre o modelo estrela (ADR-0013), conectado ao Parquet de `gold/` ou ao DuckDB por
-      ODBC; veja `docs/POWER_BI.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
+      ODBC; veja `docs/uso/power-bi.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
     owner:
       name: Equipe de dados
     config:

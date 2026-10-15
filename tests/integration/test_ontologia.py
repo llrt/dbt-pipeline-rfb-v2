@@ -1,4 +1,4 @@
-"""ADR-0018: a ontologia `docs/ontologia/rfb_cnpj.ttl` está em dia com a camada semântica.
+"""ADR-0018: a ontologia `referencia/ontologia/rfb_cnpj.ttl` está em dia com a camada semântica.
 
 Cobertura nos dois sentidos, para a documentação não envelhecer:
 
@@ -22,8 +22,10 @@ from pathlib import Path
 import pytest
 from rdflib import OWL, RDF, RDFS, Graph, Namespace, URIRef
 
+from rfb_pipeline.caminhos import ONTOLOGIA
+
 RAIZ = Path(__file__).resolve().parents[2]
-ONTOLOGIA = RAIZ / "docs" / "ontologia" / "rfb_cnpj.ttl"
+
 TARGET = RAIZ / "transform" / "target"
 RFBO = Namespace("https://github.com/llrt/dbt-pipeline-rfb-v2/ontologia/rfb_cnpj#")
 

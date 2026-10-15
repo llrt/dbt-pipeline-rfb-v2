@@ -2,7 +2,7 @@
 
 `dim_municipio` com renda, VA, REGIC, polo de compras e CEMPRE; a ponte de destinos de compra; o
 mart CEMPRE × RFB; as colunas do polo na área de mercado; a RN-30 coerente com o mart; as analyses
-do caso e dos cenários de uso (docs/CENARIOS_DE_USO.md) e a seção nova do relatório do caso.
+do caso e dos cenários de uso (docs/uso/cenarios.md) e a seção nova do relatório do caso.
 
 incremento: enriquecimento_ibge
 """

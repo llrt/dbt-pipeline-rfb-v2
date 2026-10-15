@@ -34,11 +34,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rfb_pipeline.armazenamento import sincronizar
+from rfb_pipeline.caminhos import OPERACAO, RELATORIO_ESTUDO_CASO, relativo
 from rfb_pipeline.configuracao import Configuracao
 from rfb_pipeline.erros import ErroIngestao
 from rfb_pipeline.manifesto import trava_execucao
 from rfb_pipeline.publicacao import ler_destino_motherduck, publicar_motherduck
-from rfb_pipeline.relatorio import DIR_TRANSFORM, SAIDA_PADRAO, gerar_relatorio
+from rfb_pipeline.relatorio import DIR_TRANSFORM, gerar_relatorio
 
 ARQUIVO_ESTADO = Path("_estado") / "ultima_execucao.json"
 ARQUIVO_EM_ANDAMENTO = Path("_estado") / "em_andamento.json"
@@ -71,7 +72,7 @@ class OpcoesPipeline:
     sem_ibge: bool = False  # RIBG-02: não consulta o IBGE
     ingerir: bool = True
     target: str | None = None
-    saida_relatorio: Path | None = SAIDA_PADRAO  # None = sem relatório
+    saida_relatorio: Path | None = RELATORIO_ESTUDO_CASO  # None = sem relatório
     publicar: bool = True
 
 
@@ -142,7 +143,7 @@ def verificar_gold_consistente(configuracao: Configuracao, comando: str) -> None
     raise ErroIngestao(
         f"rfb {comando} recusado: o gold pode estar misto (o build de {mes} começou e não "
         f"terminou bem; marcador {marcador}). Rode `rfb pipeline --mes {mes}` de novo até concluir "
-        '(ver docs/OPERACAO.md, "Gold misto")'
+        f'(ver {relativo(OPERACAO)}, "Gold misto")'
     )
 
 

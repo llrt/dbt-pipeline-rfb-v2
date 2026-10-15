@@ -9,7 +9,7 @@ Também ficaram 12 grãos declarados sem teste (RDIC-09).
 
 **Decisão.**
 
-- Catálogo [`docs/REGRAS_NEGOCIO.md`](../REGRAS_NEGOCIO.md): uma seção `RN-xx` por regra, com enunciado, tipo
+- Catálogo [`docs/referencia/regras-negocio.md`](../referencia/regras-negocio.md): uma seção `RN-xx` por regra, com enunciado, tipo
   (legal, leiaute/cadastro, estrutural, coerência do projeto), fonte primária conferida ou "regra do projeto",
   dados, conceito, leitura de uma violação e a analysis. As regras que o cadastro não expressa diretamente são
   traduzidas, e a tradução é documentada (ex.: "ativa sem data de encerramento" vira motivo, data e situação).
@@ -20,7 +20,7 @@ Também ficaram 12 grãos declarados sem teste (RDIC-09).
   que pareça identificador depois de tirar a máscara (8 ou mais dígitos: CNPJ básico, CPF, CNPJ; ou CNPJ
   alfanumérico de 14 posições). A guarda é a barreira entre um erro de SQL e um relatório versionado (RRN-01).
 - `rfb regras` / `make regras` compila as analyses, executa-as no warehouse de `RAIZ_DADOS` **somente leitura** e
-  escreve `docs/RELATORIO_REGRAS_NEGOCIO.md` (ou `--saida`). **Sai com 0 mesmo com violações**; falha só em erro de
+  escreve `docs/relatorios/regras-negocio.md` (ou `--saida`). **Sai com 0 mesmo com violações**; falha só em erro de
   execução, inclusive desencontro entre o catálogo e as analyses. A seção "Interpretação de AAAA-MM" do relatório é
   escrita à mão e preservada quando ele é regenerado no mesmo mês; em mês novo, vira "Interpretação anterior" e o
   comando avisa que ela precisa ser revista (RRN-07).

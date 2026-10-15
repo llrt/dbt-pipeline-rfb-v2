@@ -1,5 +1,5 @@
 # ruff: noqa: E501
-"""ADR-0019: `docs/DICIONARIO_DADOS.md` é o dicionário que o manifesto e o catálogo atuais gerariam.
+"""ADR-0019: `docs/referencia/dicionario-dados.md` é o dicionário que o manifesto e o catálogo atuais gerariam.
 
 Usa o `manifest.json` e o `catalog.json` de `dbt docs generate` sobre o warehouse do `make ci`
 (fixture `manifesto_e_catalogo`). Se falhar, rode `make dicionario` e versione o resultado.
@@ -17,8 +17,10 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from rfb_pipeline.caminhos import DICIONARIO_DADOS, relativo
+
 RAIZ = Path(__file__).resolve().parents[2]
-DICIONARIO = RAIZ / "docs" / "DICIONARIO_DADOS.md"
+DICIONARIO = DICIONARIO_DADOS
 SCRIPT = RAIZ / "scripts" / "gerar_dicionario_dados.py"
 
 sys.path.insert(0, str(RAIZ / "scripts"))
@@ -78,7 +80,7 @@ def test_verificar_passa_com_o_dicionario_versionado(manifesto_e_catalogo) -> No
         capture_output=True, text=True, check=False,
     )  # fmt: skip
     assert resultado.returncode == 0, (
-        "docs/DICIONARIO_DADOS.md desatualizado: rode `make dicionario`\n" + resultado.stderr
+        f"{relativo(DICIONARIO)} desatualizado: rode `make dicionario`\n" + resultado.stderr
     )
 
 
@@ -86,7 +88,7 @@ def test_dicionario_versionado_bate_com_o_manifesto(manifesto_e_catalogo) -> Non
     manifesto, catalogo = _carregar(manifesto_e_catalogo)
     esperado = gerar_dicionario_dados.gerar(manifesto, catalogo)
     assert DICIONARIO.read_text(encoding="utf-8") == esperado, (
-        "docs/DICIONARIO_DADOS.md desatualizado: rode `make dicionario`"
+        f"{relativo(DICIONARIO)} desatualizado: rode `make dicionario`"
     )
 
 
@@ -212,7 +214,7 @@ def test_links_e_ancoras_do_dicionario_resolvem() -> None:
     internos = set(re.findall(r"\]\(#([^)]+)\)", texto))
     assert not internos - ancoras, f"links sem âncora: {sorted(internos - ancoras)}"
     for alvo in set(re.findall(r"\]\(((?:adr/)?[A-Z0-9a-z_./-]+\.md)\)", texto)):
-        assert (RAIZ / "docs" / alvo).is_file(), f"link quebrado: {alvo}"
+        assert (DICIONARIO.parent / alvo).resolve().is_file(), f"link quebrado: {alvo}"
 
 
 def test_identificadores_de_tabela_citados_existem(manifesto_e_catalogo) -> None:

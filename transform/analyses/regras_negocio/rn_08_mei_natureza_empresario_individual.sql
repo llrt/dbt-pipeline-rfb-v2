@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-08 (docs/REGRAS_NEGOCIO.md): observação do projeto, não regra legal: a empresa MEI tem a
+-- RN-08 (docs/referencia/regras-negocio.md): observação do projeto, não regra legal: a empresa MEI tem a
 -- natureza jurídica 213-5 (Empresário Individual). Grão: empresa MEI presente no arquivo Empresas,
 -- por natureza jurídica.
 select

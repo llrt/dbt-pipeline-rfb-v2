@@ -51,7 +51,7 @@ faltar é publicado vazio (`garantir_raw_ibge`, RIBG-01).
 Com origem local, uma tabela só é reconvertida se o sha256 do arquivo mudar. Arquivo ausente (por
 exemplo, um espelho offline anterior ao incremento, sem `ibge/`) não é erro: a ingestão avisa e
 segue, e a tabela fica no raw só com o esquema (Parquet vazio), salvo se já existir lá. O dbt
-constrói tudo com as colunas do IBGE NULL (compatibilidade da v1.4 com a v1.3, docs/OPERACAO.md).
+constrói tudo com as colunas do IBGE NULL (compatibilidade da v1.4 com a v1.3, docs/operacao.md).
 """
 
 from __future__ import annotations
@@ -79,6 +79,7 @@ import httpx
 import openpyxl
 from openpyxl.utils.exceptions import InvalidFileException
 
+from rfb_pipeline.caminhos import OPERACAO, relativo
 from rfb_pipeline.cliente_rfb import _recuo_s, _verificar_host_permitido, baixar_com_retentativas
 from rfb_pipeline.configuracao import Configuracao
 from rfb_pipeline.conversao import (
@@ -533,7 +534,7 @@ def garantir_raw_ibge(configuracao: Configuracao) -> list[str]:
     if publicadas:
         print(
             f"ibge: AVISO raw ausente de {', '.join(publicadas)}; publicado vazio (só o esquema), "
-            "as colunas do IBGE ficam NULL até uma ingestão (docs/OPERACAO.md)",
+            f"as colunas do IBGE ficam NULL até uma ingestão ({relativo(OPERACAO)})",
             flush=True,
         )
     return publicadas
@@ -639,7 +640,7 @@ class _Ingestao:
         motivo = str(erro).strip() or type(erro).__name__
         print(
             f"aviso: ibge.{tabela}: não atualizada ({motivo[:300]}); {destino}. A RFB e a BD "
-            "seguem; tente de novo com `rfb ingerir --renovar-ibge` (docs/OPERACAO.md)",
+            f"seguem; tente de novo com `rfb ingerir --renovar-ibge` ({relativo(OPERACAO)})",
             file=sys.stderr,
             flush=True,
         )

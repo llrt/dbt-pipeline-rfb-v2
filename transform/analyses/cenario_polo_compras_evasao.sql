@@ -3,7 +3,7 @@
     meta={'escopo': 'adicao', 'incremento': 'enriquecimento_ibge'}
 ) }}
 
--- Cenário 2 (docs/CENARIOS_DE_USO.md), incremento enriquecimento_ibge: polo de compras e evasão de
+-- Cenário 2 (docs/uso/cenarios.md), incremento enriquecimento_ibge: polo de compras e evasão de
 -- demanda. Para os municípios da UF do caso, onde os moradores vão comprar móveis e eletroeletrônicos (Q2
 -- da REGIC 2018, a proxy de bem durável): o polo e o % dos deslocamentos que vão a ele, quantos destinos
 -- fora do município foram citados e o % que vai a lugares não listados ("Outros"), com os ativos do CNAE do

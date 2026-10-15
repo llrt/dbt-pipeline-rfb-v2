@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
 
 from rfb_pipeline import regras
+from rfb_pipeline.caminhos import CATALOGO_REGRAS, RELATORIO_REGRAS_NEGOCIO
 from rfb_pipeline.regras import (
-    CATALOGO_PADRAO,
     SEM_INTERPRETACAO,
     Interpretacao,
     Linha,
@@ -43,7 +44,7 @@ def test_catalogo_e_analyses_correspondem_um_para_um() -> None:
 
 
 def test_catalogo_tem_fonte_e_leitura_em_toda_regra() -> None:
-    secoes = CATALOGO_PADRAO.read_text(encoding="utf-8").split("\n### RN-")[1:]
+    secoes = CATALOGO_REGRAS.read_text(encoding="utf-8").split("\n### RN-")[1:]
     assert len(secoes) == len(ler_catalogo())
     for secao in secoes:
         for campo in ("**Enunciado:**", "**Fonte:**", "**Dados:**", "**Conceito:**", "**Leitura"):
@@ -214,11 +215,12 @@ def test_renderizar_resumo_e_quebras() -> None:
     texto = renderizar(CATALOGO, _linhas(), "2026-09", "2026-09-12")
     assert texto.startswith("# Relatório das regras de negócio — 2026-09\n")
     assert "**2** regras avaliadas: **1** sem violação e **1** com violação." in texto
+    catalogo = "../referencia/regras-negocio.md"
     assert (
-        "| [RN-01](REGRAS_NEGOCIO.md#rn-01) | Regra um | legal | 73.000.000 | 1.500.003 | 2,05 % |"
+        f"| [RN-01]({catalogo}#rn-01) | Regra um | legal | 73.000.000 | 1.500.003 | 2,05 % |"
         in texto
     )
-    assert "| [RN-02](REGRAS_NEGOCIO.md#rn-02) | Regra dois | estrutural | 16 | 0 | 0 % |" in texto
+    assert f"| [RN-02]({catalogo}#rn-02) | Regra dois | estrutural | 16 | 0 | 0 % |" in texto
     assert "### RN-02" not in texto  # sem violação: só no resumo
     quebra = texto.split("### RN-01 — Regra um")[1]
     assert quebra.index("| BAIXADA |") < quebra.index("| ATIVA |")  # mais violações primeiro
@@ -228,6 +230,24 @@ def test_renderizar_resumo_e_quebras() -> None:
         "_Sem interpretação manual (escreva abaixo do comentário acima)._"
     )
     assert renderizar(CATALOGO, _linhas(), "2026-09", "2026-09-12") == texto  # determinístico
+
+
+def test_links_do_relatorio_gerado_resolvem_para_arquivo_e_ancora(tmp_path: Path) -> None:
+    """Greptile PR #9: o "Como ler" por regra apontava para o próprio relatório."""
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    import verificar_links_docs as v
+
+    catalogo = ler_catalogo()
+    linhas = {rid: [Linha((("situacao", "ATIVA"),), 10, 1)] for rid in catalogo}
+    texto = renderizar(catalogo, linhas, "2026-09", "2026-09-12")
+    # o arquivo gerado no CI fica fora de docs/; os links são relativos à pasta do relatório
+    gerado = RELATORIO_REGRAS_NEGOCIO.with_name("_gerado-no-teste.md")
+    gerado.write_text(texto, encoding="utf-8")
+    try:
+        assert v.links(texto)
+        assert v.verificar_arquivo(gerado) == []
+    finally:
+        gerado.unlink()
 
 
 def test_renderizar_singular_e_universo_vazio() -> None:

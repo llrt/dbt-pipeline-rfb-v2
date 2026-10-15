@@ -1,10 +1,10 @@
 # ruff: noqa: E501  (textos longos do dicionário)
-"""Gera `docs/DICIONARIO_DADOS.md` (ADR-0019) a partir do `manifest.json` e do `catalog.json` do dbt.
+"""Gera o dicionário de dados (`caminhos.DICIONARIO_DADOS`, ADR-0019) a partir do `manifest.json` e do `catalog.json` do dbt.
 
 Uso: `make dicionario` (roda `dbt docs generate` sobre o `warehouse.duckdb` de `RAIZ_DADOS` e este
 script) ou, com os dois arquivos já gerados em `transform/target/`,
 `uv run python scripts/gerar_dicionario_dados.py`. Com `--verificar` não escreve nada: gera em memória
-e falha (código 1) se `docs/DICIONARIO_DADOS.md` estiver desatualizado.
+e falha (código 1) se o dicionário versionado estiver desatualizado.
 
 O dicionário descreve toda tabela disponível na base: fontes raw (RFB, Base dos Dados e IBGE), seeds,
 staging, intermediate, gold (dimensões, fatos, pontes e marts) e observabilidade. Os tipos vêm do
@@ -24,14 +24,38 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+from rfb_pipeline.caminhos import (
+    CAMADA_SEMANTICA as DOC_SEMANTICA,
+)
+from rfb_pipeline.caminhos import (
+    CONCEITOS as DOC_CONCEITOS,
+)
+from rfb_pipeline.caminhos import (
+    DICIONARIO_DADOS,
+    DIR_ADR,
+    QUALIDADE_DADOS,
+    RAIZ_REPO,
+    link_de,
+)
+
+RAIZ = RAIZ_REPO
 MANIFESTO = RAIZ / "transform" / "target" / "manifest.json"
 CATALOGO = RAIZ / "transform" / "target" / "catalog.json"
-SAIDA = RAIZ / "docs" / "DICIONARIO_DADOS.md"
+SAIDA = DICIONARIO_DADOS
 
 PACOTE = "rfb"
-ADR_0008 = "[ADR-0008](adr/0008-minimizacao-dados-pessoais.md)"
-CAMADA_SEMANTICA = "[CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)"
+
+
+def _adr(numero: str, arquivo: str) -> str:
+    return f"[ADR-{numero}]({link_de(DICIONARIO_DADOS, DIR_ADR / arquivo)})"
+
+
+def _doc(destino: Path) -> str:
+    return f"[{destino.name}]({link_de(DICIONARIO_DADOS, destino)})"
+
+
+ADR_0008 = _adr("0008", "0008-minimizacao-dados-pessoais.md")
+CAMADA_SEMANTICA = _doc(DOC_SEMANTICA)
 
 # (id, título, descrição curta) na ordem do índice.
 CAMADAS = [
@@ -568,7 +592,7 @@ def _linhas_tabela(t: Tabela, por_nome: dict[str, Tabela]) -> list[str]:
         f"| Usada por | {_lista_tabelas(t.usada_por, por_nome) or '—'} |",
         f"| Materialização | {materializacao} |",
         f"| Localização | {localizacao} |",
-        f"| Escopo | `{escopo}` ([ADR-0006](adr/0006-marcacao-escopo.md)) |",
+        f"| Escopo | `{escopo}` ({_adr('0006', '0006-marcacao-escopo.md')}) |",
         f"| Incremento | {_codigo(incremento) if incremento != '—' else '—'} |",
         f"| Contrato aplicado | {'sim' if contrato else 'não'} |",
     ]
@@ -636,14 +660,17 @@ def gerar(manifesto: dict, catalogo: dict | None = None) -> str:
     linhas = [
         "# Dicionário de dados",
         "",
+        "> **Para quem:** quem escreve SQL, monta um painel ou mantém os modelos · **Quando ler:** para saber o",
+        "> que uma tabela ou coluna guarda, em que grão, com que chaves e de onde vem.",
+        "",
         "> Gerado por `scripts/gerar_dicionario_dados.py` a partir do manifesto e do catálogo do dbt; não edite à",
-        "> mão ([ADR-0019](adr/0019-dicionario-de-dados.md)). Para regenerar: `make dicionario` (depois do",
+        f"> mão ({_adr('0019', '0019-dicionario-de-dados.md')}). Para regenerar: `make dicionario` (depois do",
         "> `make ci` ou de um `dbt build`).",
         "",
         "Detalhe de todas as tabelas disponíveis na base, com os campos de cada uma: o que são, em que",
         "grão, quais as chaves, onde ficam e o que cada coluna guarda. Conceitos de negócio (CNPJ, porte,",
-        "situação cadastral, CNAE...) estão em [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md) (Parte A); as",
-        "dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS.md](QUALIDADE_DADOS.md).",
+        f"situação cadastral, CNAE...) estão em {_doc(DOC_CONCEITOS)}; as dimensões e métricas do MetricFlow,",
+        f"em {CAMADA_SEMANTICA}; os testes, em {_doc(QUALIDADE_DADOS)}.",
         "",
         "## Como ler",
         "",
@@ -674,8 +701,8 @@ def gerar(manifesto: dict, catalogo: dict | None = None) -> str:
         "  um estabelecimento sem par numa dimensão fica com a chave `-1`, nunca é descartado (exceto nos marts",
         "  `original`, que reproduzem os inner joins do MVP).",
         "- **Escopo** (`meta.escopo`): `original` (existia no MVP Spark), `adicao` ou `adaptado`;",
-        "  **incremento** (`meta.incremento`): módulo opcional ([ADR-0015](adr/0015-enriquecimento-base-dos-dados.md)).",
-        "- **Dados pessoais**: o projeto só guarda o mínimo ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)):",
+        f"  **incremento** (`meta.incremento`): módulo opcional ({_adr('0015', '0015-enriquecimento-base-dos-dados.md')}).",
+        f"- **Dados pessoais**: o projeto só guarda o mínimo ({ADR_0008}):",
         "  contatos (e-mail, telefones, fax) são descartados no staging e o CPF é mascarado no nome.",
         "- O gold fica em `RAIZ_DADOS/gold` (local ou `s3://`); `AAAA-MM` é o mês de referência do extrato.",
         "",

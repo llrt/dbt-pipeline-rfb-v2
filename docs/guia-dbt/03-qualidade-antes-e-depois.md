@@ -265,7 +265,7 @@ Nossa arquitetura resolve isso com **quarentena seletiva**:
 
 Como saber se os seus testes de qualidade são realmente eficazes ou se estão passando apenas porque foram escritos de forma frouxa?
 
-No processo de revisão deste projeto ([ADR-0011](../../docs/adr/0011-processo-equipe-agentes.md)), adotamos **testes de mutação**:
+No processo de revisão deste projeto ([ADR-0011](../adr/0011-processo-equipe-agentes.md)), adotamos **testes de mutação**:
 1. O revisor introduz deliberadamente um defeito no SQL (um "mutante"), como alterar um `LEFT JOIN` para `INNER JOIN`, inverter um operador `>`, ou trocar um membro sentinela `-1` por `NULL`.
 2. Executa-se a suíte de testes (`dbt test`).
 3. **Critério de eficácia**: O mutante **deve ser capturado** (o teste correspondente deve falhar). Se todos os testes passarem mesmo com o mutante ativo, o teste é considerado deficiente e deve ser reescrito com asserções mais estritas.

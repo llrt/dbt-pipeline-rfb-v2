@@ -29,7 +29,7 @@ próprio, hierarquia, índice de atração, polo de compras e total do CEMPRE); 
 `bridge_municipio_destino_compras`; o mart `mart_emprego_setor_municipio` (CEMPRE × RFB por município × classe);
 o polo de compras em `mart_concorrencia_area_mercado`, sem mudar grão nem colunas; a regra RN-30; dimensões,
 métricas e uma consulta salva na camada semântica; conceitos na ontologia; a seção do IBGE no relatório do caso e
-os [cenários de uso](../CENARIOS_DE_USO.md). Nenhuma coluna, grão ou comando existente muda.
+os [cenários de uso](../uso/cenarios.md). Nenhuma coluna, grão ou comando existente muda.
 
 - **Polo de compras = maior percentual em móveis e eletroeletrônicos (Q2 da REGIC),** a melhor proxy de bem
   durável e material de construção para o caso. O destino "Outros" nunca é polo; empate fica com o menor código.
@@ -84,13 +84,13 @@ acima; pirâmide etária e diretório de CEP ficam sem plano.
   [Planalto](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2016/decreto/d8777.htm) em 2026-10-14.
 - As publicações do IBGE trazem "© IBGE" (por exemplo, a REGIC 2018) e não citam uma licença aberta nomeada; não
   achamos, no portal do IBGE, um termo específico de uso dos dados (o "Termo de Uso e Política de Privacidade" do
-  portal trata de dados pessoais). O projeto credita a fonte em cada tabela (`docs/DICIONARIO_DADOS.md`, fontes dbt
+  portal trata de dados pessoais). O projeto credita a fonte em cada tabela (`docs/referencia/dicionario-dados.md`, fontes dbt
   com a tabela SIDRA ou a planilha de origem), na camada semântica (A7) e no relatório do caso.
 - O valor adicionado vem da Base dos Dados, nos termos do ADR-0015.
 
 **Consequências.** `rfb ingerir` acessa dois hosts novos (`apisidra.ibge.gov.br`, `geoftp.ibge.gov.br`); o CEMPRE
 nacional leva de 1 a 2 horas na primeira vez e depois só é baixado quando sai um ano novo, que a ingestão consulta
-no máximo uma vez a cada 30 dias ([OPERACAO.md](../OPERACAO.md#fontes-do-ibge-incremento-enriquecimento_ibge)).
+no máximo uma vez a cada 30 dias ([operacao.md](../operacao.md#fontes-do-ibge-incremento-enriquecimento_ibge)).
 O mensal passa a depender da SIDRA e do geoftp, mas não a exigir (RIBG-02): falha do IBGE é aviso, com o raw
 anterior (ou vazio) mantido e a falha no manifesto IBGE; `--sem-ibge` desliga o IBGE na execução; e todo
 `RAIZ_DADOS` sem `raw/ibge/` (o da v1.3) ganha o raw vazio antes do dbt e de `rfb regras` (RIBG-01). Para não

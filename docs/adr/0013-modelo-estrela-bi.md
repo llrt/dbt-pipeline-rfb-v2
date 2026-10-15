@@ -18,7 +18,7 @@
 - Fatos só com chaves inteiras, flags booleanas e medidas; textos de alta cardinalidade ficam fora
   (exceto `cnpj_completo` como dimensão degenerada na fato detalhada).
 - Relacionamentos 1:* com filtro em direção única; a bridge de CNAEs secundários é opcional (muitos-para-muitos).
-- Tudo exportado como Parquet em `gold/`; `docs/POWER_BI.md` documenta conexão (conector Parquet do Power
+- Tudo exportado como Parquet em `gold/`; `docs/uso/power-bi.md` documenta conexão (conector Parquet do Power
   Query ou ODBC do DuckDB), relacionamentos, medidas DAX sugeridas e atualização incremental por mês;
   um `exposure` dbt do tipo dashboard declara a dependência.
 
@@ -28,7 +28,7 @@ no mês corrente.
 
 ## Emenda R3 (2026-10-01)
 
-A revisão R3 ([R3.md](../revisoes/R3.md), decisões em [R3-triagem.md](../revisoes/R3-triagem.md), AD-020)
+A revisão R3 ([R3.md](../historico/revisoes/R3.md), decisões em [triagem da R3](../historico/revisoes/R3.md#triagem-do-líder), AD-020)
 corrigiu três pontos da decisão acima. O restante segue valendo.
 
 - **Grão do resumo mensal (R3-02).** `fct_resumo_mensal` **perde `ano_inicio_atividade` e

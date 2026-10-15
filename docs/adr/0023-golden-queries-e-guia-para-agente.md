@@ -4,8 +4,8 @@
 
 **Contexto.** Pedido do usuário (2026-10-14): registrar as golden queries de cada conceito do modelo, em cada
 camada, para que mais à frente, em outro projeto, um agente use a documentação e essas consultas para responder
-perguntas livres em linguagem natural sobre a base. A documentação existente ([camada semântica](../CAMADA_SEMANTICA.md),
-[dicionário](../DICIONARIO_DADOS.md), [cenários](../CENARIOS_DE_USO.md)) foi escrita para pessoas: falta o que um
+perguntas livres em linguagem natural sobre a base. A documentação existente ([camada semântica](../referencia/camada-semantica.md),
+[dicionário](../referencia/dicionario-dados.md), [cenários](../uso/cenarios.md)) foi escrita para pessoas: falta o que um
 agente precisa para escolher a tabela certa, evitar as armadilhas do cadastro e respeitar a privacidade. Uma consulta
 de exemplo que ninguém executa envelhece em silêncio quando o modelo muda.
 
@@ -17,22 +17,22 @@ de exemplo que ninguém executa envelhece em silêncio quando o modelo muda.
   armadilhas, variações, privacidade e a resposta exata nas fixtures). A config tem `meta.escopo: adicao` e a tag
   `golden_query` (mais o incremento, quando a query é de uma fonte de incremento). O dbt compila e valida os `ref()` e
   `source()`; o CI executa cada uma nas fixtures e confere a resposta, na ordem.
-- **Camada semântica em `docs/golden_queries/semantica.yml`**: comandos `mf query` (métricas, dimensões, filtro) e as
+- **Camada semântica em `docs/referencia/golden_queries/semantica.yml`**: comandos `mf query` (métricas, dimensões, filtro) e as
   consultas salvas existentes, com o mesmo cabeçalho. O CI **executa** cada comando nas fixtures e compara a saída
   (linhas ordenadas, porque o MetricFlow não garante a ordem). Executar é mais forte que só `--explain`; custa ~30 s.
   Nenhuma consulta salva nova: as cinco existentes entram como golden queries.
-- **Cobertura conceito × camada** em `docs/golden_queries/matriz.yml`: 22 conceitos × 7 camadas (raw, staging,
+- **Cobertura conceito × camada** em `docs/referencia/golden_queries/matriz.yml`: 22 conceitos × 7 camadas (raw, staging,
   intermediate, core, analytics, original, semântica). Toda célula tem golden query ou o motivo de não ter, nunca os
   dois; o motivo que cita outra golden query precisa citar uma que existe. O caminho que o agente **deve** usar é o
   gold e a semântica; raw e staging servem a auditoria e linhagem ("o que a RFB publicou"), e os modelos originais só
   à paridade com o MVP.
-- **Catálogo gerado** `docs/golden_queries/catalogo.json`, por `scripts/gerar_catalogo_golden.py` (`make golden`), a
+- **Catálogo gerado** `docs/referencia/golden_queries/catalogo.json`, por `scripts/gerar_catalogo_golden.py` (`make golden`), a
   partir dos cabeçalhos, do SQL **compilado** e de `semantica.yml`. O SQL compilado é normalizado para ser portável:
   `"warehouse"."main"."x"` vira `main.x` (o schema do warehouse local e do MotherDuck) e o caminho absoluto de
   `RAIZ_DADOS` nos `read_parquet` das fontes raw vira `${RAIZ_DADOS}`. O gerador também escreve a matriz e o índice
   num bloco gerado do guia. Como no dicionário (ADR-0019), o CI roda o gerador em modo `--verificar` e falha se o
   catálogo ou o bloco estiverem desatualizados.
-- **Guia para o agente** [`docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md`](../GUIA_CONSULTA_LINGUAGEM_NATURAL.md), escrito
+- **Guia para o agente** [`docs/uso/consulta-agente.md`](../uso/consulta-agente.md), escrito
   para um LLM que só recebe o guia, o catálogo e acesso somente leitura ao DuckDB ou ao MotherDuck: regra de escolha
   da camada, esquema físico, grão e caminhos de join, glossário com as ambiguidades, armadilhas, privacidade,
   procedimento e exemplos de ponta a ponta.
@@ -56,8 +56,8 @@ quem mudou revê a resposta (e a armadilha, se for o caso). Golden query nova ex
 catálogo. As analyses de `golden/` ficam fora da compilação do relatório do caso (`rfb relatorio`) e de `rfb regras`.
 É só aditivo: nenhum modelo, coluna, grão, comando ou métrica existente mudou (versão 1.4.1).
 
-**Revisão (RGQ, 2026-10-15).** A revisão independente ([RGQ](../revisoes/RGQ.md),
-[triagem](../revisoes/RGQ-triagem.md)) mudou o seguinte, ainda na v1.4.1:
+**Revisão (RGQ, 2026-10-15).** A revisão independente ([RGQ](../historico/revisoes/RGQ.md),
+[triagem](../historico/revisoes/RGQ.md#triagem-do-líder)) mudou o seguinte, ainda na v1.4.1:
 
 - **SQL da semântica no catálogo (RGQ-01).** O `mf query` exige o repositório e abre o warehouse em modo de escrita,
   o que o agente não pode fazer. Cada golden query semântica ganha o campo `sql`: o que o MetricFlow gera

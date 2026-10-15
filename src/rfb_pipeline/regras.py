@@ -2,8 +2,8 @@
 
 Fluxo: `dbt compile` das analyses da pasta -> consulta cada SQL compilado no `warehouse.duckdb`
 (somente leitura) -> valida as linhas (só contagens, ADR-0008) -> cruza com o catálogo
-`docs/REGRAS_NEGOCIO.md` -> renderiza `docs/RELATORIO_REGRAS_NEGOCIO.md`. Inconsistências nos dados
-são o conteúdo do relatório, não erro: `rfb regras` só falha se a execução falhar (compilação,
+`caminhos.CATALOGO_REGRAS` -> renderiza `caminhos.RELATORIO_REGRAS_NEGOCIO`. Inconsistências nos
+dados são o conteúdo do relatório, não erro: `rfb regras` só falha se a execução falhar (compilação,
 consulta, linha fora do padrão ou analysis sem seção no catálogo, e vice-versa).
 
 O texto abaixo do marcador da seção "Interpretação de AAAA-MM" é escrito à mão (leitura do dado
@@ -18,10 +18,16 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from rfb_pipeline.caminhos import (
+    CATALOGO_REGRAS,
+    DIR_ADR,
+    RELATORIO_REGRAS_NEGOCIO,
+    link_de,
+    relativo,
+)
 from rfb_pipeline.configuracao import Configuracao, ler_credenciais_s3
 from rfb_pipeline.relatorio import (
     DIR_TRANSFORM,
-    RAIZ_REPO,
     SUBPASTA_REGRAS,
     RelatorioErro,
     Tabela,
@@ -30,8 +36,6 @@ from rfb_pipeline.relatorio import (
     sql_conexao_s3,
 )
 
-CATALOGO_PADRAO = RAIZ_REPO / "docs" / "REGRAS_NEGOCIO.md"
-SAIDA_PADRAO = RAIZ_REPO / "docs" / "RELATORIO_REGRAS_NEGOCIO.md"
 SUBPASTA_ANALISES = SUBPASTA_REGRAS
 PADRAO_ANALISES = "rn_*.sql"
 COLUNAS_OBRIGATORIAS = ("regra", "avaliados", "violacoes")
@@ -109,7 +113,7 @@ class Linha:
     violacoes: int
 
 
-def ler_catalogo(caminho: Path = CATALOGO_PADRAO) -> dict[str, Regra]:
+def ler_catalogo(caminho: Path = CATALOGO_REGRAS) -> dict[str, Regra]:
     """Lê as seções `### RN-xx — título` do catálogo, com o tipo e o arquivo da analysis."""
     regras: dict[str, Regra] = {}
     atual: dict | None = None
@@ -232,7 +236,7 @@ def _secao_regra(rid: str, regra: Regra, quebras: list[Linha]) -> list[str]:
         f"**{_milhar(violacoes)}** {'violação' if violacoes == 1 else 'violações'} em "
         f"**{_milhar(avaliados)}** {'avaliado' if avaliados == 1 else 'avaliados'} "
         f"({_pct(violacoes, avaliados)}). Como ler: [catálogo, {rid}]"
-        f"(REGRAS_NEGOCIO.md#{rid.lower()}).",
+        f"({link_de(RELATORIO_REGRAS_NEGOCIO, CATALOGO_REGRAS)}#{rid.lower()}).",
         "",
     ]
     if not quebras or not quebras[0].quebra:
@@ -268,15 +272,21 @@ def renderizar(
         for rid, ls in linhas_por_regra.items()
     }
     violadas = [rid for rid in sorted(catalogo) if totais[rid][1] > 0]
+    catalogo_link = link_de(RELATORIO_REGRAS_NEGOCIO, CATALOGO_REGRAS)
+    adr_0008 = link_de(RELATORIO_REGRAS_NEGOCIO, DIR_ADR / "0008-minimizacao-dados-pessoais.md")
+    adr_0020 = link_de(RELATORIO_REGRAS_NEGOCIO, DIR_ADR / "0020-regras-de-negocio.md")
     linhas = [
         f"# Relatório das regras de negócio — {mes_referencia}",
         "",
+        "> **Para quem:** quem usa o dado real e quer saber onde o cadastro foge das regras · "
+        "**Quando ler:** depois de cada mês novo processado, antes de confiar num recorte.",
+        "",
         f"> Mês de referência **{mes_referencia}** (extrato de {data_referencia}). Gerado por "
         "`rfb regras` a partir das analyses `transform/analyses/regras_negocio/` e do catálogo "
-        "[`docs/REGRAS_NEGOCIO.md`](REGRAS_NEGOCIO.md); não edite à mão acima da seção "
-        '"Interpretação". Só contagens: nenhum CNPJ, nome ou CPF '
-        "([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)). Inconsistências não falham o "
-        "comando nem o build ([ADR-0020](adr/0020-regras-de-negocio.md)).",
+        f"[`{relativo(CATALOGO_REGRAS)}`]({link_de(RELATORIO_REGRAS_NEGOCIO, CATALOGO_REGRAS)}); "
+        'não edite à mão acima da seção "Interpretação". Só contagens: nenhum CNPJ, nome ou CPF '
+        f"([ADR-0008]({adr_0008})). Inconsistências não falham o comando nem o build "
+        f"([ADR-0020]({adr_0020})).",
         "",
         "## Resumo",
         "",
@@ -290,7 +300,7 @@ def renderizar(
         regra = catalogo[rid]
         avaliados, violacoes = totais[rid]
         linhas.append(
-            f"| [{rid}](REGRAS_NEGOCIO.md#{rid.lower()}) | {regra.titulo} | {regra.tipo} "
+            f"| [{rid}]({catalogo_link}#{rid.lower()}) | {regra.titulo} | {regra.tipo} "
             f"| {_milhar(avaliados)} | {_milhar(violacoes)} | {_pct(violacoes, avaliados)} |"
         )
     linhas += ["", "## Regras com violação", ""]
@@ -408,7 +418,7 @@ def cruzar_com_catalogo(
     for analise, tabela in resultados.items():
         rid, linhas = padronizar_linhas(analise, tabela)
         if rid not in catalogo:
-            raise RegrasErro(f"{analise}: {rid} não tem seção no catálogo {CATALOGO_PADRAO.name}")
+            raise RegrasErro(f"{analise}: {rid} não tem seção no catálogo {CATALOGO_REGRAS.name}")
         if catalogo[rid].analise != analise:
             raise RegrasErro(
                 f"catálogo: {rid} aponta para {catalogo[rid].analise}.sql, mas a analysis é "
@@ -423,10 +433,10 @@ def cruzar_com_catalogo(
 
 def gerar_relatorio_regras(
     configuracao: Configuracao,
-    saida: Path = SAIDA_PADRAO,
+    saida: Path = RELATORIO_REGRAS_NEGOCIO,
     target: str | None = None,
     dir_transform: Path = DIR_TRANSFORM,
-    catalogo_caminho: Path = CATALOGO_PADRAO,
+    catalogo_caminho: Path = CATALOGO_REGRAS,
 ) -> tuple[Path, int, int, str | None]:
     """Gera o relatório; devolve `(caminho, regras, regras violadas, aviso)`.
 

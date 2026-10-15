@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-20 (docs/REGRAS_NEGOCIO.md): o ente federativo responsável é preenchido nas naturezas
+-- RN-20 (docs/referencia/regras-negocio.md): o ente federativo responsável é preenchido nas naturezas
 -- jurídicas do grupo 1XXX (administração pública) e fica em branco nas demais (leiaute RFB).
 -- Grão: empresa (CNPJ básico) do arquivo Empresas, pelo grupo e pela natureza (RRN-06).
 with base as (

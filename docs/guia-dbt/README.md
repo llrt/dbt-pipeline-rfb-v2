@@ -36,7 +36,7 @@ flowchart TD
     end
 
     subgraph TRILHA_ANALISTA["Trilha 2: Analista de Dados e Especialista em BI"]
-        A1["1. Guia Power BI (docs/POWER_BI.md)<br/>Modelo estrela, medidas DAX e conexões"]:::analista
+        A1["1. Guia Power BI (docs/uso/power-bi.md)<br/>Modelo estrela, medidas DAX e conexões"]:::analista
         A2["2. Camadas Core e Analytics (Parte 2, Seções 2.5 e 2.6)<br/>Regras de negócio de dim_*, fct_* e marts"]:::analista
         A3["3. dbt como Camada Semântica (Parte 5, Seção 3)<br/>Exposures, estudos de caso e analyses/"]:::analista
         A1 --> A2 --> A3
@@ -60,7 +60,7 @@ flowchart TD
 ### 2. Trilha: Analista de Dados / Especialista em BI (Power BI, Tableau)
 - **Objetivo**: Compreender a modelagem dimensional Kimball, as regras de negócio dos indicadores e como consumir os dados com segurança.
 - **Roteiro sugerido**:
-  1. Comece pelo guia de integração analítica: [docs/POWER_BI.md](../POWER_BI.md).
+  1. Comece pelo guia de integração analítica: [docs/uso/power-bi.md](../uso/power-bi.md).
   2. Estude a modelagem dimensional em [Parte 2: Seção 2.5 (Core) e 2.6 (Analytics)](02-fluxo-e-testes.md#25-camada-marts-core-modelo-estrela-dimensional-kimball).
   3. Veja como documentar dependências em [Parte 5: Seção 3.2 (Exposures)](05-boas-praticas-e-usos.md#32-mapeamento-de-linhagem-downstream-com-exposures) e como o dbt serve de camada semântica unificada.
 
@@ -89,7 +89,7 @@ Este guia é parte integrante da documentação de engenharia deste projeto e se
   - [ADR-0009](../adr/0009-estrategia-testes.md): Estratégia e taxonomia da suíte de testes.
   - [ADR-0013](../adr/0013-modelo-estrela-bi.md): Desenho do modelo estrela dimensional para BI.
   - [ADR-0014](../adr/0014-convencao-idioma.md): Política de nomenclatura bilíngue do repositório.
-- [**docs/QUALIDADE_DADOS.md**](../QUALIDADE_DADOS.md): Catálogo completo e exaustivo de todos os testes de dados do projeto, gerado automaticamente a partir do manifesto dbt.
-- [**docs/ESCOPO.md**](../ESCOPO.md): Mapeamento transparente de equivalência entre o código original dos notebooks Databricks e a implementação moderna em dbt.
-- [**docs/POWER_BI.md**](../POWER_BI.md): Guia detalhado de modelagem dimensional, relacionamentos de cardinalidade e fórmulas DAX para conectar ferramentas de BI à camada Gold.
+- [**docs/referencia/qualidade-dados.md**](../referencia/qualidade-dados.md): Catálogo completo e exaustivo de todos os testes de dados do projeto, gerado automaticamente a partir do manifesto dbt.
+- [**ARCHITECTURE.md, §11 (escopo)**](../../ARCHITECTURE.md#11-escopo-original--adaptado--adição): Mapeamento transparente de equivalência entre o código original dos notebooks Databricks e a implementação moderna em dbt.
+- [**docs/uso/power-bi.md**](../uso/power-bi.md): Guia detalhado de modelagem dimensional, relacionamentos de cardinalidade e fórmulas DAX para conectar ferramentas de BI à camada Gold.
 - [**PRODUCT.md**](../../PRODUCT.md): Visão de produto, proposta de valor, dores do usuário e personas atendidas por esta solução analítica.

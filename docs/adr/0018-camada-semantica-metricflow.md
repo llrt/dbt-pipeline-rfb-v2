@@ -1,7 +1,7 @@
 # ADR-0018 — Camada semântica no padrão dbt/MetricFlow (YAML)
 
 **Contexto.** Pedido do usuário (2026-10-09): documentar a camada semântica no padrão dbt/MetricFlow, em YAML.
-As regras de cálculo das métricas viviam só como medidas DAX no [guia Power BI](../POWER_BI.md) e em SQL nos marts.
+As regras de cálculo das métricas viviam só como medidas DAX no [guia Power BI](../uso/power-bi.md) e em SQL nos marts.
 O cuidado "não some meses" do resumo mensal, por exemplo, dependia de quem escrevia o painel lembrar dele.
 
 **Decisão.**
@@ -48,18 +48,18 @@ O cuidado "não some meses" do resumo mensal, por exemplo, dependia de quem escr
   name …"). Os alvos `ci`, `pipeline`, `atualizar` e `semantica` do Makefile fazem um `dbt parse --no-partial-parse`
   antes, e a doc ensina o contorno.
 - **OSI:** o `dbt parse` passa a gravar `target/osi_document.json` (Open Semantic Interchange).
-- **Power BI:** continua com DAX. A tabela de equivalência métrica × medida fica em `docs/CAMADA_SEMANTICA.md`.
+- **Power BI:** continua com DAX. A tabela de equivalência métrica × medida fica em `docs/referencia/camada-semantica.md`.
 
 **Contexto de negócio e ontologia (2026-10-10, pedido do usuário).** A doc só descrevia a estrutura; faltava o
 significado dos dados para usar as métricas direito.
-- `docs/CAMADA_SEMANTICA.md` ganhou a **Parte A — Negócio**, antes da parte técnica:
+- `docs/referencia/camada-semantica.md` ganhou a **Parte A — Negócio**, antes da parte técnica:
   - as bases;
   - os conceitos (empresa × estabelecimento, porte, Simples/MEI, situação cadastral, CNAE, município);
   - o ciclo de vida e a relação dele com as métricas;
   - glossário e perguntas frequentes com `mf query`.
   Toda regra legal cita a fonte primária (leiaute da RFB, IN RFB 2.119/2022, LC 123/2006, Resolução CGSN
   140/2018, CONCLA), com data de acesso.
-- **Ontologia formal** em `docs/ontologia/rfb_cnpj.ttl` (OWL/Turtle). As anotações próprias
+- **Ontologia formal** em `docs/referencia/ontologia/rfb_cnpj.ttl` (OWL/Turtle). As anotações próprias
   (`rfbo:entidadeSemantica`, `rfbo:dimensaoSemantica`, `rfbo:metricaDbt`, `rfbo:modeloDbt`, `rfbo:colunaDbt`)
   ligam cada conceito ao projeto.
 - `tests/integration/test_ontologia.py` (rdflib, dependência de desenvolvimento) cobre os dois sentidos: todo nome

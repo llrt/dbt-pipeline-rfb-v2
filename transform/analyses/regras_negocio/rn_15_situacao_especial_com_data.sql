@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-15 (docs/REGRAS_NEGOCIO.md): situação especial e data da situação especial andam juntas: as
+-- RN-15 (docs/referencia/regras-negocio.md): situação especial e data da situação especial andam juntas: as
 -- duas preenchidas ou as duas vazias. Universo: todos os estabelecimentos.
 with base as (
   select

@@ -1,6 +1,6 @@
 [project]
 name = "rfb-pipeline"
-version = "1.4.1"
+version = "1.5.0"
 description = "Port do MVP RFB/CNPJ a dbt + DuckDB."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -26,7 +26,7 @@ dev = [
     "sqlfluff-templater-dbt",
     "dbt-metricflow>=0.15,<0.16",  # CLI `mf`: valida e consulta a camada semântica (ADR-0018)
     "pre-commit",
-    "rdflib>=7,<8",  # parseia a ontologia `docs/ontologia/rfb_cnpj.ttl` nos testes
+    "rdflib>=7,<8",  # parseia a ontologia `docs/referencia/ontologia/rfb_cnpj.ttl` nos testes
 ]
 
 [build-system]

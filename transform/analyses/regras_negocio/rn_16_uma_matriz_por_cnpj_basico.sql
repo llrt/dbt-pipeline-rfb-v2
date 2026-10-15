@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-16 (docs/REGRAS_NEGOCIO.md): cada CNPJ básico do arquivo Estabelecimentos tem exatamente uma
+-- RN-16 (docs/referencia/regras-negocio.md): cada CNPJ básico do arquivo Estabelecimentos tem exatamente uma
 -- matriz. Grão: empresa (CNPJ básico), pelo número de matrizes.
 with por_empresa as (
   select

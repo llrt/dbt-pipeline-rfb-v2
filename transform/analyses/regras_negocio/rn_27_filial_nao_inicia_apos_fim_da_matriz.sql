@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-27 (docs/REGRAS_NEGOCIO.md): a filial não começa atividade depois da data em que a matriz foi
+-- RN-27 (docs/referencia/regras-negocio.md): a filial não começa atividade depois da data em que a matriz foi
 -- baixada, declarada inapta ou nula (coerência apoiada na IN RFB 2.119, art. 21, IV, que impede a
 -- inscrição de filial nesses casos). Universo: filiais com início de atividade, de CNPJ básico com
 -- uma única matriz NULA, INAPTA ou BAIXADA com data da situação; pela situação da matriz.

@@ -3,7 +3,7 @@
     meta={'escopo': 'adicao', 'incremento': 'enriquecimento_ibge'}
 ) }}
 
--- Cenário 4 (docs/CENARIOS_DE_USO.md), incremento enriquecimento_ibge: perfil econômico. Municípios da UF
+-- Cenário 4 (docs/uso/cenarios.md), incremento enriquecimento_ibge: perfil econômico. Municípios da UF
 -- do caso pela participação de cada atividade no valor adicionado (PIB dos Municípios, `ano_va`, hoje
 -- 2021: as aberturas por atividade saem depois do PIB total), com a atividade predominante e a densidade
 -- do CNAE do caso (ativos por 10 mil habitantes). O VA é de um ano, os ativos de outro. Só agregados.

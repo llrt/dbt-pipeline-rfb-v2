@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-18 (docs/REGRAS_NEGOCIO.md): todo estabelecimento tem a empresa (o mesmo CNPJ básico) no
+-- RN-18 (docs/referencia/regras-negocio.md): todo estabelecimento tem a empresa (o mesmo CNPJ básico) no
 -- arquivo Empresas do mês.
 select
   'RN-18' as regra,

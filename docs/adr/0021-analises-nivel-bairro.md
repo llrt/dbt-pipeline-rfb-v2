@@ -58,7 +58,7 @@ Se o tema for reaberto, o caminho técnico é **B**, com o texto RFB como atribu
 | Cobertura parcial | só municípios com bairros oficiais. Não foi confirmado se Fundão tem |
 | Privacidade | emenda ao ADR-0008 (o bairro passaria ao gold) e supressão de células pequenas permanente no BI e nos relatórios |
 | Grão e manutenção | até 7,5× no grão de concorrência. Dimensão, marts, métricas, ontologia, dicionário e regras novas para manter |
-| Dinheiro e tempo | estimativa a partir do custo por versão do pós-v1 (US$ 15 a 35 em agentes por versão, mais orquestração, `docs/CUSTOS_AGENTES.md`): **US$ 150 a 250** em quatro PRs, mais a revisão do usuário em cada um |
+| Dinheiro e tempo | estimativa a partir do custo por versão do pós-v1 (US$ 15 a 35 em agentes por versão, mais orquestração, `docs/historico/custos-agentes.md`): **US$ 150 a 250** em quatro PRs, mais a revisão do usuário em cada um |
 
 **Decisão.**
 - **Adiar** o incremento de bairro. O gold continua no município, e o ADR-0008 não muda.

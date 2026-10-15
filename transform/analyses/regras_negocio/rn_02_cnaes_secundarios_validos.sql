@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-02 (docs/REGRAS_NEGOCIO.md): cada CNAE secundário existe no domínio de CNAEs da RFB. O
+-- RN-02 (docs/referencia/regras-negocio.md): cada CNAE secundário existe no domínio de CNAEs da RFB. O
 -- universo são as ocorrências de CNAE secundário (um estabelecimento pode ter várias).
 with secundarios as (
   select

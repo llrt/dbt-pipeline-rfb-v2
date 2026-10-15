@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-11 (docs/REGRAS_NEGOCIO.md): o estabelecimento NULO, SUSPENSO, INAPTO ou BAIXADO tem a data
+-- RN-11 (docs/referencia/regras-negocio.md): o estabelecimento NULO, SUSPENSO, INAPTO ou BAIXADO tem a data
 -- do evento da situação cadastral. Universo: estabelecimentos não ativos.
 select
   'RN-11' as regra,

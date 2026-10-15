@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-10 (docs/REGRAS_NEGOCIO.md): tradução de "empresa ativa não tem encerramento": o
+-- RN-10 (docs/referencia/regras-negocio.md): tradução de "empresa ativa não tem encerramento": o
 -- estabelecimento ATIVO tem o motivo 00 (SEM MOTIVO) e o não ativo tem um motivo diferente de 00.
 -- Motivo vazio conta como 00.
 with base as (

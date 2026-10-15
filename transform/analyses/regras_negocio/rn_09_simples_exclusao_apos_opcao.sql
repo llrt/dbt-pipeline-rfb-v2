@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-09 (docs/REGRAS_NEGOCIO.md): a data de exclusão não é anterior à data de opção, no Simples
+-- RN-09 (docs/referencia/regras-negocio.md): a data de exclusão não é anterior à data de opção, no Simples
 -- Nacional e no MEI. Universo: registros do arquivo Simples com as duas datas do regime.
 select
   'RN-09' as regra,

@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-12 (docs/REGRAS_NEGOCIO.md): a data da situação cadastral não é anterior à data de início de
+-- RN-12 (docs/referencia/regras-negocio.md): a data da situação cadastral não é anterior à data de início de
 -- atividade. Universo: estabelecimentos com as duas datas.
 select
   'RN-12' as regra,

@@ -1,5 +1,5 @@
 # ruff: noqa: E501  (textos longos do catálogo)
-"""Gera `docs/QUALIDADE_DADOS.md` (DQ-02) a partir do `transform/target/manifest.json`.
+"""Gera o catálogo de qualidade (`caminhos.QUALIDADE_DADOS`, DQ-02) a partir do `transform/target/manifest.json`.
 
 Uso: `uv run python scripts/gerar_qualidade_dados.py` (depois de `dbt parse`/`dbt build`).
 O catálogo lista todos os testes do projeto por etapa, com severidade, escopo e notebook de origem;
@@ -14,9 +14,11 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+from rfb_pipeline.caminhos import DIR_ADR, QUALIDADE_DADOS, RAIZ_REPO, link_de
+
+RAIZ = RAIZ_REPO
 MANIFESTO = RAIZ / "transform" / "target" / "manifest.json"
-SAIDA = RAIZ / "docs" / "QUALIDADE_DADOS.md"
+SAIDA = QUALIDADE_DADOS
 
 ETAPAS = [
     ("Fontes", "Antes", "Entrada do dbt: Parquet raw (checks dos notebooks 2.x do original)."),
@@ -153,9 +155,14 @@ def gerar(manifesto: dict) -> str:
     linhas = [
         "# Qualidade de dados — catálogo de checks",
         "",
+        "> **Para quem:** quem mantém o pipeline ou precisa saber o que um teste garante · "
+        "**Quando ler:** ao investigar um aviso ou uma falha de teste.",
+        "",
         "> Gerado por `scripts/gerar_qualidade_dados.py` a partir do manifesto dbt; não edite à mão.",
-        "> Estratégia: [ARCHITECTURE.md §6](../ARCHITECTURE.md); severidades: [ADR-0009](adr/0009-estrategia-testes.md);",
-        "> escopo: [ADR-0006](adr/0006-marcacao-escopo.md). Resultados de cada execução ficam em",
+        f"> Estratégia: [ARCHITECTURE.md §6]({link_de(SAIDA, RAIZ / 'ARCHITECTURE.md')}); "
+        f"severidades: [ADR-0009]({link_de(SAIDA, DIR_ADR / '0009-estrategia-testes.md')});",
+        f"> escopo: [ADR-0006]({link_de(SAIDA, DIR_ADR / '0006-marcacao-escopo.md')}). "
+        "Resultados de cada execução ficam em",
         "> `dq_historico_testes` (resumo em `dq_resumo_execucao`) e as linhas com falha dos testes `warn`",
         "> em `main_dbt_test__audit.*` (`store_failures`).",
         "",

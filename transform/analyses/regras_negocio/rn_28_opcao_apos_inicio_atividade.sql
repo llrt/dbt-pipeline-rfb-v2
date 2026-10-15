@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-28 (docs/REGRAS_NEGOCIO.md): observação do projeto, não regra legal: a opção pelo Simples ou
+-- RN-28 (docs/referencia/regras-negocio.md): observação do projeto, não regra legal: a opção pelo Simples ou
 -- pelo MEI não antecede o início de atividade da matriz. Universo: registros do arquivo Simples com
 -- a data de opção do regime, de CNPJ básico com uma única matriz com início de atividade.
 with matrizes as (

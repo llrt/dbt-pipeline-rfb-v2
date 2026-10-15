@@ -4,7 +4,7 @@
 **Spec**: `.specs/features/rfb-dbt-port/spec.md`
 **Diff range**: feature inteira até `e84a0a2` (`main`); revisão de código focada em `16fb77b..e84a0a2` (B10, B11, FBPa, B8)
 **Verifier**: R4, agente independente (Claude Opus, Traycer). Não escreveu nenhum código do projeto (autor ≠ verificador)
-**Relatório de revisão**: [`docs/revisoes/R4.md`](../../../docs/revisoes/R4.md)
+**Relatório de revisão**: [`docs/historico/revisoes/R4.md`](../../../docs/historico/revisoes/R4.md)
 
 **Veredito: FAIL ⚠️ (Issues).** O produto está pronto para entrega com ressalvas (R4.md), mas a regra do
 Verifier exige zero mutante sobrevivente e todo AC batendo com o texto da spec. Restam 2 mutantes
@@ -23,7 +23,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 
 | Task | Status | Notes |
 | ---- | ------ | ----- |
-| T1–T29, T32–T43 | ✅ Done | Integrados e verificados pelo líder (`docs/PLANO.md`); gates reexecutados nesta validação (`make ci` verde) |
+| T1–T29, T32–T43 | ✅ Done | Integrados e verificados pelo líder (`docs/historico/plano-v1.md`); gates reexecutados nesta validação (`make ci` verde) |
 | T30 | ⚠️ Partial (bookkeeping) | Conteúdo existe (`docs/guia-dbt/02-fluxo-e-testes.md`, `03-qualidade-antes-e-depois.md`), mas o "Done when" de `tasks.md:956` não foi marcado |
 | T31 | ⚠️ Partial (bookkeeping) | Índice `docs/guia-dbt/README.md` liga as partes, ARCHITECTURE, ADRs, QUALIDADE_DADOS e ESCOPO (17 referências), mas `tasks.md:974` não foi marcado |
 
@@ -123,7 +123,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 | 2 `data_nao_futura` em toda data do staging, exceto exclusões do Simples/MEI | aplicado | dbt: `_rfb__staging.yml:98`, `:122`, `:256`, `:281`, `:326`; `transform/tests/data_nao_futura_casos.sql`; `tests/integration/test_qualidade_dados.py:33` | ✅ |
 | 3 `store_failures` nos warn | todos | `tests/integration/test_store_failures.py:61` (guarda) e `:46` | ✅ |
 | 4 uma linha por teste em `dq_historico_testes` | invocation, nome, status, falhas, severidade, escopo | `tests/integration/test_observabilidade_dq.py:43`, `:57`, `:75` (export ao gold, RBP-12) | ✅ |
-| 5 `docs/QUALIDADE_DADOS.md` por etapa, original × adição | catálogo | `tests/integration/test_catalogo_dq.py:28` (bate com o manifesto); `tests/unit/test_gerar_qualidade_dados.py:25` | ✅ |
+| 5 `docs/referencia/qualidade-dados.md` por etapa, original × adição | catálogo | `tests/integration/test_catalogo_dq.py:28` (bate com o manifesto); `tests/unit/test_gerar_qualidade_dados.py:25` | ✅ |
 | 6 CI falha sem `meta.escopo` | falha | `tests/integration/test_escopo_meta.py:75`, `:117` | ✅ |
 
 ### P2: Estudo de caso (CASE-01)
@@ -131,7 +131,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 | AC | Resultado definido na spec | `file:line` + asserção | Result |
 |---|---|---|---|
 | 1 `analyses/` por pergunta, vars `caso_*` | 1 SQL por pergunta | `transform/analyses/estudo_caso_*.sql` (10 arquivos); `transform/tests/caso_resolve_um_municipio.sql` | ✅ 📄 |
-| 2 `rfb relatorio` escreve o relatório | arquivo com as respostas | `tests/integration/test_relatorio.py:25`, `:40`; real: `docs/RELATORIO_ESTUDO_CASO.md` (2026-09) | ✅ |
+| 2 `rfb relatorio` escreve o relatório | arquivo com as respostas | `tests/integration/test_relatorio.py:25`, `:40`; real: `docs/relatorios/estudo-caso.md` (2026-09) | ✅ |
 | 3 fixtures: 1 ativo, 4 inativos | texto | `tests/unit/test_relatorio.py:51`; `tests/integration/test_relatorio.py:25` | ✅ |
 
 ### P1: Operação (OPS-01, OPS-02)
@@ -150,7 +150,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 | AC | Resultado definido na spec | Evidência | Result |
 |---|---|---|---|
 | 1 guia cobre os tópicos listados | 15 conceitos + estrutura, comandos, fluxo, testes, bibliotecas, checks | `docs/guia-dbt/01-fundamentos.md` … `05-boas-praticas-e-usos.md`; revisado na RBP (43 itens corrigidos no FBPg) | ✅ 📄 (ver R4-08: exemplo de `temp_directory` desatualizado) |
-| 2 links para arquivos do projeto e docs oficiais | — | script do líder no FBPg: 0 caminhos ausentes (`docs/PLANO.md:116`) | ✅ 📄 |
+| 2 links para arquivos do projeto e docs oficiais | — | script do líder no FBPg: 0 caminhos ausentes (`docs/historico/plano-v1.md:116`) | ✅ 📄 |
 | 3 `docs/ESCOPO.md` mapeia modelo/check → original/adição | — | `docs/ESCOPO.md`; guarda `tests/integration/test_escopo_meta.py:117` | ✅ 📄 |
 
 ### P2: Atualização mensal (UPD-01, UPD-02)
@@ -165,7 +165,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 | 6 uma partição por mês, sobrevive ao `.duckdb` | — | `tests/integration/test_resumo_mensal.py:35`, `:88` | ✅ |
 | 7 reprocessar substitui só a partição do mês | — | `tests/integration/test_resumo_mensal.py:88` (2026-08 intacta byte a byte; 2026-09 = 16, não 32) | ✅ |
 | 8 2026-08 então 2026-09 | Serra/4741500/ATIVA 0 ou ausente em 08, 1 em 09 | `tests/integration/test_resumo_mensal.py:40` | ✅ |
-| 9 receitas cron, launchd, GitHub Actions | documentadas | `docs/OPERACAO.md:108-180` | ✅ 📄 |
+| 9 receitas cron, launchd, GitHub Actions | documentadas | `docs/operacao.md:108-180` | ✅ 📄 |
 
 ### P2: Modelo estrela BI (BI-01, BI-02)
 
@@ -177,7 +177,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 | 4 hierarquias de município e CNAE | colunas | contratos `_core__models.yml:63`, `:215`; `tests/integration/test_core.py:57` | ✅ |
 | 5 grão e medidas aditivas do resumo | grão sem natureza e ano | `tests/integration/test_resumo_mensal.py:81`, `:58`, `:70`; dbt unit `_core__models.yml:961` | ✅ |
 | 6 soma do resumo do mês = count da fato | error | dbt: `transform/tests/fct_resumo_mensal_reconciliacao.sql`; `tests/integration/test_resumo_mensal.py:50` | ✅ |
-| 7 `docs/POWER_BI.md` (diagrama, 1:*, conexão, incremental, ≥ 8 DAX) | ≥ 8 medidas | `docs/POWER_BI.md:211-266` (16 medidas DAX) | ✅ 📄 |
+| 7 `docs/uso/power-bi.md` (diagrama, 1:*, conexão, incremental, ≥ 8 DAX) | ≥ 8 medidas | `docs/uso/power-bi.md:211-266` (16 medidas DAX) | ✅ 📄 |
 | 8 exposure `dashboard` sobre o modelo estrela | depende de todas | `tests/integration/test_resumo_mensal.py:156`; `transform/models/marts/core/_core__exposures.yml:6` | ✅ |
 
 ### P2: Enriquecimento Base dos Dados (ENR-01..03)
@@ -201,7 +201,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 | 2 sem variáveis → nada publicado, exit 0 | — | `tests/unit/test_publicacao.py:91`, `:110` | ✅ |
 | 3 `--tabelas` e idempotência | substitui | `tests/unit/test_publicacao.py:76`, `:83` | ✅ |
 | 4 token nunca em log, arquivo ou commit | — | `tests/unit/test_publicacao.py:135`, `:172`; mutação R4-M10 morta | ✅ |
-| 5 `POWER_BI.md` com as opções de acesso | Parquet, ODBC, MotherDuck/PG | `docs/POWER_BI.md` ("Como o Power BI acessa os dados") | ✅ 📄 |
+| 5 `POWER_BI.md` com as opções de acesso | Parquet, ODBC, MotherDuck/PG | `docs/uso/power-bi.md` ("Como o Power BI acessa os dados") | ✅ 📄 |
 
 **Status**: ❌ gaps presentes (OPS AC 1) e ⚠️ 6 lacunas de precisão (ING AC 1, SRC AC 3, CORE AC 1, CORE AC 6, UPD AC 1, PUB AC 1).
 
@@ -224,7 +224,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 | `make ci` verde em < 180 s com os números do cenário | execução R4: 130,8 s; 240 unit + 114 integração; lint limpo | ✅ |
 | `make pipeline MES=2026-09` sem `error` nos dados reais | `run_results-8x8.json`: 339 PASS / 14 WARN / 0 ERROR | ✅ |
 | Paridade com diferença zero nos dados reais | `paridade_bh_empresas` failures = 0 em 2026-09 (71,4 M) e fev/2025 (62,6 M) | ✅ |
-| Relatório gerado com dados reais de 2026-09 | `docs/RELATORIO_ESTUDO_CASO.md` (mês 2026-09, extrato 2026-09-12); Fundão 0 + 5 conferido no gold real | ✅ |
+| Relatório gerado com dados reais de 2026-09 | `docs/relatorios/estudo-caso.md` (mês 2026-09, extrato 2026-09-12); Fundão 0 + 5 conferido no gold real | ✅ |
 | Guia revisado por revisor independente sem erros pendentes | RBP revisou; FBPg corrigiu G01–G43 sem nova revisão independente; R4-08 acha uma receita desatualizada | ⚠️ |
 | `rfb atualizar` processa mês novo e é no-op sem novidade | no-op real (0,56 s); mês novo só nas fixtures (2026-10 ainda não publicado) | ⚠️ |
 | Modelo estrela carregável no Power BI | nenhuma execução no Power BI registrada | ❌ sem evidência |
@@ -236,7 +236,7 @@ relativos à raiz. "dbt:" indica teste dbt executado pelo `make ci` (`dbt build 
 Isolamento: `git worktree add --detach <scratch> HEAD` (`e84a0a2`); `git status --porcelain` do worktree
 real vazio antes e depois (baseline = vazio). Mutações Python medidas com `pytest` do módulo; mutações dbt
 pelo fluxo do `make ci` sem unit e lint (fixtures → pipeline 2026-08 → atualizar → no-op → backfill →
-114 testes de integração). Detalhe por mutação em `docs/revisoes/R4.md` (seção Mutações).
+114 testes de integração). Detalhe por mutação em `docs/historico/revisoes/R4.md` (seção Mutações).
 
 | Mutation | File:line | Description | Killed? |
 |---|---|---|---|

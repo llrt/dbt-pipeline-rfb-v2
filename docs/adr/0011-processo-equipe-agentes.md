@@ -11,4 +11,4 @@ do mesmo nível, sequenciais, cada lote num worktree git e agente novo; o líder
 log + gates) antes do próximo lote. Documentação em arquivos disjuntos pode correr em paralelo.
 **Atualização (2026-09-28, decisão do usuário):** tarefas médias não críticas passam a usar Claude Sonnet (esforço médio), após a falha do worker DeepSeek no lote B2 (estouro de limite de saída sem produzir código). Pequenas continuam em DeepSeek v4 flash (baixo).
 
-Detalhes e tabela de lotes em [docs/PLANO.md](../PLANO.md).
+Detalhes e tabela de lotes em [docs/historico/plano-v1.md](../historico/plano-v1.md).

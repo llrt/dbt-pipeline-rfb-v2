@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-04 (docs/REGRAS_NEGOCIO.md): a lista de CNAEs secundários de um estabelecimento não repete
+-- RN-04 (docs/referencia/regras-negocio.md): a lista de CNAEs secundários de um estabelecimento não repete
 -- código. O universo são os estabelecimentos com ao menos um CNAE secundário.
 with base as (
   select

@@ -1,5 +1,5 @@
 # ruff: noqa: E501  (tabelas de preço e listas de agentes)
-"""Custo por agente dos lotes pós-v1 (v1.1.0 a v1.4.0), mesma metodologia de docs/CUSTOS_AGENTES.md (v1).
+"""Custo por agente dos lotes pós-v1 (v1.1.0 a v1.4.0), mesma metodologia de docs/historico/custos-agentes.md (v1).
 
 Fonte: transcripts do Claude Code (~/.claude/projects), deduplicados por (message.id, requestId).
 Preços (US$/M tokens): Opus 5.5 4/20, leitura de cache 0,20; Sonnet 5/5.5 2/10, leitura 0,20; escrita de

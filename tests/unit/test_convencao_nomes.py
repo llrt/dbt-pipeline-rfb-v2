@@ -35,6 +35,7 @@ SUBPASTAS_MODELS = {
     "marts/analytics",
     "observability",
     "audit",
+    "docs",  # doc blocks do dbt com as definições dos conceitos (v1.5.0)
 }
 PREFIXOS_MODELOS = ("stg_", "int_", "dim_", "fct_", "bridge_", "mart_", "dq_", "audit__")
 MODELOS_ORIGINAIS_MVP = {"bh_empresas", "agg_empresas"}
@@ -42,6 +43,7 @@ MODULOS_ESPERADOS = {
     "__init__",
     "armazenamento",
     "basedosdados",
+    "caminhos",  # caminhos de docs/ lidos e gravados pelo código (um lugar só)
     "cli",
     "cliente_rfb",
     "configuracao",
@@ -81,6 +83,7 @@ ALVOS_MAKE_ESPERADOS = {
     "dicionario",
     "regras",
     "golden",
+    "conceitos",
 }
 
 

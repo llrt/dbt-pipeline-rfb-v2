@@ -64,6 +64,7 @@ models:
       `enriquecimento_ibge` (ADR-0022): renda per capita do Censo 2022, valor adicionado por
       atividade (`ano_va`, que pode diferir de `ano_pib`), hierarquia urbana, índice de atração e
       polo de compras da REGIC 2018 e o total do CEMPRE (`ano_cempre`); NULL sem a fonte.
+      {{ doc('municipio') }}
     config:
       meta: { grao: "município (`sk_municipio`), mais o membro `-1`" }
       contract:
@@ -251,6 +252,7 @@ models:
       - name: renda_per_capita_media_2022
         description: >
           Rendimento domiciliar per capita médio (R$, nominal de 2022) do Censo 2022 (incremento `enriquecimento_ibge`); NULL sem dado e no membro -1.
+          {{ doc('renda_censo') }}
         data_type: decimal(12, 2)
         dimension: categorical
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__renda_municipio.renda_per_capita_media` (ano 2022)" } }
@@ -314,6 +316,7 @@ models:
       - name: pct_va_servicos
         description: >
           Participação dos serviços (exceto administração pública) na soma das quatro aberturas do VA (2 casas; 0–100, salvo quando alguma abertura é negativa, o que o IBGE publica); NULL sem VA (incremento `enriquecimento_ibge`).
+          {{ doc('valor_adicionado') }}
         data_type: double
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`va_servicos` × 100 ÷ soma das quatro aberturas" } }
         data_tests: *faixa_pct_va
@@ -332,6 +335,7 @@ models:
       - name: regic_hierarquia
         description: >
           Nome do nível na hierarquia urbana da REGIC 2018 (Metrópole, Capital Regional, Centro Sub-Regional, Centro de Zona, Centro Local…); integrante de arranjo populacional herda o nível do arranjo (incremento `enriquecimento_ibge`).
+          {{ doc('regic_polo_compras') }}
         data_type: varchar
         dimension: categorical
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`stg_ibge__regic_hierarquia.nome_hierarquia`" } }
@@ -355,6 +359,7 @@ models:
       - name: id_municipio_polo_compras
         description: >
           Código IBGE do polo de compras: o destino listado na REGIC 2018 com o maior % dos deslocamentos para comprar móveis e eletroeletrônicos (Q2, a melhor proxy de bem durável e material de construção). O destino "Outros" nunca é polo; empate fica com o menor código; NULL sem ligação com Q2 > 0 (incremento `enriquecimento_ibge`).
+          {{ doc('regic_polo_compras') }}
         data_type: varchar
         config: { meta: { incremento: enriquecimento_ibge, linhagem: "`int_regic__destinos_compras.id_municipio_destino` com `tema` = `moveis_eletro` e `posto` = 1" } }
         data_tests:
@@ -398,6 +403,7 @@ models:
   - name: dim_cnae
     description: >
       Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo → classe → subclasse (Base dos Dados), código e descrição em colunas separadas. Membro `-1` para CNAE sem par no BD.
+      {{ doc('cnae_principal') }}
     config:
       meta: { grao: "subclasse CNAE (`sk_cnae`), mais o membro `-1`" }
       contract:
@@ -478,6 +484,7 @@ models:
   - name: dim_natureza_juridica
     description: >
       Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem natureza no domínio.
+      {{ doc('natureza_juridica') }}
     config:
       meta: { grao: "natureza jurídica (`sk_natureza_juridica`), mais o membro `-1`" }
       contract:
@@ -510,6 +517,7 @@ models:
   - name: dim_porte
     description: >
       Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vazio ou fora do domínio.
+      {{ doc('porte') }}
     config:
       meta: { grao: "porte da empresa (`sk_porte`), mais o membro `-1`" }
       contract:
@@ -552,6 +560,7 @@ models:
   - name: dim_situacao_cadastral
     description: >
       Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-1` para código fora do domínio.
+      {{ doc('situacao_cadastral') }} {{ doc('ativa_em_operacao') }} {{ doc('baixa_inaptidao') }}
     config:
       meta: { grao: "situação cadastral (`sk_situacao_cadastral`), mais o membro `-1`" }
       contract:
@@ -728,6 +737,7 @@ models:
       degenerada), só com chaves inteiras para as dimensões, flags e medidas. Sem descartes
       silenciosos: estabelecimento sem par numa dimensão fica com a chave `-1`. Parquet em
       `gold/fct_estabelecimentos.parquet`; para o Power BI use `fct_resumo_mensal` (modo Import).
+      {{ doc('estabelecimento') }}
     config:
       meta: { grao: "estabelecimento (`cnpj_completo`)" }
       contract:
@@ -818,7 +828,7 @@ models:
           description: >
             Estabelecimento (CNPJ completo, 14 posições): matriz ou filial. Não é a empresa: a empresa é o
             CNPJ básico (8 primeiros caracteres) e pode ter vários estabelecimentos; para contar empresas use
-            as matrizes (`qtd_matrizes`). Ver docs/CAMADA_SEMANTICA.md, Parte A.
+            as matrizes (`qtd_matrizes`). Ver docs/conceitos.md.
         data_tests: [unique, not_null]
       - name: sk_municipio
         config: { meta: { linhagem: "`dim_municipio.sk_municipio`, casando `int_estabelecimentos__enriquecidos.id_municipio_ibge` (de `municipio_rfb_codigo` = `codigo_rfb`); `-1` sem par" } }
@@ -910,12 +920,14 @@ models:
         data_type: double
       - name: opcao_simples
         config: { meta: { linhagem: "`stg_rfb__simples.opcao_simples`; `false` sem registro" } }
-        description: Optante pelo Simples Nacional na empresa (false quando não há registro).
+        description: >
+          Optante pelo Simples Nacional na empresa (false quando não há registro). {{ doc('simples_nacional') }}
         data_type: boolean
         dimension: categorical
       - name: opcao_mei
         config: { meta: { linhagem: "`stg_rfb__simples.opcao_mei`; `false` sem registro" } }
-        description: Optante pelo MEI na empresa (false quando não há registro).
+        description: >
+          Optante pelo MEI na empresa (false quando não há registro). {{ doc('mei') }}
         data_type: boolean
         dimension: categorical
       - name: capital_social
@@ -923,15 +935,18 @@ models:
         description: >
           Capital social da EMPRESA (R$), repetido em cada estabelecimento dela; não some por
           estabelecimento (some só a matriz, `eh_matriz`). NULL quando não há empresa.
+          {{ doc('capital_social') }}
         data_type: decimal(18,2)
       - name: eh_matriz
         config: { meta: { linhagem: "`matriz_filial_codigo` = 1 (de `stg_rfb__estabelecimentos`, campo IDENTIFICADOR MATRIZ/FILIAL)" } }
-        description: Verdadeiro para matriz (`ind_matriz_filial = 1`).
+        description: >
+          Verdadeiro para matriz (`ind_matriz_filial = 1`). {{ doc('matriz_filial') }}
         data_type: boolean
         dimension: categorical
       - name: eh_ativa
         config: { meta: { linhagem: "`situacao_codigo` = 2 (de `stg_rfb__estabelecimentos`)" } }
-        description: Verdadeiro para situação cadastral ativa (código 2).
+        description: >
+          Verdadeiro para situação cadastral ativa (código 2). {{ doc('ativa_em_operacao') }}
         data_type: boolean
 
         dimension: categorical
@@ -945,6 +960,7 @@ models:
       e o histórico sobrevive à remoção do `warehouse.duckdb`. Esta relação lê TODAS as partições
       existentes em disco (série histórica); o mês processado na execução é o `max(_mes_referencia)`
       do staging.
+      {{ doc('fotografia_mensal') }}
     config:
       meta: { grao: "mês × município × CNAE × porte × situação cadastral × opção MEI (`mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`)" }
       contract:
@@ -1166,6 +1182,7 @@ models:
     description: >
       Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos entre
       `fct_estabelecimentos` e `dim_cnae`). Lista vazia não gera linhas. Opcional no BI.
+      {{ doc('cnae_secundario') }}
     config:
       meta: { grao: "estabelecimento e CNAE secundário (`cnpj_completo`, `codigo_cnae_secundario`)" }
       contract:
@@ -1352,6 +1369,7 @@ models:
       linha com `sk_municipio_destino` = -1 e `eh_outros`, sem posto: com ela a soma de `pct` por
       origem e tema bate ~100 (teste `destino_compras_soma_100`, warn). A REGIC é de 2018: municípios criados depois não aparecem como origem.
       Parquet em `gold/bridge_municipio_destino_compras.parquet`; opcional no BI.
+      {{ doc('regic_polo_compras') }}
     config:
       meta: { grao: "origem × destino × tema (`sk_municipio_origem`, `sk_municipio_destino`, `tema`)", incremento: enriquecimento_ibge }
       contract:

@@ -14,6 +14,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from rfb_pipeline.caminhos import CAMADA_SEMANTICA, CONCEITOS
+
 TRANSFORM = Path(__file__).resolve().parents[2] / "transform"
 RAIZ = Path(os.environ.get("RAIZ_DADOS", TRANSFORM.parent / "dados"))
 GOLD = RAIZ / "gold"
@@ -420,13 +422,13 @@ def test_saved_query_serie_mensal_ativos_por_uf(tmp_path: Path) -> None:
             assert _iguais(obtido[chave][metrica], valor), (chave, metrica)
 
 
-DOC = TRANSFORM.parent / "docs" / "CAMADA_SEMANTICA.md"
+DOCS = (CONCEITOS, CAMADA_SEMANTICA)
 
 
 def test_numeros_citados_na_doc_batem_com_as_fixtures(tmp_path: Path) -> None:
-    """RSEM-10: os números que ficam na prosa de `docs/CAMADA_SEMANTICA.md` vêm das fixtures. Se
+    """RSEM-10: os números na prosa de `conceitos.md` e `camada-semantica.md` vêm das fixtures. Se
     a fixture mudar, este teste aponta a frase a recalibrar; os outros exemplos remetem à saída."""
-    doc = " ".join(DOC.read_text(encoding="utf-8").split())
+    doc = " ".join(" ".join(d.read_text(encoding="utf-8") for d in DOCS).split())
     por_mes = {
         r["metric_time__month"][:7]: {k: int(_num(v)) for k, v in r.items() if k.startswith("qtd")}
         for r in _consulta(

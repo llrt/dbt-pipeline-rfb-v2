@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-26 (docs/REGRAS_NEGOCIO.md): a opção pelo MEI não é anterior a 1º/7/2009, quando os arts.
+-- RN-26 (docs/referencia/regras-negocio.md): a opção pelo MEI não é anterior a 1º/7/2009, quando os arts.
 -- 18-A a 18-C da LC 123 (o SIMEI) passaram a produzir efeitos (LC 128/2008, art. 14, III).
 -- Universo: registros do arquivo Simples com data de opção pelo MEI.
 select

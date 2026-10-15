@@ -1,5 +1,8 @@
 # PRODUCT — Pipeline RFB/CNPJ em dbt + DuckDB
 
+> **Para quem:** quem decide se o projeto serve ao seu caso, e quem o mantém · **Quando ler:** para entender a
+> ideia, as personas, os casos de uso e o que fica fora do escopo.
+
 ## A ideia
 
 Uma base analítica de **inteligência de mercado** construída a partir dos dados abertos de CNPJ da Receita
@@ -10,7 +13,7 @@ Parquet** locais (ou em um bucket S3/Tigris).
 É o port do MVP de Engenharia de Dados da pós PUC-Rio
 ([repo original](https://github.com/llrt/pos_dados_puc_rio-mvp_sprint_eng_dados)), que rodava em notebooks
 Databricks Community Edition. O port preserva as regras de negócio originais e adiciona testes, novas
-análises e checks de qualidade de dados — sempre marcados como **adição** (ver [docs/ESCOPO.md](docs/ESCOPO.md)).
+análises e checks de qualidade de dados — sempre marcados como **adição** (ver [ARCHITECTURE.md, §11](ARCHITECTURE.md#11-escopo-original--adaptado--adição)).
 
 A pergunta-guia continua a mesma: *"É viável abrir uma loja de tintas em Fundão/ES? Há muitos
 concorrentes? Há fornecedores por perto?"* — generalizada para qualquer CNAE e município.

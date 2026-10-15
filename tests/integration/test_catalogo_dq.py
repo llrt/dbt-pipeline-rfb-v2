@@ -1,4 +1,4 @@
-"""DQ-02 AC 5 (R3-12): `docs/QUALIDADE_DADOS.md` é o catálogo que o manifesto atual geraria.
+"""DQ-02 AC 5 (R3-12): `referencia/qualidade-dados.md` é o catálogo que o manifesto atual geraria.
 
 Lê `transform/target/manifest.json`, gerado pelo `dbt build` do `make ci`. Se falhar, rode
 `uv run python scripts/gerar_qualidade_dados.py` (depois do `make ci`) e versione o resultado.
@@ -12,9 +12,11 @@ from pathlib import Path
 
 import pytest
 
+from rfb_pipeline.caminhos import QUALIDADE_DADOS, relativo
+
 RAIZ = Path(__file__).resolve().parents[2]
 MANIFESTO = RAIZ / "transform" / "target" / "manifest.json"
-CATALOGO = RAIZ / "docs" / "QUALIDADE_DADOS.md"
+CATALOGO = QUALIDADE_DADOS
 
 sys.path.insert(0, str(RAIZ / "scripts"))
 
@@ -29,6 +31,5 @@ def test_catalogo_versionado_bate_com_o_manifesto() -> None:
     manifesto = json.loads(MANIFESTO.read_text(encoding="utf-8"))
     esperado = gerar_qualidade_dados.gerar(manifesto)
     assert CATALOGO.read_text(encoding="utf-8") == esperado, (
-        "docs/QUALIDADE_DADOS.md desatualizado: rode "
-        "`uv run python scripts/gerar_qualidade_dados.py`"
+        f"{relativo(CATALOGO)} desatualizado: rode `uv run python scripts/gerar_qualidade_dados.py`"
     )
