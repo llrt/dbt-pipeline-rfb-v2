@@ -9,9 +9,9 @@
 > SQL ou planilha.
 
 Este documento é a referência **técnica**: arquivos, entidades, métricas, consultas salvas, testes e limites. **O que
-os dados significam** (empresa × estabelecimento, porte, MEI, situação cadastral, ciclo de vida, ontologia,
-glossário e perguntas frequentes com `mf query`) está em [conceitos de negócio](../conceitos.md): leia-o antes de
-usar as métricas. Até a v1.4 os dois formavam um documento só (Partes A e B); a correspondência das seções está em
+os dados significam** (empresa × estabelecimento, porte, MEI, situação cadastral, ciclo de vida e glossário) está
+em [conceitos de negócio](../conceitos.md): leia-o antes de usar as métricas. As perguntas frequentes com `mf query`
+estão na [seção 5](#perguntas-frequentes), e a ontologia, na [referência da ontologia](ontologia/README.md). Até a v1.4 os dois formavam um documento só (Partes A e B); a correspondência das seções está em
 [reorganização da v1.5.0](../historico/reorganizacao-v1.5.0.md).
 
 ## 1. Onde está e em qual padrão
@@ -24,7 +24,7 @@ As anotações ficam **junto do modelo**, no mesmo YAML que já documenta coluna
 | [`transform/models/marts/core/_core__models.yml`](../../transform/models/marts/core/_core__models.yml) | modelos semânticos das dimensões e das duas fatos, métricas do resumo mensal e da fato detalhada, *time spine* (`dim_data`) |
 | [`transform/models/marts/analytics/_analytics__models.yml`](../../transform/models/marts/analytics/_analytics__models.yml) | modelos semânticos e métricas de `mart_sobrevivencia_coorte` e de `mart_emprego_setor_municipio` (incremento `enriquecimento_ibge`) |
 | [`transform/models/marts/_marts__saved_queries.yml`](../../transform/models/marts/_marts__saved_queries.yml) | consultas salvas (*saved queries*) |
-| [`docs/referencia/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) | ontologia: conceitos de negócio mapeados para entidades, dimensões e métricas ([ontologia](../conceitos.md#4-ontologia)) |
+| [`docs/referencia/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) | ontologia: conceitos de negócio mapeados para entidades, dimensões e métricas ([referência da ontologia](ontologia/README.md)) |
 
 Elementos do padrão usados aqui:
 
@@ -123,7 +123,7 @@ integração impedem a regressão.
 sobram do `--where`. Se o filtro esvazia o último mês, a consulta devolve o mês anterior com linhas, e não zero. O
 MetricFlow não oferece um `MAX` fora do filtro. Para estoque atual, agrupe por `metric_time__month` ou filtre o
 mês, e prefira `qtd_ativos` a `qtd_estabelecimentos` com filtro `ATIVA` (exemplo na
-[perguntas frequentes](../conceitos.md#6-perguntas-frequentes)).
+[perguntas frequentes](#perguntas-frequentes)).
 
 **Ratios somam antes de dividir.** `idade_media_anos` e `taxa_sobrevivencia_3a` dividem somas, nunca tiram média
 de médias. Por isso a taxa de um estado ou de um ano é ponderada pelo número de estabelecimentos.
@@ -170,6 +170,135 @@ Outros consumidores:
   [seção 3](#3-métricas) é o dicionário entre as duas. Use `mf query --csv` ou `--explain` para conferir um número do
   painel **num mês**: num total por ano, o `SUM` do DAX soma os meses e a métrica não.
 - **dbt Semantic Layer (dbt platform).** O mesmo YAML serve, se um dia o projeto for para a plataforma.
+
+### Perguntas frequentes
+
+Os exemplos rodam em `transform/`, com `RAIZ_DADOS` apontando para os dados (no CI, `.tmp/ci/dados`). As saídas
+e os números citados vêm das **fixtures do `make ci`** (meses 2026-08 e 2026-09), não do cadastro real. Os poucos
+números que ficam na prosa são conferidos por `test_numeros_citados_na_doc_batem_com_as_fixtures`; para os
+demais, veja a saída do comando.
+
+**Quantos MEI ativos há em cada UF?**
+
+```bash
+uv run mf query --metrics qtd_ativos_mei,qtd_ativos,pct_mei_entre_ativos --group-by metric_time__month,municipio__sigla_uf
+uv run mf query --metrics qtd_ativos_mei --group-by metric_time__month --where "{{ Dimension('municipio__sigla_uf') }} = 'ES'"
+```
+
+Recorte sem MEI sai vazio, não zero. Lembre que `qtd_ativos_mei` conta estabelecimentos (há MEI com filial no dado
+real, veja [Simples Nacional e MEI](../conceitos.md#simples-nacional-e-mei)).
+
+**Quantas empresas há, e não estabelecimentos?**
+
+```bash
+uv run mf query --metrics qtd_matrizes,qtd_estabelecimentos --group-by metric_time__month
+uv run mf query --metrics qtd_matrizes,qtd_estabelecimentos --group-by metric_time__month --where "{{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'ATIVA'"
+```
+
+Onde há filial, a saída tem mais estabelecimentos que matrizes. Com o filtro de ATIVA, a situação filtrada é a de
+cada estabelecimento: conta a matriz ativa, não a empresa como um todo.
+
+**Por que não posso somar os meses?**
+
+Cada mês é uma fotografia do cadastro inteiro. O mesmo estabelecimento ativo aparece em todos os meses em que segue
+ativo; somar 2026-08 (10) e 2026-09 (11) daria 21 ativos que não existem. As métricas de contagem do resumo
+declaram `non_additive_dimension`: num período maior que o mês, vale o **último mês em que o recorte filtrado tem
+linhas** (veja a próxima pergunta).
+
+```bash
+uv run mf query --metrics qtd_ativos --group-by metric_time__month
+uv run mf query --metrics qtd_ativos --group-by metric_time__year
+```
+
+A segunda consulta devolve 11 para 2026 (o valor de 2026-09), não 21.
+
+**Quantos há agora num recorte filtrado?**
+
+Cuidado com o filtro. O MetricFlow escolhe o "último mês" **depois** de aplicar o `--where`: se o filtro não deixa
+nenhuma linha no último mês, ele usa o mês mais recente que sobrou, e devolve uma fotografia velha em vez de zero
+ou vazio. Vale para a consulta por ano e para a consulta sem tempo. Nas fixtures, uma filial de Água Branca/PB
+estava SUSPENSA em 2026-08 e foi baixada antes do extrato de 2026-09:
+
+```bash
+uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__year --where "{{ Dimension('municipio__sigla_uf') }} = 'PB' and {{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'SUSPENSA'"
+```
+
+A consulta devolve 1 para 2026 (a fotografia de 2026-08), embora em 2026-09 não haja nenhuma suspensa na PB.
+Para o estoque atual:
+
+- agrupe por `metric_time__month`, ou filtre `metric_time` no mês desejado (vazio quer dizer nenhum):
+
+  ```bash
+  uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__month --where "{{ Dimension('municipio__sigla_uf') }} = 'PB' and {{ Dimension('situacao_cadastral__rotulo_situacao_cadastral') }} = 'SUSPENSA' and {{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+  ```
+
+- não filtre a situação: agrupe por ela, ou use `qtd_ativos` em vez de `qtd_estabelecimentos` com filtro `ATIVA`.
+  O resumo guarda as linhas das outras situações, então o recorte continua com linhas no último mês e a
+  fotografia sai certa:
+
+  ```bash
+  uv run mf query --metrics qtd_estabelecimentos,qtd_ativos --group-by metric_time__year,situacao_cadastral__rotulo_situacao_cadastral --where "{{ Dimension('municipio__sigla_uf') }} = 'PB'"
+  ```
+
+O teste `test_fotografia_com_filtro_vale_o_ultimo_mes_em_que_o_recorte_tem_linhas` documenta esse comportamento.
+No dado real ele aparece a partir do segundo mês da série.
+
+**Como os estabelecimentos se distribuem por situação cadastral?**
+
+```bash
+uv run mf query --metrics qtd_estabelecimentos --group-by metric_time__month,situacao_cadastral__rotulo_situacao_cadastral
+```
+
+Em 2026-09, a saída mostra as situações ATIVA, INAPTA e BAIXADA; em 2026-08, também SUSPENSA.
+
+**Qual a idade média dos ativos por porte num mês?**
+
+```bash
+uv run mf query --metrics qtd_ativos,idade_media_anos --group-by porte__rotulo_porte --where "{{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+```
+
+Lembre que o porte é declarado e que `N/A` (código 00) e `NÃO INFORMADO` (membro `-1`) são coisas diferentes.
+
+**Os encerramentos são só baixas?**
+
+Não. Pela regra do projeto, encerramento é todo estabelecimento não ativo com data da situação válida. Para só
+as baixas, use `baixas`:
+
+```bash
+uv run mf query --metrics encerramentos --group-by metric_time__year,situacao_cadastral__rotulo_situacao_cadastral
+uv run mf query --metrics encerramentos,baixas --group-by metric_time__year
+```
+
+Nas fixtures, há encerramentos BAIXADA e INAPTA; o baixado sem data da situação não aparece. No dado real, a
+diferença é grande no ano de um lote de inaptidão (veja a [ciclo de vida](../conceitos.md#lotes-de-inaptidão-e-período-parcial)).
+
+**Quantas aberturas houve por natureza jurídica, e por matriz ou filial?**
+
+```bash
+uv run mf query --metrics aberturas --group-by natureza_juridica__descricao_natureza_juridica
+uv run mf query --metrics aberturas,encerramentos --group-by estabelecimento__eh_matriz
+```
+
+Natureza jurídica só existe na fato detalhada: combine-a com `aberturas` e `encerramentos`, não com as métricas do
+resumo mensal.
+
+**Quantos ativos há por seção da CNAE?**
+
+```bash
+uv run mf query --metrics qtd_ativos --group-by metric_time__month,cnae__descricao_secao --where "{{ TimeDimension('metric_time', 'month') }} = '2026-09-01'"
+```
+
+O recorte é pelo CNAE **principal**. O membro `NÃO INFORMADO` reúne CNAEs sem par na Base dos Dados.
+
+**Quantas pessoas trabalham num setor, e quantos CNPJs ativos ele tem?**
+
+```bash
+uv run mf query --metrics unidades_locais_cempre,pessoal_ocupado_cempre,ativos_rfb --group-by emprego_setor_municipio__classe_cnae --where "{{ Dimension('municipio__nome_municipio') }} = 'Serra'"
+```
+
+As unidades e o pessoal são do CEMPRE (`ano_cempre`), os ativos da RFB (mês do gold). Sem MEI no CEMPRE, compare
+com `ativos_rfb_sem_mei` em `mart_emprego_setor_municipio`; com sigilo, o pessoal da célula fica fora da soma. Mais
+exemplos, com o dado real, nos [cenários de uso](../uso/cenarios.md).
 
 ## 6. Garantias (testes)
 
@@ -254,6 +383,6 @@ Outros consumidores:
 3. Modelo novo: `semantic_model: { enabled: true, config: { meta: { escopo: adicao } } }`, uma entidade
    `primary` (ou `primary_entity`), `foreign` para as dimensões e `agg_time_dimension`.
 4. Mapeie a métrica ou a entidade nova num conceito de [`docs/referencia/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl)
-   (`rfbo:metricaDbt`, `rfbo:entidadeSemantica`) e na tabela "Onde cada conceito está no projeto" da [ontologia](../conceitos.md#4-ontologia): o `test_ontologia.py` falha
+   (`rfbo:metricaDbt`, `rfbo:entidadeSemantica`) e na tabela "Onde cada conceito está no projeto" da [referência da ontologia](ontologia/README.md#onde-cada-conceito-está-no-projeto): o `test_ontologia.py` falha
    sem isso.
 5. Rode `make semantica` e acrescente um caso em `test_camada_semantica.py` que compare a métrica com o SQL direto.

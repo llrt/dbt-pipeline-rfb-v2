@@ -609,7 +609,7 @@ testes ao build.
 
 Conferidas em **2026-10-13** (texto lido na fonte, não só citado). As linhas LC 128, CONCLA e CGSN 190/194 e os
 trechos novos da LC 123 (art. 88) e da IN 2.119 (art. 21, IV) entraram com o lote FRN (RRN-02, RRN-08). As chaves são as das
-[fontes dos conceitos](../conceitos.md#7-fontes), onde estão as demais.
+[fontes dos conceitos](../conceitos.md#6-fontes), onde estão as demais.
 
 | Chave | Fonte | O que sustenta aqui |
 |---|---|---|

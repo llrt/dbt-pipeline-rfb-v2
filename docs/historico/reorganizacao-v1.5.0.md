@@ -23,12 +23,12 @@ Mudanças de lugar sem reescrita (lote D1) não estão aqui: `git log --follow` 
 | Introdução: fontes entre colchetes, A7, números das fixtures, catálogo RN-xx | movida | [conceitos.md](../conceitos.md), introdução |
 | `## Parte A — Negócio` | movida | [conceitos.md](../conceitos.md) |
 | `### A1. As bases` | movida | [conceitos.md, §1](../conceitos.md#1-as-bases) |
-| `### A2. Conceitos` (e todas as subseções `####`: CNPJ, Empresa × estabelecimento, Matriz × filial, Razão social × nome fantasia, Natureza jurídica, Capital social, Porte, Simples Nacional e MEI, Situação cadastral, Situação especial, Data de início de atividade, CNAE principal e secundárias, Município, CEMPRE, REGIC, Renda per capita, Valor adicionado) | movida | [conceitos.md, §2](../conceitos.md#2-conceitos), as mesmas subseções como `###`, com as mesmas âncoras. A definição curta de cada conceito central passou a ser doc block do dbt e aparece em [Definições](../conceitos.md#definições) |
+| `### A2. Conceitos` (e todas as subseções `####`: CNPJ, Empresa × estabelecimento, Matriz × filial, Razão social × nome fantasia, Natureza jurídica, Capital social, Porte, Simples Nacional e MEI, Situação cadastral, Situação especial, Data de início de atividade, CNAE principal e secundárias, Município, CEMPRE, REGIC, Renda per capita, Valor adicionado) | movida | [conceitos.md, §2](../conceitos.md#2-conceitos), as mesmas subseções como `###`, com as mesmas âncoras. A definição curta de cada conceito central passou a ser doc block do dbt e abre a subseção do conceito; o texto que só a repetia saiu (ver [Ajustes da revisão RD](#ajustes-da-revisão-rd-lote-fd)) |
 | `### A3. Ciclo de vida` | movida | [conceitos.md, §3](../conceitos.md#3-ciclo-de-vida) |
-| `### A4. Ontologia` | movida | [conceitos.md, §4](../conceitos.md#4-ontologia) |
-| `### A5. Glossário rápido` | movida | [conceitos.md, §5](../conceitos.md#5-glossário), a mesma tabela, com um parágrafo que liga ao glossário do guia (vocabulário → coluna) |
-| `### A6. Perguntas frequentes` | movida | [conceitos.md, §6](../conceitos.md#6-perguntas-frequentes) |
-| `### A7. Fontes` | movida | [conceitos.md, §7](../conceitos.md#7-fontes) |
+| `### A4. Ontologia` | movida | [referência da ontologia](../referencia/ontologia/README.md) (diagrama, afinidade e a tabela "Onde cada conceito está no projeto"); em [conceitos.md, §4](../conceitos.md#4-ontologia), um parágrafo com o link |
+| `### A5. Glossário rápido` | duplicada → fonte | [conceitos.md, §5](../conceitos.md#5-glossário): índice gerado, termo → definição; os termos sem doc block (CNPJ básico e completo, ME/EPP, unidade local, sigilo, membro `-1`, município RFB) ligam à subseção que os explica, e o parágrafo que liga ao glossário do guia ficou |
+| `### A6. Perguntas frequentes` | movida | [camada-semantica.md, §5, Perguntas frequentes](../referencia/camada-semantica.md#perguntas-frequentes) (são comandos `mf query`; links ajustados) |
+| `### A7. Fontes` | movida | [conceitos.md, §6](../conceitos.md#6-fontes) |
 | `## Parte B — Estrutura técnica` | mantida | [camada-semantica.md](../referencia/camada-semantica.md), agora o documento inteiro |
 | `### B1. Onde está e em qual padrão` | mantida | [§1](../referencia/camada-semantica.md#1-onde-está-e-em-qual-padrão) |
 | `### B2. Entidades e junções` | mantida | [§2](../referencia/camada-semantica.md#2-entidades-e-junções) |
@@ -138,6 +138,74 @@ O guia continua autossuficiente para o agente, que recebe só o guia e o catálo
 |---|---|
 | `docs/historico/revisoes/<revisão>-triagem.md` (R1, R2, R3, R4, RBP, RSEM, RDIC, RRN, RIBG, RGQ) | anexada, sem mudar o texto, ao fim de `<revisão>.md`, na seção `## Triagem do líder` (título da triagem em itálico; subtítulos um nível abaixo). Links atualizados no ARCHITECTURE, nos ADRs 0013 e 0023 e na RGQ |
 | `docs/historico/revisoes/pendencias.md` | mantida |
+
+## Ajustes da revisão RD (lote FD)
+
+A [revisão RD](revisoes/RD.md) achou que `conceitos.md` dizia cada conceito três vezes: no bloco "Definições" do
+topo, na prosa da §2 e na tabela da §5 (RD-01). No lote FD, a definição de cada conceito passou a existir **uma
+vez**, no lugar onde se lê: o `make conceitos` a insere no começo da subseção, e o texto escrito à mão em volta é só
+o complemento, que um teste impede de repetir os valores da definição (RD-02).
+
+| Antes (D2) | Agora | O que mudou |
+|---|---|---|
+| `## Definições`: bloco gerado com os 24 doc blocks, antes da §1 | a definição de cada um abre a subseção do conceito, na §2 ou na §3 | o mesmo texto; a âncora `#def-<nome>` continua. Conceitos sem subseção ganharam uma: "Concorrência e área de mercado" (§2) e, na §3, "O que o extrato mensal mostra" (data de referência e fotografia), "Aberturas, encerramentos e sobrevivência" e "Lotes de inaptidão e período parcial" |
+| §2: a prosa de cada conceito | §2: só o complemento | saiu a frase que repetia a definição; ficou o que ela não tem (base legal detalhada, exemplos e números do dado, colunas). Lista abaixo |
+| §3: tabela "Ligação com as métricas" (pergunta, métrica, regra) | uma frase com as métricas | as regras de cada métrica são as definições de abertura, encerramento e sobrevivência, logo acima |
+| §3: nota "Empresa × estabelecimento no ciclo de vida" | "filtre `eh_matriz`" em [Situação cadastral](../conceitos.md#situação-cadastral) | o resto ("situação da empresa = a da matriz", "empresa ATIVA com filiais baixadas") está na definição de situação cadastral |
+| §4 Ontologia (107 linhas) | [referencia/ontologia/README.md](../referencia/ontologia/README.md) | movida inteira; em `conceitos.md` ficou um parágrafo com o link |
+| §5 Glossário (tabela de 23 termos) | índice gerado, termo → definição | ver a linha A5 acima |
+| §6 Perguntas frequentes (129 linhas) | [camada-semantica.md, §5](../referencia/camada-semantica.md#perguntas-frequentes) | movida inteira |
+| §7 Fontes | §6 Fontes | só a numeração |
+
+**O que saiu de cada complemento por repetir a definição** (e onde o fato está agora: sempre na definição do
+mesmo conceito, salvo indicação):
+
+- **Empresa × estabelecimento:** as definições de empresa e de estabelecimento em lista, a frase "uma empresa tem
+  um ou mais estabelecimentos" e a divisão dos atributos. Ficou a definição legal completa (citação da IN), o art. 4º,
+  a fato e as métricas, e os números das fixtures.
+- **Matriz × filial:** "vale 1 (matriz) ou 2 (filial)", "a baixa da matriz implica a baixa de todas as filiais
+  [art. 24, § 2º]" e "todo básico tem matriz". Ficaram as colunas, a leitura dos arts. 4º e 9º, o art. 21 e os números
+  de 2026-09.
+- **Natureza jurídica:** "é a forma jurídica… cinco grupos", "o código 2135" e "para achar MEI, use `opcao_mei`".
+  Ficaram a tabela de exemplos, o ente federativo, o MEI na lei (art. 966 do CC, art. 18-A, § 1º) e os números do
+  dado real.
+- **Capital social:** "é o capital da empresa, repetido em cada estabelecimento; some só nas matrizes". Ficaram a
+  coluna e as métricas.
+- **Porte:** a coluna "limite de receita" da tabela (R$ 360 mil e R$ 4,8 milhões, art. 3º), "o porte é declarado",
+  "os dados abertos não trazem a receita", "MEI não é porte" e "não informado de dois jeitos". Ficaram os códigos, os
+  incisos I e II do art. 3º, a Lei 8.934, a redação da LC 155 e o rótulo do seed; entrou "MICRO, PEQUENA e DEMAIS
+  estão em `rotulo_porte`" (RD-10).
+- **Simples Nacional e MEI:** "a opção é anual", "a flag é a situação no extrato", "sem registro vira `false`", o
+  art. 12, o art. 18-A sem parágrafo, "receita até R$ 81.000,00", "um único estabelecimento", "no máximo um empregado
+  [art. 18-C]", "todo MEI é optante pelo Simples; o contrário não vale" e o "filiais fazem a contagem passar do
+  número de empresas". Ficaram o nome legal do regime, os arts. 16, 88 e 18-E, a CGSN 140/190/194, o ano anterior, o
+  ano de abertura (R$ 6.750,00), o transportador (R$ 251.600,00), as 3.749 filiais, o PLP 186/2026 e as colunas. A
+  citação do "um empregado" passou ao art. 18-C na definição (RD-10).
+- **Situação cadastral:** "está numa de cinco situações [art. 9º]", a fonte "art. 9º" da linha ATIVA, o bullet
+  "ativa não quer dizer em operação" (é a definição `ativa_em_operacao`) e "a inaptidão chega em lotes" (definição
+  `baixa_inaptidao`). Ficaram a tabela das situações, o "pode" dos arts. 31 e 38, o ADE (art. 39), o motivo, a data
+  da situação e a ressalva R3-19.
+- **CNAE principal e secundárias:** "mantida pela CONCLA, versão 2.3, cinco níveis", "um principal e zero ou mais
+  secundários", "como `4741500`" e "secundária não entra em `cnae__codigo_subclasse = '4741500'`". Ficaram a tabela
+  do exemplo, as colunas, `dim_cnae` e a ponte.
+- **Município:** "código da tabela da RFB, 4 dígitos, não é o IBGE" e "sem par, membro `-1`". Ficaram o nome do campo
+  no leiaute, a conversão `codigo_rfb` → `id_municipio_ibge`, a RN-19 e o seed de exceções.
+- **CEMPRE:** "reúne empresas e organizações formais ativas", "os MEI ficam de fora", "o projeto não imputa, o valor
+  fica NULL e somar subestima" e "31/12, hoje 2024". Ficaram os critérios de entrada desde 2022, os 71,6 %, a
+  comparação em colunas, os números de 2026-09, o `X` e `tem_sigilo`.
+- **REGIC:** os cinco níveis por extenso, "os 67 municípios não têm polo" e "45 % em Serra quer dizer 45 % de quem
+  compra fora". Ficaram os subníveis, o método do questionário, a Q2, "Outros" e o empate, "não diz quanto fica no
+  município", a ponte e a malha.
+- **Renda per capita:** a definição inteira (SIDRA 10295, nominal, média × mediana). Ficaram o exemplo de Vitória, os
+  5.570 municípios e o tratamento do `...`.
+- **Valor adicionado:** a definição inteira ("somam 100", PIB até 2023, VA até 2021). Ficaram as colunas e o exemplo
+  de VA negativo.
+- **§3:** "comparando dois extratos se vê a variação líquida", "um inativo reativado deixa de contar como
+  encerramento", a regra de cada métrica e a definição de sobrevivência na tabela. Ficaram as transições
+  intermediárias, as métricas da variação, o CNPJ que some do extrato, o notebook 2.2 e os lotes de inaptidão.
+
+Nada subiu da prosa para os doc blocks além da citação do art. 18-C no MEI: os fatos centrais de cada complemento
+já estavam na definição.
 
 ## Conteúdo descartado
 

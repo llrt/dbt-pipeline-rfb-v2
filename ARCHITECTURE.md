@@ -247,7 +247,7 @@ papel de cada camada.
 | Golden queries ([ADR-0023](docs/adr/0023-golden-queries-e-guia-para-agente.md)) | `transform/analyses/golden/gq_<camada>__<conceito>__<nn>.sql` e `docs/referencia/golden_queries/semantica.yml` | uma consulta testada por conceito × camada, com a resposta exata nas fixtures; `make golden` gera o catálogo para o [agente de consulta](docs/uso/consulta-agente.md) |
 
 As definições curtas dos conceitos de negócio usadas nas descrições dos modelos são doc blocks do dbt
-(`transform/models/docs/conceitos.md`), as mesmas de [docs/conceitos.md](docs/conceitos.md#definições).
+(`transform/models/docs/conceitos.md`), as mesmas que abrem cada conceito em [docs/conceitos.md](docs/conceitos.md).
 
 ### 5.4 Seeds
 

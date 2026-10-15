@@ -211,7 +211,7 @@
         {
           "id": "mei",
           "titulo": "MEI",
-          "texto": "**MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o\nSIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo\num empregado. Todo MEI é optante pelo Simples; o contrário não vale.\n\nMEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI,\npor isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI."
+          "texto": "**MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o\nSIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo\num empregado (art. 18-C). Todo MEI é optante pelo Simples; o contrário não vale.\n\nMEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI,\npor isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI."
         }
       ],
       "sem_query": {
@@ -7167,7 +7167,7 @@
       "grao": null,
       "relacao": "fct_estabelecimentos",
       "coluna": "opcao_mei",
-      "descricao": "Optante pelo MEI na empresa (false quando não há registro). **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado. Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI."
+      "descricao": "Optante pelo MEI na empresa (false quando não há registro). **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado (art. 18-C). Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI."
     },
     {
       "nome": "estabelecimento__opcao_simples",
@@ -8608,7 +8608,7 @@
       "nome": "main.stg_rfb__simples",
       "camada": "staging",
       "grao": "empresa (`cnpj_raiz`) do mês selecionado",
-      "descricao": "Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opcao_simples` e `opcao_mei` viram booleanos (`S`/`N`); datas `00000000` viram NULL. **Simples Nacional** é o regime unificado de arrecadação de tributos das microempresas e empresas de pequeno porte (LC 123/2006, art. 12). A opção é anual e o arquivo Simples da RFB traz, por CNPJ básico, a opção e as datas de opção e de exclusão. No projeto, a flag é a situação **no extrato** do mês; empresa sem registro no arquivo Simples vira falso. **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado. Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI.",
+      "descricao": "Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opcao_simples` e `opcao_mei` viram booleanos (`S`/`N`); datas `00000000` viram NULL. **Simples Nacional** é o regime unificado de arrecadação de tributos das microempresas e empresas de pequeno porte (LC 123/2006, art. 12). A opção é anual e o arquivo Simples da RFB traz, por CNPJ básico, a opção e as datas de opção e de exclusão. No projeto, a flag é a situação **no extrato** do mês; empresa sem registro no arquivo Simples vira falso. **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado (art. 18-C). Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI.",
       "colunas": [
         {
           "nome": "cnpj_raiz",
@@ -9861,7 +9861,7 @@
         {
           "nome": "opcao_mei",
           "tipo": "BOOLEAN",
-          "descricao": "Optante pelo MEI na empresa (false quando não há registro). **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado. Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI.",
+          "descricao": "Optante pelo MEI na empresa (false quando não há registro). **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo um empregado (art. 18-C). Todo MEI é optante pelo Simples; o contrário não vale. MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI, por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI.",
           "proibida_na_saida": false
         },
         {

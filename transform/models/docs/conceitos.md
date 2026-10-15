@@ -1,12 +1,14 @@
 {#
   Definições canônicas curtas dos conceitos de negócio (v1.5.0). Fonte única do texto curto:
   - os YAMLs dos modelos usam `{{ doc('<conceito>') }}` na descrição (dbt docs e dicionário de dados);
-  - `scripts/gerar_conceitos.py` copia cada bloco para a seção "Definições" de docs/conceitos.md;
+  - `scripts/gerar_conceitos.py` copia cada bloco para o lugar do conceito em docs/conceitos.md (entre
+    `<!-- definição: <nome> ... -->` e `<!-- fim da definição: <nome> -->`) e monta o índice de termos;
   - `scripts/gerar_catalogo_golden.py` embute os blocos no catálogo das golden queries (`conceitos[].definicoes`),
     ligados aos conceitos de docs/referencia/golden_queries/matriz.yml.
   Depois de editar: `make conceitos` e `make golden`. Cada bloco: 1 a 3 parágrafos, sem lista nem tabela (o
   dicionário junta a descrição numa linha só). A primeira linha do bloco é o título, num comentário Jinja.
-  A narrativa longa, com as fontes legais, fica em docs/conceitos.md.
+  O complemento escrito à mão em docs/conceitos.md (fontes, exemplos, cuidados) não repete os valores do bloco:
+  um fato central que só esteja lá sobe para cá.
 #}
 
 {% docs empresa %}{# Empresa #}
@@ -108,7 +110,7 @@ No projeto, a flag é a situação **no extrato** do mês; empresa sem registro 
 {% docs mei %}{# MEI #}
 **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais, o
 SIMEI (LC 123/2006, art. 18-A): receita bruta anual de até R$ 81 mil em 2026, um único estabelecimento e no máximo
-um empregado. Todo MEI é optante pelo Simples; o contrário não vale.
+um empregado (art. 18-C). Todo MEI é optante pelo Simples; o contrário não vale.
 
 MEI não é porte nem natureza jurídica: identifique-o pela opção pelo MEI. O dado real tem filiais de empresas MEI,
 por isso a contagem de MEI ativos (por estabelecimento) pode passar um pouco do número de empresas MEI.
