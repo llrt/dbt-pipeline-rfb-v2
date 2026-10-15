@@ -480,7 +480,7 @@ Aplicadas no documento, testadas e revertidas com `git checkout`.
 | M3 | §3: `conceitos[].definicoes` → `conceitos[].definicao` | morta: `assert ['conceitos[].definicao'] == []` |
 | M4 | §3: `proibida_na_saida` → `proibido` | morta: `assert ['proibido'] == []` |
 | M5 | §5: `buscar_golden` devolve `chaves` | morta: `assert ['chaves'] == []` |
-| M6 | tamanhos: `124.672` → `9.999` | morta: `rode \`make golden\`` (bloco de tamanhos) |
+| M6 | tamanhos: `124.672` → `9.999` | morta: o bloco de tamanhos difere do gerado ("rode `make golden`") |
 | F1 | sem `enable_external_access = false` | morta: `DID NOT RAISE` em `read_text` fora da raiz |
 | F2 | `comparar_resposta` sem a regra da meia-noite | morta: 13 golden queries semânticas reprovadas |
 | F3 | `conferir_esquema` sem tirar o `main.` | morta: 48 "relação ausente no banco" nas fixtures |
