@@ -63,7 +63,7 @@ Os nomes de campo abaixo são os do `catalogo.json`; o teste do repositório con
 | `conceito` | metadado de filtro |
 | `camada` | metadado de filtro e de prioridade |
 | `privacidade` | metadado de filtro (`agregado` ou `identifica_estabelecimento`) |
-| `tabelas` | metadado de filtro (camadas SQL; a semântica traz `metricas`) |
+| `tabelas` | metadado de filtro e da falha fechada (seção 6); sem o `main.`; com ponto (`rfb.empresas`) é fonte raw; na semântica, as relações que o `sql` lê |
 | `sql` | **payload** devolvido ao modelo |
 | `armadilhas` | payload |
 | `variacoes` | payload |
@@ -88,20 +88,28 @@ filtre fora `raw`, `staging` e `intermediate`.
   `proibida_na_saida`). É o maior bloco depois das golden queries. Ofereça-o como a ferramenta `descrever_relacao`
   (seção 5) e deixe só `nome`, `camada` e `grao` no contexto; se couber, o JSON inteiro dispensa a ferramenta.
 
-### Tamanhos medidos (v1.5.0)
+### Tamanhos medidos
 
 Estimativa de tokens = bytes ÷ 4, uma aproximação para texto em português e JSON; meça com o tokenizador do seu
-modelo antes de decidir.
+modelo antes de decidir. O bloco abaixo é gerado pelo `make golden` e conferido no CI: o catálogo inteiro é o arquivo
+como é distribuído; cada bloco, o `json.dumps` compacto (separadores padrão, acentos em UTF-8).
+
+<!-- INÍCIO do bloco gerado dos tamanhos por scripts/gerar_catalogo_golden.py (make golden): não edite à mão -->
+
+Medido na versão 1.5.1 (`versao_projeto` do catálogo).
 
 | Bloco | Bytes | Tokens (est.) |
 |---|---|---|
-| `catalogo.json` inteiro | 491.040 | ~123.000 |
-| `golden_queries` (93) | 212.402 | ~53.000 |
-| `relacoes` (48) | 124.672 | ~31.000 |
+| `catalogo.json` inteiro (o arquivo) | 492.746 | ~123.200 |
+| `golden_queries` (93) | 213.471 | ~53.400 |
+| `relacoes` (48) | 124.672 | ~31.200 |
 | `dimensoes` (50) | 16.586 | ~4.100 |
 | `metricas` (29) | 13.536 | ~3.400 |
 | `conceitos` (23) | 26.974 | ~6.700 |
-| Guia `consulta-agente.md` (828 linhas) | 113.740 | ~28.000 |
+| Guia `consulta-agente.md` (848 linhas) | 114.684 | ~28.700 |
+| Guia, seções 11 e 12 (316 linhas) | 72.348 | ~18.100 |
+
+<!-- FIM do bloco gerado dos tamanhos -->
 
 O catálogo inteiro não cabe com folga num prompt e custa caro a cada pergunta: use o RAG. O guia cabe.
 
@@ -112,9 +120,9 @@ O SQL Jinja do dbt (`transform/`; o `arquivo` de cada golden query aponta para e
 
 ## 4. Prompt de sistema
 
-**Entra:** o guia inteiro, `consulta-agente.md` (828 linhas, ~28 mil tokens estimados), mais as regras duras abaixo,
+**Entra:** o guia inteiro, `consulta-agente.md` (linhas e tokens estimados na seção 3), mais as regras duras abaixo,
 repetidas no fim porque são as que não podem falhar. **Fica fora:** o catálogo, que chega pelo RAG a cada pergunta.
-Se precisar economizar, as seções 11 e 12 do guia (o índice e o esquema, cerca de 315 linhas) repetem o catálogo e
+Se precisar economizar, as seções 11 e 12 do guia (o índice e o esquema, tamanho na seção 3) repetem o catálogo e
 são as candidatas a sair, desde que `buscar_golden` e `descrever_relacao` cubram o mesmo conteúdo.
 
 Modelo, com os blocos (preencha `<…>`; **não copie o guia aqui, ele vai no bloco 3**):
@@ -201,7 +209,7 @@ As golden queries são um **conjunto de avaliação pronto**. Construa o banco d
 - **Opus** vale para o que exige raciocínio: pergunta ambígua que pede esclarecimento, SQL novo fora das golden
   queries (grão, joins, ponte com `distinct`), cruzamentos entre fontes de anos diferentes.
 - Meça os dois no conjunto da seção 7 e decida pela diferença no acerto exato e nas violações, não por impressão.
-- **Custo.** O prompt fixo é o guia (~28 mil tokens estimados, seção 3) mais as k golden queries recuperadas; é o que
+- **Custo.** O prompt fixo é o guia (tokens estimados na seção 3) mais as k golden queries recuperadas; é o que
   se repete em toda pergunta. Use cache de prompt para o guia. O preço por token é do provedor e muda: calcule com a
   tabela vigente dele, não com números deste documento.
 
