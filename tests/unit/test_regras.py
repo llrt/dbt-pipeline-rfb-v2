@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
 
 from rfb_pipeline import regras
-from rfb_pipeline.caminhos import CATALOGO_REGRAS
+from rfb_pipeline.caminhos import CATALOGO_REGRAS, RELATORIO_REGRAS_NEGOCIO
 from rfb_pipeline.regras import (
     SEM_INTERPRETACAO,
     Interpretacao,
@@ -229,6 +230,24 @@ def test_renderizar_resumo_e_quebras() -> None:
         "_Sem interpretação manual (escreva abaixo do comentário acima)._"
     )
     assert renderizar(CATALOGO, _linhas(), "2026-09", "2026-09-12") == texto  # determinístico
+
+
+def test_links_do_relatorio_gerado_resolvem_para_arquivo_e_ancora(tmp_path: Path) -> None:
+    """Greptile PR #9: o "Como ler" por regra apontava para o próprio relatório."""
+    sys.path.insert(0, str(RAIZ / "scripts"))
+    import verificar_links_docs as v
+
+    catalogo = ler_catalogo()
+    linhas = {rid: [Linha((("situacao", "ATIVA"),), 10, 1)] for rid in catalogo}
+    texto = renderizar(catalogo, linhas, "2026-09", "2026-09-12")
+    # o arquivo gerado no CI fica fora de docs/; os links são relativos à pasta do relatório
+    gerado = RELATORIO_REGRAS_NEGOCIO.with_name("_gerado-no-teste.md")
+    gerado.write_text(texto, encoding="utf-8")
+    try:
+        assert v.links(texto)
+        assert v.verificar_arquivo(gerado) == []
+    finally:
+        gerado.unlink()
 
 
 def test_renderizar_singular_e_universo_vazio() -> None:
