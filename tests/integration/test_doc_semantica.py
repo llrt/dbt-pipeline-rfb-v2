@@ -1,7 +1,7 @@
 """RSEM-10: a parte estática de `scripts/verificar_doc_semantica.py` roda no `make ci`.
 
-Confere `docs/CAMADA_SEMANTICA.md` contra os manifestos do `dbt parse`: todo identificador entre
-crases existe no projeto, e todo link e âncora resolve. Os exemplos `mf` só rodam com
+Confere `referencia/camada-semantica.md` contra os manifestos do `dbt parse`: todo identificador
+entre crases existe no projeto, e todo link e âncora resolve. Os exemplos `mf` só rodam com
 `--executar-exemplos` (fora do CI); os números citados na doc são conferidos em
 `test_camada_semantica.py::test_numeros_citados_na_doc_batem_com_as_fixtures`.
 """

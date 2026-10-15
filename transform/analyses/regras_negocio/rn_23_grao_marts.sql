@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-23 (docs/REGRAS_NEGOCIO.md): grãos declarados e sem teste (RDIC-09) nos marts do gold. Por
+-- RN-23 (docs/referencia/regras-negocio.md): grãos declarados e sem teste (RDIC-09) nos marts do gold. Por
 -- tabela: avaliados = linhas; violações = linhas excedentes (linhas − combinações distintas do grão).
 with agg_empresas as (
   select

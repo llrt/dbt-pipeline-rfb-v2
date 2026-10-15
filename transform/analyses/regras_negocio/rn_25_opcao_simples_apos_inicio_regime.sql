@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-25 (docs/REGRAS_NEGOCIO.md): a opção pelo Simples Nacional não é anterior a 1º/7/2007, quando
+-- RN-25 (docs/referencia/regras-negocio.md): a opção pelo Simples Nacional não é anterior a 1º/7/2007, quando
 -- o regime entrou em vigor (LC 123, art. 88). Universo: registros do arquivo Simples com data de
 -- opção pelo Simples.
 select

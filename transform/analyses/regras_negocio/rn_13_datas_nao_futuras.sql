@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-13 (docs/REGRAS_NEGOCIO.md): nenhuma data de evento passado passa do limite do extrato
+-- RN-13 (docs/referencia/regras-negocio.md): nenhuma data de evento passado passa do limite do extrato
 -- (ADR-0004). Limites (RRN-02): o dia seguinte à data de referência (o corte do extrato inclui esse
 -- dia) e, para a opção pelo Simples ou pelo MEI, 1º de janeiro do ano seguinte, a data de efeito da
 -- opção feita no ano anterior (CGSN 190 e 194/2026). As datas de exclusão ficam de fora: podem ter efeito futuro (R3-11). Universo:

@@ -426,7 +426,7 @@ DOC = CAMADA_SEMANTICA
 
 
 def test_numeros_citados_na_doc_batem_com_as_fixtures(tmp_path: Path) -> None:
-    """RSEM-10: os números que ficam na prosa de `docs/CAMADA_SEMANTICA.md` vêm das fixtures. Se
+    """RSEM-10: os números que ficam na prosa de `camada-semantica.md` vêm das fixtures. Se
     a fixture mudar, este teste aponta a frase a recalibrar; os outros exemplos remetem à saída."""
     doc = " ".join(DOC.read_text(encoding="utf-8").split())
     por_mes = {

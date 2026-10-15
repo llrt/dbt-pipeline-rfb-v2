@@ -1,8 +1,8 @@
 # Plano do projeto, equipe e roteamento de modelos
 
 > Líder/gerente: agente Traycer "Migração dbt DuckDB MVP" (Claude Opus 5.5, esforço alto).
-> Regras de seleção: `~/.traycer/agent-selection-guide.md` · Decisão de processo: [ADR-0011](adr/0011-processo-equipe-agentes.md).
-> Tarefas detalhadas: [.specs/features/rfb-dbt-port/tasks.md](../.specs/features/rfb-dbt-port/tasks.md).
+> Regras de seleção: `~/.traycer/agent-selection-guide.md` · Decisão de processo: [ADR-0011](../adr/0011-processo-equipe-agentes.md).
+> Tarefas detalhadas: [.specs/features/rfb-dbt-port/tasks.md](../../.specs/features/rfb-dbt-port/tasks.md).
 
 ## Analogia com um time de software
 

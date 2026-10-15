@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-14 (docs/REGRAS_NEGOCIO.md): a baixa da matriz implica a baixa de todas as filiais (IN RFB
+-- RN-14 (docs/referencia/regras-negocio.md): a baixa da matriz implica a baixa de todas as filiais (IN RFB
 -- 2.119, art. 24, § 2º). Universo: filiais cuja empresa tem matriz BAIXADA, pela situação da filial.
 -- Viola a filial que não está BAIXADA nem NULA (RRN-03): a nulidade vale desde o ato declarado nulo
 -- (IN 2.119, art. 34, parágrafo único), e a filial NULA aparece na quebra sem violação.

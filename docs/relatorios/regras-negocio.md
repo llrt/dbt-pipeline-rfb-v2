@@ -1,6 +1,6 @@
 # Relatório das regras de negócio — 2026-09
 
-> Mês de referência **2026-09** (extrato de 2026-09-12). Gerado por `rfb regras` a partir das analyses `transform/analyses/regras_negocio/` e do catálogo [`docs/REGRAS_NEGOCIO.md`](REGRAS_NEGOCIO.md); não edite à mão acima da seção "Interpretação". Só contagens: nenhum CNPJ, nome ou CPF ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)). Inconsistências não falham o comando nem o build ([ADR-0020](adr/0020-regras-de-negocio.md)).
+> Mês de referência **2026-09** (extrato de 2026-09-12). Gerado por `rfb regras` a partir das analyses `transform/analyses/regras_negocio/` e do catálogo [`docs/referencia/regras-negocio.md`](../referencia/regras-negocio.md); não edite à mão acima da seção "Interpretação". Só contagens: nenhum CNPJ, nome ou CPF ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)). Inconsistências não falham o comando nem o build ([ADR-0020](../adr/0020-regras-de-negocio.md)).
 
 ## Resumo
 
@@ -8,42 +8,42 @@
 
 | Regra | Enunciado | Tipo | Avaliados | Violações | % |
 |---|---|---|---:|---:|---:|
-| [RN-01](REGRAS_NEGOCIO.md#rn-01) | Estabelecimento tem CNAE principal do domínio | leiaute/cadastro | 73.366.147 | 0 | 0 % |
-| [RN-02](REGRAS_NEGOCIO.md#rn-02) | CNAEs secundários são do domínio | leiaute/cadastro | 125.425.117 | 0 | 0 % |
-| [RN-03](REGRAS_NEGOCIO.md#rn-03) | CNAE secundário não repete o principal | coerência do projeto | 125.425.117 | 3.310 | < 0,01 % |
-| [RN-04](REGRAS_NEGOCIO.md#rn-04) | CNAEs secundários não se repetem | coerência do projeto | 34.670.077 | 3.488 | 0,01 % |
-| [RN-05](REGRAS_NEGOCIO.md#rn-05) | MEI tem um único estabelecimento não baixado | legal | 17.523.665 | 33 | < 0,01 % |
-| [RN-06](REGRAS_NEGOCIO.md#rn-06) | MEI é optante do Simples Nacional | legal | 17.523.665 | 469 | < 0,01 % |
-| [RN-07](REGRAS_NEGOCIO.md#rn-07) | MEI tem porte de microempresa | legal | 17.523.665 | 110 | < 0,01 % |
-| [RN-08](REGRAS_NEGOCIO.md#rn-08) | MEI tem natureza 213-5 (observação) | coerência do projeto | 17.523.665 | 1.236 | < 0,01 % |
-| [RN-09](REGRAS_NEGOCIO.md#rn-09) | Exclusão do regime não antecede a opção | coerência do projeto | 45.280.511 | 6 | < 0,01 % |
-| [RN-10](REGRAS_NEGOCIO.md#rn-10) | Motivo coerente com a situação | coerência do projeto | 73.366.147 | 1 | < 0,01 % |
-| [RN-11](REGRAS_NEGOCIO.md#rn-11) | Não ativo tem data da situação | coerência do projeto | 45.103.026 | 0 | 0 % |
-| [RN-12](REGRAS_NEGOCIO.md#rn-12) | Situação não antecede o início de atividade | coerência do projeto | 73.250.497 | 1.058 | < 0,01 % |
-| [RN-13](REGRAS_NEGOCIO.md#rn-13) | Datas de evento não passam do extrato | coerência do projeto | 234.136.725 | 0 | 0 % |
-| [RN-14](REGRAS_NEGOCIO.md#rn-14) | Matriz baixada, filiais baixadas ou nulas | legal | 765.465 | 159 | 0,02 % |
-| [RN-15](REGRAS_NEGOCIO.md#rn-15) | Situação especial e data andam juntas | coerência do projeto | 73.366.147 | 0 | 0 % |
-| [RN-16](REGRAS_NEGOCIO.md#rn-16) | Uma matriz por CNPJ básico | estrutural | 70.085.591 | 1 | < 0,01 % |
-| [RN-17](REGRAS_NEGOCIO.md#rn-17) | Dígitos verificadores do CNPJ | legal | 73.366.147 | 0 | 0 % |
-| [RN-18](REGRAS_NEGOCIO.md#rn-18) | Estabelecimento tem empresa | estrutural | 73.366.147 | 0 | 0 % |
-| [RN-19](REGRAS_NEGOCIO.md#rn-19) | Município do domínio da RFB | leiaute/cadastro | 73.366.147 | 0 | 0 % |
-| [RN-20](REGRAS_NEGOCIO.md#rn-20) | Ente federativo só na administração pública | leiaute/cadastro | 70.085.591 | 318 | < 0,01 % |
-| [RN-21](REGRAS_NEGOCIO.md#rn-21) | Capital social não negativo | coerência do projeto | 70.085.591 | 0 | 0 % |
-| [RN-22](REGRAS_NEGOCIO.md#rn-22) | Simples: uma linha por CNPJ básico | estrutural | 50.396.768 | 0 | 0 % |
-| [RN-23](REGRAS_NEGOCIO.md#rn-23) | Grão dos marts | estrutural | 23.620.646 | 0 | 0 % |
-| [RN-24](REGRAS_NEGOCIO.md#rn-24) | Grão das fontes e domínios | estrutural | 526.526 | 19 | < 0,01 % |
-| [RN-25](REGRAS_NEGOCIO.md#rn-25) | Opção pelo Simples a partir de 1º/7/2007 | legal | 50.396.766 | 0 | 0 % |
-| [RN-26](REGRAS_NEGOCIO.md#rn-26) | Opção pelo MEI a partir de 1º/7/2009 | legal | 37.082.800 | 0 | 0 % |
-| [RN-27](REGRAS_NEGOCIO.md#rn-27) | Filial não começa depois do fim da matriz | coerência do projeto | 1.134.226 | 2.427 | 0,21 % |
-| [RN-28](REGRAS_NEGOCIO.md#rn-28) | Opção não antecede o início de atividade (observação) | coerência do projeto | 87.479.562 | 1.751 | < 0,01 % |
-| [RN-29](REGRAS_NEGOCIO.md#rn-29) | MEI não é sociedade | legal | 17.523.665 | 1.236 | < 0,01 % |
-| [RN-30](REGRAS_NEGOCIO.md#rn-30) | CEMPRE e RFB concordam sobre a presença do setor no município (observação) | coerência do projeto | 1.073.268 | 2.101 | 0,20 % |
+| [RN-01](../referencia/regras-negocio.md#rn-01) | Estabelecimento tem CNAE principal do domínio | leiaute/cadastro | 73.366.147 | 0 | 0 % |
+| [RN-02](../referencia/regras-negocio.md#rn-02) | CNAEs secundários são do domínio | leiaute/cadastro | 125.425.117 | 0 | 0 % |
+| [RN-03](../referencia/regras-negocio.md#rn-03) | CNAE secundário não repete o principal | coerência do projeto | 125.425.117 | 3.310 | < 0,01 % |
+| [RN-04](../referencia/regras-negocio.md#rn-04) | CNAEs secundários não se repetem | coerência do projeto | 34.670.077 | 3.488 | 0,01 % |
+| [RN-05](../referencia/regras-negocio.md#rn-05) | MEI tem um único estabelecimento não baixado | legal | 17.523.665 | 33 | < 0,01 % |
+| [RN-06](../referencia/regras-negocio.md#rn-06) | MEI é optante do Simples Nacional | legal | 17.523.665 | 469 | < 0,01 % |
+| [RN-07](../referencia/regras-negocio.md#rn-07) | MEI tem porte de microempresa | legal | 17.523.665 | 110 | < 0,01 % |
+| [RN-08](../referencia/regras-negocio.md#rn-08) | MEI tem natureza 213-5 (observação) | coerência do projeto | 17.523.665 | 1.236 | < 0,01 % |
+| [RN-09](../referencia/regras-negocio.md#rn-09) | Exclusão do regime não antecede a opção | coerência do projeto | 45.280.511 | 6 | < 0,01 % |
+| [RN-10](../referencia/regras-negocio.md#rn-10) | Motivo coerente com a situação | coerência do projeto | 73.366.147 | 1 | < 0,01 % |
+| [RN-11](../referencia/regras-negocio.md#rn-11) | Não ativo tem data da situação | coerência do projeto | 45.103.026 | 0 | 0 % |
+| [RN-12](../referencia/regras-negocio.md#rn-12) | Situação não antecede o início de atividade | coerência do projeto | 73.250.497 | 1.058 | < 0,01 % |
+| [RN-13](../referencia/regras-negocio.md#rn-13) | Datas de evento não passam do extrato | coerência do projeto | 234.136.725 | 0 | 0 % |
+| [RN-14](../referencia/regras-negocio.md#rn-14) | Matriz baixada, filiais baixadas ou nulas | legal | 765.465 | 159 | 0,02 % |
+| [RN-15](../referencia/regras-negocio.md#rn-15) | Situação especial e data andam juntas | coerência do projeto | 73.366.147 | 0 | 0 % |
+| [RN-16](../referencia/regras-negocio.md#rn-16) | Uma matriz por CNPJ básico | estrutural | 70.085.591 | 1 | < 0,01 % |
+| [RN-17](../referencia/regras-negocio.md#rn-17) | Dígitos verificadores do CNPJ | legal | 73.366.147 | 0 | 0 % |
+| [RN-18](../referencia/regras-negocio.md#rn-18) | Estabelecimento tem empresa | estrutural | 73.366.147 | 0 | 0 % |
+| [RN-19](../referencia/regras-negocio.md#rn-19) | Município do domínio da RFB | leiaute/cadastro | 73.366.147 | 0 | 0 % |
+| [RN-20](../referencia/regras-negocio.md#rn-20) | Ente federativo só na administração pública | leiaute/cadastro | 70.085.591 | 318 | < 0,01 % |
+| [RN-21](../referencia/regras-negocio.md#rn-21) | Capital social não negativo | coerência do projeto | 70.085.591 | 0 | 0 % |
+| [RN-22](../referencia/regras-negocio.md#rn-22) | Simples: uma linha por CNPJ básico | estrutural | 50.396.768 | 0 | 0 % |
+| [RN-23](../referencia/regras-negocio.md#rn-23) | Grão dos marts | estrutural | 23.620.646 | 0 | 0 % |
+| [RN-24](../referencia/regras-negocio.md#rn-24) | Grão das fontes e domínios | estrutural | 526.526 | 19 | < 0,01 % |
+| [RN-25](../referencia/regras-negocio.md#rn-25) | Opção pelo Simples a partir de 1º/7/2007 | legal | 50.396.766 | 0 | 0 % |
+| [RN-26](../referencia/regras-negocio.md#rn-26) | Opção pelo MEI a partir de 1º/7/2009 | legal | 37.082.800 | 0 | 0 % |
+| [RN-27](../referencia/regras-negocio.md#rn-27) | Filial não começa depois do fim da matriz | coerência do projeto | 1.134.226 | 2.427 | 0,21 % |
+| [RN-28](../referencia/regras-negocio.md#rn-28) | Opção não antecede o início de atividade (observação) | coerência do projeto | 87.479.562 | 1.751 | < 0,01 % |
+| [RN-29](../referencia/regras-negocio.md#rn-29) | MEI não é sociedade | legal | 17.523.665 | 1.236 | < 0,01 % |
+| [RN-30](../referencia/regras-negocio.md#rn-30) | CEMPRE e RFB concordam sobre a presença do setor no município (observação) | coerência do projeto | 1.073.268 | 2.101 | 0,20 % |
 
 ## Regras com violação
 
 ### RN-03 — CNAE secundário não repete o principal
 
-**3.310** violações em **125.425.117** avaliados (< 0,01 %). Como ler: [catálogo, RN-03](REGRAS_NEGOCIO.md#rn-03).
+**3.310** violações em **125.425.117** avaliados (< 0,01 %). Como ler: [catálogo, RN-03](../referencia/regras-negocio.md#rn-03).
 
 | situacao | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -55,7 +55,7 @@
 
 ### RN-04 — CNAEs secundários não se repetem
 
-**3.488** violações em **34.670.077** avaliados (0,01 %). Como ler: [catálogo, RN-04](REGRAS_NEGOCIO.md#rn-04).
+**3.488** violações em **34.670.077** avaliados (0,01 %). Como ler: [catálogo, RN-04](../referencia/regras-negocio.md#rn-04).
 
 | situacao | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -67,7 +67,7 @@
 
 ### RN-05 — MEI tem um único estabelecimento não baixado
 
-**33** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-05](REGRAS_NEGOCIO.md#rn-05).
+**33** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-05](../referencia/regras-negocio.md#rn-05).
 
 | estabelecimentos | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -77,11 +77,11 @@
 
 ### RN-06 — MEI é optante do Simples Nacional
 
-**469** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-06](REGRAS_NEGOCIO.md#rn-06).
+**469** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-06](../referencia/regras-negocio.md#rn-06).
 
 ### RN-07 — MEI tem porte de microempresa
 
-**110** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-07](REGRAS_NEGOCIO.md#rn-07).
+**110** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-07](../referencia/regras-negocio.md#rn-07).
 
 | porte | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -91,7 +91,7 @@
 
 ### RN-08 — MEI tem natureza 213-5 (observação)
 
-**1.236** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-08](REGRAS_NEGOCIO.md#rn-08).
+**1.236** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-08](../referencia/regras-negocio.md#rn-08).
 
 | natureza_juridica | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -101,7 +101,7 @@
 
 ### RN-09 — Exclusão do regime não antecede a opção
 
-**6** violações em **45.280.511** avaliados (< 0,01 %). Como ler: [catálogo, RN-09](REGRAS_NEGOCIO.md#rn-09).
+**6** violações em **45.280.511** avaliados (< 0,01 %). Como ler: [catálogo, RN-09](../referencia/regras-negocio.md#rn-09).
 
 | regime | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -110,7 +110,7 @@
 
 ### RN-10 — Motivo coerente com a situação
 
-**1** violação em **73.366.147** avaliados (< 0,01 %). Como ler: [catálogo, RN-10](REGRAS_NEGOCIO.md#rn-10).
+**1** violação em **73.366.147** avaliados (< 0,01 %). Como ler: [catálogo, RN-10](../referencia/regras-negocio.md#rn-10).
 
 | situacao | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -122,7 +122,7 @@
 
 ### RN-12 — Situação não antecede o início de atividade
 
-**1.058** violações em **73.250.497** avaliados (< 0,01 %). Como ler: [catálogo, RN-12](REGRAS_NEGOCIO.md#rn-12).
+**1.058** violações em **73.250.497** avaliados (< 0,01 %). Como ler: [catálogo, RN-12](../referencia/regras-negocio.md#rn-12).
 
 | situacao | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -134,7 +134,7 @@
 
 ### RN-14 — Matriz baixada, filiais baixadas ou nulas
 
-**159** violações em **765.465** avaliados (0,02 %). Como ler: [catálogo, RN-14](REGRAS_NEGOCIO.md#rn-14).
+**159** violações em **765.465** avaliados (0,02 %). Como ler: [catálogo, RN-14](../referencia/regras-negocio.md#rn-14).
 
 | situacao | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -146,7 +146,7 @@
 
 ### RN-16 — Uma matriz por CNPJ básico
 
-**1** violação em **70.085.591** avaliados (< 0,01 %). Como ler: [catálogo, RN-16](REGRAS_NEGOCIO.md#rn-16).
+**1** violação em **70.085.591** avaliados (< 0,01 %). Como ler: [catálogo, RN-16](../referencia/regras-negocio.md#rn-16).
 
 | matrizes | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -155,7 +155,7 @@
 
 ### RN-20 — Ente federativo só na administração pública
 
-**318** violações em **70.085.591** avaliados (< 0,01 %). Como ler: [catálogo, RN-20](REGRAS_NEGOCIO.md#rn-20).
+**318** violações em **70.085.591** avaliados (< 0,01 %). Como ler: [catálogo, RN-20](../referencia/regras-negocio.md#rn-20).
 
 | grupo_natureza | natureza_juridica | Avaliados | Violações | % |
 |---|---|---:|---:|---:|
@@ -184,7 +184,7 @@ _Mostrando 20 de 90 linhas._
 
 ### RN-24 — Grão das fontes e domínios
 
-**19** violações em **526.526** avaliados (< 0,01 %). Como ler: [catálogo, RN-24](REGRAS_NEGOCIO.md#rn-24).
+**19** violações em **526.526** avaliados (< 0,01 %). Como ler: [catálogo, RN-24](../referencia/regras-negocio.md#rn-24).
 
 | tabela | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -198,7 +198,7 @@ _Mostrando 20 de 90 linhas._
 
 ### RN-27 — Filial não começa depois do fim da matriz
 
-**2.427** violações em **1.134.226** avaliados (0,21 %). Como ler: [catálogo, RN-27](REGRAS_NEGOCIO.md#rn-27).
+**2.427** violações em **1.134.226** avaliados (0,21 %). Como ler: [catálogo, RN-27](../referencia/regras-negocio.md#rn-27).
 
 | situacao_matriz | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -208,7 +208,7 @@ _Mostrando 20 de 90 linhas._
 
 ### RN-28 — Opção não antecede o início de atividade (observação)
 
-**1.751** violações em **87.479.562** avaliados (< 0,01 %). Como ler: [catálogo, RN-28](REGRAS_NEGOCIO.md#rn-28).
+**1.751** violações em **87.479.562** avaliados (< 0,01 %). Como ler: [catálogo, RN-28](../referencia/regras-negocio.md#rn-28).
 
 | regime | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -217,7 +217,7 @@ _Mostrando 20 de 90 linhas._
 
 ### RN-29 — MEI não é sociedade
 
-**1.236** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-29](REGRAS_NEGOCIO.md#rn-29).
+**1.236** violações em **17.523.665** avaliados (< 0,01 %). Como ler: [catálogo, RN-29](../referencia/regras-negocio.md#rn-29).
 
 | natureza_juridica | Avaliados | Violações | % |
 |---|---:|---:|---:|
@@ -227,7 +227,7 @@ _Mostrando 20 de 90 linhas._
 
 ### RN-30 — CEMPRE e RFB concordam sobre a presença do setor no município (observação)
 
-**2.101** violações em **1.073.268** avaliados (0,20 %). Como ler: [catálogo, RN-30](REGRAS_NEGOCIO.md#rn-30).
+**2.101** violações em **1.073.268** avaliados (0,20 %). Como ler: [catálogo, RN-30](../referencia/regras-negocio.md#rn-30).
 
 | uf | faixa | Avaliados | Violações | % |
 |---|---|---:|---:|---:|
@@ -260,7 +260,7 @@ Regras sem violação com a quebra `faixa`: casos que a regra aceita e que vale 
 
 ### RN-13 — Datas de evento não passam do extrato
 
-**0** violações em **234.136.725** avaliados (0 %). Como ler: [catálogo, RN-13](REGRAS_NEGOCIO.md#rn-13).
+**0** violações em **234.136.725** avaliados (0 %). Como ler: [catálogo, RN-13](../referencia/regras-negocio.md#rn-13).
 
 | campo | faixa | Avaliados | Violações | % |
 |---|---|---:|---:|---:|
@@ -284,7 +284,7 @@ pelo MEI). Os números vêm da execução de `rfb regras` sobre uma cópia do wa
 reexecutado no lote FRN2 com a RN-05 e a RN-24 revistas, sem mudança nas tabelas acima); os de RN-06 e RN-09 e as
 contagens de situação nula e de meses das fontes RFB, que não estão nas tabelas acima, vêm de consultas somente
 leitura na mesma cópia. As causas são
-as leituras prováveis do [catálogo](REGRAS_NEGOCIO.md) e não foram verificadas registro a registro. Nenhuma
+as leituras prováveis do [catálogo](../referencia/regras-negocio.md) e não foram verificadas registro a registro. Nenhuma
 violação passa de 0,5 % do universo da regra.
 
 **Regras que valem no dado real.** Treze regras não têm violação: CNAE principal e secundários no domínio (RN-01,

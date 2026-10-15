@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-03 (docs/REGRAS_NEGOCIO.md): nenhum CNAE secundário repete o CNAE fiscal principal do mesmo
+-- RN-03 (docs/referencia/regras-negocio.md): nenhum CNAE secundário repete o CNAE fiscal principal do mesmo
 -- estabelecimento. O universo são as ocorrências de CNAE secundário.
 with base as (
   select

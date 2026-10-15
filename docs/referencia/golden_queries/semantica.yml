@@ -406,7 +406,7 @@ golden_queries:
     intencao: "Consulta salva `estudo_caso_fundao_tintas`: estabelecimentos, ativos e idade média de lojas de tintas em Fundão/ES por mês e porte."
     saved_query: estudo_caso_fundao_tintas
     armadilhas:
-      - "Sem densidade por habitante: população não é métrica (CAMADA_SEMANTICA.md, B7); use mart_concorrencia_municipio."
+      - "Sem densidade por habitante: população não é métrica (camada-semantica.md, B7); use mart_concorrencia_municipio."
     variacoes:
       - "Outro caso: `--metrics qtd_estabelecimentos,qtd_ativos,idade_media_anos --group-by metric_time__month,porte__rotulo_porte --where ...`."
     resposta_esperada_fixtures:

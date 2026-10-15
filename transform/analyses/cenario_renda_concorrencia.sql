@@ -3,7 +3,7 @@
     meta={'escopo': 'adicao', 'incremento': 'enriquecimento_ibge'}
 ) }}
 
--- Cenário 1 (docs/CENARIOS_DE_USO.md), incremento enriquecimento_ibge: renda × concorrência. Municípios da
+-- Cenário 1 (docs/uso/cenarios.md), incremento enriquecimento_ibge: renda × concorrência. Municípios da
 -- UF do caso com renda per capita média (Censo 2022) acima da mediana dos municípios da UF, do menos ao mais
 -- concorrido no CNAE do caso (ativos por 10 mil habitantes; 0 sem ativo). `abaixo_da_mediana_densidade`
 -- marca os que têm densidade abaixo ou igual à mediana da UF: candidatos a mercado subatendido. Só

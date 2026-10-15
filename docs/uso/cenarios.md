@@ -1,10 +1,10 @@
 # Cenários de uso das fontes do IBGE
 
-> **Adição**, incremento `enriquecimento_ibge` ([ADR-0022](adr/0022-enriquecimento-fontes-gratuitas-ibge.md)). Cinco
+> **Adição**, incremento `enriquecimento_ibge` ([ADR-0022](../adr/0022-enriquecimento-fontes-gratuitas-ibge.md)). Cinco
 > perguntas de negócio para quem vai abrir um negócio ou estuda um setor, cada uma respondida por uma das bases
 > novas do IBGE e por uma consulta pronta em `transform/analyses/`. O exemplo é o estudo de caso do projeto: uma loja
 > de tintas (CNAE 4741500) em Fundão/ES. O que cada base é e como ela foi construída está na
-> [camada semântica](CAMADA_SEMANTICA.md#a1-as-bases), Parte A.
+> [camada semântica](../referencia/camada-semantica.md#a1-as-bases), Parte A.
 
 ## Como rodar
 
@@ -20,10 +20,10 @@ uv run dbt compile --select cenario_polo_compras_evasao   # o SQL em target/comp
 ```
 
 Para um agente que responde perguntas livres, as mesmas bases aparecem como golden queries testadas no
-[guia de consulta em linguagem natural](GUIA_CONSULTA_LINGUAGEM_NATURAL.md) ([ADR-0023](adr/0023-golden-queries-e-guia-para-agente.md)).
+[guia de consulta em linguagem natural](consulta-agente.md) ([ADR-0023](../adr/0023-golden-queries-e-guia-para-agente.md)).
 
 Todas trazem só agregados por município, CNAE ou UF, nunca CNPJ nem nome
-([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)). As linhas de exemplo abaixo vêm do dado real (extrato da RFB de
+([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)). As linhas de exemplo abaixo vêm do dado real (extrato da RFB de
 2026-09, CEMPRE 2024, Censo 2022, REGIC 2018), consultado em 2026-10-14.
 
 | # | Pergunta | Base | Analysis | Métrica ou consulta salva |
@@ -173,11 +173,11 @@ Vitória: a hierarquia é do arranjo, não do município isolado.
 - **Sigilo do CEMPRE.** Pessoal e salários com `X` ficam NULL e `tem_sigilo` true. Nunca são imputados; somas sobre
   municípios ou classes subestimam.
 - **CEMPRE sem MEI.** Compare `unidades_locais_cempre` com `ativos_rfb_sem_mei`, não com `ativos_rfb`
-  ([RN-30](REGRAS_NEGOCIO.md#rn-30)).
+  ([RN-30](../referencia/regras-negocio.md#rn-30)).
 - **REGIC de 2018, malha de 2018.** Municípios criados depois não têm hierarquia nem polo; o percentual é a divisão
   entre os destinos de fora, não a fração da demanda que sai; os 67 municípios mais centrais não têm polo.
 - **Renda nominal de 2022.** Em reais de julho de 2022, sem correção; use a mediana para o domicílio típico.
 - **VA negativo.** O IBGE publica VA negativo em alguns municípios (indústria de Cachoeira Dourada/GO em 2021), e aí
   as participações saem de 0–100.
 - **Modo offline sem `ibge/`.** Com um espelho `--origem-local` antigo, as colunas do IBGE saem vazias e os cenários
-  devolvem só a parte da RFB ([OPERACAO.md](OPERACAO.md#fontes-do-ibge-incremento-enriquecimento_ibge)).
+  devolvem só a parte da RFB ([operacao.md](../operacao.md#fontes-do-ibge-incremento-enriquecimento_ibge)).

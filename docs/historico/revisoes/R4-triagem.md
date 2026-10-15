@@ -1,6 +1,6 @@
 # Triagem da R4 (líder, 2026-10-01)
 
-Veredito da R4 ([R4.md](R4.md), [validation.md](../../.specs/features/rfb-dbt-port/validation.md)): **pronto
+Veredito da R4 ([R4.md](R4.md), [validation.md](../../../.specs/features/rfb-dbt-port/validation.md)): **pronto
 para entrega, com ressalvas** — 0 bloqueantes, 4 importantes, 6 menores, 5 sugestões; 107 ACs com evidência
 citável (100 %), 100 exatos (93 %); 28 mutações, 2 sobreviventes (D04, D08). O líder reproduziu o R4-01 no gold
 real (12.498.398 nomes de `bh_empresas` terminando em 11 dígitos; `mart_fornecedores_proximos` sem casos).

@@ -12,26 +12,27 @@ from pathlib import Path
 RAIZ_REPO = Path(__file__).resolve().parents[2]
 DIR_DOCS = RAIZ_REPO / "docs"
 DIR_ADR = DIR_DOCS / "adr"
+DIR_REFERENCIA = DIR_DOCS / "referencia"
 
 # Relatórios que `rfb relatorio` e `rfb regras` gravam por padrão.
-RELATORIO_ESTUDO_CASO = DIR_DOCS / "RELATORIO_ESTUDO_CASO.md"
-RELATORIO_REGRAS_NEGOCIO = DIR_DOCS / "RELATORIO_REGRAS_NEGOCIO.md"
+RELATORIO_ESTUDO_CASO = DIR_DOCS / "relatorios" / "estudo-caso.md"
+RELATORIO_REGRAS_NEGOCIO = DIR_DOCS / "relatorios" / "regras-negocio.md"
 
 # Documentos gerados ou conferidos por scripts e testes.
-CATALOGO_REGRAS = DIR_DOCS / "REGRAS_NEGOCIO.md"
-DICIONARIO_DADOS = DIR_DOCS / "DICIONARIO_DADOS.md"
-QUALIDADE_DADOS = DIR_DOCS / "QUALIDADE_DADOS.md"
-CAMADA_SEMANTICA = DIR_DOCS / "CAMADA_SEMANTICA.md"
-GUIA_CONSULTA = DIR_DOCS / "GUIA_CONSULTA_LINGUAGEM_NATURAL.md"
-OPERACAO = DIR_DOCS / "OPERACAO.md"
-CENARIOS_DE_USO = DIR_DOCS / "CENARIOS_DE_USO.md"
+CATALOGO_REGRAS = DIR_REFERENCIA / "regras-negocio.md"
+DICIONARIO_DADOS = DIR_REFERENCIA / "dicionario-dados.md"
+QUALIDADE_DADOS = DIR_REFERENCIA / "qualidade-dados.md"
+CAMADA_SEMANTICA = DIR_REFERENCIA / "camada-semantica.md"
+GUIA_CONSULTA = DIR_DOCS / "uso" / "consulta-agente.md"
+OPERACAO = DIR_DOCS / "operacao.md"
+CENARIOS_DE_USO = DIR_DOCS / "uso" / "cenarios.md"
 
 # Golden queries (ADR-0023) e ontologia.
-DIR_GOLDEN = DIR_DOCS / "golden_queries"
+DIR_GOLDEN = DIR_REFERENCIA / "golden_queries"
 GOLDEN_MATRIZ = DIR_GOLDEN / "matriz.yml"
 GOLDEN_SEMANTICA = DIR_GOLDEN / "semantica.yml"
 GOLDEN_CATALOGO = DIR_GOLDEN / "catalogo.json"
-ONTOLOGIA = DIR_DOCS / "ontologia" / "rfb_cnpj.ttl"
+ONTOLOGIA = DIR_REFERENCIA / "ontologia" / "rfb_cnpj.ttl"
 
 
 def link_de(origem: Path, alvo: Path) -> str:

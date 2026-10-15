@@ -214,11 +214,12 @@ def test_renderizar_resumo_e_quebras() -> None:
     texto = renderizar(CATALOGO, _linhas(), "2026-09", "2026-09-12")
     assert texto.startswith("# Relatório das regras de negócio — 2026-09\n")
     assert "**2** regras avaliadas: **1** sem violação e **1** com violação." in texto
+    catalogo = "../referencia/regras-negocio.md"
     assert (
-        "| [RN-01](REGRAS_NEGOCIO.md#rn-01) | Regra um | legal | 73.000.000 | 1.500.003 | 2,05 % |"
+        f"| [RN-01]({catalogo}#rn-01) | Regra um | legal | 73.000.000 | 1.500.003 | 2,05 % |"
         in texto
     )
-    assert "| [RN-02](REGRAS_NEGOCIO.md#rn-02) | Regra dois | estrutural | 16 | 0 | 0 % |" in texto
+    assert f"| [RN-02]({catalogo}#rn-02) | Regra dois | estrutural | 16 | 0 | 0 % |" in texto
     assert "### RN-02" not in texto  # sem violação: só no resumo
     quebra = texto.split("### RN-01 — Regra um")[1]
     assert quebra.index("| BAIXADA |") < quebra.index("| ATIVA |")  # mais violações primeiro

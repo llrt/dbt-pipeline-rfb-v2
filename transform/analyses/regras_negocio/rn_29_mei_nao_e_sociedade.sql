@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-29 (docs/REGRAS_NEGOCIO.md): o MEI é empresário individual ou empreendedor, nunca sociedade
+-- RN-29 (docs/referencia/regras-negocio.md): o MEI é empresário individual ou empreendedor, nunca sociedade
 -- (LC 123, art. 18-A, § 1º, redação da LC 188/2021). Naturezas de sociedade: as da tabela CONCLA
 -- de 2021 cujo nome é "Sociedade ..." (o consórcio e o grupo de sociedades e o estabelecimento de
 -- sociedade estrangeira não são, eles mesmos, sociedades). Grão: empresa MEI presente no arquivo

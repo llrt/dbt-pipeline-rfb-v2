@@ -39,7 +39,7 @@
 
 Um dos maiores desafios em projetos que lidam com dados públicos brasileiros (como a Receita Federal) é a mistura caótica de idiomas: termos técnicos de analytics engineering em inglês misturados a jargões fiscais em português.
 
-Neste projeto, adotamos a regra canônica do [ADR-0014](../../docs/adr/0014-convencao-idioma.md):
+Neste projeto, adotamos a regra canônica do [ADR-0014](../adr/0014-convencao-idioma.md):
 - **Vocabulário estrutural do dbt em INGLÊS**: nomes de pastas (`staging`, `intermediate`, `marts/core`, `marts/analytics`, `audit`, `observability`), comandos da CLI, materializações (`view`, `table`, `external`) e configurações de meta (`escopo: original`, conforme ADR-0006).
 - **Vocabulário de domínio de negócio em PORTUGUÊS**: nomes de entidades e colunas que refletem a legislação e conceitos tributários brasileiros (`estabelecimentos`, `naturezas`, `simples`, `municipios`, `cnpj_raiz`, `capital_social`, `situacao_cadastral`).
 - **Prefixos claros por propósito**:
@@ -184,8 +184,8 @@ Em vez de construir modelos de dados proprietários e cálculos divergentes dent
 
 O passo seguinte é a **camada semântica do dbt (MetricFlow)**. As métricas deixam de ser fórmulas da ferramenta de BI
 e passam a ser declaradas em YAML junto do modelo, no padrão novo do dbt 1.12+ (`semantic_model`, `entity`/`dimension`
-nas colunas, `metrics`). Este projeto declara 29 métricas sobre o modelo estrela ([docs/CAMADA_SEMANTICA.md](../CAMADA_SEMANTICA.md),
-[ADR-0018](../../docs/adr/0018-camada-semantica-metricflow.md)). Um trecho de `fct_resumo_mensal`:
+nas colunas, `metrics`). Este projeto declara 29 métricas sobre o modelo estrela ([docs/referencia/camada-semantica.md](../referencia/camada-semantica.md),
+[ADR-0018](../adr/0018-camada-semantica-metricflow.md)). Um trecho de `fct_resumo_mensal`:
 
 ```yaml
     semantic_model:
@@ -268,7 +268,7 @@ Neste projeto, as 9 consultas analíticas que compõem o relatório final de neg
 - `transform/analyses/estudo_caso_adicao_sobrevivencia.sql`
 - `transform/analyses/estudo_caso_adicao_fornecedores_proximos.sql`
 
-O comando `rfb relatorio` compila esses arquivos via dbt, executa as consultas diretamente no DuckDB e compila o relatório executivo em Markdown (`docs/RELATORIO_ESTUDO_CASO.md`).
+O comando `rfb relatorio` compila esses arquivos via dbt, executa as consultas diretamente no DuckDB e compila o relatório executivo em Markdown (`docs/relatorios/estudo-caso.md`).
 
 ---
 
@@ -315,6 +315,6 @@ Isso permite criar dashboards de evolução histórica de Data Quality e monitor
 
 O dbt gera o artefato `target/manifest.json`, que contém a árvore sintática completa do projeto.
 
-Neste repositório, o script `scripts/gerar_qualidade_dados.py` lê o `manifest.json`, extrai todos os testes, descrições, severidades e escopos (`original` vs. `adicao`), e **regera a documentação técnica de qualidade** em `docs/QUALIDADE_DADOS.md`.
+Neste repositório, o script `scripts/gerar_qualidade_dados.py` lê o `manifest.json`, extrai todos os testes, descrições, severidades e escopos (`original` vs. `adicao`), e **regera a documentação técnica de qualidade** em `docs/referencia/qualidade-dados.md`.
 
 Uma guarda em teste de integração (`tests/integration/test_catalogo_dq.py`) regera o catálogo a partir do manifest atual e compara com o arquivo no disco via pytest, assegurando que qualquer alteração de testes ou modelos mantenha o catálogo de qualidade sincronizado!

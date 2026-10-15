@@ -1,4 +1,4 @@
-"""DQ-02 AC 5 (R3-12): `docs/QUALIDADE_DADOS.md` é o catálogo que o manifesto atual geraria.
+"""DQ-02 AC 5 (R3-12): `referencia/qualidade-dados.md` é o catálogo que o manifesto atual geraria.
 
 Lê `transform/target/manifest.json`, gerado pelo `dbt build` do `make ci`. Se falhar, rode
 `uv run python scripts/gerar_qualidade_dados.py` (depois do `make ci`) e versione o resultado.

@@ -4,15 +4,21 @@ Como rodar o pipeline sobre os dados reais da RFB, manter a base atualizada todo
 execução. A atualização mensal, a retenção e a publicação no MotherDuck são **melhorias pedidas pelo
 usuário** (ADR-0012, ADR-0016); o original carregava um único mês à mão.
 
+## Nota de upgrade (v1.5.0)
+
+Os relatórios gerados mudaram de lugar: `rfb relatorio` grava em `docs/relatorios/estudo-caso.md` e `rfb regras` em
+`docs/relatorios/regras-negocio.md` (antes, `docs/RELATORIO_ESTUDO_CASO.md` e `docs/RELATORIO_REGRAS_NEGOCIO.md`).
+`--saida` e `--saida-relatorio` continuam valendo como antes; scripts que liam os caminhos antigos precisam apontar para os novos.
+
 ## Comandos
 
 | Comando | O que faz |
 |---|---|
-| `make pipeline MES=2026-09` (`rfb pipeline --mes 2026-09`) | Ingestão → `dbt source freshness` → `dbt build --vars mes_referencia` → relatório (`docs/RELATORIO_ESTUDO_CASO.md`) → publicação no MotherDuck (se configurada) → estado. Sai ≠ 0 na primeira etapa que falhar. Sem `MES`, usa o mês completo mais recente. |
+| `make pipeline MES=2026-09` (`rfb pipeline --mes 2026-09`) | Ingestão → `dbt source freshness` → `dbt build --vars mes_referencia` → relatório (`docs/relatorios/estudo-caso.md`) → publicação no MotherDuck (se configurada) → estado. Sai ≠ 0 na primeira etapa que falhar. Sem `MES`, usa o mês completo mais recente. |
 | `make atualizar` (`rfb atualizar`) | Consulta o WebDAV (só listagem), escolhe o **mês completo mais recente** e compara com `RAIZ_DADOS/_estado/ultima_execucao.json`. Mês novo → `rfb pipeline` daquele mês + retenção. Senão imprime `nenhum mês novo` e sai com 0 **sem baixar nada**. |
 | `rfb pipeline --mes 2025-02 --mes 2026-09` | Vários meses: sempre do **mais antigo ao mais novo** (ver "Ordem dos meses"). |
 | `rfb pipeline --sem-ingestao --mes AAAA-MM` | Usa o raw que já está em `RAIZ_DADOS` (útil para refazer só o dbt). Se faltar o raw do IBGE (um `RAIZ_DADOS` da v1.3), publica-o vazio antes do dbt; ver "Depois de atualizar da v1.3". |
-| `make regras` (`rfb regras`) | Executa os checks das regras de negócio ([REGRAS_NEGOCIO.md](REGRAS_NEGOCIO.md), ADR-0020) no warehouse de `RAIZ_DADOS`, **só lendo** (a única escrita é o raw do IBGE vazio, quando ele falta: a RN-30 lê a fonte do CEMPRE), e regrava `docs/RELATORIO_REGRAS_NEGOCIO.md` (`SAIDA=ARQ` muda o destino). Sai com 0 mesmo com violações. Não faz parte do `pipeline`: rode depois de um mês novo concluído e revise a seção "Interpretação de AAAA-MM": no mesmo mês ela é preservada; num mês novo, o texto antigo vai para "Interpretação anterior (AAAA-MM)" e o comando avisa (`aviso:` na saída de erro) até que ela seja reescrita e a seção anterior apagada. Recusa rodar com o gold misto, como `rfb relatorio`. No dado real de 2026-09 levou 88 s com as 29 regras (`DUCKDB_MEMORY_LIMIT=16GB`, `DUCKDB_THREADS=4`). |
+| `make regras` (`rfb regras`) | Executa os checks das regras de negócio ([regras-negocio.md](referencia/regras-negocio.md), ADR-0020) no warehouse de `RAIZ_DADOS`, **só lendo** (a única escrita é o raw do IBGE vazio, quando ele falta: a RN-30 lê a fonte do CEMPRE), e regrava `docs/relatorios/regras-negocio.md` (`SAIDA=ARQ` muda o destino). Sai com 0 mesmo com violações. Não faz parte do `pipeline`: rode depois de um mês novo concluído e revise a seção "Interpretação de AAAA-MM": no mesmo mês ela é preservada; num mês novo, o texto antigo vai para "Interpretação anterior (AAAA-MM)" e o comando avisa (`aviso:` na saída de erro) até que ela seja reescrita e a seção anterior apagada. Recusa rodar com o gold misto, como `rfb relatorio`. No dado real de 2026-09 levou 88 s com as 29 regras (`DUCKDB_MEMORY_LIMIT=16GB`, `DUCKDB_THREADS=4`). |
 
 Opções comuns a `pipeline` e `atualizar`: `--origem-local DIR` (fixtures, sem rede),
 `--permitir-incompleto`, `--forcar` (reconverte), `--renovar-ibge` e `--sem-ibge` (ver abaixo; excludentes), `--target` (padrão: o do profile; `s3` com
@@ -91,7 +97,7 @@ classe CNAE (API SIDRA, tabela 9528), a renda per capita do Censo 2022 (SIDRA 10
   com 0 e gera as seções antigas, com um aviso no lugar da seção do IBGE ("dados do IBGE ainda não
   construídos; rode `rfb pipeline` ou `rfb atualizar --renovar-ibge`", também na saída de erro). `rfb regras`
   não depende do gold novo: a RN-30 lê a fonte do CEMPRE e os marts da v1.3.
-- **Uso das bases novas:** [cenários de uso](CENARIOS_DE_USO.md), com as analyses `cenario_*` e o caso.
+- **Uso das bases novas:** [cenários de uso](uso/cenarios.md), com as analyses `cenario_*` e o caso.
 
 ## Estado e ordem dos meses (P22)
 
@@ -164,7 +170,7 @@ Após um `rfb atualizar` bem-sucedido:
 ## Requisitos de máquina (P14)
 
 Medido no `dbt build` completo de 2026-09 (73,4 M estabelecimentos; detalhes em
-[EXECUCAO_REAL.md](EXECUCAO_REAL.md#memória-e-threads-p14)):
+[execucao-real-2026-10.md](historico/execucao-real-2026-10.md#memória-e-threads-p14)):
 
 | `DBT_THREADS`/`DUCKDB_THREADS` | `DUCKDB_MEMORY_LIMIT` | `dbt build` | Pico de RSS |
 |---|---|---|---|

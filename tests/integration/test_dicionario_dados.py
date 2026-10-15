@@ -1,5 +1,5 @@
 # ruff: noqa: E501
-"""ADR-0019: `docs/DICIONARIO_DADOS.md` é o dicionário que o manifesto e o catálogo atuais gerariam.
+"""ADR-0019: `docs/referencia/dicionario-dados.md` é o dicionário que o manifesto e o catálogo atuais gerariam.
 
 Usa o `manifest.json` e o `catalog.json` de `dbt docs generate` sobre o warehouse do `make ci`
 (fixture `manifesto_e_catalogo`). Se falhar, rode `make dicionario` e versione o resultado.

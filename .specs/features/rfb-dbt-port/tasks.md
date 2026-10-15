@@ -15,7 +15,7 @@ Child workers also follow the `traycer-implement` skill (when to ask the lead, w
 **Status**: Approved (líder, autonomia delegada pelo usuário)
 
 Legenda de classificação: complexidade **P** (pequena) / **M** (média) / **G** (grande); criticidade **C** (crítica) / **NC** (não crítica).
-Roteamento (docs/PLANO.md): C → Opus esforço médio · G/NC → Sonnet médio · M/NC → **Sonnet médio** (decisão do usuário em 2026-09-28, AD-014; antes DeepSeek v4 flash alto) · P/NC → DeepSeek v4 flash baixo.
+Roteamento (docs/historico/plano-v1.md): C → Opus esforço médio · G/NC → Sonnet médio · M/NC → **Sonnet médio** (decisão do usuário em 2026-09-28, AD-014; antes DeepSeek v4 flash alto) · P/NC → DeepSeek v4 flash baixo.
 Críticas ou grandes: T8, T14, T15, T28 (= 4, limite do guia). T36 (atualização mensal) é M/NC mas roda em Opus por ser E2E (regra do guia).
 Melhorias pedidas pelo usuário em 2026-09-28 (ADR-0012/0013): T32–T36 e ajustes BI em T17–T19.
 Enriquecimento com bases externas da Base dos Dados (pedido do usuário em 2026-10-01, ADR-0015): T38–T41, marcados com o incremento `enriquecimento_bd`.
@@ -211,7 +211,7 @@ T30 → T31
 **What**: `scripts/gerar_fixtures.py` gera deterministicamente em `tests/fixtures/generated/` (ou dir passado) os zips RFB do mês `2026-09` (`Empresas0.zip`, `Estabelecimentos0.zip`, `Simples.zip`, `Cnaes.zip`, `Municipios.zip`, `Naturezas.zip`, `Motivos.zip`, `Paises.zip`, `Qualificacoes.zip`, cada um com um arquivo interno `F.K03200$Z.D60912.<TIPO>CSV`, latin-1, `;`, todos os campos entre aspas) e os csv.gz BD (`municipio`, `cnae_2`, `populacao`, `pib`) exatamente conforme o "Cenário de fixtures" da spec, incluindo: `\"` na razão social de K, nome_fantasia multilinha em O, datas `00000000`, porte vazio em E, CNAE `0111301`, DV inválido só em L (calcular DV correto para os demais), registro multilinha no `cnae_2`.
 **Where**: `scripts/gerar_fixtures.py`
 **Depends on**: T1
-**Reuses**: spec — seção "Cenário de fixtures"; `docs/referencia-original/1_Coleta_e_Carga_de_Dados.md` (quirks)
+**Reuses**: spec — seção "Cenário de fixtures"; `docs/historico/referencia-original/1_Coleta_e_Carga_de_Dados.md` (quirks)
 **Requirement**: ING-03
 **Classificação**: M/NC
 
@@ -365,7 +365,7 @@ T30 → T31
 **What**: `transform/models/staging/rfb/_rfb__sources.yml` e `transform/models/staging/basedosdados/_bd__sources.yml` com `external_location` via `RAIZ_DADOS`, descrições (catálogo do notebook 3), freshness (`_ingerido_em`, 35/65 dias), testes de fonte dos ACs SRC 2–7 (unicidade/completude dos domínios, cnpj, relacionamentos, accepted_values de porte/situação, cobertura município RFB×BD contra seed `excecoes_conhecidas_municipio`, CNAEs sem par = warn), `meta.escopo: original` nos checks vindos dos notebooks 2.x e `adicao` nos novos.
 **Where**: `transform/models/staging/rfb/_rfb__sources.yml`
 **Depends on**: T10
-**Reuses**: `docs/referencia-original/2.*.md`
+**Reuses**: `docs/historico/referencia-original/2.*.md`
 **Requirement**: SRC-01
 **Classificação**: M/NC
 
@@ -423,7 +423,7 @@ T30 → T31
 **What**: `models/marts/original/bh_empresas.sql` (+ yml com contrato, catálogo do notebook 3, `meta.escopo: original`, coluna `idade_atual` `adaptado`), `audit__bh_empresas_sql_original` (SQL do notebook 3 traduzido literalmente, `now()` → `data_referencia`), teste singular de paridade (diferença zero, error), teste de descartes do inner join (warn, fixtures = 3), teste idade ∈ [0,200], unit tests das regras ORI 3–6, teste de integração com os valores da spec (12 linhas; linha A).
 **Where**: `transform/models/marts/original/bh_empresas.sql`
 **Depends on**: T14
-**Reuses**: `docs/referencia-original/3_Modelo_de_Dados.md`
+**Reuses**: `docs/historico/referencia-original/3_Modelo_de_Dados.md`
 **Requirement**: ORI-01, ORI-03
 **Classificação**: M/C
 
@@ -690,7 +690,7 @@ T30 → T31
 
 ### T26: Observabilidade de DQ e catálogo
 
-**What**: macro `on-run-end` que grava resultados de testes em `dq_historico_testes` (incremental; invocation_id, nome, status, falhas, severidade, escopo, timestamp) e modelo `dq_resumo_execucao`; `docs/QUALIDADE_DADOS.md` com todos os checks por etapa (antes/depois), origem (notebook) e severidade.
+**What**: macro `on-run-end` que grava resultados de testes em `dq_historico_testes` (incremental; invocation_id, nome, status, falhas, severidade, escopo, timestamp) e modelo `dq_resumo_execucao`; `docs/referencia/qualidade-dados.md` com todos os checks por etapa (antes/depois), origem (notebook) e severidade.
 **Where**: `transform/macros/registrar_resultados_testes.sql`
 **Depends on**: T25
 **Reuses**: `ARCHITECTURE.md` §6
@@ -709,10 +709,10 @@ T30 → T31
 
 ### T27: Estudo de caso e relatório
 
-**What**: `transform/analyses/estudo_caso_q1..q4*.sql` reproduzindo cada consulta do notebook 4 (parametrizadas por vars `caso_*`) + análises das adições; `src/rfb_pipeline/relatorio.py` + `rfb relatorio` gerando `docs/RELATORIO_ESTUDO_CASO.md` (com seção de DQ da última execução).
+**What**: `transform/analyses/estudo_caso_q1..q4*.sql` reproduzindo cada consulta do notebook 4 (parametrizadas por vars `caso_*`) + análises das adições; `src/rfb_pipeline/relatorio.py` + `rfb relatorio` gerando `docs/relatorios/estudo-caso.md` (com seção de DQ da última execução).
 **Where**: `src/rfb_pipeline/relatorio.py`
 **Depends on**: T24
-**Reuses**: `docs/referencia-original/4_An_lise_de_Dados.md`
+**Reuses**: `docs/historico/referencia-original/4_An_lise_de_Dados.md`
 **Requirement**: CASE-01
 **Classificação**: M/NC
 
@@ -748,8 +748,8 @@ T30 → T31
 
 ### T35: Guia Power BI e exposure
 
-**What**: `docs/POWER_BI.md` (diagrama mermaid da estrela, tabela de relacionamentos 1:* direção única, conexão via conector Parquet do Power Query e via ODBC do DuckDB, atualização incremental por mês, ≥ 8 medidas DAX sugeridas — ex. Qtd Ativos, % Ativos, Idade Média, Ativos por 10 mil hab., Taxa de Sobrevivência 3a, Variação Mensal de Ativos) e `exposure` dbt tipo `dashboard` dependendo de todas as dims e fatos.
-**Where**: `docs/POWER_BI.md`
+**What**: `docs/uso/power-bi.md` (diagrama mermaid da estrela, tabela de relacionamentos 1:* direção única, conexão via conector Parquet do Power Query e via ODBC do DuckDB, atualização incremental por mês, ≥ 8 medidas DAX sugeridas — ex. Qtd Ativos, % Ativos, Idade Média, Ativos por 10 mil hab., Taxa de Sobrevivência 3a, Variação Mensal de Ativos) e `exposure` dbt tipo `dashboard` dependendo de todas as dims e fatos.
+**Where**: `docs/uso/power-bi.md`
 **Depends on**: T34
 **Reuses**: ADR-0013
 **Requirement**: BI-02
@@ -768,7 +768,7 @@ T30 → T31
 
 ### T28: Pipeline ponta a ponta com dados reais ★ crítica (E2E)
 
-**What**: `rfb pipeline` / `make pipeline MES=2026-09` (ingest → freshness → build → report, exit ≠0 em erro); execução real completa sobre 2026-09; ajuste de desempenho (materializações, memória, threads, ordem); `make ci` < 120 s; registro de tempos, volumes e resultados (incluindo paridade = 0 diferenças) em `docs/EXECUCAO_REAL.md`; relatório real gerado.
+**What**: `rfb pipeline` / `make pipeline MES=2026-09` (ingest → freshness → build → report, exit ≠0 em erro); execução real completa sobre 2026-09; ajuste de desempenho (materializações, memória, threads, ordem); `make ci` < 120 s; registro de tempos, volumes e resultados (incluindo paridade = 0 diferenças) em `docs/historico/execucao-real-2026-10.md`; relatório real gerado.
 **Where**: `src/rfb_pipeline/cli.py`
 **Depends on**: T27, T41, T43
 **Reuses**: tudo
@@ -776,7 +776,7 @@ T30 → T31
 **Classificação**: M/C
 
 **Done when**:
-- [x] Pipeline real conclui sem testes `error`; warns documentados (2026-09: PASS=339 WARN=14 ERROR=0, `docs/EXECUCAO_REAL.md`)
+- [x] Pipeline real conclui sem testes `error`; warns documentados (2026-09: PASS=339 WARN=14 ERROR=0, `docs/historico/execucao-real-2026-10.md`)
 - [x] `make ci` < 180 s (AD-026)
 - [x] Gate build passa
 
@@ -849,7 +849,7 @@ T30 → T31
 
 ### T41: Concorrência na área de mercado + estudo de caso
 
-**What**: `mart_concorrencia_area_mercado` (CNAE × município: ativos/inativos no município, nos vizinhos e na região metropolitana; ativos por mil domicílios e por km²); seção nova no relatório do estudo de caso; `docs/POWER_BI.md`, `ARCHITECTURE.md`, `docs/ESCOPO.md` e `docs/QUALIDADE_DADOS.md` atualizados.
+**What**: `mart_concorrencia_area_mercado` (CNAE × município: ativos/inativos no município, nos vizinhos e na região metropolitana; ativos por mil domicílios e por km²); seção nova no relatório do estudo de caso; `docs/uso/power-bi.md`, `ARCHITECTURE.md`, `docs/ESCOPO.md` e `docs/referencia/qualidade-dados.md` atualizados.
 **Where**: `transform/models/marts/analytics/mart_concorrencia_area_mercado.sql`
 **Depends on**: T40
 **Reuses**: `mart_concorrencia_municipio`, `relatorio.py`
@@ -889,8 +889,8 @@ T30 → T31
 
 ### T43: Guia Power BI — como acessar os dados
 
-**What**: seção nova em `docs/POWER_BI.md` "Como o Power BI acessa os dados": tabela comparando (1) Parquet em `gold/` (conector Parquet/Pasta; Import; sem driver), (2) arquivo DuckDB local (`warehouse.duckdb`, views sobre o gold; driver ODBC do DuckDB; Import; travas de arquivo durante o build), (3) MotherDuck após `rfb publicar` (conector PostgreSQL nativo pelo Postgres endpoint; Import ou DirectQuery; gateway no Service); passo a passo de cada um, atualização no Power BI Service e recomendação por cenário; links oficiais; `ARCHITECTURE.md` e `docs/ESCOPO.md` atualizados.
-**Where**: `docs/POWER_BI.md`
+**What**: seção nova em `docs/uso/power-bi.md` "Como o Power BI acessa os dados": tabela comparando (1) Parquet em `gold/` (conector Parquet/Pasta; Import; sem driver), (2) arquivo DuckDB local (`warehouse.duckdb`, views sobre o gold; driver ODBC do DuckDB; Import; travas de arquivo durante o build), (3) MotherDuck após `rfb publicar` (conector PostgreSQL nativo pelo Postgres endpoint; Import ou DirectQuery; gateway no Service); passo a passo de cada um, atualização no Power BI Service e recomendação por cenário; links oficiais; `ARCHITECTURE.md` e `docs/ESCOPO.md` atualizados.
+**Where**: `docs/uso/power-bi.md`
 **Depends on**: T42
 **Reuses**: ADR-0016
 **Requirement**: PUB-02
@@ -908,7 +908,7 @@ T30 → T31
 
 ### T44: Área de mercado com vazios de mercado (P23)
 
-**What**: ampliar o grão de `mart_concorrencia_area_mercado` para incluir também os pares CNAE × município sem nenhum estabelecimento local do CNAE quando os vizinhos ou a região metropolitana têm ao menos um ativo (vazios de mercado); colunas locais = 0, indicadores por mil domicílios/km² do município = 0 quando há denominador; flag `tem_estabelecimento_local`; fixture com um vazio de mercado conhecido; teste de que nenhum par com concorrência na área fica de fora; medir o crescimento de linhas no gold real de 2026-09 (somente leitura) e registrar em `docs/EXECUCAO_REAL.md`; `POWER_BI.md`/relatório se citarem o grão.
+**What**: ampliar o grão de `mart_concorrencia_area_mercado` para incluir também os pares CNAE × município sem nenhum estabelecimento local do CNAE quando os vizinhos ou a região metropolitana têm ao menos um ativo (vazios de mercado); colunas locais = 0, indicadores por mil domicílios/km² do município = 0 quando há denominador; flag `tem_estabelecimento_local`; fixture com um vazio de mercado conhecido; teste de que nenhum par com concorrência na área fica de fora; medir o crescimento de linhas no gold real de 2026-09 (somente leitura) e registrar em `docs/historico/execucao-real-2026-10.md`; `POWER_BI.md`/relatório se citarem o grão.
 **Where**: `transform/models/marts/analytics/mart_concorrencia_area_mercado.sql`
 **Depends on**: T41
 **Reuses**: `bridge_municipio_vizinho`, `dim_municipio`, `mart_concorrencia_municipio`
@@ -928,7 +928,7 @@ T30 → T31
 
 ### T36: `rfb atualizar` — atualização mensal automática (E2E)
 
-**What**: comando `rfb atualizar [--origem-local DIR]` + `make atualizar`: detecção do mês completo mais recente (todos os arquivos esperados presentes), comparação com `RAIZ_DADOS/_estado/ultima_execucao.json`, execução ingest → `dbt build --vars mes_referencia` → relatórios (→ sync se s3), gravação do estado só em sucesso, retenção (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`), mensagem "nenhum mês novo"; `docs/OPERACAO.md` com receitas cron, launchd e GitHub Actions; validação real: executar contra o WebDAV após T28 e confirmar no-op para 2026-09.
+**What**: comando `rfb atualizar [--origem-local DIR]` + `make atualizar`: detecção do mês completo mais recente (todos os arquivos esperados presentes), comparação com `RAIZ_DADOS/_estado/ultima_execucao.json`, execução ingest → `dbt build --vars mes_referencia` → relatórios (→ sync se s3), gravação do estado só em sucesso, retenção (`RFB_MESES_RETIDOS`, `RFB_MANTER_ZIPS`), mensagem "nenhum mês novo"; `docs/operacao.md` com receitas cron, launchd e GitHub Actions; validação real: executar contra o WebDAV após T28 e confirmar no-op para 2026-09.
 **Where**: `src/rfb_pipeline/cli.py`
 **Depends on**: T28, T34
 **Reuses**: `rfb pipeline` (T28), manifesto (T9), cliente WebDAV (T6)
@@ -937,7 +937,7 @@ T30 → T31
 
 **Done when**:
 - [x] Integração com fixtures de dois meses cobre ACs UPD 1–5 e 8 (mês novo processado, no-op, mês incompleto ignorado, falha do dbt não grava estado, retenção) — `tests/integration/test_atualizar.py` + `tests/unit/test_orquestracao.py`
-- [x] Execução real contra o WebDAV registrada em `docs/EXECUCAO_REAL.md` (no-op para 2026-09)
+- [x] Execução real contra o WebDAV registrada em `docs/historico/execucao-real-2026-10.md` (no-op para 2026-09)
 - [x] Gate build passa
 
 **Tests**: integration
@@ -966,7 +966,7 @@ T30 → T31
 
 ### T30: Guia dbt — parte 2 (fluxo, testes e qualidade neste projeto)
 
-**What**: `docs/guia-dbt/02-fluxo-e-testes.md`: como os dados fluem em cada etapa deste projeto (raw → staging → intermediate → marts → gold, com exemplos reais de SQL compilado e contagens); como funcionam os testes (data tests genéricos/singulares, severidade, `warn_if/error_if`, `store_failures`, unit tests, contratos, freshness); checks recomendados **antes e depois de cada etapa** com exemplos em YAML/SQL deste projeto; link para `docs/QUALIDADE_DADOS.md`.
+**What**: `docs/guia-dbt/02-fluxo-e-testes.md`: como os dados fluem em cada etapa deste projeto (raw → staging → intermediate → marts → gold, com exemplos reais de SQL compilado e contagens); como funcionam os testes (data tests genéricos/singulares, severidade, `warn_if/error_if`, `store_failures`, unit tests, contratos, freshness); checks recomendados **antes e depois de cada etapa** com exemplos em YAML/SQL deste projeto; link para `docs/referencia/qualidade-dados.md`.
 **Where**: `docs/guia-dbt/02-fluxo-e-testes.md`
 **Depends on**: None
 **Reuses**: código das fases 4–7

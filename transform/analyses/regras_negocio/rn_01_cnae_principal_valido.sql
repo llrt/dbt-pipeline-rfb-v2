@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-01 (docs/REGRAS_NEGOCIO.md): todo estabelecimento tem um CNAE fiscal principal, e ele existe
+-- RN-01 (docs/referencia/regras-negocio.md): todo estabelecimento tem um CNAE fiscal principal, e ele existe
 -- no domínio de CNAEs publicado pela RFB. Só contagens, por situação cadastral (ADR-0008).
 with base as (
   select

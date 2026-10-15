@@ -3,7 +3,7 @@
     meta={'escopo': 'adicao', 'incremento': 'enriquecimento_ibge'}
 ) }}
 
--- Cenário 5 (docs/CENARIOS_DE_USO.md), incremento enriquecimento_ibge: o CNAE do caso na rede urbana. No
+-- Cenário 5 (docs/uso/cenarios.md), incremento enriquecimento_ibge: o CNAE do caso na rede urbana. No
 -- Brasil, por nível da hierarquia da REGIC 2018 (1A Grande Metrópole Nacional … 5 Centro Local): quantos
 -- municípios, quantos deles têm ativo do CNAE, os ativos e a densidade por 10 mil habitantes do nível. A
 -- REGIC é de 2018 (municípios criados depois ficam em "sem classificação"). Só agregados.

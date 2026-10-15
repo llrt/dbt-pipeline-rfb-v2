@@ -73,7 +73,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 
 ```
 .
-├── PRODUCT.md  ARCHITECTURE.md  README.md  RETRO.md (final)
+├── PRODUCT.md  ARCHITECTURE.md  README.md  docs/historico/retro.md (final)
 ├── pyproject.toml  uv.lock  Makefile  .env.example  .sqlfluff  .pre-commit-config.yaml
 ├── src/rfb_pipeline/           # EL em Python (pacote instalável, CLI `rfb`)
 │   ├── configuracao.py               # RAIZ_DADOS, mês de referência, URLs, limiares
@@ -108,7 +108,7 @@ intermediate + `bh_empresas`/core = silver; `agg_empresas` + análises = gold.
 │   ├── raw/_rejeitos/  _manifestos/  _baixados/ (cache de zips)
 │   ├── gold/<modelo>.parquet
 │   └── warehouse.duckdb
-└── docs/  adr/  guia-dbt/  ESCOPO.md  QUALIDADE_DADOS.md  PLANO.md  referencia-original/
+└── docs/  adr/  guia-dbt/  uso/  referencia/  relatorios/  historico/  ESCOPO.md  operacao.md
 ```
 
 ## 4. EL — Ingestão (Python)
@@ -189,7 +189,7 @@ flowchart LR
   `.duckdb` e da retenção do raw). O dbt grava só a partição do mês processado (`overwrite_or_ignore`) e a
   relação `fct_resumo_mensal` lê todas as partições; `sk_mes_referencia` = 1º dia do mês (`yyyymm01`, chave
   de `dim_data`). Para registrar um mês **antigo**, rode antes `dbt build --select +fct_resumo_mensal --vars
-  '{mes_referencia: AAAA-MM}'` (sobrescreve o gold "corrente") e, por último, o build do mês corrente. Receitas de agendamento (cron, launchd, GitHub Actions) em `docs/OPERACAO.md`.
+  '{mes_referencia: AAAA-MM}'` (sobrescreve o gold "corrente") e, por último, o build do mês corrente. Receitas de agendamento (cron, launchd, GitHub Actions) em `docs/operacao.md`.
 
 ## 5. T — Projeto dbt (`transform/`)
 
@@ -284,7 +284,7 @@ erDiagram
   grupo → classe → subclasse). `dim_data` (calendário de 1900-01-01 em diante, `sk_data = yyyymmdd`; membros `-1` NÃO INFORMADO e `-2` DATA INVÁLIDA, com datas contíguas ao calendário).
 - `fct_estabelecimentos` (grão CNPJ, só chaves inteiras + flags + medidas; `cnpj_completo` degenerado) — detalhe/DuckDB.
 - `fct_resumo_mensal` (agregada, aditiva, histórico por partição mensal; grão mês × município × CNAE × porte × situação × MEI; capital só das matrizes) — **modo Import do Power BI**.
-- `bridge_estabelecimento_cnae_secundario` (opcional no BI, muitos-para-muitos). Guia: `docs/POWER_BI.md`.
+- `bridge_estabelecimento_cnae_secundario` (opcional no BI, muitos-para-muitos). Guia: `docs/uso/power-bi.md`.
 - **Incremento enriquecimento BD (ADR-0015):** `dim_municipio` ganha `populacao_censo_2022`, `domicilios_2022`,
   `area_km2`, `densidade_hab_km2`, `taxa_alfabetizacao`, `idade_mediana`, `indice_envelhecimento`, `razao_sexo` e
   `nome_regiao_metropolitana` (`NÃO PERTENCE` fora de RM); `bridge_municipio_vizinho` (pares simétricos, ano mais
@@ -316,10 +316,10 @@ escopo) em `dq_historico_testes` (incremental) e `dq_resumo_execucao`; `store_fa
 
 **Golden queries (adição, [ADR-0023](docs/adr/0023-golden-queries-e-guia-para-agente.md)):** uma analysis por
 conceito × camada em `transform/analyses/golden/` (`gq_<camada>__<conceito>__<nn>.sql`, com cabeçalho YAML e a
-resposta exata nas fixtures) e os comandos `mf query` de `docs/golden_queries/semantica.yml`, executados e conferidos
-no CI. `scripts/gerar_catalogo_golden.py` (`make golden`) gera o catálogo `docs/golden_queries/catalogo.json` com o
+resposta exata nas fixtures) e os comandos `mf query` de `docs/referencia/golden_queries/semantica.yml`, executados e conferidos
+no CI. `scripts/gerar_catalogo_golden.py` (`make golden`) gera o catálogo `docs/referencia/golden_queries/catalogo.json` com o
 SQL compilado e portável, para o agente de consulta em linguagem natural descrito em
-[docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md](docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md).
+[docs/uso/consulta-agente.md](docs/uso/consulta-agente.md).
 
 ### 5.4 Seeds
 
@@ -329,7 +329,7 @@ SUSPENSA, 04 INAPTA, 08 BAIXADA), `dominio_matriz_filial.csv`, `excecoes_conheci
 
 ## 6. Qualidade de dados — estratégia
 
-Checks antes e depois de cada etapa; catálogo completo em [docs/QUALIDADE_DADOS.md](docs/QUALIDADE_DADOS.md)
+Checks antes e depois de cada etapa; catálogo completo em [docs/referencia/qualidade-dados.md](docs/referencia/qualidade-dados.md)
 (gerado na Fase 3) e explicação didática no [guia dbt](docs/guia-dbt/README.md). Resumo:
 
 | Etapa | Antes (entrada) | Depois (saída) |
@@ -370,7 +370,7 @@ Parquet é o contrato; o Power BI o acessa por (1) Parquet direto, (2) `warehous
 um escritor por vez) ou (3) MotherDuck, após `rfb publicar` (desacoplado do dbt: `ATTACH 'md:<banco>'` +
 `CREATE OR REPLACE TABLE … AS SELECT * FROM read_parquet(…)`, com `hive_partitioning` na série mensal; o token vem do
 ambiente e nunca entra em SQL/log). Com `RAIZ_DADOS=s3://` a publicação recusa (lê gold local). Comparativo e passo a passo:
-[docs/POWER_BI.md](docs/POWER_BI.md#como-o-power-bi-acessa-os-dados).
+[docs/uso/power-bi.md](docs/uso/power-bi.md#como-o-power-bi-acessa-os-dados).
 
 ## 8. Segurança e privacidade
 

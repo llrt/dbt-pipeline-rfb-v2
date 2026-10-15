@@ -6,7 +6,7 @@ localização nem a ligação com o leiaute oficial da RFB (`cnpj-metadados.pdf`
 colunas técnicas da ingestão e as colunas do raw da Base dos Dados que o projeto não usa.
 
 **Decisão.**
-- **Dicionário gerado**: `docs/DICIONARIO_DADOS.md` sai de `scripts/gerar_dicionario_dados.py`, a partir do
+- **Dicionário gerado**: `docs/referencia/dicionario-dados.md` sai de `scripts/gerar_dicionario_dados.py`, a partir do
   `manifest.json` e do `catalog.json` do dbt (`make dicionario`, depois do `make ci`). Cobre fontes raw,
   seeds, staging, intermediate, gold e observabilidade. Para cada tabela traz descrição, grão, chaves
   (testes `unique`, `unique_combination_of_columns` e `relationships`, mais as entidades semânticas),
@@ -15,7 +15,7 @@ colunas técnicas da ingestão e as colunas do raw da Base dos Dados que o proje
   chaves `-1`/`-2`, sentinelas).
 - **Conferido no CI**: o teste de integração `test_dicionario_dados.py` roda o gerador em modo `--verificar`
   (gera em memória e compara com o arquivo versionado), como o catálogo de qualidade faz com
-  `docs/QUALIDADE_DADOS.md`. Isso prova que o arquivo está **em dia**, não que está **certo**; por isso o teste
+  `docs/referencia/qualidade-dados.md`. Isso prova que o arquivo está **em dia**, não que está **certo**; por isso o teste
   confere também o conteúdo que o gerador não infere sozinho:
   - links e âncoras resolvem, e nenhum identificador de tabela citado deixou de existir;
   - todo modelo, seed e fonte tem seção, e toda coluna real (do catálogo ou do Parquet raw, inclusive das
@@ -49,6 +49,6 @@ colunas técnicas da ingestão e as colunas do raw da Base dos Dados que o proje
   As fontes declaram também as colunas técnicas da ingestão e o `data_type` de cada coluna.
 
 **Consequências.** Mudar descrição, teste, contrato ou `meta` num YAML (ou a ordem das colunas das fontes) obriga a regenerar o dicionário (o CI
-acusa). O dicionário não substitui a [camada semântica](../CAMADA_SEMANTICA.md) (conceitos de negócio,
-métricas) nem o catálogo de [qualidade](../QUALIDADE_DADOS.md) (todos os testes): aponta para eles. O
+acusa). O dicionário não substitui a [camada semântica](../referencia/camada-semantica.md) (conceitos de negócio,
+métricas) nem o catálogo de [qualidade](../referencia/qualidade-dados.md) (todos os testes): aponta para eles. O
 `catalog.json` depende de um warehouse construído, então o gerador roda depois do `make ci`.

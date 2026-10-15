@@ -16,7 +16,7 @@ comando para detectar novidade, checagem de completude, retenção, histórico n
 3. **Série histórica:** `fct_resumo_mensal` grava **uma partição Parquet por mês**
    (`gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`); reprocessar um mês substitui só a partição dele. O
    histórico não depende do `warehouse.duckdb` (que continua descartável, ADR-0001) nem da retenção do raw.
-4. **Agendamento:** fora do escopo como orquestrador; `docs/OPERACAO.md` traz receitas prontas (cron,
+4. **Agendamento:** fora do escopo como orquestrador; `docs/operacao.md` traz receitas prontas (cron,
    launchd, GitHub Actions). O comando é idempotente, então pode rodar diariamente.
 5. O pipeline sempre passa `mes_referencia` explícito ao dbt (determinismo e localização da partição).
 

@@ -34,7 +34,7 @@ mesma disciplina de software (git, revisão, CI) que você usa para código.
 
 Neste projeto o EL é **Python** (`src/rfb_pipeline/`): baixa os zips do WebDAV da RFB e os `csv.gz` da Base
 dos Dados, converte tudo para Parquet em `raw/` e só então o dbt entra em cena. Essa divisão é uma decisão
-explícita de arquitetura (ver [ADR-0002](../../docs/adr/0002-ingestao-python-raw-varchar.md)).
+explícita de arquitetura (ver [ADR-0002](../adr/0002-ingestao-python-raw-varchar.md)).
 
 ### dbt Core × dbt Cloud (dbt platform) × dbt Fusion engine
 
@@ -521,7 +521,7 @@ rfb:
 - **Distinção de concorrência e threads (após F3a)**:
   - `DBT_THREADS`: controla o paralelismo no grafo do dbt (quantos nós independentes do DAG são executados simultaneamente).
   - `DUCKDB_THREADS`: repassado para `settings.threads` do DuckDB; controla o número de threads que o motor utiliza internamente para computar cada query (escaneamento de Parquet, hash joins e agregações).
-- **`temp_directory` em `config_options`, não em `settings` (B8, R4-08)**: o `dbt-duckdb` reaplica cada chave de `settings` com `SET` a cada cursor que abre, e o DuckDB recusa trocar o diretório temporário depois que ele já recebeu o primeiro *spill* (`Cannot switch temporary directory after the current one has been used`; ver `docs/EXECUCAO_REAL.md`). Em `config_options` a opção vai uma vez só, na abertura da conexão. Um build pequeno (fixtures) não faz spill e passa das duas formas; o erro só aparece num build real que estoura o `memory_limit`. Fora do bloco do profile (no topo) a chave é ignorada.
+- **`temp_directory` em `config_options`, não em `settings` (B8, R4-08)**: o `dbt-duckdb` reaplica cada chave de `settings` com `SET` a cada cursor que abre, e o DuckDB recusa trocar o diretório temporário depois que ele já recebeu o primeiro *spill* (`Cannot switch temporary directory after the current one has been used`; ver `docs/historico/execucao-real-2026-10.md`). Em `config_options` a opção vai uma vez só, na abertura da conexão. Um build pequeno (fixtures) não faz spill e passa das duas formas; o erro só aparece num build real que estoura o `memory_limit`. Fora do bloco do profile (no topo) a chave é ignorada.
 
 ### 3.13 Docs (`description` e `dbt docs`)
 
@@ -556,7 +556,7 @@ exposures:
     maturity: low
     description: >
       Painel de BI sobre o modelo estrela (ADR-0013), conectado ao Parquet de `gold/` ou ao DuckDB por
-      ODBC; veja `docs/POWER_BI.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
+      ODBC; veja `docs/uso/power-bi.md`. A série mensal vem de `fct_resumo_mensal` (modo Import).
     owner:
       name: Equipe de dados
     config:
@@ -614,7 +614,7 @@ Neste projeto, todos os modelos das camadas `marts/original` e `marts/core` poss
 - `tags`: agrupam nós para fácil filtragem na CLI (`dbt build --select tag:escopo_original`).
 - `meta`: dicionário de metadados arbitrários preservados no manifesto (`target/manifest.json`).
 
-Neste projeto, a governança de escopo ([ADR-0006](../../docs/adr/0006-marcacao-escopo.md)) classifica cada modelo, teste e seed em:
+Neste projeto, a governança de escopo ([ADR-0006](../adr/0006-marcacao-escopo.md)) classifica cada modelo, teste e seed em:
 - `original`: reprodução estrita das regras do notebook original.
 - `adicao`: novas tabelas, testes e modelos dimensionais introduzidos no port.
 - `adaptado`: modelo que corrigiu desvios ou bugs documentados do código de origem.
@@ -632,7 +632,7 @@ models:
 
 Desde o dbt 1.10, `meta` e `tags` de fontes, modelos, colunas e exposures ficam **dentro de `config:`**. No nível
 de topo do nó eles estão obsoletos, e o dbt v2 (Fusion) os rejeita. Este projeto já usa o formato novo, aplicado com o
-[`dbt-autofix`](https://github.com/dbt-labs/dbt-autofix) ([ADR-0017](../../docs/adr/0017-avaliacao-dbt-fusion.md)). Na mesma
+[`dbt-autofix`](https://github.com/dbt-labs/dbt-autofix) ([ADR-0017](../adr/0017-avaliacao-dbt-fusion.md)). Na mesma
 linha, `freshness` e `loaded_at_field` das fontes também ficam em `config:`. Os argumentos de testes genéricos ficam
 em `arguments:`, e a flag `require_generic_test_arguments_property` do `dbt_project.yml` torna isso obrigatório.
 

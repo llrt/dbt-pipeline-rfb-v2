@@ -1,6 +1,6 @@
 # Camada semântica (dbt + MetricFlow)
 
-> **Adição** ao MVP original ([ADR-0018](adr/0018-camada-semantica-metricflow.md)). A camada semântica descreve, em YAML
+> **Adição** ao MVP original ([ADR-0018](../adr/0018-camada-semantica-metricflow.md)). A camada semântica descreve, em YAML
 > e no padrão do dbt/MetricFlow, **o que** se mede no modelo estrela: entidades, dimensões, métricas e consultas
 > salvas. Qualquer ferramenta compatível calcula as métricas do mesmo jeito, sem reescrever a regra em DAX,
 > SQL ou planilha.
@@ -16,8 +16,8 @@ O documento tem duas partes:
 Toda regra legal ou de negócio da Parte A tem a fonte indicada entre colchetes, como [IN 2.119, art. 9º]. A
 lista completa, com link e data de acesso, está em [A7](#a7-fontes). Os números de exemplo vêm das **fixtures
 sintéticas do `make ci`**, não do cadastro real. As regras que dá para conferir no dado estão catalogadas em
-[REGRAS_NEGOCIO.md](REGRAS_NEGOCIO.md) (`RN-xx`), com o resultado do dado real em
-[RELATORIO_REGRAS_NEGOCIO.md](RELATORIO_REGRAS_NEGOCIO.md) ([ADR-0020](adr/0020-regras-de-negocio.md)).
+[regras-negocio.md](regras-negocio.md) (`RN-xx`), com o resultado do dado real em
+[regras-negocio.md](../relatorios/regras-negocio.md) ([ADR-0020](../adr/0020-regras-de-negocio.md)).
 
 ## Parte A — Negócio
 
@@ -27,7 +27,7 @@ sintéticas do `make ci`**, não do cadastro real. As regras que dá para confer
 pessoas jurídicas e de outras entidades de interesse das administrações tributárias. A RFB publica uma cópia em
 dados abertos, com **atualização mensal** [Dados.gov.br]. Cada mês é um extrato completo do cadastro: uma
 **fotografia**, não um registro de eventos. O projeto baixa os arquivos de cada mês
-([ADR-0003](adr/0003-fonte-rfb-webdav.md)) e usa:
+([ADR-0003](../adr/0003-fonte-rfb-webdav.md)) e usa:
 
 | Arquivo da RFB | Uma linha por | O que traz | Staging |
 |---|---|---|---|
@@ -38,13 +38,13 @@ dados abertos, com **atualização mensal** [Dados.gov.br]. Cada mês é um extr
 
 O leiaute [RFB-Leiaute] também descreve o arquivo **Sócios** (quadro societário, com CPF parcialmente ocultado) e os
 domínios de países e de qualificações. O projeto **não** ingere Sócios e descarta e-mail e telefones no staging
-([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)). Ninguém aqui responde "quem é dono de quê".
+([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)). Ninguém aqui responde "quem é dono de quê".
 
 Os códigos de situação cadastral, porte e matriz/filial não têm arquivo de domínio na RFB: estão no leiaute e o
 projeto os guarda nos seeds `dominio_situacao_cadastral`, `dominio_porte` e `dominio_matriz_filial`.
 
 **Base dos Dados.** O portal Base dos Dados publica tabelas públicas já tratadas
-([ADR-0015](adr/0015-enriquecimento-base-dos-dados.md)). O projeto usa:
+([ADR-0015](../adr/0015-enriquecimento-base-dos-dados.md)). O projeto usa:
 
 - diretório de municípios (código IBGE, código RFB, UF, meso/microrregião, regiões intermediária e imediata,
   centroide): `stg_bd__municipios`;
@@ -57,7 +57,7 @@ Esses dados viram atributos de `dim_municipio` e `dim_cnae`. Na camada semântic
 (`municipio__sigla_uf`, `cnae__descricao_secao`…), nunca como métricas (ver [B7](#b7-limites-e-cuidados)).
 
 **IBGE, direto da origem (incremento `enriquecimento_ibge`,
-[ADR-0022](adr/0022-enriquecimento-fontes-gratuitas-ibge.md)).** Fontes gratuitas baixadas do próprio IBGE, sem
+[ADR-0022](../adr/0022-enriquecimento-fontes-gratuitas-ibge.md)).** Fontes gratuitas baixadas do próprio IBGE, sem
 conta nem serviço pago, para o perfil de mercado de quem pensa em abrir um negócio:
 
 - CEMPRE (Cadastro Central de Empresas) por município × classe CNAE: unidades locais, pessoal ocupado,
@@ -72,7 +72,7 @@ Elas viram atributos de `dim_municipio` (renda, hierarquia, polo de compras, tot
 `bridge_municipio_destino_compras` e o mart `mart_emprego_setor_municipio`, o único com métricas próprias
 ([B3](#b3-métricas)). O valor adicionado por atividade vem do PIB dos Municípios da Base dos Dados (`stg_bd__pib`)
 e entrou no mesmo incremento. Para a pergunta de negócio que cada base responde, com consultas prontas e exemplos do
-dado real, veja os [cenários de uso](CENARIOS_DE_USO.md).
+dado real, veja os [cenários de uso](../uso/cenarios.md).
 
 ### A2. Conceitos
 
@@ -98,7 +98,7 @@ não mudam [RFB-Alfanumérico, perguntas 6 e 7]. Por isso:
 - não use "ordem `0001`" como sinônimo de matriz: o que diz se é matriz é o identificador matriz/filial
   (`eh_matriz`).
 
-O teste `cnpj_dv_valido` já confere os dígitos dos dois formatos (regra [RN-17](REGRAS_NEGOCIO.md#rn-17)).
+O teste `cnpj_dv_valido` já confere os dígitos dos dois formatos (regra [RN-17](regras-negocio.md#rn-17)).
 
 #### Empresa × estabelecimento
 
@@ -132,18 +132,18 @@ filiais em inscrição própria. É uma leitura, não texto expresso: o art. 9º
 estabelecimento filial" [IN 2.119, art. 9º], e o art. 4º, § 1º, inscreve os estados, o DF e os municípios "na
 condição de estabelecimento matriz" [IN 2.119, art. 4º, § 1º]. A entidade pode transformar uma filial em matriz
 [IN 2.119, art. 4º, § 3º], e a baixa da matriz implica a baixa de todas as filiais [IN 2.119, art. 24, § 2º]
-(regra [RN-14](REGRAS_NEGOCIO.md#rn-14)). A matriz baixada, inapta ou nula também impede a inscrição de filial
-[IN 2.119, art. 21, IV] ([RN-27](REGRAS_NEGOCIO.md#rn-27)).
+(regra [RN-14](regras-negocio.md#rn-14)). A matriz baixada, inapta ou nula também impede a inscrição de filial
+[IN 2.119, art. 21, IV] ([RN-27](regras-negocio.md#rn-27)).
 
 Contar empresas pelas matrizes supõe uma matriz por CNPJ básico. As fixtures cumprem isso. No dado real de
 2026-09 há 70.085.592 matrizes para 70.085.591 CNPJs básicos: todo básico tem matriz, e só um (`08314885`) tem
-duas (conferência da RSEM no dado real de 2026-09; regra [RN-16](REGRAS_NEGOCIO.md#rn-16)).
+duas (conferência da RSEM no dado real de 2026-09; regra [RN-16](regras-negocio.md#rn-16)).
 
 #### Razão social × nome fantasia
 
 - **Razão social** é o "nome empresarial da pessoa jurídica" e está no arquivo Empresas [RFB-Leiaute]
   (`razao_social`). No empresário individual e no MEI, ela termina com o CPF do titular; o projeto mascara esse
-  trecho no gold ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)).
+  trecho no gold ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)).
 - **Nome fantasia** é do estabelecimento (`nome_fantasia`) e pode vir vazio.
 
 Nenhum dos dois é dimensão da camada semântica: são nomes, não categorias.
@@ -162,7 +162,7 @@ Nenhum dos dois é dimensão da camada semântica: são nomes, não categorias.
 | 5. Organizações Internacionais e Outras Instituições Extraterritoriais | — |
 
 O ente federativo responsável só é preenchido para as naturezas do grupo 1XXX [RFB-Leiaute]
-(`ente_federativo_responsavel`; regra [RN-20](REGRAS_NEGOCIO.md#rn-20)). Nas fixtures do CI, o código `2062` traz a descrição "Sociedade Empresária
+(`ente_federativo_responsavel`; regra [RN-20](regras-negocio.md#rn-20)). Nas fixtures do CI, o código `2062` traz a descrição "Sociedade Empresária
 Limitada", a mesma do 206-2 da CONCLA.
 
 **MEI não é natureza jurídica.** Pela lei, o MEI é o empresário individual do art. 966 do Código Civil ou o
@@ -172,8 +172,8 @@ industrialização, comercialização e serviços no âmbito rural [LC 123, art.
 Empresário (Individual): dos 17.527.414 estabelecimentos com `opcao_mei` em 2026-09, 17.526.176 (99,99 %) têm
 o código 2135, 1.237 têm 2062 (Sociedade Empresária Limitada) e 1 tem 2070 (Sociedade Empresária em Nome
 Coletivo). É observação do projeto, não regra (conferência da RSEM no dado real de 2026-09; contada por empresa
-na [RN-08](REGRAS_NEGOCIO.md#rn-08)). Já a natureza de sociedade contraria o § 1º, que só admite o empresário
-individual ou o empreendedor ([RN-29](REGRAS_NEGOCIO.md#rn-29)). Para achar MEI, use
+na [RN-08](regras-negocio.md#rn-08)). Já a natureza de sociedade contraria o § 1º, que só admite o empresário
+individual ou o empreendedor ([RN-29](regras-negocio.md#rn-29)). Para achar MEI, use
 `opcao_mei`, não a natureza.
 
 No projeto: `dim_natureza_juridica`, entidade `natureza_juridica`, dimensões
@@ -225,9 +225,9 @@ seguinte; um novo § 1º-B permite cancelá-la até 30 de novembro [CGSN 190, ar
 de 2027, a janela é de 1º de setembro a 15 de outubro de 2026 [CGSN 194, art. 1º, que dá nova redação ao art. 1º
 da Resolução CGSN nº 186/2026]. Ou seja, quem opta pelo Simples para 2027 o faz ainda em 2026, e a data de opção
 do arquivo Simples pode ser anterior ao início dos efeitos. No extrato de 2026-09, 10 opções têm data de
-1º/1/2027: o campo guarda a data de efeito, e a [RN-13](REGRAS_NEGOCIO.md#rn-13) aceita a opção até 1º de janeiro
+1º/1/2027: o campo guarda a data de efeito, e a [RN-13](regras-negocio.md#rn-13) aceita a opção até 1º de janeiro
 seguinte. O regime vale desde 1º de julho de 2007 [LC 123, art. 88] e o SIMEI, desde 1º de julho de 2009 [LC 128,
-art. 14, III] ([RN-25](REGRAS_NEGOCIO.md#rn-25), [RN-26](REGRAS_NEGOCIO.md#rn-26)).
+art. 14, III] ([RN-25](regras-negocio.md#rn-25), [RN-26](regras-negocio.md#rn-26)).
 
 **MEI (microempreendedor individual)** é o optante pelo Simples Nacional que recolhe em valores fixos mensais
 (o SIMEI) [LC 123, art. 18-A]: o empresário individual ou o empreendedor das atividades listadas no § 1º (veja
@@ -240,12 +240,12 @@ art. 14, III] ([RN-25](REGRAS_NEGOCIO.md#rn-25), [RN-26](REGRAS_NEGOCIO.md#rn-26
 - só as ocupações permitidas [CGSN 140, art. 100; Portal do Empreendedor];
 - **um único estabelecimento** e nenhuma participação em outra empresa como titular, sócio ou administrador
   [LC 123, art. 18-A, § 4º, II e III]. O dado real tem exceções: 3.749 **filiais** de empresas com `opcao_mei`
-  (conferência da RSEM no dado real de 2026-09; regra [RN-05](REGRAS_NEGOCIO.md#rn-05)). Como `qtd_ativos_mei`
+  (conferência da RSEM no dado real de 2026-09; regra [RN-05](regras-negocio.md#rn-05)). Como `qtd_ativos_mei`
   conta estabelecimentos, ela pode passar um pouco do número de empresas MEI;
 - no máximo **um empregado**, com salário mínimo ou piso da categoria [LC 123, art. 18-C; CGSN 140, art. 105].
 
-Todo MEI é optante pelo Simples ([RN-06](REGRAS_NEGOCIO.md#rn-06)) e é modalidade de microempresa [LC 123, art.
-18-E, § 3º] ([RN-07](REGRAS_NEGOCIO.md#rn-07)); o contrário não vale. Sair do SIMEI (desenquadramento) não exclui a empresa do
+Todo MEI é optante pelo Simples ([RN-06](regras-negocio.md#rn-06)) e é modalidade de microempresa [LC 123, art.
+18-E, § 3º] ([RN-07](regras-negocio.md#rn-07)); o contrário não vale. Sair do SIMEI (desenquadramento) não exclui a empresa do
 Simples Nacional [CGSN 140, art. 115, § 1º]. O arquivo Simples traz a opção pelo MEI e suas datas [RFB-Leiaute].
 
 Os limites de R$ 81.000,00 e R$ 251.600,00 foram conferidos em 2026-10-10 nas três fontes acima. Eles mudam por
@@ -296,13 +296,13 @@ Pontos que mudam a leitura das métricas:
 
 - **"Ativa" não quer dizer "em operação".** As situações cadastrais "não se confundem com a condição de atividade ou
   inatividade para fins tributários" [IN 2.119, art. 9º, parágrafo único]. Um estabelecimento parado segue ATIVO
-  até ser suspenso, declarado inapto ou baixado (ressalva R3-19 do [guia Power BI](POWER_BI.md)).
+  até ser suspenso, declarado inapto ou baixado (ressalva R3-19 do [guia Power BI](../uso/power-bi.md)).
 - **Motivo.** Cada situação tem um motivo codificado [RFB-Leiaute], descrito no arquivo de motivos da RFB. O projeto o guarda no
   staging (`motivo_situacao_codigo`, `stg_rfb__motivos`) e não o leva à estrela. O ATIVO tem o motivo 00 (SEM
-  MOTIVO): é a tradução de "ativa não tem encerramento" ([RN-10](REGRAS_NEGOCIO.md#rn-10)).
+  MOTIVO): é a tradução de "ativa não tem encerramento" ([RN-10](regras-negocio.md#rn-10)).
 - **Data da situação** é a "data do evento da situação cadastral" [RFB-Leiaute] (`dat_situacao`). Num ativo,
   costuma coincidir com a data de início de atividade (observação do projeto, sem fonte da RFB). Regras
-  [RN-11](REGRAS_NEGOCIO.md#rn-11) a [RN-13](REGRAS_NEGOCIO.md#rn-13): o não ativo tem a data, ela não antecede o
+  [RN-11](regras-negocio.md#rn-11) a [RN-13](regras-negocio.md#rn-13): o não ativo tem a data, ela não antecede o
   início de atividade e não passa do limite do extrato (o dia seguinte à data de referência).
 
 No projeto: `dim_situacao_cadastral`, entidade `situacao_cadastral`, dimensão
@@ -312,7 +312,7 @@ No projeto: `dim_situacao_cadastral`, entidade `situacao_cadastral`, dimensão
 
 É a "situação especial da empresa" e a "data em que a empresa entrou em situação especial", campos do arquivo
 Estabelecimentos [RFB-Leiaute]. O leiaute não lista os valores possíveis. O projeto mantém os campos só no staging
-(`situacao_especial`, `dat_situacao_especial`); os dois andam juntos ([RN-15](REGRAS_NEGOCIO.md#rn-15)).
+(`situacao_especial`, `dat_situacao_especial`); os dois andam juntos ([RN-15](regras-negocio.md#rn-15)).
 
 #### Data de início de atividade
 
@@ -338,7 +338,7 @@ CNAE-Subclasses 2.3. Tem cinco níveis, por exemplo para a pergunta-guia do proj
 | Subclasse | 4741-5/00 | Comércio varejista de tintas e materiais para pintura |
 
 Cada estabelecimento tem **um CNAE fiscal principal** e **zero ou mais secundários**, estes separados por vírgula
-no arquivo [RFB-Leiaute] (regras [RN-01](REGRAS_NEGOCIO.md#rn-01) a [RN-04](REGRAS_NEGOCIO.md#rn-04)). No
+no arquivo [RFB-Leiaute] (regras [RN-01](regras-negocio.md#rn-01) a [RN-04](regras-negocio.md#rn-04)). No
 projeto:
 
 - o principal vira `cnae_principal` (7 dígitos, como `4741500`) e `sk_cnae`;
@@ -358,7 +358,7 @@ O arquivo Estabelecimentos traz a UF e o "código do município de jurisdição 
 `id_municipio_ibge`) e usa o código IBGE como chave (`sk_municipio`).
 
 Sem par, o estabelecimento fica no membro `-1` de `dim_municipio`. O código existe no domínio da RFB
-([RN-19](REGRAS_NEGOCIO.md#rn-19)). Os casos conhecidos estão no seed
+([RN-19](regras-negocio.md#rn-19)). Os casos conhecidos estão no seed
 `excecoes_conhecidas_municipio`: o código 9707 (EXTERIOR, UF `EX`) e municípios criados depois da base.
 
 #### CEMPRE: unidades locais e pessoal ocupado
@@ -371,7 +371,7 @@ não tinham assalariado em 31/12, e o pessoal ocupado inclui sócios e propriet�
 
 **CEMPRE × RFB.** A RFB conta todo CNPJ em situação ATIVA, inclusive o MEI e quem não opera de fato; o CEMPRE conta
 o que tem sinal de atividade, sem MEI. A comparação justa é `ativos_rfb_sem_mei` × `unidades_locais_cempre`, em
-`mart_emprego_setor_municipio` ([RN-30](REGRAS_NEGOCIO.md#rn-30)). No dado real de 2026-09, nos pares em que as
+`mart_emprego_setor_municipio` ([RN-30](regras-negocio.md#rn-30)). No dado real de 2026-09, nos pares em que as
 duas bases têm o setor, o CEMPRE 2024 conta 0,83 unidade local por ativo sem MEI. Nas classes do caso, a ordem de
 grandeza é a mesma: em Serra, 33 unidades de 47.41-5 no CEMPRE e 34 ativos sem MEI na RFB.
 
@@ -451,7 +451,7 @@ Notas:
   `variacao_mensal_ativos`), não quem entrou e quem saiu. Se um CNPJ deixar de constar no extrato, o projeto deixa de vê-lo.
 - O cadastro guarda também o que já foi encerrado: as análises originais do MVP observaram que a base traz "todas
   as empresas que já foram abertas na história, incluindo as que foram fechadas"
-  ([notebook 2.2](referencia-original/2.2_Qualidade_dos_Dados_Empresas.md)). Por isso `qtd_estabelecimentos`
+  ([notebook 2.2](../historico/referencia-original/2.2_Qualidade_dos_Dados_Empresas.md)). Por isso `qtd_estabelecimentos`
   inclui baixados; use `qtd_ativos` para o estoque ativo.
 
 **Ligação com as métricas.**
@@ -484,7 +484,7 @@ Para "fechamentos definitivos", use `baixas` ou quebre `encerramentos` por
 
 ### A4. Ontologia
 
-A ontologia formal está em [`docs/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) (OWL, Turtle). Ela define os
+A ontologia formal está em [`docs/referencia/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) (OWL, Turtle). Ela define os
 conceitos e as relações e anota em cada conceito a entidade semântica, as dimensões, as métricas, os modelos e as
 colunas do projeto. O teste `tests/integration/test_ontologia.py` confere a cobertura nos dois sentidos: todo nome
 anotado existe nos manifestos do dbt, e toda entidade semântica e toda métrica está mapeada.
@@ -744,7 +744,7 @@ uv run mf query --metrics unidades_locais_cempre,pessoal_ocupado_cempre,ativos_r
 
 As unidades e o pessoal são do CEMPRE (`ano_cempre`), os ativos da RFB (mês do gold). Sem MEI no CEMPRE, compare
 com `ativos_rfb_sem_mei` em `mart_emprego_setor_municipio`; com sigilo, o pessoal da célula fica fora da soma. Mais
-exemplos, com o dado real, nos [cenários de uso](CENARIOS_DE_USO.md).
+exemplos, com o dado real, nos [cenários de uso](../uso/cenarios.md).
 
 ### A7. Fontes
 
@@ -781,10 +781,10 @@ As anotações ficam **junto do modelo**, no mesmo YAML que já documenta coluna
 
 | Arquivo | O que define |
 |---|---|
-| [`transform/models/marts/core/_core__models.yml`](../transform/models/marts/core/_core__models.yml) | modelos semânticos das dimensões e das duas fatos, métricas do resumo mensal e da fato detalhada, *time spine* (`dim_data`) |
-| [`transform/models/marts/analytics/_analytics__models.yml`](../transform/models/marts/analytics/_analytics__models.yml) | modelos semânticos e métricas de `mart_sobrevivencia_coorte` e de `mart_emprego_setor_municipio` (incremento `enriquecimento_ibge`) |
-| [`transform/models/marts/_marts__saved_queries.yml`](../transform/models/marts/_marts__saved_queries.yml) | consultas salvas (*saved queries*) |
-| [`docs/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) | ontologia: conceitos de negócio mapeados para entidades, dimensões e métricas ([A4](#a4-ontologia)) |
+| [`transform/models/marts/core/_core__models.yml`](../../transform/models/marts/core/_core__models.yml) | modelos semânticos das dimensões e das duas fatos, métricas do resumo mensal e da fato detalhada, *time spine* (`dim_data`) |
+| [`transform/models/marts/analytics/_analytics__models.yml`](../../transform/models/marts/analytics/_analytics__models.yml) | modelos semânticos e métricas de `mart_sobrevivencia_coorte` e de `mart_emprego_setor_municipio` (incremento `enriquecimento_ibge`) |
+| [`transform/models/marts/_marts__saved_queries.yml`](../../transform/models/marts/_marts__saved_queries.yml) | consultas salvas (*saved queries*) |
+| [`docs/referencia/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl) | ontologia: conceitos de negócio mapeados para entidades, dimensões e métricas ([A4](#a4-ontologia)) |
 
 Elementos do padrão usados aqui:
 
@@ -800,11 +800,11 @@ Elementos do padrão usados aqui:
 | `time_spine:` | calendário diário que o MetricFlow usa para deslocamentos e janelas |
 
 O detalhe dos campos de cada tabela (tipo, grão, chaves, domínio, origem, e as entidades, dimensões e métricas
-desta camada em cada modelo) está no [dicionário de dados](DICIONARIO_DADOS.md), gerado do manifesto do dbt
-(`make dicionario`, [ADR-0019](adr/0019-dicionario-de-dados.md)). Os comandos `mf query` testados de cada conceito,
+desta camada em cada modelo) está no [dicionário de dados](dicionario-dados.md), gerado do manifesto do dbt
+(`make dicionario`, [ADR-0019](../adr/0019-dicionario-de-dados.md)). Os comandos `mf query` testados de cada conceito,
 com a resposta nas fixtures, estão em [`golden_queries/semantica.yml`](golden_queries/semantica.yml), e o
-[guia de consulta em linguagem natural](GUIA_CONSULTA_LINGUAGEM_NATURAL.md) ensina um agente a escolher entre a
-semântica e o SQL ([ADR-0023](adr/0023-golden-queries-e-guia-para-agente.md)).
+[guia de consulta em linguagem natural](../uso/consulta-agente.md) ensina um agente a escolher entre a
+semântica e o SQL ([ADR-0023](../adr/0023-golden-queries-e-guia-para-agente.md)).
 
 ### B2. Entidades e junções
 
@@ -842,7 +842,7 @@ entidade "empresa": ver [A2](#empresa--estabelecimento).
 
 ### B3. Métricas
 
-As métricas do resumo mensal são as **mesmas medidas DAX** do [guia Power BI](POWER_BI.md#3-medidas-dax-sugeridas),
+As métricas do resumo mensal são as **mesmas medidas DAX** do [guia Power BI](../uso/power-bi.md#3-medidas-dax-sugeridas),
 agora definidas uma vez e fora da ferramenta de BI. A equivalência vale **no grão mensal**: num visual por ano (ou
 sem mês), o DAX `SUM` soma os meses, e a métrica usa o último mês (fotografia, abaixo). Para comparar um número do
 painel com o `mf`, filtre um mês nos dois.
@@ -947,7 +947,7 @@ Outros consumidores:
   - elegíveis, sobreviventes e taxas a 1, 3 e 5 anos iguais ao mart, somando os estratos;
   - os números citados nesta doc iguais aos das fixtures.
 - `tests/integration/test_enriquecimento_ibge.py` (incremento `enriquecimento_ibge`): o mart CEMPRE × RFB, o polo de
-  compras e as analyses dos [cenários de uso](CENARIOS_DE_USO.md) nas fixtures, e o pipeline sem `ibge/`.
+  compras e as analyses dos [cenários de uso](../uso/cenarios.md) nas fixtures, e o pipeline sem `ibge/`.
 - `tests/integration/test_escopo_meta.py`: modelos semânticos, métricas e *saved queries* com `meta.escopo`
   (e tag, nas *saved queries*).
 - `tests/integration/test_ontologia.py`: a ontologia parseia, tem rótulos em português, cobre a camada nos dois
@@ -979,7 +979,7 @@ Outros consumidores:
 - **CEMPRE × RFB são de anos diferentes** e o CEMPRE não tem MEI nem os valores sigilosos: `pessoal_ocupado_cempre`
   somado subestima, e `ativos_rfb` não é comparável a `unidades_locais_cempre` sem tirar o MEI
   (`ativos_rfb_sem_mei`, coluna do mart). Renda (2022, nominal), REGIC (2018) e VA (`ano_va`) também têm anos
-  próprios ([cenários de uso](CENARIOS_DE_USO.md#limitações-comuns)).
+  próprios ([cenários de uso](../uso/cenarios.md#limitações-comuns)).
 - `aberturas`, `encerramentos` e o saldo seguem a regra de `mart_dinamica_mercado`: abertura pela data de início;
   encerramento = estabelecimento **não ativo** (baixado, suspenso, inapto ou nulo, não só baixado) pela data da
   situação; data ausente ou inválida (`-1`/`-2`) não gera evento. Por ano, e por ano × qualquer dimensão do
@@ -1013,7 +1013,7 @@ Outros consumidores:
    ou uma `derived_semantics.dimensions` com `expr`.
 3. Modelo novo: `semantic_model: { enabled: true, config: { meta: { escopo: adicao } } }`, uma entidade
    `primary` (ou `primary_entity`), `foreign` para as dimensões e `agg_time_dimension`.
-4. Mapeie a métrica ou a entidade nova num conceito de [`docs/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl)
+4. Mapeie a métrica ou a entidade nova num conceito de [`docs/referencia/ontologia/rfb_cnpj.ttl`](ontologia/rfb_cnpj.ttl)
    (`rfbo:metricaDbt`, `rfbo:entidadeSemantica`) e na tabela da [A4](#a4-ontologia): o `test_ontologia.py` falha
    sem isso.
 5. Rode `make semantica` e acrescente um caso em `test_camada_semantica.py` que compare a métrica com o SQL direto.

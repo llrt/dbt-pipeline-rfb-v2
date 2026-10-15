@@ -20,6 +20,6 @@ repos:
     rev: v5.0.0
     hooks:
       - id: end-of-file-fixer
-        exclude: ^docs/referencia-original/
+        exclude: ^docs/historico/referencia-original/
       - id: check-yaml
         exclude: ^transform/packages\.yml$

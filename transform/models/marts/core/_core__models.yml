@@ -818,7 +818,7 @@ models:
           description: >
             Estabelecimento (CNPJ completo, 14 posições): matriz ou filial. Não é a empresa: a empresa é o
             CNPJ básico (8 primeiros caracteres) e pode ter vários estabelecimentos; para contar empresas use
-            as matrizes (`qtd_matrizes`). Ver docs/CAMADA_SEMANTICA.md, Parte A.
+            as matrizes (`qtd_matrizes`). Ver docs/referencia/camada-semantica.md, Parte A.
         data_tests: [unique, not_null]
       - name: sk_municipio
         config: { meta: { linhagem: "`dim_municipio.sk_municipio`, casando `int_estabelecimentos__enriquecidos.id_municipio_ibge` (de `municipio_rfb_codigo` = `codigo_rfb`); `-1` sem par" } }

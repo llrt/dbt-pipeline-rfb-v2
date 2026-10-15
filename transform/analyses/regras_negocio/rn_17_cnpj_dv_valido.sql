@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-17 (docs/REGRAS_NEGOCIO.md): os dígitos verificadores do CNPJ conferem pelo módulo 11, nos
+-- RN-17 (docs/referencia/regras-negocio.md): os dígitos verificadores do CNPJ conferem pelo módulo 11, nos
 -- formatos numérico e alfanumérico (macro `cnpj_dv_invalidos`, a mesma do teste `cnpj_dv_valido`).
 with invalidos as (
   {{ cnpj_dv_invalidos(ref('int_estabelecimentos__enriquecidos'), 'cnpj_completo') }}

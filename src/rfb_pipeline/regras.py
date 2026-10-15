@@ -236,7 +236,7 @@ def _secao_regra(rid: str, regra: Regra, quebras: list[Linha]) -> list[str]:
         f"**{_milhar(violacoes)}** {'violação' if violacoes == 1 else 'violações'} em "
         f"**{_milhar(avaliados)}** {'avaliado' if avaliados == 1 else 'avaliados'} "
         f"({_pct(violacoes, avaliados)}). Como ler: [catálogo, {rid}]"
-        f"(REGRAS_NEGOCIO.md#{rid.lower()}).",
+        f"(regras-negocio.md#{rid.lower()}).",
         "",
     ]
     if not quebras or not quebras[0].quebra:

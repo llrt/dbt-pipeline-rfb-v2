@@ -3,7 +3,7 @@
     meta={'escopo': 'adicao', 'incremento': 'enriquecimento_ibge'}
 ) }}
 
--- Cenário 3 (docs/CENARIOS_DE_USO.md), incremento enriquecimento_ibge: tamanho real do setor. Para a
+-- Cenário 3 (docs/uso/cenarios.md), incremento enriquecimento_ibge: tamanho real do setor. Para a
 -- classe CNAE do caso (5 primeiros dígitos) nos municípios da UF: unidades locais, pessoal ocupado e
 -- salário médio mensal aproximado do CEMPRE ao lado dos CNPJs ativos da RFB (com e sem MEI). O CEMPRE não
 -- conta MEI e é de 31/12 do `ano_cempre`; a RFB é do mês do gold. Sigilo (`X`) nunca é imputado: fica NULL

@@ -1,13 +1,13 @@
 # Dicionário de dados
 
 > Gerado por `scripts/gerar_dicionario_dados.py` a partir do manifesto e do catálogo do dbt; não edite à
-> mão ([ADR-0019](adr/0019-dicionario-de-dados.md)). Para regenerar: `make dicionario` (depois do
+> mão ([ADR-0019](../adr/0019-dicionario-de-dados.md)). Para regenerar: `make dicionario` (depois do
 > `make ci` ou de um `dbt build`).
 
 Detalhe de todas as tabelas disponíveis na base, com os campos de cada uma: o que são, em que
 grão, quais as chaves, onde ficam e o que cada coluna guarda. Conceitos de negócio (CNPJ, porte,
-situação cadastral, CNAE...) estão em [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md) (Parte A); as
-dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS.md](QUALIDADE_DADOS.md).
+situação cadastral, CNAE...) estão em [camada-semantica.md](camada-semantica.md) (Parte A); as
+dimensões e métricas do MetricFlow, na Parte B; os testes, em [qualidade-dados.md](qualidade-dados.md).
 
 ## Como ler
 
@@ -38,8 +38,8 @@ dimensões e métricas do MetricFlow, na Parte B; os testes, em [QUALIDADE_DADOS
   um estabelecimento sem par numa dimensão fica com a chave `-1`, nunca é descartado (exceto nos marts
   `original`, que reproduzem os inner joins do MVP).
 - **Escopo** (`meta.escopo`): `original` (existia no MVP Spark), `adicao` ou `adaptado`;
-  **incremento** (`meta.incremento`): módulo opcional ([ADR-0015](adr/0015-enriquecimento-base-dos-dados.md)).
-- **Dados pessoais**: o projeto só guarda o mínimo ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)):
+  **incremento** (`meta.incremento`): módulo opcional ([ADR-0015](../adr/0015-enriquecimento-base-dos-dados.md)).
+- **Dados pessoais**: o projeto só guarda o mínimo ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)):
   contatos (e-mail, telefones, fax) são descartados no staging e o CPF é mascarado no nome.
 - O gold fica em `RAIZ_DADOS/gold` (local ou `s3://`); `AAAA-MM` é o mês de referência do extrato.
 
@@ -285,7 +285,7 @@ Tabela de domínio: código e descrição de cada subclasse CNAE segundo a RFB (
 | Usada por | [`stg_rfb__cnaes`](#stg_rfb__cnaes) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/cnaes/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -314,7 +314,7 @@ Uma linha por empresa (CNPJ raiz, 8 primeiros dígitos). Notebook original: 1 (c
 | Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_rfb__empresas`](#stg_rfb__empresas) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/empresas/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 11 |
@@ -348,7 +348,7 @@ Uma linha por estabelecimento (CNPJ completo: raiz + ordem + DV). Notebook origi
 | Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_rfb__estabelecimentos`](#stg_rfb__estabelecimentos) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/estabelecimentos/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 34 |
@@ -376,13 +376,13 @@ Uma linha por estabelecimento (CNPJ completo: raiz + ordem + DV). Notebook origi
 | `cep` | `varchar` | CEP do endereço. | não testado | — | leiaute RFB: **CEP** | — |
 | `uf` | `varchar` | UF do endereço (sigla), conforme cadastro RFB (não usar como UF canônica; ver `stg_bd__municipios`). | não testado | — | leiaute RFB: **UF** | — |
 | `municipio` | `varchar` | Código do município RFB (4 dígitos; FK para `municipios.codigo`). | não testado | — | leiaute RFB: **MUNICÍPIO** | — |
-| `ddd1` | `varchar` | DDD do telefone 1. Descartado no staging (ADR-0008, minimização de dados pessoais). | não testado | — | leiaute RFB: **DDD 1** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
-| `tel1` | `varchar` | Telefone 1. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **TELEFONE 1** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
-| `ddd2` | `varchar` | DDD do telefone 2. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **DDD 2** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
-| `tel2` | `varchar` | Telefone 2. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **TELEFONE 2** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
-| `ddd_fax` | `varchar` | DDD do fax. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **DDD DO FAX** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
-| `fax` | `varchar` | Número do fax. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **FAX** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
-| `email` | `varchar` | E-mail de contato. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **CORREIO ELETRÔNICO** | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)) |
+| `ddd1` | `varchar` | DDD do telefone 1. Descartado no staging (ADR-0008, minimização de dados pessoais). | não testado | — | leiaute RFB: **DDD 1** | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)) |
+| `tel1` | `varchar` | Telefone 1. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **TELEFONE 1** | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)) |
+| `ddd2` | `varchar` | DDD do telefone 2. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **DDD 2** | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)) |
+| `tel2` | `varchar` | Telefone 2. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **TELEFONE 2** | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)) |
+| `ddd_fax` | `varchar` | DDD do fax. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **DDD DO FAX** | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)) |
+| `fax` | `varchar` | Número do fax. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **FAX** | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)) |
+| `email` | `varchar` | E-mail de contato. Descartado no staging (ADR-0008). | não testado | — | leiaute RFB: **CORREIO ELETRÔNICO** | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)) |
 | `sit_especial` | `varchar` | Situação especial (ex. falência, recuperação judicial); raramente preenchida. | não testado | — | leiaute RFB: **SITUAÇÃO ESPECIAL** | — |
 | `dat_sit_especial` | `varchar` | Data da situação especial (`YYYYMMDD`); raramente preenchida. | não testado | — | leiaute RFB: **DATA DA SITUAÇÃO ESPECIAL** | — |
 | `_data_referencia` | `date` | Data do extrato (token `Dyymmdd` do nome interno do arquivo); base do cálculo de idade (`data_referencia()`). Não pode ser nula: um NULL zeraria `idade_atual` em silêncio (teste `not_null`, `error`). | não (`not_null`) | — | coluna técnica da ingestão | — |
@@ -405,7 +405,7 @@ Tabela de domínio: código e descrição de cada motivo de situação cadastral
 | Usada por | [`stg_rfb__motivos`](#stg_rfb__motivos) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/motivos/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -434,7 +434,7 @@ Tabela de domínio: código RFB e nome de cada município (notebook 2.1.1). Não
 | Usada por | [`stg_rfb__municipios`](#stg_rfb__municipios) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/municipios/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -463,7 +463,7 @@ Tabela de domínio: código e descrição de cada natureza jurídica (notebook 2
 | Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_rfb__naturezas`](#stg_rfb__naturezas) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/naturezas/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -492,7 +492,7 @@ Tabela de domínio: código e descrição de cada país (adição: não usada pe
 | Usada por | — |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/paises/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -521,7 +521,7 @@ Tabela de domínio: código e descrição de cada qualificação de responsável
 | Usada por | — |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/qualificacoes/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -550,7 +550,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`stg_rfb__simples`](#stg_rfb__simples) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/rfb/simples/mes_referencia=*/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 11 |
@@ -586,7 +586,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`stg_bd__censo_2022_municipio`](#stg_bd__censo_2022_municipio) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/censo_2022_municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | não |
 | Colunas | 15 |
@@ -624,7 +624,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_bd__cnaes`](#stg_bd__cnaes) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/cnae_2/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 16 |
@@ -663,7 +663,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`audit__bh_empresas_sql_original`](#audit__bh_empresas_sql_original), [`stg_bd__municipios`](#stg_bd__municipios) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 29 |
@@ -715,7 +715,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`stg_bd__pib`](#stg_bd__pib) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/pib/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 11 |
@@ -749,7 +749,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`stg_bd__populacao`](#stg_bd__populacao) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/populacao/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -778,7 +778,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`stg_bd__regioes_metropolitanas`](#stg_bd__regioes_metropolitanas) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/regiao_metropolitana_2017/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | não |
 | Colunas | 10 |
@@ -811,7 +811,7 @@ Uma linha por empresa com o status de opção pelo Simples Nacional e pelo MEI (
 | Usada por | [`stg_bd__vizinhanca`](#stg_bd__vizinhanca) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/bd/vizinhanca_municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | não |
 | Colunas | 5 |
@@ -841,7 +841,7 @@ CEMPRE (SIDRA, tabela 9528), nível Brasil, variável 706, todas as 1.067 catego
 | Usada por | [`stg_ibge__cempre_municipio_classe`](#stg_ibge__cempre_municipio_classe) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/ibge/cempre_categorias_cnae/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 15 |
@@ -879,7 +879,7 @@ CEMPRE (SIDRA, tabela 9528) por município (N6): unidades locais (706), pessoal 
 | Usada por | [`stg_ibge__cempre_municipio_classe`](#stg_ibge__cempre_municipio_classe), [`stg_ibge__cempre_municipio_total`](#stg_ibge__cempre_municipio_total) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/ibge/cempre_municipio_cnae/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 9 |
@@ -911,7 +911,7 @@ REGIC 2018, aba `BD_MUN_QUEST` de `REGIC2018_Quest_Atracao_Municipios.xlsx` (mes
 | Usada por | [`stg_ibge__regic_atracao`](#stg_ibge__regic_atracao) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/ibge/regic_2018_atracao/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 22 |
@@ -956,7 +956,7 @@ REGIC 2018 (Regiões de Influência das Cidades), aba `Hierarquia e região` de 
 | Usada por | [`stg_ibge__regic_hierarquia`](#stg_ibge__regic_hierarquia) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/ibge/regic_2018_hierarquia/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 22 |
@@ -1001,7 +1001,7 @@ REGIC 2018, aba `BD_LIG_MUN_QUEST` de `REGIC2018_Quest_Ligacoes_entre_Municipios
 | Usada por | [`stg_ibge__regic_ligacoes`](#stg_ibge__regic_ligacoes) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/ibge/regic_2018_ligacoes/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 49 |
@@ -1073,7 +1073,7 @@ Censo 2022 (SIDRA, tabela 10295) por município: moradores em domicílios partic
 | Usada por | [`stg_ibge__renda_municipio`](#stg_ibge__renda_municipio) |
 | Materialização | Parquet raw (leitura direta, `external_location`) |
 | Localização | `raw/ibge/renda_censo_2022_municipio/*.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 11 |
@@ -1109,7 +1109,7 @@ Histórico acumulado dos resultados de testes dbt, uma linha por teste por execu
 | Usada por | [`dq_resumo_execucao`](#dq_resumo_execucao) |
 | Materialização | tabela no `warehouse.duckdb` |
 | Localização | `warehouse.duckdb` (esquema `main`, em `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 8 |
@@ -1142,7 +1142,7 @@ Domínio do indicador matriz/filial do estabelecimento. A fato usa só a flag `e
 | Usada por | — |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/dominio_matriz_filial.csv` |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 3 |
@@ -1175,7 +1175,7 @@ Domínio de porte da empresa (metadados RFB): `rotulo` reproduz os valores de `b
 | Usada por | [`dim_porte`](#dim_porte) |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/dominio_porte.csv` |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 3 |
@@ -1210,7 +1210,7 @@ Domínio de situação cadastral do estabelecimento (metadados RFB). Base de `di
 | Usada por | [`dim_situacao_cadastral`](#dim_situacao_cadastral) |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/dominio_situacao_cadastral.csv` |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 3 |
@@ -1246,7 +1246,7 @@ Códigos de município da RFB sem par na Base dos Dados por motivo conhecido (ex
 | Usada por | — |
 | Materialização | seed (tabela no `warehouse.duckdb`) |
 | Localização | CSV `transform/seeds/excecoes_conhecidas_municipio.csv` |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 3 |
@@ -1281,7 +1281,7 @@ Censo 2022 por município, tipado: contagens `bigint`, taxas `double`; `area` vi
 | Usada por | [`dim_municipio`](#dim_municipio) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | não |
 | Colunas | 13 |
@@ -1317,7 +1317,7 @@ CNAEs (versão 2.x) da Base dos Dados, tipado e limpo: `subclasse` e demais cód
 | Usada por | [`bh_empresas`](#bh_empresas), [`dim_cnae`](#dim_cnae), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 10 |
@@ -1350,7 +1350,7 @@ Municípios da Base dos Dados, tipado e limpo: ids como texto (`texto_ou_nulo`),
 | Usada por | [`bh_empresas`](#bh_empresas), [`int_municipios__conformados`](#int_municipios__conformados) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 16 |
@@ -1389,7 +1389,7 @@ PIB municipal e seus componentes (adição), tipados como `double`; `ano` inteir
 | Usada por | [`int_municipios__conformados`](#int_municipios__conformados), [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 9 |
@@ -1421,7 +1421,7 @@ População estimada por município e ano (adição), tipada: `ano` inteiro, `po
 | Usada por | [`int_municipios__conformados`](#int_municipios__conformados) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 4 |
@@ -1448,7 +1448,7 @@ Região metropolitana de cada município, uma linha por município (a fonte pode
 | Usada por | [`dim_municipio`](#dim_municipio) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | não |
 | Colunas | 7 |
@@ -1478,7 +1478,7 @@ Pares de municípios vizinhos como publicados (um sentido, possíveis duplicatas
 | Usada por | [`bridge_municipio_vizinho`](#bridge_municipio_vizinho) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | não |
 | Colunas | 3 |
@@ -1504,7 +1504,7 @@ CEMPRE (IBGE, SIDRA 9528) por município e classe CNAE 2.0 (nível 4): unidades 
 | Usada por | [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 10 |
@@ -1537,7 +1537,7 @@ CEMPRE (IBGE, SIDRA 9528) por município, todas as atividades (categoria Total, 
 | Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 7 |
@@ -1567,7 +1567,7 @@ REGIC 2018 (IBGE): índice de atração de cada município que recebe deslocamen
 | Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 14 |
@@ -1604,7 +1604,7 @@ REGIC 2018 (IBGE): hierarquia urbana da cidade a que o município pertence (o pr
 | Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 16 |
@@ -1643,7 +1643,7 @@ REGIC 2018 (IBGE): ligações origem → destino dos questionários. Cada `pct_*
 | Usada por | [`int_regic__destinos_compras`](#int_regic__destinos_compras) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 15 |
@@ -1681,7 +1681,7 @@ Censo 2022 (IBGE, SIDRA 10295) por município: moradores em domicílios particul
 | Usada por | [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 5 |
@@ -1709,7 +1709,7 @@ Domínio de CNAEs (subclasse) da RFB, tipado e limpo: `codigo` com 7 dígitos (`
 | Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 2 |
@@ -1734,7 +1734,7 @@ Empresas (CNPJ raiz) da RFB, tipadas e limpas, do mês de referência selecionad
 | Usada por | [`bh_empresas`](#bh_empresas), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 9 |
@@ -1766,7 +1766,7 @@ Estabelecimentos (CNPJ completo) da RFB, tipados e limpos, do mês de referênci
 | Usada por | [`bh_empresas`](#bh_empresas), [`dim_data`](#dim_data), [`fct_resumo_mensal`](#fct_resumo_mensal), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 27 |
@@ -1816,7 +1816,7 @@ Domínio de motivos de situação cadastral da RFB, tipado e limpo: `codigo` com
 | Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 2 |
@@ -1841,7 +1841,7 @@ Domínio de municípios da RFB, tipado e limpo: `codigo` com 4 dígitos (`lpad_c
 | Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 2 |
@@ -1866,7 +1866,7 @@ Domínio de naturezas jurídicas da RFB, tipado e limpo: `codigo` com 4 dígitos
 | Usada por | [`bh_empresas`](#bh_empresas), [`dim_natureza_juridica`](#dim_natureza_juridica), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 2 |
@@ -1891,7 +1891,7 @@ Status de opção pelo Simples Nacional e pelo MEI por empresa (adição). `opca
 | Usada por | [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos) |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 7 |
@@ -1923,7 +1923,7 @@ Uma linha por (estabelecimento, CNAE secundário), a partir de `cnaes_secundario
 | Usada por | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 2 |
@@ -1948,7 +1948,7 @@ Estabelecimentos do mês selecionado com empresa, Simples/MEI e pares nos domín
 | Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos), [`int_cnaes_secundarios__explodidos`](#int_cnaes_secundarios__explodidos), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 21 |
@@ -1992,7 +1992,7 @@ Município conformado (Base dos Dados + população do `ano_populacao` + PIB do 
 | Usada por | [`dim_municipio`](#dim_municipio), [`int_estabelecimentos__enriquecidos`](#int_estabelecimentos__enriquecidos), [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 21 |
@@ -2036,7 +2036,7 @@ Perfil do município com as fontes do IBGE (incremento `enriquecimento_ibge`, AD
 | Usada por | [`dim_municipio`](#dim_municipio) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 24 |
@@ -2083,7 +2083,7 @@ REGIC 2018 em formato longo (incremento `enriquecimento_ibge`): para cada munic�
 | Usada por | [`bridge_municipio_destino_compras`](#bridge_municipio_destino_compras), [`int_municipios__perfil_ibge`](#int_municipios__perfil_ibge) |
 | Materialização | tabela dbt |
 | Localização | `warehouse.duckdb` (tabela, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | não |
 | Colunas | 6 |
@@ -2114,10 +2114,10 @@ Dimensão de CNAE (ADR-0013) com a hierarquia seção → divisão → grupo →
 | Usada por | [`bridge_estabelecimento_cnae_secundario`](#bridge_estabelecimento_cnae_secundario), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_cnae.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `cnae` (primary, `sk_cnae`); dimensões: `codigo_secao`, `descricao_secao`, `codigo_divisao`, `descricao_divisao`, `codigo_grupo`, `descricao_grupo`, `codigo_classe`, `descricao_classe`, `codigo_subclasse`, `descricao_subclasse`; métricas: — (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `cnae` (primary, `sk_cnae`); dimensões: `codigo_secao`, `descricao_secao`, `codigo_divisao`, `descricao_divisao`, `codigo_grupo`, `descricao_grupo`, `codigo_classe`, `descricao_classe`, `codigo_subclasse`, `descricao_subclasse`; métricas: — (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 11 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2149,7 +2149,7 @@ Calendário (ADR-0013): uma linha por dia de 1900-01-01 até `data_referencia` (
 | Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_data.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
 | Colunas | 11 |
@@ -2183,10 +2183,10 @@ Dimensão de município (ADR-0013). Chave `sk_municipio` inteira determinística
 | Usada por | [`bridge_municipio_destino_compras`](#bridge_municipio_destino_compras), [`bridge_municipio_vizinho`](#bridge_municipio_vizinho), [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_municipio.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `municipio` (primary, `sk_municipio`); dimensões: `id_municipio_ibge`, `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, `nome_mesorregiao`, `nome_microrregiao`, `nome_regiao_intermediaria`, `nome_regiao_imediata`, `nome_regiao_metropolitana`, `renda_per_capita_media_2022`, `renda_per_capita_mediana_2022`, `regic_hierarquia_codigo`, `regic_hierarquia`, `regic_arranjo_populacional`, `regic_regiao_influencia`, `nome_municipio_polo_compras`, `pct_compras_no_polo`; métricas: — (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `municipio` (primary, `sk_municipio`); dimensões: `id_municipio_ibge`, `nome_municipio`, `sigla_uf`, `nome_uf`, `nome_regiao`, `nome_mesorregiao`, `nome_microrregiao`, `nome_regiao_intermediaria`, `nome_regiao_imediata`, `nome_regiao_metropolitana`, `renda_per_capita_media_2022`, `renda_per_capita_mediana_2022`, `regic_hierarquia_codigo`, `regic_hierarquia`, `regic_arranjo_populacional`, `regic_regiao_influencia`, `nome_municipio_polo_compras`, `pct_compras_no_polo`; métricas: — (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 53 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2260,10 +2260,10 @@ Dimensão de natureza jurídica (domínio RFB). Membro `-1` para empresa sem nat
 | Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_natureza_juridica.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `natureza_juridica` (primary, `sk_natureza_juridica`); dimensões: `codigo_natureza_juridica`, `descricao_natureza_juridica`; métricas: — (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `natureza_juridica` (primary, `sk_natureza_juridica`); dimensões: `codigo_natureza_juridica`, `descricao_natureza_juridica`; métricas: — (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 3 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2287,10 +2287,10 @@ Dimensão de porte da empresa (seed `dominio_porte`). Membro `-1` para porte vaz
 | Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_porte.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `porte` (primary, `sk_porte`); dimensões: `codigo_porte`, `rotulo_porte`; métricas: — (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `porte` (primary, `sk_porte`); dimensões: `codigo_porte`, `rotulo_porte`; métricas: — (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 4 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2315,10 +2315,10 @@ Dimensão de situação cadastral (seed `dominio_situacao_cadastral`). Membro `-
 | Usada por | [`fct_estabelecimentos`](#fct_estabelecimentos) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/dim_situacao_cadastral.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `situacao_cadastral` (primary, `sk_situacao_cadastral`); dimensões: `codigo_situacao_cadastral`, `rotulo_situacao_cadastral`; métricas: — (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `situacao_cadastral` (primary, `sk_situacao_cadastral`); dimensões: `codigo_situacao_cadastral`, `rotulo_situacao_cadastral`; métricas: — (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 4 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2345,10 +2345,10 @@ Fato detalhada (ADR-0013): uma linha por estabelecimento (`cnpj_completo`, dimen
 | Usada por | [`fct_resumo_mensal`](#fct_resumo_mensal), [`mart_concorrencia_municipio`](#mart_concorrencia_municipio), [`mart_dinamica_mercado`](#mart_dinamica_mercado), [`mart_emprego_setor_municipio`](#mart_emprego_setor_municipio), [`mart_fornecedores_proximos`](#mart_fornecedores_proximos), [`mart_sobrevivencia_coorte`](#mart_sobrevivencia_coorte) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/fct_estabelecimentos.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `estabelecimento` (primary, `cnpj_completo`), `municipio` (foreign, `sk_municipio`), `cnae` (foreign, `sk_cnae`), `natureza_juridica` (foreign, `sk_natureza_juridica`), `porte` (foreign, `sk_porte`), `situacao_cadastral` (foreign, `sk_situacao_cadastral`); dimensões: `opcao_simples`, `opcao_mei`, `eh_matriz`, `eh_ativa`, `data_inicio_atividade`, `data_situacao`; métricas: `aberturas`, `baixas`, `encerramentos` (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `estabelecimento` (primary, `cnpj_completo`), `municipio` (foreign, `sk_municipio`), `cnae` (foreign, `sk_cnae`), `natureza_juridica` (foreign, `sk_natureza_juridica`), `porte` (foreign, `sk_porte`), `situacao_cadastral` (foreign, `sk_situacao_cadastral`); dimensões: `opcao_simples`, `opcao_mei`, `eh_matriz`, `eh_ativa`, `data_inicio_atividade`, `data_situacao`; métricas: `aberturas`, `baixas`, `encerramentos` (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 14 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2383,10 +2383,10 @@ Fato agregada para Power BI em modo Import (ADR-0012/0013). Grão: mês × munic
 | Usada por | — |
 | Materialização | Parquet particionado (`external`) |
 | Localização | `gold/fct_resumo_mensal/mes_referencia=AAAA-MM/` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `municipio` (foreign, `sk_municipio`), `cnae` (foreign, `sk_cnae`), `porte` (foreign, `sk_porte`), `situacao_cadastral` (foreign, `sk_situacao_cadastral`); dimensões: `opcao_mei`, `mes`; métricas: `capital_social_total`, `qtd_ativos`, `qtd_ativos_mei`, `qtd_estabelecimentos`, `qtd_matrizes`, `soma_idade_anos_ativos` (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `municipio` (foreign, `sk_municipio`), `cnae` (foreign, `sk_cnae`), `porte` (foreign, `sk_porte`), `situacao_cadastral` (foreign, `sk_situacao_cadastral`); dimensões: `opcao_mei`, `mes`; métricas: `capital_social_total`, `qtd_ativos`, `qtd_ativos_mei`, `qtd_estabelecimentos`, `qtd_matrizes`, `soma_idade_anos_ativos` (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 12 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2421,7 +2421,7 @@ Bridge (ADR-0013): CNAEs secundários por estabelecimento (muitos-para-muitos en
 | Usada por | [`mart_fornecedores_proximos`](#mart_fornecedores_proximos) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/bridge_estabelecimento_cnae_secundario.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
 | Colunas | 3 |
@@ -2447,7 +2447,7 @@ Para onde os moradores de cada município vão comprar (incremento `enriquecimen
 | Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/bridge_municipio_destino_compras.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | sim |
 | Colunas | 6 |
@@ -2476,7 +2476,7 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 | Usada por | [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/bridge_municipio_vizinho.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | sim |
 | Colunas | 2 |
@@ -2503,7 +2503,7 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 | Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/agg_empresas.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
 | Colunas | 12 |
@@ -2538,7 +2538,7 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 | Usada por | [`agg_empresas`](#agg_empresas) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/bh_empresas.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `original` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `original` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
 | Colunas | 15 |
@@ -2547,7 +2547,7 @@ Vizinhança entre municípios (incremento `enriquecimento_bd`, ADR-0015): pares 
 |---|---|---|---|---|---|---|
 | `cnpj_raiz` | `varchar` | 8 primeiros dígitos de CNPJ da empresa. Linhagem: `stg_rfb__empresas.cnpj_raiz`, prefixado com '0' no staging. Domínio: caracteres numéricos, prefixado com 0s se necessário. | não testado | — | linhagem: `stg_rfb__empresas.cnpj_raiz`, prefixado com '0' no staging | — |
 | `cnpj_completo` | `varchar` | CNPJ completo da empresa, com 14 dígitos. Linhagem: `stg_rfb__estabelecimentos.cnpj_completo` (`cnpj_raiz`, `cnpj_ordem` e `cnpj_dv`, cada um prefixado com '0' no staging). | não (`not_null`) | — | linhagem: `stg_rfb__estabelecimentos.cnpj_completo` (`cnpj_raiz`, `cnpj_ordem` e `cnpj_dv`, cada um prefixado com '0' no staging) | — |
-| `nome` | `varchar` | Nome da empresa. Linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005): sem espaços nas bordas (`trim` do staging), que o original mantinha (fev/2025: ~752 razões sociais com espaço à esquerda); o teste `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas. **Adaptado** (ADR-0008): o CPF que encerra a razão social do empresário individual/MEI (todo trecho de exatamente 11 dígitos, no fim ou no meio do nome, sem exigir DV: 908 CPFs reais vêm no meio) sai como `***.***.***-**` (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste `sem_cpf_no_nome` (error) barra CPF com DV válido. | não testado | — | linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
+| `nome` | `varchar` | Nome da empresa. Linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar. **Adaptado** (ADR-0005): sem espaços nas bordas (`trim` do staging), que o original mantinha (fev/2025: ~752 razões sociais com espaço à esquerda); o teste `bh_empresas_nome_alterado_por_trim` (warn) conta as linhas afetadas. **Adaptado** (ADR-0008): o CPF que encerra a razão social do empresário individual/MEI (todo trecho de exatamente 11 dígitos, no fim ou no meio do nome, sem exigir DV: 908 CPFs reais vêm no meio) sai como `***.***.***-**` (`mascarar_cpf_no_nome`; 2026-09: 12,5 M nomes); o teste `sem_cpf_no_nome` (error) barra CPF com DV válido. | não testado | — | linhagem: `stg_rfb__estabelecimentos.nome_fantasia`; `stg_rfb__empresas.razao_social` apenas se `nome_fantasia` for null; upper case para padronizar | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
 | `natureza_juridica` | `varchar` | Natureza jurídica da empresa, i.e. uma espécie de "tipo" (em termos jurídicos e fiscais). Linhagem: `stg_rfb__naturezas.descricao` com `codigo = stg_rfb__empresas.natureza_juridica_codigo`; upper case. | não testado | — | linhagem: `stg_rfb__naturezas.descricao` com `codigo = stg_rfb__empresas.natureza_juridica_codigo`; upper case | — |
 | `porte` | `varchar` | Porte da empresa, i.e. uma espécie de "tamanho" (em termos de faturamento). Linhagem: `stg_rfb__empresas.porte_codigo`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro valor ou vazio → NULL. | não testado | valores: `N/A`, `MICRO`, `PEQUENA`, `DEMAIS` | linhagem: `stg_rfb__empresas.porte_codigo`, mapeado 0 → "N/A", 1 → "MICRO", 3 → "PEQUENA", 5 → "DEMAIS"; outro valor ou vazio → NULL | — |
 | `cnae_principal` | `varchar` | Subclasse do CNAE (código nacional de atividade econômica) principal da empresa. Linhagem: `stg_rfb__estabelecimentos.cnae_principal`, sem transformação. Domínio: 7 caracteres numéricos (classificação IBGE). | não testado | tamanho exato: 7 | linhagem: `stg_rfb__estabelecimentos.cnae_principal`, sem transformação | — |
@@ -2578,7 +2578,7 @@ Concorrência na área de mercado (incremento `enriquecimento_bd`, ADR-0015) por
 | Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_concorrencia_area_mercado.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_bd` |
 | Contrato aplicado | sim |
 | Colunas | 25 |
@@ -2626,7 +2626,7 @@ Densidade de concorrência por CNAE principal × município. `ativos` e `inativo
 | Usada por | [`mart_concorrencia_area_mercado`](#mart_concorrencia_area_mercado) |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_concorrencia_municipio.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
 | Colunas | 11 |
@@ -2660,7 +2660,7 @@ Dinâmica de mercado: aberturas, encerramentos e saldo por ano × CNAE principal
 | Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_dinamica_mercado.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
 | Colunas | 10 |
@@ -2693,10 +2693,10 @@ Tamanho real do setor no município (incremento `enriquecimento_ibge`, ADR-0022)
 | Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_emprego_setor_municipio.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | `enriquecimento_ibge` |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `municipio` (foreign, `sk_municipio`); dimensões: `uf`, `classe_cnae`, `descricao_classe`, `ano_cempre`, `tem_sigilo`, `mes_rfb`; métricas: `ativos_rfb`, `pessoal_ocupado_cempre`, `unidades_locais_cempre` (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `municipio` (foreign, `sk_municipio`); dimensões: `uf`, `classe_cnae`, `descricao_classe`, `ano_cempre`, `tem_sigilo`, `mes_rfb`; métricas: `ativos_rfb`, `pessoal_ocupado_cempre`, `unidades_locais_cempre` (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 17 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2734,7 +2734,7 @@ Fornecedores próximos: fornecedores ATIVOS do município do caso (vars `caso_mu
 | Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_fornecedores_proximos.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
 | Colunas | 9 |
@@ -2742,7 +2742,7 @@ Fornecedores próximos: fornecedores ATIVOS do município do caso (vars `caso_mu
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
 |---|---|---|---|---|---|---|
 | `cnpj_completo` | `varchar` | CNPJ de 14 dígitos do fornecedor. | não (`not_null`) | — | — | — |
-| `nome` | `varchar` | Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11 dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008). | não testado | — | — | dado pessoal / minimização ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
+| `nome` | `varchar` | Nome fantasia ou, na falta, razão social (sem dados de contato, ADR-0008), com o CPF do empresário individual/MEI mascarado como `***.***.***-**` (todo trecho de exatamente 11 dígitos, no fim ou no meio; `mascarar_cpf_no_nome`; ADR-0008). | não testado | — | — | dado pessoal / minimização ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)); CPF mascarado no texto ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md); teste `sem_cpf_no_nome`) |
 | `sk_cnae` | `integer` | Chave de `dim_cnae` do CNAE fornecido; `-1` se o CNAE não existe na dimensão. | não (`not_null`) | FK → [`dim_cnae`](#dim_cnae).`sk_cnae` | — | chave sentinela: `-1` |
 | `cnae_fornecido` | `varchar` | CNAE (7 dígitos) que qualificou o fornecedor (principal; senão o menor secundário que casa). | não (`not_null`) | — | — | — |
 | `via` | `varchar` | `principal` ou `secundario`. | não testado | valores: `principal`, `secundario` | — | — |
@@ -2766,10 +2766,10 @@ Sobrevivência por coorte (ano de início da atividade) × CNAE principal × por
 | Usada por | — |
 | Materialização | Parquet (`external`) |
 | Localização | `gold/mart_sobrevivencia_coorte.parquet` (relativo a `RAIZ_DADOS`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | sim |
-| Camada semântica | entidades: `cnae` (foreign, `sk_cnae`), `porte` (foreign, `sk_porte`); dimensões: `uf`, `coorte`; métricas: `elegiveis_1a`, `elegiveis_3a`, `elegiveis_5a`, `sobreviventes_1a`, `sobreviventes_3a`, `sobreviventes_5a` (ver [CAMADA_SEMANTICA.md](CAMADA_SEMANTICA.md)) |
+| Camada semântica | entidades: `cnae` (foreign, `sk_cnae`), `porte` (foreign, `sk_porte`); dimensões: `uf`, `coorte`; métricas: `elegiveis_1a`, `elegiveis_3a`, `elegiveis_5a`, `sobreviventes_1a`, `sobreviventes_3a`, `sobreviventes_5a` (ver [camada-semantica.md](camada-semantica.md)) |
 | Colunas | 16 |
 
 | Coluna | Tipo | Descrição | Pode ser nulo? | Domínio / valores aceitos | Origem | Observações |
@@ -2808,7 +2808,7 @@ SQL do notebook 3 (`bh_empresas`) traduzido literalmente para DuckDB sobre as fo
 | Usada por | — |
 | Materialização | efêmero (CTE) |
 | Localização | sem relação física: só existe dentro do teste que o usa |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 0 |
@@ -2830,7 +2830,7 @@ Resumo por execução dbt do histórico de testes (`dq_historico_testes`): totai
 | Usada por | — |
 | Materialização | view dbt |
 | Localização | `warehouse.duckdb` (view, esquema `main`) |
-| Escopo | `adicao` ([ADR-0006](adr/0006-marcacao-escopo.md)) |
+| Escopo | `adicao` ([ADR-0006](../adr/0006-marcacao-escopo.md)) |
 | Incremento | — |
 | Contrato aplicado | não |
 | Colunas | 10 |

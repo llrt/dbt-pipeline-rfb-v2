@@ -1,6 +1,6 @@
 # Matriz conceito × camada das golden queries (ADR-0023). Fonte de verdade da cobertura:
 # - `camadas`: as camadas consultáveis, na ordem da matriz;
-# - `conceitos`: os conceitos do modelo, com as classes da ontologia (`docs/ontologia/rfb_cnpj.ttl`) quando houver;
+# - `conceitos`: os conceitos do modelo, com as classes da ontologia (`docs/referencia/ontologia/rfb_cnpj.ttl`) quando houver;
 # - `sem_query`: o motivo de cada célula conceito × camada que não tem golden query.
 # Toda célula tem golden query (em `transform/analyses/golden/` ou em `semantica.yml`) OU motivo, nunca os dois:
 # o teste `test_golden_queries.py` falha se uma célula ficar sem nenhum dos dois ou com os dois.
@@ -127,7 +127,7 @@ sem_query:
     intermediate: "int_cnaes_secundarios__explodidos é a mesma lista que bridge_estabelecimento_cnae_secundario, sem `sk_cnae`; use gq_core__cnae_secundario__01"
     analytics: "o secundário só entra em mart_fornecedores_proximos (`via` = 'secundario'); ver gq_analytics__fornecedores_proximos__01"
     original: "bh_empresas guarda a string `cnaes_secundarios` como no MVP; para pergunta nova use a ponte (gq_core__cnae_secundario__01)"
-    semantica: "a ponte muitos-para-muitos fica fora da camada semântica (CAMADA_SEMANTICA.md, B7)"
+    semantica: "a ponte muitos-para-muitos fica fora da camada semântica (camada-semantica.md, B7)"
   simples_mei:
     intermediate: "int_estabelecimentos__enriquecidos só aplica `coalesce(..., false)` às flags; use gq_core__simples_mei__01"
     analytics: "o MEI só aparece em `ativos_rfb_sem_mei` de mart_emprego_setor_municipio; ver gq_analytics__cempre_setor__01"
@@ -172,7 +172,7 @@ sem_query:
     staging: "stg_bd__vizinhanca tem todos os anos e um só sentido; use gq_core__area_mercado_vizinhanca__01"
     intermediate: "nenhum intermediate de vizinhança; use gq_core__area_mercado_vizinhanca__01"
     original: "o MVP não usou vizinhança"
-    semantica: "a ponte de vizinhança fica fora da camada semântica (CAMADA_SEMANTICA.md, B7)"
+    semantica: "a ponte de vizinhança fica fora da camada semântica (camada-semantica.md, B7)"
   fornecedores_proximos:
     raw: "a busca por raio é regra do projeto (haversine entre centroides), calculada no gold"
     staging: "a busca por raio é regra do projeto, calculada no gold"
@@ -201,11 +201,11 @@ sem_query:
     semantica: "o VA não é dimensão nem métrica da camada semântica (atributo numérico de dim_municipio)"
   regras_qualidade:
     raw: "as regras rodam sobre o staging e o intermediate (analyses `rn_*`); o raw é o que a fonte publicou, sem regra"
-    analytics: "a qualidade de cada execução fica em dq_resumo_execucao (observabilidade): os números mudam a cada build; veja docs/QUALIDADE_DADOS.md e `rfb regras`"
+    analytics: "a qualidade de cada execução fica em dq_resumo_execucao (observabilidade): os números mudam a cada build; veja docs/referencia/qualidade-dados.md e `rfb regras`"
     original: "a paridade do original é teste do build (`paridade_bh_empresas`), não consulta"
-    semantica: "regras de negócio não são métricas; use `rfb regras` e docs/RELATORIO_REGRAS_NEGOCIO.md"
+    semantica: "regras de negócio não são métricas; use `rfb regras` e docs/relatorios/regras-negocio.md"
   modelos_originais:
-    raw: "os modelos originais são do gold; a linhagem deles está no dicionário (docs/DICIONARIO_DADOS.md)"
+    raw: "os modelos originais são do gold; a linhagem deles está no dicionário (docs/referencia/dicionario-dados.md)"
     staging: "os modelos originais são do gold; a linhagem deles está no dicionário"
     intermediate: "os modelos originais leem o staging direto, sem intermediate"
     core: "o equivalente no modelo estrela de cada pergunta do MVP está nas golden queries do core de cada conceito"

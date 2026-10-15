@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-19 (docs/REGRAS_NEGOCIO.md): o código de município do estabelecimento existe no domínio de
+-- RN-19 (docs/referencia/regras-negocio.md): o código de município do estabelecimento existe no domínio de
 -- municípios publicado pela RFB (não no da Base dos Dados).
 with base as (
   select

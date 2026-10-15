@@ -243,7 +243,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A, e R a de J), mais uma 
 2. The system SHALL provide a generic test `data_nao_futura` relative to `data_referencia` applied to every staging date column, **except** `dat_exclusao_simples` and `dat_exclusao_mei` (a exclusão do Simples/MEI com efeito futuro — fim do mês ou do ano — é legítima; no extrato real de fev/2025 todos os 1.854 e 1.766 avisos eram 2025-02-28 ou 2025-12-31). *(Emenda R3-11.)*
 3. The system SHALL store failures of `warn` tests (`store_failures`).
 4. WHEN `dbt build` finishes THEN the system SHALL append one row per executed test to `dq_historico_testes` with invocation id, test name, status, failures, severity and escopo.
-5. The system SHALL produce `docs/QUALIDADE_DADOS.md` listing every check by stage (antes/depois), marking original vs adição.
+5. The system SHALL produce `docs/referencia/qualidade-dados.md` listing every check by stage (antes/depois), marking original vs adição.
 6. The system SHALL fail CI if any dbt node lacks `meta.escopo`.
 
 ---
@@ -255,7 +255,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A, e R a de J), mais uma 
 **Acceptance Criteria**:
 
 1. The system SHALL provide `analyses/` SQL for each question of notebook 4, parameterized by vars `caso_*`.
-2. WHEN `rfb relatorio` runs THEN the system SHALL write `docs/RELATORIO_ESTUDO_CASO.md` with the answers of the original questions and of the new analyses for the configured case.
+2. WHEN `rfb relatorio` runs THEN the system SHALL write `docs/relatorios/estudo-caso.md` with the answers of the original questions and of the new analyses for the configured case.
 3. WHEN run on fixtures THEN the report SHALL state 1 active competitor and 4 inactive in Fundão/ES for CNAE 4741500.
 
 ---
@@ -294,7 +294,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A, e R a de J), mais uma 
 
 **Acceptance Criteria**:
 
-1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `RAIZ_DADOS/_estado/ultima_execucao.json`. *(Emenda R4-06: com `RAIZ_DADOS=s3://…` o estado fica em `RAIZ_DADOS_LOCAL/_estado/` — o disco local, não o bucket —, e a retenção do AC 5 apaga só o raw e os zips locais; as partições raw enviadas ao bucket pelo `rfb sincronizar` não são apagadas. Comportamento aceito e documentado em `docs/OPERACAO.md`.)*
+1. WHEN `rfb atualizar` runs AND the most recent complete remote month is newer than the last successfully processed month THEN the system SHALL run ingest → `dbt build --vars mes_referencia=<mês>` → reports and SHALL record that month in `RAIZ_DADOS/_estado/ultima_execucao.json`. *(Emenda R4-06: com `RAIZ_DADOS=s3://…` o estado fica em `RAIZ_DADOS_LOCAL/_estado/` — o disco local, não o bucket —, e a retenção do AC 5 apaga só o raw e os zips locais; as partições raw enviadas ao bucket pelo `rfb sincronizar` não são apagadas. Comportamento aceito e documentado em `docs/operacao.md`.)*
 2. WHEN the most recent complete month equals the last processed month THEN `rfb atualizar` SHALL exit 0 without downloading any file and SHALL print "nenhum mês novo".
 3. IF the most recent remote month folder lacks any expected file (`Empresas0–9`, `Estabelecimentos0–9`, `Simples`, 6 domínios) THEN the system SHALL treat it as incomplete and SHALL select the previous complete month.
 4. IF `dbt build` fails THEN `rfb atualizar` SHALL exit non-zero and SHALL NOT update `ultima_execucao.json`.
@@ -302,7 +302,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A, e R a de J), mais uma 
 6. The system SHALL persist `fct_resumo_mensal` as one Parquet partition per month under `gold/fct_resumo_mensal/mes_referencia=YYYY-MM/`, surviving deletion of `warehouse.duckdb`.
 7. WHEN a month already present in `fct_resumo_mensal` is reprocessed THEN the system SHALL replace only that month's partition.
 8. WHEN fixture months 2026-08 then 2026-09 are processed in order THEN `fct_resumo_mensal` SHALL contain both months, with `qtd_estabelecimentos` for (Serra, 4741500, ATIVA) equal to 0 or absent in 2026-08 and 1 in 2026-09.
-9. The system SHALL document scheduling recipes for cron, launchd and GitHub Actions in `docs/OPERACAO.md`.
+9. The system SHALL document scheduling recipes for cron, launchd and GitHub Actions in `docs/operacao.md`.
 
 **Independent Test**: fixtures com dois meses → `rfb atualizar --origem-local` processa 2026-09 após 2026-08; segunda chamada imprime "nenhum mês novo".
 
@@ -322,7 +322,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A, e R a de J), mais uma 
 4. `dim_municipio` SHALL expose the hierarchy columns região, UF, mesorregião, microrregião, município, região intermediária, região imediata; `dim_cnae` SHALL expose seção, divisão, grupo, classe, subclasse with code and description in separate columns.
 5. The system SHALL build `fct_resumo_mensal` at grain (`sk_mes_referencia`, `sk_municipio`, `sk_cnae`, `sk_porte`, `sk_situacao_cadastral`, `opcao_mei`) with additive measures `qtd_estabelecimentos`, `qtd_ativos`, `soma_idade_anos`, `qtd_matrizes`, `soma_capital_social_matrizes` (capital social is a company attribute: only the matriz row adds it). *(Emenda R3-01/R3-02, AD-020; antes: grão com `sk_natureza_juridica` e `ano_inicio_atividade` e medida `soma_capital_social` somada por estabelecimento — ~22 M linhas/mês no real e capital 15,6× inflado.)*
 6. The system SHALL fail (error) if, for the current month, `sum(fct_resumo_mensal.qtd_estabelecimentos) != count(fct_estabelecimentos)`.
-7. The system SHALL provide `docs/POWER_BI.md` with the star diagram, 1:* single-direction relationships, connection steps (Power Query Parquet connector and DuckDB ODBC), incremental refresh by month and at least 8 suggested DAX measures.
+7. The system SHALL provide `docs/uso/power-bi.md` with the star diagram, 1:* single-direction relationships, connection steps (Power Query Parquet connector and DuckDB ODBC), incremental refresh by month and at least 8 suggested DAX measures.
 8. The system SHALL declare a dbt `exposure` (type `dashboard`) depending on all star-schema models.
 
 **Independent Test**: fixtures → `fct_resumo_mensal` do mês 2026-09 soma 18; todas as FKs resolvem em dimensões; `dim_data` contém `20000229`.
@@ -358,7 +358,7 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A, e R a de J), mais uma 
 2. IF `MOTHERDUCK_TOKEN` or `MOTHERDUCK_BANCO` is missing, THEN the command SHALL publish nothing and SHALL exit 0 with a clear message.
 3. The publication SHALL accept a selection of tables (`--tabelas`) and SHALL be idempotent (re-running replaces the tables).
 4. The token SHALL never be logged, written to files or committed.
-5. `docs/POWER_BI.md` SHALL describe the access options — Parquet in `gold/`, local DuckDB file through the DuckDB ODBC driver, MotherDuck through the PostgreSQL endpoint — with Import/DirectQuery support, installation, refresh in Power BI Service (gateway), file-locking caveats and a recommendation per scenario.
+5. `docs/uso/power-bi.md` SHALL describe the access options — Parquet in `gold/`, local DuckDB file through the DuckDB ODBC driver, MotherDuck through the PostgreSQL endpoint — with Import/DirectQuery support, installation, refresh in Power BI Service (gateway), file-locking caveats and a recommendation per scenario.
 
 **Independent Test**: publicação num destino DuckDB local (arquivo) recria as tabelas do gold com as mesmas contagens; sem as variáveis, o comando não publica e sai 0.
 
@@ -422,4 +422,4 @@ Empresas: as 16 raízes acima (O compartilha a raiz de A, e R a de J), mais uma 
 - [ ] Relatório do estudo de caso gerado com dados reais de 2026-09.
 - [ ] Guia dbt revisado por um revisor independente sem erros técnicos pendentes.
 - [ ] `rfb atualizar` processa um mês novo e é no-op quando não há novidade.
-- [ ] Modelo estrela carregável no Power BI seguindo `docs/POWER_BI.md`.
+- [ ] Modelo estrela carregável no Power BI seguindo `docs/uso/power-bi.md`.

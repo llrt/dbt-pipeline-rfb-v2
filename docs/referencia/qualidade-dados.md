@@ -1,8 +1,8 @@
 # Qualidade de dados — catálogo de checks
 
 > Gerado por `scripts/gerar_qualidade_dados.py` a partir do manifesto dbt; não edite à mão.
-> Estratégia: [ARCHITECTURE.md §6](../ARCHITECTURE.md); severidades: [ADR-0009](adr/0009-estrategia-testes.md);
-> escopo: [ADR-0006](adr/0006-marcacao-escopo.md). Resultados de cada execução ficam em
+> Estratégia: [ARCHITECTURE.md §6](../../ARCHITECTURE.md); severidades: [ADR-0009](../adr/0009-estrategia-testes.md);
+> escopo: [ADR-0006](../adr/0006-marcacao-escopo.md). Resultados de cada execução ficam em
 > `dq_historico_testes` (resumo em `dq_resumo_execucao`) e as linhas com falha dos testes `warn`
 > em `main_dbt_test__audit.*` (`store_failures`).
 

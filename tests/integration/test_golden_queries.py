@@ -4,14 +4,14 @@
 Roda depois do `make ci` (warehouse e gold de `RAIZ_DADOS`, meses 2026-08 e 2026-09):
 - toda golden query SQL de `transform/analyses/golden/` compila; o SQL **portável** do catálogo (`main.<relação>`
   e `${RAIZ_DADOS}`) executa no warehouse e devolve exatamente `resposta_esperada_fixtures`, na ordem;
-- o SQL que o MetricFlow gera para cada golden query de `docs/golden_queries/semantica.yml` (campo `sql` do
+- o SQL que o MetricFlow gera para cada golden query de `docs/referencia/golden_queries/semantica.yml` (campo `sql` do
   catálogo) executa numa conexão somente leitura e devolve a resposta esperada (linhas ordenadas, RGQ-01);
 - nenhuma saída tem coluna de pessoa, contato ou endereço, nem coluna **derivada** de uma (linhagem do SQL compilado,
   com alias, função ou CTE), nem valor que pareça CPF/CNPJ, em texto, mascarado ou como número (ADR-0008, RGQ-04);
 - a checagem pós-execução que o guia dá ao agente (bloco `python` da seção 7) recusa o que deve e aceita as
   respostas de todas as golden queries;
 - os cabeçalhos são válidos e toda célula da matriz conceito × camada tem query ou motivo;
-- `docs/golden_queries/catalogo.json` e o índice do guia estão em dia (`make golden`).
+- `docs/referencia/golden_queries/catalogo.json` e o índice do guia estão em dia (`make golden`).
 """
 
 from __future__ import annotations

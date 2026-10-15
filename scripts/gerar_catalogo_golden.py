@@ -1,9 +1,9 @@
 # ruff: noqa: E501  (textos longos do índice)
-"""Gera o catálogo das golden queries (ADR-0023): `docs/golden_queries/catalogo.json` e o índice do guia.
+"""Gera o catálogo das golden queries (ADR-0023): `docs/referencia/golden_queries/catalogo.json` e o índice do guia.
 
 Uso: `make golden` (compila as analyses de `transform/analyses/golden/` sobre o warehouse do `make ci` e roda este
 script) ou `uv run python scripts/gerar_catalogo_golden.py`. Com `--verificar` não escreve nada: gera em memória e
-falha (código 1) se o catálogo ou o bloco gerado de `docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md` estiverem
+falha (código 1) se o catálogo ou o bloco gerado de `docs/uso/consulta-agente.md` estiverem
 desatualizados.
 
 Fontes:
@@ -11,9 +11,9 @@ Fontes:
 - o SQL **compilado** pelo dbt (`ref()` e `source()` resolvidos), normalizado para ser portável: o banco local
   (`"warehouse"."main"."x"`) vira `main.x` e o caminho absoluto de `RAIZ_DADOS` (nos `read_parquet` das fontes
   raw) vira o marcador `${RAIZ_DADOS}`;
-- `docs/golden_queries/semantica.yml`, as golden queries da camada semântica (comandos `mf query`), com o SQL que
+- `docs/referencia/golden_queries/semantica.yml`, as golden queries da camada semântica (comandos `mf query`), com o SQL que
   o MetricFlow gera para cada uma (`mf query --explain` sobre uma cópia do warehouse, normalizado como o compilado);
-- `docs/golden_queries/matriz.yml`, a matriz conceito × camada com o motivo de cada célula sem query.
+- `docs/referencia/golden_queries/matriz.yml`, a matriz conceito × camada com o motivo de cada célula sem query.
 
 As funções de validação (cabeçalho, cobertura da matriz, colunas proibidas) também são usadas pelos testes.
 """

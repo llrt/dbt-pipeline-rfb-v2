@@ -11,7 +11,7 @@ colunas_chave: [dat_inicio_atividade, dat_situacao, _data_referencia]
 armadilhas:
   - "No gold, data ausente vira `sk_data` -1 e data anterior a 1900 vira -2: nenhuma das duas gera evento nem coorte."
   - "O limite da data futura é o dia seguinte à data de referência, não `now()`."
-  - "O relatório completo das regras é `rfb regras` (docs/RELATORIO_REGRAS_NEGOCIO.md); esta consulta é ad hoc."
+  - "O relatório completo das regras é `rfb regras` (docs/relatorios/regras-negocio.md); esta consulta é ad hoc."
 variacoes:
   - "Só a data da situação: troque o campo das contagens."
 resposta_esperada_fixtures:

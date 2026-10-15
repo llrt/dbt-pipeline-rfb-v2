@@ -3,7 +3,7 @@
     meta={'escopo': 'adicao', 'incremento': 'enriquecimento_ibge'}
 ) }}
 
--- RN-30 (docs/REGRAS_NEGOCIO.md): onde o CEMPRE do IBGE vê ao menos 3 unidades locais de uma classe
+-- RN-30 (docs/referencia/regras-negocio.md): onde o CEMPRE do IBGE vê ao menos 3 unidades locais de uma classe
 -- CNAE num município, a RFB tem ao menos um estabelecimento ativo, sem MEI, da classe. Observação de
 -- coerência entre as bases: uma violação aponta divergência de classificação CNAE ou defasagem do
 -- cadastro, não erro de nenhuma delas. Universo: pares município × classe com unidade local no CEMPRE

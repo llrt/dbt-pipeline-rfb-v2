@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-22 (docs/REGRAS_NEGOCIO.md): grão declarado e sem teste (RDIC-09): o arquivo Simples tem uma
+-- RN-22 (docs/referencia/regras-negocio.md): grão declarado e sem teste (RDIC-09): o arquivo Simples tem uma
 -- linha por CNPJ básico no mês selecionado. Violações = linhas excedentes (linhas − chaves).
 with por_raiz as (
   select

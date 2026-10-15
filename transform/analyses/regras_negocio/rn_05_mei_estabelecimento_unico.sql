@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-05 (docs/REGRAS_NEGOCIO.md): a empresa optante pelo MEI tem um único estabelecimento (LC 123,
+-- RN-05 (docs/referencia/regras-negocio.md): a empresa optante pelo MEI tem um único estabelecimento (LC 123,
 -- art. 18-A, § 4º, II). Grão: empresa (CNPJ básico) com opção pelo MEI no arquivo Simples. Viola
 -- quem tem mais de um estabelecimento não baixado de situação conhecida (RRN-03): o baixado continua
 -- no extrato, mas não é mais estabelecimento da empresa. A quebra mostra à parte, sem violação, quem

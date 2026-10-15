@@ -261,7 +261,7 @@ def test_catalogo_e_indice_gerados(tmp_path: Path) -> None:
     assert consulta["arquivo"] == "transform/analyses/golden/gq_core__porte__01.sql"
     assert json.loads(g.serializar(catalogo)) == catalogo
     indice = g.renderizar_indice(catalogo)
-    assert "[01](../transform/analyses/golden/gq_core__porte__01.sql)" in indice
+    assert "[01](../../transform/analyses/golden/gq_core__porte__01.sql)" in indice
     assert "- `porte` × `raw`: m" in indice
     guia = f"# G\n\nantes\n{g.INICIO_BLOCO}\nvelho\n{g.FIM_BLOCO}\ndepois\n"
     assert g.substituir_bloco(guia, indice) == f"# G\n\nantes\n{indice}\ndepois\n"

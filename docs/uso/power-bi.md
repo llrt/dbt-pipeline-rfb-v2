@@ -11,7 +11,7 @@ analíticas, sem modelo para BI.
 > **Tamanho do resumo (medido em fev/2025, 64,5 M estabelecimentos):** 5,44 M linhas por mês e 55 MB de Parquet por partição (64,5 M estabelecimentos; 5.571 municípios e 1.342 subclasses; build de `+fct_resumo_mensal +dim_data` em 140 s, pico de RSS 13,9 GB com `DUCKDB_THREADS=4`). O grão anterior tinha 22,0 M linhas (202 MB). Mesmo assim, 24 meses somam ~130 M linhas: para o Import use os **últimos 24 meses**, e para séries mais longas filtre município/CNAE na consulta (ODBC com SQL nativo) ou agregue por classe.
 
 O detalhe dos campos de cada tabela do `gold/` (tipo, grão, chaves, domínio de valores e origem de cada coluna)
-está no [dicionário de dados](DICIONARIO_DADOS.md), gerado do manifesto do dbt (ADR-0019).
+está no [dicionário de dados](../referencia/dicionario-dados.md), gerado do manifesto do dbt (ADR-0019).
 
 ## Como o Power BI acessa os dados
 
@@ -114,7 +114,7 @@ o conector, o modo de consulta e a operação de atualização.
 - [Power Query — conector Parquet](https://learn.microsoft.com/en-us/power-query/connectors/parquet)
   (Import; local exige gateway), [atualização de dados](https://learn.microsoft.com/en-us/power-bi/connect-data/refresh-data)
   e [On-premises data gateway](https://learn.microsoft.com/en-us/data-integration/gateway/service-gateway-onprem).
-- Decisão do projeto: [ADR-0016](adr/0016-publicacao-motherduck.md).
+- Decisão do projeto: [ADR-0016](../adr/0016-publicacao-motherduck.md).
 
 ## 1. O modelo estrela
 
@@ -205,7 +205,7 @@ direção "ambos": ela cria ambiguidade e deixa o modelo lento.
 - **Linha toda NULL num Parquet vazio.** Quando um modelo `external` do dbt-duckdb sai vazio, o Parquet
   traz **uma linha com todas as colunas NULL** (comportamento do adaptador; a view do warehouse a filtra). No
   gold isso só acontece com `bridge_municipio_destino_compras`, e só sem dado do IBGE (espelho offline sem
-  `ibge/`, `--sem-ibge` desde o início ou falha do IBGE sem raw anterior; ver [OPERACAO.md](OPERACAO.md)).
+  `ibge/`, `--sem-ibge` desde o início ou falha do IBGE sem raw anterior; ver [operacao.md](../operacao.md)).
   Lida pelo Power BI, ela aparece como um membro em branco na relação com `dim_municipio` e soma 1 na contagem
   de linhas; filtre `sk_municipio_origem` não vazio na consulta (M:
   `Table.SelectRows(Fonte, each [sk_municipio_origem] <> null)`).
@@ -230,7 +230,7 @@ muda. No Power BI:
 ## 3. Medidas DAX sugeridas
 
 As medidas usam as tabelas e colunas reais do modelo. Crie-as numa tabela `Medidas`. Cada uma tem uma métrica
-equivalente na [camada semântica](CAMADA_SEMANTICA.md#b3-métricas) (MetricFlow, ADR-0018). Use
+equivalente na [camada semântica](../referencia/camada-semantica.md#b3-métricas) (MetricFlow, ADR-0018). Use
 `mf query --metrics ...` para conferir um número do painel **num mês**. A equivalência vale no grão mensal: num
 visual por ano, `SUM` soma os meses e a métrica do MetricFlow usa o último mês (fotografia). Para comparar,
 filtre um mês nos dois.

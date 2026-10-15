@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-24 (docs/REGRAS_NEGOCIO.md): grãos declarados e sem teste (RDIC-09) nas fontes e no seed de
+-- RN-24 (docs/referencia/regras-negocio.md): grãos declarados e sem teste (RDIC-09) nas fontes e no seed de
 -- exceções. Por tabela: avaliados = linhas; violações = linhas excedentes (linhas − chaves
 -- distintas). A vizinhança é avaliada como publicada: o grão declarado admite par repetido. As
 -- fontes RFB guardam todos os meses ingeridos: países e qualificações são lidos só no mês do

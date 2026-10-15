@@ -1,4 +1,4 @@
-"""ADR-0018: a ontologia `docs/ontologia/rfb_cnpj.ttl` está em dia com a camada semântica.
+"""ADR-0018: a ontologia `referencia/ontologia/rfb_cnpj.ttl` está em dia com a camada semântica.
 
 Cobertura nos dois sentidos, para a documentação não envelhecer:
 

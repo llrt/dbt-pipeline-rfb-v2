@@ -61,13 +61,13 @@ atualizar:
 	uv run rfb atualizar $(if $(ORIGEM_LOCAL),--origem-local $(ORIGEM_LOCAL))
 
 ## semantica: valida a camada semântica (MetricFlow) contra o warehouse de RAIZ_DADOS e lista as métricas
-## Consultas: `cd transform && uv run mf query --saved-query estudo_caso_fundao_tintas` (ver docs/CAMADA_SEMANTICA.md)
+## Consultas: `cd transform && uv run mf query --saved-query estudo_caso_fundao_tintas` (ver docs/referencia/camada-semantica.md)
 semantica:
 	$(PARSE_COMPLETO)
 	cd transform && uv run mf validate-configs
 	cd transform && uv run mf list metrics
 
-## dicionario: gera docs/DICIONARIO_DADOS.md (ADR-0019) com o catálogo do dbt sobre o warehouse do `make ci`
+## dicionario: gera docs/referencia/dicionario-dados.md (ADR-0019) com o catálogo do dbt sobre o warehouse do `make ci`
 ## (rode `make ci` antes; usa o mesmo .tmp/ci/dados). O `make ci` confere se o arquivo versionado está em dia.
 dicionario: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 dicionario:
@@ -75,9 +75,9 @@ dicionario:
 	cd transform && env -u CAMINHO_DUCKDB uv run dbt docs generate --target ci --no-partial-parse
 	uv run python scripts/gerar_dicionario_dados.py
 
-## golden: gera docs/golden_queries/catalogo.json e o índice de docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md (ADR-0023)
+## golden: gera docs/referencia/golden_queries/catalogo.json e o índice de docs/uso/consulta-agente.md (ADR-0023)
 ## com o SQL compilado das golden queries de transform/analyses/golden/ e os comandos de
-## docs/golden_queries/semantica.yml, mais o SQL que o MetricFlow gera para estas (`mf query --explain` sobre uma cópia
+## docs/referencia/golden_queries/semantica.yml, mais o SQL que o MetricFlow gera para estas (`mf query --explain` sobre uma cópia
 ## do warehouse, RGQ-01) e as listas de métricas, dimensões e relações do `dbt docs generate` (RGQ-02). Usa o
 ## warehouse do `make ci` (rode-o antes); o `make ci` confere se está em dia.
 golden: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
@@ -101,12 +101,12 @@ lint:
 sincronizar:
 	uv run rfb sincronizar
 
-## relatorio: gera docs/RELATORIO_ESTUDO_CASO.md (requer `dbt build` prévio sobre RAIZ_DADOS)
+## relatorio: gera docs/relatorios/estudo-caso.md (requer `dbt build` prévio sobre RAIZ_DADOS)
 relatorio:
 	uv run rfb relatorio
 
 ## regras: verifica as regras de negócio (ADR-0020) no warehouse de RAIZ_DADOS e gera
-## docs/RELATORIO_REGRAS_NEGOCIO.md (SAIDA=<arquivo> opcional). Só lê o warehouse; sai com 0 mesmo
+## docs/relatorios/regras-negocio.md (SAIDA=<arquivo> opcional). Só lê o warehouse; sai com 0 mesmo
 ## havendo violações. Requer `dbt build` prévio sobre RAIZ_DADOS.
 regras:
 	$(PARSE_COMPLETO)

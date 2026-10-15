@@ -275,7 +275,7 @@ inner join municipios_bd as mun on est.municipio_rfb_codigo = mun.id_municipio_r
 
 ### 2.5 Camada Marts Core (Modelo Estrela Dimensional Kimball)
 
-- **Responsabilidade**: Modelagem dimensional corporativa voltada para ferramentas analíticas de BI (Power BI, Tableau, DuckDB CLI), seguindo rigorosamente as boas práticas de Kimball ([ADR-0013](../../docs/adr/0013-modelo-estrela-bi.md)).
+- **Responsabilidade**: Modelagem dimensional corporativa voltada para ferramentas analíticas de BI (Power BI, Tableau, DuckDB CLI), seguindo rigorosamente as boas práticas de Kimball ([ADR-0013](../adr/0013-modelo-estrela-bi.md)).
 - **Materialização**: `external` em arquivos Parquet individuais em `gold/`.
 - **Arquitetura Estrela**:
   - **Dimensões Conformadas**: `dim_municipio`, `dim_cnae`, `dim_data`, `dim_natureza_juridica`, `dim_porte`, `dim_situacao_cadastral`.
@@ -340,7 +340,7 @@ round(
 
 ## 3. Anatomia Completa dos Testes no dbt
 
-O dbt trata a qualidade de dados como um cidadão de primeira classe. Neste projeto, a estratégia de testes ([ADR-0009](../../docs/adr/0009-estrategia-testes.md) e [QUALIDADE_DADOS.md](../QUALIDADE_DADOS.md)) combina 200 data tests automatizados e 35 unit tests cobrindo desde regras de formatação até integridade financeira e geoespacial.
+O dbt trata a qualidade de dados como um cidadão de primeira classe. Neste projeto, a estratégia de testes ([ADR-0009](../adr/0009-estrategia-testes.md) e [qualidade-dados.md](../referencia/qualidade-dados.md)) combina 200 data tests automatizados e 35 unit tests cobrindo desde regras de formatação até integridade financeira e geoespacial.
 
 ### 3.1 Testes Genéricos e Validações de Domínio
 

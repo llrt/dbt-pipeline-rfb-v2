@@ -1,6 +1,6 @@
 {{ config(tags=['escopo_adicao'], meta={'escopo': 'adicao'}) }}
 
--- RN-07 (docs/REGRAS_NEGOCIO.md): o MEI é modalidade de microempresa (LC 123, art. 18-E, § 3º);
+-- RN-07 (docs/referencia/regras-negocio.md): o MEI é modalidade de microempresa (LC 123, art. 18-E, § 3º);
 -- no cadastro, o porte declarado da empresa MEI é 01 (MICRO). Grão: empresa MEI presente no
 -- arquivo Empresas, por porte declarado.
 select
