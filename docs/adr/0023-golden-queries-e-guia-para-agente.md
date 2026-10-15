@@ -55,3 +55,16 @@ de exemplo que ninguém executa envelhece em silêncio quando o modelo muda.
 quem mudou revê a resposta (e a armadilha, se for o caso). Golden query nova exige rodar `make golden` e versionar o
 catálogo. As analyses de `golden/` ficam fora da compilação do relatório do caso (`rfb relatorio`) e de `rfb regras`.
 É só aditivo: nenhum modelo, coluna, grão, comando ou métrica existente mudou (versão 1.4.1).
+
+**Revisão (RGQ, 2026-10-15).** A revisão independente ([RGQ](../revisoes/RGQ.md),
+[triagem](../revisoes/RGQ-triagem.md)) mudou o seguinte, ainda na v1.4.1:
+
+- **SQL da semântica no catálogo (RGQ-01).** O `mf query` exige o repositório e abre o warehouse em modo de escrita,
+  o que o agente não pode fazer. Cada golden query semântica ganha o campo `sql`: o que o MetricFlow gera
+  (`mf query --quiet --explain`), normalizado como o compilado (`main.x`). O gerador roda o `mf` sobre uma **cópia**
+  do `warehouse.duckdb` (`CAMINHO_DUCKDB`), nunca sobre o original. O CI executa esse SQL numa conexão
+  `read_only` e compara com a resposta esperada; o valor passa pelo mesmo texto do CSV do `mf` (o `DATE_TRUNC` devolve
+  timestamp, `2026-08-01 00:00:00` vira `2026-08-01`). Esse teste substitui o que executava o `mf query`: o
+  `--verificar` prova que o SQL é o que o `mf` gera hoje, e a execução prova que ele responde o esperado. O SQL gerado
+  roda no DuckDB direto sem ajuste de dialeto. O guia manda o agente usar o `sql`; o `comando` fica para quem tem o
+  repositório.

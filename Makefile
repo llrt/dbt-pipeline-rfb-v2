@@ -77,7 +77,8 @@ dicionario:
 
 ## golden: gera docs/golden_queries/catalogo.json e o índice de docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md (ADR-0023)
 ## com o SQL compilado das golden queries de transform/analyses/golden/ e os comandos de
-## docs/golden_queries/semantica.yml. Usa o warehouse do `make ci` (rode-o antes); o `make ci` confere se está em dia.
+## docs/golden_queries/semantica.yml, mais o SQL que o MetricFlow gera para estas (`mf query --explain` sobre uma cópia
+## do warehouse, RGQ-01). Usa o warehouse do `make ci` (rode-o antes); o `make ci` confere se está em dia.
 golden: RAIZ_DADOS := $(CURDIR)/.tmp/ci/dados
 golden:
 	cd transform && env -u CAMINHO_DUCKDB uv run dbt parse --no-partial-parse --quiet --target ci

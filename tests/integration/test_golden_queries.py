@@ -4,7 +4,8 @@
 Roda depois do `make ci` (warehouse e gold de `RAIZ_DADOS`, meses 2026-08 e 2026-09):
 - toda golden query SQL de `transform/analyses/golden/` compila; o SQL **portável** do catálogo (`main.<relação>`
   e `${RAIZ_DADOS}`) executa no warehouse e devolve exatamente `resposta_esperada_fixtures`, na ordem;
-- todo comando `mf query` de `docs/golden_queries/semantica.yml` devolve a resposta esperada (linhas ordenadas);
+- o SQL que o MetricFlow gera para cada golden query de `docs/golden_queries/semantica.yml` (campo `sql` do
+  catálogo) executa numa conexão somente leitura e devolve a resposta esperada (linhas ordenadas, RGQ-01);
 - nenhuma saída tem coluna de pessoa, contato ou endereço, nem valor que pareça CPF/CNPJ (ADR-0008);
 - os cabeçalhos são válidos e toda célula da matriz conceito × camada tem query ou motivo;
 - `docs/golden_queries/catalogo.json` e o índice do guia estão em dia (`make golden`).
@@ -12,6 +13,7 @@ Roda depois do `make ci` (warehouse e gold de `RAIZ_DADOS`, meses 2026-08 e 2026
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -34,6 +36,9 @@ pytestmark = pytest.mark.skipif(
 
 GOLDEN = g.carregar_golden()
 SEMANTICA = g.carregar_semantica()
+CATALOGO = {
+    q["id"]: q for q in json.loads(g.CATALOGO.read_text(encoding="utf-8"))["golden_queries"]
+}
 _RE_DATA_ISO = re.compile(r"^\d{4}-\d{2}(-\d{2})?$")
 
 
@@ -100,8 +105,15 @@ def test_golden_query_sql_nao_expoe_pessoa(resultados, nome: str) -> None:
 
 
 @pytest.mark.parametrize("entrada", SEMANTICA, ids=[e["id"] for e in SEMANTICA])
-def test_golden_query_semantica_devolve_a_resposta_esperada(entrada: dict, tmp_path: Path) -> None:
-    obtido = g.executar_mf(entrada, _raiz(), tmp_path)
+def test_golden_query_semantica_sql_devolve_a_resposta_esperada(entrada: dict) -> None:
+    """O SQL do MetricFlow que está no catálogo (o que o agente executa) roda somente leitura e responde o esperado.
+
+    O `--verificar` de `test_catalogo_e_indice_do_guia_em_dia` garante que esse SQL é o que o `mf` gera hoje.
+    """
+    sql = CATALOGO[entrada["id"]]["sql"]
+    with duckdb.connect(str(_raiz() / "warehouse.duckdb"), read_only=True) as con:
+        cursor = con.execute(sql)
+        obtido = g.resultado_sql_semantico([d[0] for d in cursor.description], cursor.fetchall())
     assert obtido == entrada["resposta_esperada_fixtures"], (
         f"{entrada['id']}: a resposta nas fixtures mudou. Obtido:\n{obtido}"
     )

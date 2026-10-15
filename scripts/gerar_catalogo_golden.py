@@ -11,7 +11,8 @@ Fontes:
 - o SQL **compilado** pelo dbt (`ref()` e `source()` resolvidos), normalizado para ser portável: o banco local
   (`"warehouse"."main"."x"`) vira `main.x` e o caminho absoluto de `RAIZ_DADOS` (nos `read_parquet` das fontes
   raw) vira o marcador `${RAIZ_DADOS}`;
-- `docs/golden_queries/semantica.yml`, as golden queries da camada semântica (comandos `mf query`);
+- `docs/golden_queries/semantica.yml`, as golden queries da camada semântica (comandos `mf query`), com o SQL que
+  o MetricFlow gera para cada uma (`mf query --explain` sobre uma cópia do warehouse, normalizado como o compilado);
 - `docs/golden_queries/matriz.yml`, a matriz conceito × camada com o motivo de cada célula sem query.
 
 As funções de validação (cabeçalho, cobertura da matriz, colunas proibidas) também são usadas pelos testes.
@@ -333,28 +334,48 @@ def resultado_mf(colunas: list[str], linhas: list[list[str]]) -> dict:
     return {"colunas": list(colunas), "linhas": normalizadas}
 
 
-def executar_mf(entrada: dict, raiz_dados: Path, temporario: Path) -> dict:
-    """Roda o `mf query` de uma golden query semântica (em `transform/`) e devolve o resultado normalizado."""
-    import csv
-    import subprocess
+def resultado_sql_semantico(colunas: list[str], linhas: list[tuple]) -> dict:
+    """Resultado do SQL gerado pelo MetricFlow na mesma forma do CSV do `mf query`.
 
-    saida = temporario / f"{entrada['id']}.csv"
-    saida.unlink(missing_ok=True)
-    env = os.environ | {"RAIZ_DADOS": str(raiz_dados), "DBT_PROFILES_DIR": str(DIR_TRANSFORM)}
-    env.pop("CAMINHO_DUCKDB", None)
-    feito = subprocess.run(
-        ["uv", "run", "mf", "query", "--quiet", "--csv", str(saida), *argumentos_mf(entrada)],
-        cwd=DIR_TRANSFORM, env=env, capture_output=True, text=True, check=False,
-    )  # fmt: skip
-    if feito.returncode != 0:
-        raise CatalogoErro(
-            f"{entrada['id']}: `mf query` falhou:\n{feito.stdout[-1500:]}{feito.stderr[-1500:]}"
-        )
-    if not saida.exists():  # o `mf` não grava o CSV quando a consulta volta vazia
+    Cada valor passa pelo texto que o `mf` gravaria (`2026-08-01 00:00:00` vira `2026-08-01`, `'47415'` vira número)
+    e as linhas são ordenadas; consulta sem linhas = `{"colunas": [], "linhas": []}`, como o `mf`, que não grava CSV.
+    """
+    if not linhas:
         return {"colunas": [], "linhas": []}
-    with saida.open(encoding="utf-8") as arquivo:
-        colunas, *linhas = list(csv.reader(arquivo))
-    return resultado_mf(colunas, linhas)
+    textos = [["" if v is None else str(v) for v in linha] for linha in linhas]
+    return resultado_mf(colunas, textos)
+
+
+def sql_semantico(semantica: list[dict], raiz_dados: Path) -> dict[str, str]:
+    """`{id: SQL}` que o MetricFlow gera (`mf query --explain`) para cada golden query semântica, normalizado.
+
+    O `mf` abre o warehouse pelo perfil do dbt, em modo de **escrita** (RGQ-01): roda sobre uma **cópia** do
+    `warehouse.duckdb` de `raiz_dados` (`CAMINHO_DUCKDB`), nunca sobre o original. O SQL gerado só lê `main.<relação>`.
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    resultado: dict[str, str] = {}
+    with tempfile.TemporaryDirectory(prefix="rfb-golden-mf-") as temporario:
+        # Mesmo nome do arquivo: o catálogo do DuckDB continua "warehouse" e a normalização vale igual.
+        copia = Path(temporario) / "warehouse.duckdb"
+        shutil.copyfile(Path(raiz_dados) / "warehouse.duckdb", copia)
+        env = os.environ | {
+            "RAIZ_DADOS": str(raiz_dados), "DBT_PROFILES_DIR": str(DIR_TRANSFORM), "CAMINHO_DUCKDB": str(copia),
+        }  # fmt: skip
+        for entrada in semantica:
+            feito = subprocess.run(
+                ["uv", "run", "mf", "query", "--quiet", "--explain", *argumentos_mf(entrada)],
+                cwd=DIR_TRANSFORM, env=env, capture_output=True, text=True, check=False,
+            )  # fmt: skip
+            sql = feito.stdout.strip()
+            if feito.returncode != 0 or not re.match(r"(?i)(select|with)\b", sql):
+                raise CatalogoErro(
+                    f"{entrada['id']}: `mf query --explain` falhou:\n{feito.stdout[-1500:]}{feito.stderr[-1500:]}"
+                )
+            resultado[entrada["id"]] = normalizar_sql(sql, raiz_dados)
+    return resultado
 
 
 def normalizar_sql(sql: str, raiz_dados: str | Path | None) -> str:
@@ -440,13 +461,19 @@ def _entrada_comum(cab: dict) -> dict:
 
 def gerar_catalogo(
     matriz: dict, golden: dict[str, tuple[dict, str]], compilados: dict[str, str], semantica: list[dict],
-    raiz_dados: str | Path | None,
+    raiz_dados: str | Path | None, semanticos: dict[str, str],
 ) -> dict:  # fmt: skip
-    """O catálogo legível por máquina (dicionário pronto para `json.dumps`)."""
+    """O catálogo legível por máquina (dicionário pronto para `json.dumps`).
+
+    `semanticos` é o SQL gerado pelo MetricFlow para cada golden query semântica (`sql_semantico`).
+    """
     problemas = problemas_gerais(matriz, golden, semantica)
     faltam = sorted(set(golden) - set(compilados))
     if faltam:
         problemas.append(f"sem SQL compilado: {', '.join(faltam)}")
+    faltam = sorted({str(e.get("id")) for e in semantica} - set(semanticos))
+    if faltam:
+        problemas.append(f"sem SQL do MetricFlow: {', '.join(faltam)}")
     if problemas:
         raise CatalogoErro("golden queries com problema:\n- " + "\n- ".join(problemas))
     consultas = []
@@ -479,6 +506,7 @@ def gerar_catalogo(
                 **_entrada_comum(entrada),
                 **extra,
                 "arquivo": "docs/golden_queries/semantica.yml",
+                "sql": semanticos[entrada["id"]],
                 "comando": comando_mf(entrada),
                 "resposta_esperada_fixtures": entrada["resposta_esperada_fixtures"],
             }
@@ -490,9 +518,10 @@ def gerar_catalogo(
         "formato": 1,
         "descricao": (
             "Golden queries por conceito e camada (ADR-0023). Gerado por scripts/gerar_catalogo_golden.py; não "
-            "edite à mão. O SQL é o compilado pelo dbt: relações em `main.<nome>` (o schema do warehouse local e "
-            "do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes raw. Guia de uso: "
-            "docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md."
+            "edite à mão. Toda golden query tem `sql`: nas camadas SQL, o compilado pelo dbt; na semântica, o que o "
+            "MetricFlow gera (`mf query --explain`), que roda sem o repositório e só lê. Relações em `main.<nome>` "
+            "(o schema do warehouse local e do MotherDuck) e `${RAIZ_DADOS}` no lugar da raiz dos dados nas fontes "
+            "raw. Guia de uso: docs/GUIA_CONSULTA_LINGUAGEM_NATURAL.md."
         ),
         "marcador_raiz_dados": MARCADOR_RAIZ,
         "camadas": matriz["camadas"],
@@ -596,9 +625,11 @@ def main(argv: list[str] | None = None) -> int:
     args = analisador.parse_args(argv)
     try:
         compilados = compilar(args.raiz_dados)
+        semantica = carregar_semantica()
         catalogo = gerar_catalogo(
-            carregar_matriz(), carregar_golden(), compilados, carregar_semantica(), args.raiz_dados
-        )
+            carregar_matriz(), carregar_golden(), compilados, semantica, args.raiz_dados,
+            sql_semantico(semantica, args.raiz_dados),
+        )  # fmt: skip
         texto_catalogo = serializar(catalogo)
         texto_guia = substituir_bloco(
             args.guia.read_text(encoding="utf-8"), renderizar_indice(catalogo)

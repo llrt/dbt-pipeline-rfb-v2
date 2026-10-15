@@ -5,7 +5,9 @@
 #   uv run mf query --saved-query <saved_query>
 # `resposta_esperada_fixtures` é a saída do `mf query --csv` nas fixtures do `make ci`, com as linhas ORDENADAS
 # (o MetricFlow não garante a ordem e as consultas salvas não usam `order_by`, ADR-0017): datas sem a hora,
-# números como número, vazio como null. O teste `test_golden_queries.py` roda cada comando e compara.
+# números como número, vazio como null. O `make golden` grava no catálogo o SQL que o MetricFlow gera para cada
+# entrada (`mf query --explain`, campo `sql`), e o teste `test_golden_queries.py` executa esse SQL somente leitura e
+# compara (RGQ-01).
 # Depois de editar, rode `make golden`.
 
 golden_queries:

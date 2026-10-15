@@ -197,6 +197,22 @@ def test_resultado_mf_normaliza_e_ordena() -> None:
     ]
 
 
+def test_resultado_sql_semantico_tem_a_forma_do_csv_do_mf() -> None:
+    """O SQL do MetricFlow devolve timestamp e texto; o resultado fica igual ao do CSV do `mf query` (RGQ-01)."""
+    resultado = g.resultado_sql_semantico(
+        ["metric_time__month", "classe_cnae", "qtd", "pct", "sigilo"],
+        [
+            (dt.datetime(2026, 9, 1), "47415", 2, None, False),
+            (dt.datetime(2026, 8, 1), "20711", 10, Decimal("0.33333333"), True),
+        ],
+    )
+    assert resultado["linhas"] == [
+        ["2026-08-01", 20711, 10, 0.333333, True],
+        ["2026-09-01", 47415, 2, None, False],
+    ]
+    assert g.resultado_sql_semantico(["metric_time__month"], []) == {"colunas": [], "linhas": []}
+
+
 def test_comando_mf() -> None:
     entrada = {
         "metricas": ["qtd_ativos", "pct_ativos"],
@@ -239,7 +255,7 @@ def test_catalogo_e_indice_gerados(tmp_path: Path) -> None:
     matriz["conceitos"] = [{"id": "porte", "nome": "Porte"}, {"id": "renda", "nome": "Renda"}]
     golden = {"gq_core__porte__01": (g.ler_cabecalho(SQL_VALIDO), SQL_VALIDO)}
     compilado = {"gq_core__porte__01": 'select 1 from "warehouse"."main"."dim_porte" order by 1'}
-    catalogo = g.gerar_catalogo(matriz, golden, compilado, [], "/x")
+    catalogo = g.gerar_catalogo(matriz, golden, compilado, [], "/x", {})
     (consulta,) = catalogo["golden_queries"]
     assert consulta["sql"] == "select 1 from main.dim_porte order by 1\n"
     assert consulta["arquivo"] == "transform/analyses/golden/gq_core__porte__01.sql"
@@ -256,7 +272,7 @@ def test_catalogo_recusa_problemas() -> None:
     matriz["conceitos"] = [{"id": "porte", "nome": "Porte"}]
     golden = {"gq_core__porte__01": (g.ler_cabecalho(SQL_VALIDO), SQL_VALIDO)}
     with pytest.raises(g.CatalogoErro, match="sem golden query e sem motivo"):
-        g.gerar_catalogo(matriz, golden, {"gq_core__porte__01": "select 1"}, [], None)
+        g.gerar_catalogo(matriz, golden, {"gq_core__porte__01": "select 1"}, [], None, {})
 
 
 def test_golden_queries_do_repositorio_validas() -> None:

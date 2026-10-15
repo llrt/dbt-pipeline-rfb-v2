@@ -32,7 +32,7 @@ base: diga isso.
 
 | Camada | O que é | Quando usar |
 |---|---|---|
-| **semântica** | métricas do MetricFlow (`mf query`), definidas uma vez | **métrica de negócio padrão**: contagens de ativos, MEI, empresas, aberturas, encerramentos, sobrevivência, CEMPRE, por mês, UF, CNAE, porte, situação |
+| **semântica** | métricas do MetricFlow, definidas uma vez; no catálogo, o **SQL que o MetricFlow gera** (campo `sql`) | **métrica de negócio padrão**: contagens de ativos, MEI, empresas, aberturas, encerramentos, sobrevivência, CEMPRE, por mês, UF, CNAE, porte, situação |
 | **core** (gold) | modelo estrela: dimensões `dim_*`, fatos `fct_*`, pontes `bridge_*` | **pergunta ad hoc** que as métricas não cobrem: CNAE secundário, vizinhança, destinos de compra, natureza jurídica com o resumo, filtros e cruzamentos livres |
 | **analytics** (gold) | marts `mart_*` com regra pronta | concorrência e densidade, dinâmica por CNAE × município, sobrevivência por coorte, fornecedores do caso, CEMPRE × RFB |
 | **raw** | o Parquet como a fonte publicou (tudo texto) | **auditoria e linhagem**: "o que a RFB publicou", formato original, meses ingeridos |
@@ -43,7 +43,7 @@ base: diga isso.
 ```mermaid
 flowchart TD
     P[Pergunta] --> Q{É uma métrica padrão<br/>ativos, MEI, empresas, aberturas,<br/>encerramentos, sobrevivência, CEMPRE?}
-    Q -- sim --> S[semântica: mf query]
+    Q -- sim --> S[semântica: o sql da golden query<br/>gq_semantica__*]
     Q -- não --> R{Tem mart com a regra pronta?<br/>concorrência, dinâmica, coorte,<br/>fornecedores, área de mercado}
     R -- sim --> A[analytics: mart_*]
     R -- não --> T{Pede o que a fonte publicou<br/>ou um campo que não está no gold?}
@@ -54,8 +54,21 @@ flowchart TD
 ```
 
 Se a semântica responde, **prefira-a**: a regra (fotografia mensal, capital só nas matrizes, ratios ponderados) já
-está nela. Se precisar de SQL, prefira o gold (core e analytics). Raw e staging são para conferir a fonte, nunca para
+está nela. Fora disso, prefira o gold (core e analytics). Raw e staging são para conferir a fonte, nunca para
 responder uma pergunta de negócio.
+
+**Como o agente usa a semântica (regra dura).** Execute o campo **`sql`** da golden query `gq_semantica__*`: é o SQL
+que o MetricFlow gera para aquela consulta (`mf query --explain`), testado no CI numa conexão somente leitura. Ele só lê
+`main.<relação>` e roda no DuckDB local e no MotherDuck, sem o repositório.
+
+- **Adaptar.** O filtro aparece no SQL com o nome qualificado da dimensão como coluna
+  (`where coorte_sobrevivencia__uf = 'ES' and cnae__codigo_subclasse = '4741500'`): troque o **valor** do filtro à
+  vontade. Para outro agrupamento ou outro filtro de dimensão, escreva o SQL no gold a partir da definição da métrica
+  (medida e filtro, na [lista de métricas](#métricas-dimensões-e-relações)) e da golden query de core ou analytics do
+  mesmo conceito.
+- **NUNCA rode `mf query`** no ambiente do agente. O comando (campo `comando`) é para quem tem o repositório: ele
+  exige o projeto dbt e abre o `warehouse.duckdb` em modo de **escrita**, o que viola a seção 3 e bloqueia qualquer
+  outra conexão ao arquivo.
 
 ## 3. Esquema físico consultável
 
@@ -84,8 +97,8 @@ responder uma pergunta de negócio.
   intermediate nem seeds: as golden queries dessas camadas não rodam lá.
 - Conecte com `ATTACH 'md:<banco>'` (token em `MOTHERDUCK_TOKEN`) e use `main.<tabela>` depois de `USE <banco>`. Use
   um token de leitura e só `SELECT`.
-- A camada semântica (`mf query`) roda contra o DuckDB local do projeto, não contra o MotherDuck. No MotherDuck,
-  traduza a métrica para SQL no gold (as golden queries de core e analytics mostram o equivalente).
+- O `sql` das golden queries semânticas roda no MotherDuck como no local: só lê `main.<tabela>` do gold. O
+  `mf query` não roda lá (nem no ambiente do agente, seção 2).
 
 ### Target `ci` × dado real
 
@@ -219,10 +232,11 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
     `gq_staging__regras_qualidade__01`, `gq_core__dinamica_mercado__01`.
 15. **Limite do MetricFlow: `MAX(mes)` depois do filtro (RSEM-01).** Numa consulta por ano ou sem tempo, a métrica
     de fotografia usa o último mês **em que o recorte filtrado tem linhas**: com um filtro que esvazia o último mês, ela
-    devolve uma fotografia velha em vez de zero. Agrupe por `metric_time__month` ou filtre o mês. Certo:
+    devolve uma fotografia velha em vez de zero. No `sql` gerado, isso é o `INNER JOIN` com `MAX(mes__month)`: ao
+    trocar o filtro, mantenha o mês no agrupamento (`metric_time__month`) ou filtre o mês. Certo:
     `gq_semantica__situacao_cadastral__02`, `gq_semantica__situacao_cadastral__01`.
-16. **MotherDuck × local.** No MotherDuck só existe o gold, como tabela; o MetricFlow e as golden queries de raw,
-    staging e intermediate rodam só no local. O nome é `main.<tabela>` nos dois.
+16. **MotherDuck × local.** No MotherDuck só existe o gold, como tabela; as golden queries de raw, staging e
+    intermediate rodam só no local. O `sql` do gold e da semântica roda nos dois, com o nome `main.<tabela>`.
 17. **CNAE secundário fora da semântica.** "Quem trabalha com X" pode incluir o secundário; só a ponte responde.
     Certo: `gq_core__cnae_secundario__01`.
 18. **Fornecedores parametrizados.** `mart_fornecedores_proximos` só vale para o caso das vars do build (Fundão/ES,
@@ -253,8 +267,9 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
    estabelecimento, baixa × inaptidão, município homônimo), **pergunte**; se não muda muito, escolha o padrão e
    **declare** a escolha na resposta.
 3. **Escolha a camada (seção 2).**
-4. **Parta da golden query mais próxima** no catálogo (`conceito`, `camada`, `perguntas`) e adapte com as `variacoes`
-   dela. Leia as `armadilhas` da golden query antes de mudar o SQL.
+4. **Parta da golden query mais próxima** no catálogo (`conceito`, `camada`, `perguntas`) e adapte o campo `sql`
+   dela com as `variacoes`. Leia as `armadilhas` da golden query antes de mudar o SQL. Na semântica, as `variacoes`
+   falam em `--group-by`/`--where` do `mf`: no `sql`, troque só o valor do filtro; o resto vira SQL no gold (seção 2).
 5. **Valide o grão e os filtros:** o que uma linha representa? conta estabelecimentos ou empresas? filtrou o mês (no
    resumo)? município com UF? CNAE no nível certo (7 × 5 dígitos)? `distinct` depois de ponte?
 6. **Execute com `LIMIT`** (ex.: `LIMIT 50`) e faça as checagens: resultado vazio é zero ou filtro errado? totais
@@ -347,8 +362,10 @@ Cada armadilha tem um exemplo e a golden query que faz o certo.
 
 - **Raciocínio.** "Fechar rápido" → sobrevivência; métrica padrão `taxa_sobrevivencia_3a`, por UF e CNAE.
 - **Golden queries de partida:** `gq_semantica__sobrevivencia_coorte__02` (ou `gq_analytics__sobrevivencia_coorte__01`).
-- **Comando final:** `uv run mf query --metrics elegiveis_3a,sobreviventes_3a,taxa_sobrevivencia_3a --where
-  "{{ Dimension('coorte_sobrevivencia__uf') }} = 'ES' and {{ Dimension('cnae__codigo_subclasse') }} = '4741500'"`
+- **SQL final:** o `sql` de `gq_semantica__sobrevivencia_coorte__02` como está no catálogo (o filtro já é ES e
+  4741500; para outra UF ou CNAE, troque os valores em `coorte_sobrevivencia__uf = 'ES'` e
+  `cnae__codigo_subclasse = '4741500'`, que aparecem duas vezes). Quem tem o repositório obtém o mesmo com o campo
+  `comando` (`uv run mf query --metrics elegiveis_3a,…`).
 - **Resposta (dado real, extrato de 2026-09):** "Das 686 lojas de tintas do ES abertas em coortes que já completaram 3
   anos, 83,4 % sobreviveram aos 3 anos (78,7 % aos 5 anos, 588 elegíveis). Sobreviver = seguir ativa ou ter encerrado
   só depois do aniversário de 3 anos." A semântica e o mart dão o mesmo número.
