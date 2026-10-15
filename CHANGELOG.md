@@ -7,6 +7,15 @@ Formato do [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); versões
 [Versionamento Semântico](https://semver.org/lang/pt-BR/). O detalhe completo está na release de cada versão; o
 histórico de como o projeto foi feito, em [docs/historico/](docs/historico/README.md).
 
+## [Não lançada] — v1.5.1
+
+### Adicionado
+- [Construção do agente de consulta](docs/uso/construcao-agente.md): guia para quem programa o agente (o que
+  indexar, prompt de sistema, ferramentas, versão do catálogo × banco, avaliação, modelo e segurança). Teste confere
+  que os campos do catálogo citados existem.
+- `versao_projeto` no `catalogo.json` (a versão do pacote que o gerou), para casar o catálogo com a tag que
+  construiu o banco. Só aditivo: nenhum campo existente mudou.
+
 ## [1.5.0] — 2026-10-15
 
 ### Adicionado

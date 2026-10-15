@@ -54,7 +54,7 @@ de exemplo que ninguém executa envelhece em silêncio quando o modelo muda.
 **Consequências.** Mudar um modelo, uma métrica ou as fixtures pode mudar a resposta de uma golden query: o CI acusa, e
 quem mudou revê a resposta (e a armadilha, se for o caso). Golden query nova exige rodar `make golden` e versionar o
 catálogo. As analyses de `golden/` ficam fora da compilação do relatório do caso (`rfb relatorio`) e de `rfb regras`.
-É só aditivo: nenhum modelo, coluna, grão, comando ou métrica existente mudou (versão 1.4.1).
+É só aditivo: nenhum modelo, coluna, grão, comando ou métrica existente mudou (versão 1.4.1). Quem constrói o agente que usa o catálogo e o guia encontra as recomendações em [construcao-agente.md](../uso/construcao-agente.md).
 
 **Revisão (RGQ, 2026-10-15).** A revisão independente ([RGQ](../historico/revisoes/RGQ.md),
 [triagem](../historico/revisoes/RGQ.md#triagem-do-líder)) mudou o seguinte, ainda na v1.4.1:

@@ -26,6 +26,7 @@ DICIONARIO_DADOS = DIR_REFERENCIA / "dicionario-dados.md"
 QUALIDADE_DADOS = DIR_REFERENCIA / "qualidade-dados.md"
 CAMADA_SEMANTICA = DIR_REFERENCIA / "camada-semantica.md"
 GUIA_CONSULTA = DIR_DOCS / "uso" / "consulta-agente.md"
+GUIA_CONSTRUCAO_AGENTE = DIR_DOCS / "uso" / "construcao-agente.md"
 OPERACAO = DIR_DOCS / "operacao.md"
 CENARIOS_DE_USO = DIR_DOCS / "uso" / "cenarios.md"
 

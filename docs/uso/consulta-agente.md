@@ -3,6 +3,8 @@
 > **Para quem:** um agente (LLM) que responde perguntas livres sobre a base, e quem o configura · **Quando ler:**
 > é o prompt de trabalho do agente, junto com o catálogo; pessoas leem os [conceitos](../conceitos.md) primeiro.
 
+> Quem **constrói** o agente (índice, prompt, ferramentas, avaliação) lê [construcao-agente.md](construcao-agente.md); este guia é o que o agente lê.
+
 > **Adição** ([ADR-0023](../adr/0023-golden-queries-e-guia-para-agente.md)). Este guia é para um **agente** (LLM) que
 > responde perguntas livres em português sobre a base de CNPJ do projeto. O agente recebe só três coisas:
 > este guia, o catálogo [`golden_queries/catalogo.json`](../referencia/golden_queries/catalogo.json) e acesso **somente leitura**
