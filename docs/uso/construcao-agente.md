@@ -23,7 +23,7 @@ flowchart TD
     C -- consulta --> B[buscar_golden: 3 a 5 golden queries]
     B --> A[Adaptar o sql pelas variacoes<br/>aplicar as armadilhas]
     A --> S[Conferir o esquema<br/>descrever_relacao]
-    S --> X[executar_sql_leitura<br/>somente leitura, LIMIT, timeout]
+    S --> X[executar_sql_leitura<br/>conexão endurecida, LIMIT, timeout]
     X --> V[checar_saida: privacidade]
     V -- problema --> A
     V -- ok --> O[Resposta: número, mês de referência,<br/>fonte, camada e ressalvas]
@@ -43,7 +43,7 @@ no modelo.
 |---|---|---|
 | Camadas | gold, staging, intermediate e seeds; o raw por `read_parquet` | **só o gold**, como tabelas |
 | Golden queries que rodam | todas (raw troca o marcador) | semântica, core, analytics, original |
-| Somente leitura | `duckdb.connect(caminho, read_only=True)` | **Read Scaling token**; a conexão não protege |
+| Somente leitura | `conectar_somente_leitura` (seção 5): `read_only=True` mais o endurecimento | **Read Scaling token**; a conexão não protege |
 
 - **Versão do banco.** Um banco anterior à v1.4 não tem os modelos do IBGE (`bridge_municipio_destino_compras`,
   `mart_emprego_setor_municipio`, colunas do IBGE em `dim_municipio`): as golden queries desses conceitos falham.
@@ -106,7 +106,7 @@ Medido na versão 1.5.1 (`versao_projeto` do catálogo).
 | `dimensoes` (50) | 16.586 | ~4.100 |
 | `metricas` (29) | 13.536 | ~3.400 |
 | `conceitos` (23) | 26.974 | ~6.700 |
-| Guia `consulta-agente.md` (848 linhas) | 114.684 | ~28.700 |
+| Guia `consulta-agente.md` (853 linhas) | 115.179 | ~28.800 |
 | Guia, seções 11 e 12 (316 linhas) | 72.348 | ~18.100 |
 
 <!-- FIM do bloco gerado dos tamanhos -->
@@ -154,14 +154,71 @@ as ressalvas que mudam a leitura. Pedido ambíguo: pergunte antes (guia §9, exe
 
 | Ferramenta | Comportamento |
 |---|---|
-| `buscar_golden(pergunta: str, k: int = 5, filtros: dict = {})` | Busca vetorial no índice principal; `filtros` sobre `camada`, `conceito`, `privacidade`. Devolve, por golden query, `id`, `camada`, `perguntas`, `sql`, `armadilhas`, `variacoes`, `colunas_chave`. Reordena pela prioridade de camada. |
+| `buscar_golden(pergunta: str, k: int = 5, filtros: dict = {})` | Busca vetorial no índice principal; `filtros` sobre `camada`, `conceito`, `privacidade`. Devolve, por golden query, `id`, `camada`, `perguntas`, `sql`, `armadilhas`, `variacoes`, `colunas_chave`. Ordena pela relevância; a camada só desempata (seção 3). |
 | `descrever_relacao(nome: str)` | Devolve `grao`, `descricao` e `colunas` da relação em `relacoes` (ou consulta `information_schema.columns`). Nome desconhecido: devolve erro com as relações parecidas. |
-| `executar_sql_leitura(sql: str, limite: int = 50)` | Troca `${RAIZ_DADOS}` pela raiz dos dados (só no local); recusa tudo que não seja um único `SELECT`/`WITH` (DDL, DML, `COPY`, `ATTACH`, `INSTALL`); acrescenta `LIMIT` se faltar; aplica timeout; devolve `colunas` e `linhas`. |
-| `checar_saida(colunas, linhas, identifica_estabelecimento=False)` | A função do bloco `python` do [guia §7](consulta-agente.md#checagem-obrigatória-pós-execução), que você pode reaproveitar **como está**. Devolve a lista de problemas; vazia = pode responder. |
+| `executar_sql_leitura(sql: str, limite: int = 50)` | Troca `${RAIZ_DADOS}` pela raiz dos dados (só no local); recusa o que não for uma única consulta de leitura (`exigir_leitura`, abaixo); acrescenta `LIMIT` se faltar; aplica timeout; roda numa conexão de `conectar_somente_leitura`; passa a saída por `checar_saida` e devolve `colunas` e `linhas`, ou o problema no lugar delas. |
 
-Chame `checar_saida` dentro de `executar_sql_leitura` e devolva ao modelo o problema no lugar das linhas: assim ela não
-depende de o modelo lembrar. Peça ao usuário `identifica_estabelecimento=True` apenas quando a golden query tiver
-`privacidade: identifica_estabelecimento`.
+**A checagem de privacidade fica no código, não com o modelo.** `checar_saida(colunas, linhas,
+identifica_estabelecimento=False)` é a função do bloco `python` do
+[guia §7](consulta-agente.md#checagem-obrigatória-pós-execução): copie-a e chame-a dentro de `executar_sql_leitura`,
+para não depender de o modelo lembrar. Ela é testada no CI com os vazamentos conhecidos (CNPJ como texto, inteiro,
+`DECIMAL`, `DOUBLE`, lista e struct); se você estender o SQL permitido ou os tipos devolvidos, estenda-a junto.
+
+**`identifica_estabelecimento` é política sua, desligada por padrão.** Nenhuma das golden queries de hoje a usa (todas
+têm `privacidade: agregado`). Ligue-a só na etapa de classificação, quando a pergunta é sobre um CNPJ que o próprio
+usuário deu ("este CNPJ está ativo?", guia §7), e nunca porque o modelo pediu durante a execução.
+
+### Conexão somente leitura (obrigatória no local)
+
+`read_only=True` impede escrever no `warehouse.duckdb`, mas **não** impede o SQL de ler qualquer arquivo da máquina
+(`read_text('/etc/hosts')`, `read_csv` de um `.env` com o `MOTHERDUCK_TOKEN`, `glob('/Users/*')`), de acessar a rede
+(`read_csv('https://…')`, que também serve para mandar dado para fora), de gravar arquivo (`COPY ... TO`) nem de
+instalar extensão (`INSTALL`). Use esta conexão e este filtro como estão: o CI os extrai deste documento e confere
+que as 93 golden queries rodam por eles e que cada uma dessas tentativas falha.
+
+```python
+# referência: conexão somente leitura
+from pathlib import Path
+
+import duckdb
+
+
+def conectar_somente_leitura(raiz):
+    """Conexão ao `warehouse.duckdb` local que só lê e só enxerga arquivos sob a raiz dos dados."""
+    raiz = Path(raiz).resolve()
+    conexao = duckdb.connect(str(raiz / "warehouse.duckdb"), read_only=True)
+    conexao.execute("set allowed_directories = [?]", [f"{raiz}/"])  # só depois do connect
+    conexao.execute("set enable_external_access = false")  # nada fora da raiz, nem rede
+    conexao.execute("set autoinstall_known_extensions = false")
+    conexao.execute("set autoload_known_extensions = false")
+    conexao.execute("set lock_configuration = true")  # o SQL do modelo não desfaz o que está acima
+    return conexao
+
+
+def exigir_leitura(conexao, sql):
+    """Recusa (ValueError) o que não for uma única consulta de leitura (`SELECT`, `WITH`, `FROM tabela`)."""
+    tipos = [comando.type for comando in conexao.extract_statements(sql)]
+    if tipos != [duckdb.StatementType.SELECT]:
+        raise ValueError(f"só uma consulta de leitura por vez, recebido: {[t.name for t in tipos]}")
+```
+
+- **O que a conexão bloqueia** (DuckDB 1.5): leitura de arquivo fora da raiz (`Permission Error`), URL `http(s)://` e
+  `s3://`, `INSTALL` e `LOAD` de extensão, `ATTACH` de outro banco, `COPY ... TO` fora da raiz e qualquer `SET` que
+  tente desfazer a configuração (`lock_configuration`).
+- **O que só o filtro bloqueia:** `COPY ... TO` **dentro** da raiz, que a conexão aceita, e os comandos que não são
+  consulta (`SET`, `CALL`, `EXPORT`, DDL e DML). `exigir_leitura` usa o parser do próprio DuckDB, então aceita
+  `SELECT`, `WITH`, `VALUES` e a forma `FROM tabela`, e recusa duas consultas numa string. Como defesa a mais, rode o
+  agente com um usuário do sistema que não tenha escrita na raiz dos dados.
+- **O que nenhum dos dois faz:** limitar tempo e memória. O DuckDB não tem timeout por consulta: rode-a numa thread e
+  chame `conexao.interrupt()` ao estourar o prazo; limite a memória com `set memory_limit` **antes** do
+  `lock_configuration`.
+- **Raw.** `allowed_directories` é a raiz inteira, porque o raw é lido por `read_parquet` sob ela. Troque o marcador
+  `${RAIZ_DADOS}` pelo mesmo caminho absoluto passado a `conectar_somente_leitura`.
+- **MotherDuck.** Ali a proteção de escrita é o **Read Scaling token** (guia §3); `read_only=True` não se aplica a
+  `md:` e não há raiz local para `allowed_directories`. `enable_external_access=false` e `lock_configuration` valem
+  para o processo DuckDB local, mas **não foram testados** com a conexão `md:` (não há token no CI): confira no seu
+  ambiente que as golden queries do gold rodam e que `read_text` de um arquivo local falha antes de confiar nisso.
+  `exigir_leitura` vale igual.
 
 ## 6. Versão do catálogo × banco
 
@@ -215,9 +272,13 @@ As golden queries são um **conjunto de avaliação pronto**. Construa o banco d
 
 ## 9. Segurança e privacidade
 
-- **Somente leitura em duas camadas.** Local: `read_only=True` e o filtro de `SELECT` em `executar_sql_leitura`.
-  MotherDuck: o **Read Scaling token** (o token comum escreve); o filtro continua valendo.
-- **Limites:** `LIMIT`, timeout por consulta e teto de linhas devolvidas ao modelo.
+- **Somente leitura, sem arquivo de fora e sem rede.** Local: `conectar_somente_leitura` (`read_only=True`,
+  `allowed_directories` na raiz dos dados, `enable_external_access=false`, sem instalar nem carregar extensão,
+  configuração travada) e `exigir_leitura` (seção 5). Sem o endurecimento, `read_only=True` mais um filtro de `SELECT`
+  ainda deixam o modelo ler qualquer arquivo e acessar a rede. MotherDuck: o **Read Scaling token** (o token comum
+  escreve) e `exigir_leitura`; o resto não foi testado lá (seção 5).
+- **Limites:** `LIMIT`, timeout por consulta (`conexao.interrupt()`), `memory_limit` e teto de linhas devolvidas ao
+  modelo.
 - **Recusa de dado pessoal** é dupla: o prompt (guia §7) e `checar_saida` no código. Nenhuma das duas basta sozinha.
 - **Logs sem dado pessoal** ([ADR-0008](../adr/0008-minimizacao-dados-pessoais.md)): registre `id` da golden query, SQL,
   camada, contagem de linhas, problemas da checagem e tempo. Não registre as linhas devolvidas; se registrar a

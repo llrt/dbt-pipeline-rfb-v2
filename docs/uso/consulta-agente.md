@@ -90,6 +90,11 @@ que o MetricFlow gera para aquela consulta (`mf query --explain`), testado no CI
 - Conexão **somente leitura**: em Python, `duckdb.connect("<RAIZ_DADOS>/warehouse.duckdb", read_only=True)`; na CLI,
   `duckdb -readonly <RAIZ_DADOS>/warehouse.duckdb`. **NUNCA** abra em modo de escrita, nem rode `dbt`, `CREATE`,
   `INSERT`, `UPDATE`, `DELETE`, `COPY ... TO` ou `ATTACH` de escrita.
+- A conexão que você recebe é **endurecida** (função `conectar_somente_leitura` de
+  [construção do agente](construcao-agente.md#conexão-somente-leitura-obrigatória-no-local)): só lê arquivos sob
+  `<RAIZ_DADOS>`, não acessa a rede, não instala nem carrega extensão e não aceita `SET`. Um `Permission Error` ao ler
+  um caminho fora da raiz ou uma URL é a regra funcionando: não tente contornar. Só uma consulta de leitura por
+  execução (`SELECT`, `WITH` ou `FROM tabela`).
 - O gold (`dim_*`, `fct_*`, `bridge_*`, `mart_*`, `bh_empresas`, `agg_empresas`) são **views sobre Parquet** em
   `<RAIZ_DADOS>/gold/`. `fct_resumo_mensal` é uma view sobre **todas as partições** `gold/fct_resumo_mensal/
   mes_referencia=AAAA-MM/`: é a única relação com a série de meses.
