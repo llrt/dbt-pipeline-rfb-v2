@@ -322,7 +322,7 @@ Por versão, com o líder: v1.4.1 US$ 44,22; v1.5.0 US$ 45,83. Detalhe em
 O pedido nasceu de uma pergunta do usuário: o agente precisa rodar `dbt build`? Não precisa. O catálogo traz o SQL compilado e testado, e o banco vem do pipeline.
 
 ### 11.2 Processo
-- **A revisão RGA montou um protótipo** seguindo só o documento (índice, recuperação, execução e privacidade). Com isso achou o problema alto: `read_only=True` mais um filtro de `SELECT` ainda deixavam o agente ler qualquer arquivo da máquina e acessar a rede. Achou também 5 problemas médios e viu 5 das 8 mutações sobreviverem.
+- **A revisão RGA montou um protótipo** seguindo só o documento (índice, recuperação, execução e privacidade). Com isso achou o problema alto: `read_only=True` mais um filtro de `SELECT` ainda deixavam o agente ler qualquer arquivo da máquina e acessar a rede. Achou também 4 problemas médios e viu 5 das 8 mutações sobreviverem.
 - **A triagem trocou receita em prosa por código testado:** as funções do documento passaram a ser extraídas e executadas pelo CI, como já era a `checar_saida`.
 - **As mutações do líder acharam duas lacunas depois do lote de correção.** Tirar a trava de configuração e deixar de percorrer o `ARRAY` de tamanho fixo não quebravam nenhum teste. Em ambos os casos o agente acrescentou o teste antes do PR seguir.
 - **O Greptile achou mais dois furos:**
