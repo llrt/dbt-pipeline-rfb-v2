@@ -1,5 +1,5 @@
 # ruff: noqa: E501  (tabelas de preço e listas de agentes)
-"""Custo por agente dos lotes pós-v1 (v1.1.0 a v1.5.0), mesma metodologia de docs/historico/custos-agentes.md (v1).
+"""Custo por agente dos lotes pós-v1 (v1.1.0 a v1.5.1), mesma metodologia de docs/historico/custos-agentes.md (v1).
 
 Fonte: transcripts do Claude Code (~/.claude/projects), deduplicados por (message.id, requestId).
 Preços (US$/M tokens): Opus 5.5 4/20, leitura de cache 0,20; Sonnet 5/5.5 2/10, leitura 0,20; escrita de
@@ -94,6 +94,25 @@ AGENTES = [  # (nome, papel, versão, arquivo)
     ("RD, revisão independente", "revisão", "v1.5.0", "docs-reorganizacao/841cffe2"),
     ("FD, correções da RD e versão 1.5.0", "correção", "v1.5.0", "docs-reorganizacao/2e6a60b7"),
     ("FD2, CI no Ubuntu e Greptile (PR #9)", "correção", "v1.5.0", "docs-reorganizacao/0aac8298"),
+    (
+        "GA, guia de construção do agente",
+        "implementação",
+        "v1.5.1",
+        "docs-guia-construcao-agente/9fce176e",
+    ),
+    ("RGA, revisão independente", "revisão", "v1.5.1", "docs-guia-construcao-agente/83d562bd"),
+    (
+        "FGA, correções da RGA",
+        "correção",
+        "v1.5.1",
+        "docs-guia-construcao-agente/78a1312f",
+    ),
+    (
+        "FGA2, comentários do Greptile (PR #11)",
+        "correção",
+        "v1.5.1",
+        "docs-guia-construcao-agente/cfe05ffd",
+    ),
 ]
 
 DIR_LIDER = P / "-Users-llrt-dev-workspaces-code-to-learn-vibe-traycer-dbt-pipeline-rfb-v2"
@@ -249,6 +268,10 @@ FASES = [
     ),
     ("orquestração delegada v1.5.0 (D1, D2, RD, FD, FD2, release)", "2026-10-15T05:33:00+00:00"),
     ("RETRO e custos da v1.4.1 e v1.5.0", "2026-10-15T11:44:48+00:00"),
+    ("pergunta sobre o agente e o dbt (resposta)", "2026-10-15T11:47:20+00:00"),
+    ("orquestração delegada v1.5.1 (GA, RGA, FGA, FGA2, release)", "2026-10-15T11:55:05+00:00"),
+    ("limpeza dos worktrees", "2026-10-15T22:54:30+00:00"),
+    ("RETRO e custos da v1.5.1", "2026-10-16T00:15:41+00:00"),
 ]
 lim = [datetime.fromisoformat(t) for _, t in FASES] + [
     datetime.fromisoformat("2099-01-01T00:00:00+00:00")
