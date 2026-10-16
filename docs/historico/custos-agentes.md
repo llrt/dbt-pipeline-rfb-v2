@@ -1,4 +1,4 @@
-# Custo por agente — v1 e pós-v1 (v1.1.0 a v1.5.0)
+# Custo por agente — v1 e pós-v1 (v1.1.0 a v1.5.1)
 
 > Gerado pelo líder em 2026-10-01 a partir dos transcripts do Claude Code (`~/.claude/projects/*dbt-pipeline-rfb-v2*`, deduplicados por mensagem) e do banco do opencode (`~/.local/share/opencode/opencode.db`, sessões do OpenRouter). A tentativa anterior do projeto (24/09, outra sessão: `fase-0-design`, `guia-g1-guia-dbt`, `fase-1-b1a-fundacao`) está fora.
 
@@ -235,6 +235,58 @@ Por modelo: Claude Opus 5.5, US$ 94,93; Claude Sonnet 5.5 (D1, FD2), US$ 4,63.
 - **Sonnet no lote mecânico (D1) deu certo:** US$ 3,71 para 50 renomeações, verificador e caminhos. O D2, de julgamento de conteúdo, ficou com Opus.
 - **Reproduzir:** `uv run python scripts/custos_agentes_pos_v1.py`. Rodar de novo dá US$ 19,06 para a fase "orquestração delegada v1.4.0", e não os 17,98 da seção anterior: a fase agora vai até o fim da geração anterior. Os US$ 1,08 de diferença estão somados aqui, na primeira fase do líder.
 
+## v1.5.1 (guia de construção do agente de consulta)
+
+> Gerado pelo líder em 2026-10-16 com `scripts/custos_agentes_pos_v1.py`, estendido com os 4 agentes do PR #11 e com as fases novas do líder. A metodologia, os preços e o câmbio (US$ 1 = R$ 5,021) são os das seções anteriores. O período começa no fim da geração anterior (15/10/2026, 11:44 UTC) e vai até esta geração. A última fase do líder, este relatório, ainda está em curso.
+
+| | US$ | R$ | % |
+|---|---:|---:|---:|
+| Líder | 37,18 | 186,68 | 72 % |
+| Implementação (GA) | 2,45 | 12,29 | 5 % |
+| Revisão (RGA) | 4,03 | 20,24 | 8 % |
+| Correção (FGA, FGA2) | 8,03 | 40,34 | 15 % |
+| **Total do período** | **51,69** | **259,55** | 100 % |
+
+Por modelo: Claude Opus 5.5, US$ 49,24; Claude Sonnet 5.5 (GA), US$ 2,45.
+
+**Por versão, com o líder**
+
+| Versão | Entrega | Agentes US$ | Líder US$ | Total US$ |
+|---|---|---:|---:|---:|
+| v1.5.1 | guia de construção do agente, conexão endurecida e funções de referência testadas no CI | 14,51 | 33,43 | 47,94 |
+| — | resto do relatório anterior, a pergunta sobre o agente e o dbt, a limpeza dos worktrees e este relatório | — | 3,75 | 3,75 |
+
+**Líder por fase**
+
+| Fase | Horas ativas | US$ | R$ |
+|---|---:|---:|---:|
+| RETRO e custos da v1.4.1 e v1.5.0: resto da fase depois da geração | 0,03 | 1,07 | 5,37 |
+| Pergunta sobre o agente e o dbt (resposta) | 0,01 | 0,51 | 2,56 |
+| Orquestração da v1.5.1: GA, RGA, FGA, FGA2, Greptile, release | 3,62 | 33,43 | 167,85 |
+| Limpeza dos worktrees (v2 e consulta sobre os da v1) | 0,04 | 1,74 | 8,74 |
+| RETRO e custos da v1.5.1 (em curso) | 0,01 | 0,43 | 2,16 |
+| **Total do líder** | **3,71** | **37,18** | **186,68** |
+
+**Por agente (ordem de início)**
+
+| Agente | Papel | Versão | Modelo | Saída (tokens) | Leitura de cache | Entrada + escrita de cache | Horas ativas | US$ | R$ |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|
+| GA, guia de construção do agente | implementação | v1.5.1 | Claude Sonnet 5.5 | 23.938 | 4.749.030 | 356.768 | 1,67 | 2,45 | 12,29 |
+| RGA, revisão independente | revisão | v1.5.1 | Claude Opus 5.5 | 51.003 | 8.462.800 | 164.942 | 0,72 | 4,03 | 20,24 |
+| FGA, correções da RGA | correção | v1.5.1 | Claude Opus 5.5 | 71.447 | 13.590.635 | 158.399 | 2,43 | 5,41 | 27,18 |
+| FGA2, comentários do Greptile (PR #11) | correção | v1.5.1 | Claude Opus 5.5 | 28.807 | 6.919.445 | 82.790 | 2,06 | 2,62 | 13,16 |
+| **Agentes da v1.5.1** | | | | | | | **6,88** | **14,51** | **72,87** |
+
+**Observações**
+- **O líder ficou com 72 % do período**, a maior fatia desde a v1. Os agentes custaram US$ 14,51, os mais baratos por versão do pós-v1. A causa foi o contexto do líder, não o trabalho:
+  - ao longo da orquestração a sessão chegou a ~700 mil tokens de contexto (mediana por chamada; máximo de 779 mil);
+  - quatro vezes, depois de uma pausa de 40 minutos a 2 horas, o contexto inteiro foi reescrito no cache, a US$ 5,41 a 6,13 cada. Foram duas retomadas depois de erro de servidor da API, o relatório da FGA e o aviso de que a FGA2 tinha encerrado o turno sem relatório;
+  - essas 4 chamadas somam US$ 23,18, ou 69 % da fase. A escrita de cache foi US$ 24,24 dos 33,43; a saída do líder, US$ 0,99.
+  - Depois do `/compact` (15/10, 22:15 UTC), cada chamada caiu para ~90 mil tokens de contexto.
+- **Horas ativas dos agentes estão infladas** pela espera do `make ci` (mais de 10 minutos) e pelas quedas por erro de servidor. Os agentes não fizeram mais trabalho do que nos lotes anteriores.
+- **Sonnet no lote de redação (GA) custou US$ 2,45.** A revisão RGA (Opus) achou nele um problema alto de segurança (`read_only` lia qualquer arquivo e a rede). O roteamento "redação → Sonnet, revisão → Opus alto" se sustentou de novo.
+- **Reproduzir:** `uv run python scripts/custos_agentes_pos_v1.py`. Rodar de novo dá US$ 6,86 para a fase "RETRO e custos da v1.4.1 e v1.5.0", e não os 5,79 da seção anterior: a fase agora vai até o fim da geração anterior. Os US$ 1,07 de diferença estão somados aqui, na primeira fase do líder.
+
 ## Total acumulado
 
 | Período | US$ | R$ |
@@ -243,7 +295,8 @@ Por modelo: Claude Opus 5.5, US$ 94,93; Claude Sonnet 5.5 (D1, FD2), US$ 4,63.
 | Pós-v1 (v1.1.0 a v1.3.0; câmbio 5,021) | 156,77 | 787,14 |
 | Pós-v1.3 (avaliações e v1.4.0; câmbio 5,021) | 97,27 | 488,39 |
 | v1.4.1 e v1.5.0 (câmbio 5,021) | 99,56 | 499,89 |
-| **Total** | **600,98** | **3.070,53** |
+| v1.5.1 (câmbio 5,021) | 51,69 | 259,55 |
+| **Total** | **652,67** | **3.330,08** |
 
 Do total, **US$ 10,55 foram desembolso real** (OpenRouter, todo na v1). O resto é equivalente de API da assinatura Claude.
 

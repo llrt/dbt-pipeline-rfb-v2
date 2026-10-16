@@ -1,13 +1,14 @@
-# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1 e pós-v1 até a v1.5.0)
+# RETRO — port do MVP RFB/CNPJ para dbt + DuckDB (v1 e pós-v1 até a v1.5.1)
 
 > Retrospectiva do líder (agente Traycer "Migração dbt DuckDB MVP v2", Claude Opus 5.5).
 > - Seções 1–7: v1, de 28/09 a 01/10/2026.
 > - Seção 8: pós-v1, de 01/10 a 13/10/2026 (v1.0.0 a v1.3.0).
 > - Seção 9: pós-v1.3, de 13/10 a 14/10/2026 (avaliações e v1.4.0).
 > - Seção 10: v1.4.1 e v1.5.0, em 15/10/2026 (golden queries e reorganização das docs).
+> - Seção 11: v1.5.1, em 15/10/2026 (guia de construção do agente de consulta).
 >
-> Custos por agente: [docs/CUSTOS_AGENTES.md](custos-agentes.md). Decisões: `.specs/STATE.md` (AD-001..AD-048)
-> e `docs/adr/` (0001–0023). Revisões: `docs/revisoes/`.
+> Custos por agente: [custos-agentes.md](custos-agentes.md). Decisões: `.specs/STATE.md` (AD-001..AD-050)
+> e `docs/adr/` (0001–0023). Revisões: `docs/historico/revisoes/`.
 
 ## 1. O que foi entregue
 
@@ -309,3 +310,49 @@ Período: **US$ 99,56 ≈ R$ 500**, quase todo em Opus 5.5 (Sonnet US$ 4,63, nos
 
 Por versão, com o líder: v1.4.1 US$ 44,22; v1.5.0 US$ 45,83. Detalhe em
 [custos-agentes.md](custos-agentes.md#v141-e-v150-golden-queries-e-reorganização-das-docs).
+
+## 11. v1.5.1: guia de construção do agente de consulta (15/10/2026)
+
+### 11.1 O que foi entregue
+
+| Versão | PR | Entrega |
+|---|---|---|
+| [v1.5.1](https://github.com/llrt/dbt-pipeline-rfb-v2/releases/tag/v1.5.1) | [#11](https://github.com/llrt/dbt-pipeline-rfb-v2/pull/11) | `docs/uso/construcao-agente.md`, para quem programa o agente de consulta: o que indexar, o prompt de sistema, as ferramentas, a versão do catálogo × banco, a avaliação com as golden queries, o modelo e a segurança. `versao_projeto` no catálogo. Funções de referência executadas no CI: conexão DuckDB endurecida, `exigir_leitura`, `comparar_resposta` (93/93) e `conferir_esquema`. A `checar_saida` do guia pega CNPJ em qualquer tipo numérico, em lista, `ARRAY`, struct e chave de `map` |
+
+O pedido nasceu de uma pergunta do usuário: o agente precisa rodar `dbt build`? Não precisa. O catálogo traz o SQL compilado e testado, e o banco vem do pipeline.
+
+### 11.2 Processo
+- **A revisão RGA montou um protótipo** seguindo só o documento (índice, recuperação, execução e privacidade). Com isso achou o problema alto: `read_only=True` mais um filtro de `SELECT` ainda deixavam o agente ler qualquer arquivo da máquina e acessar a rede. Achou também 5 problemas médios e viu 5 das 8 mutações sobreviverem.
+- **A triagem trocou receita em prosa por código testado:** as funções do documento passaram a ser extraídas e executadas pelo CI, como já era a `checar_saida`.
+- **As mutações do líder acharam duas lacunas depois do lote de correção.** Tirar a trava de configuração e deixar de percorrer o `ARRAY` de tamanho fixo não quebravam nenhum teste. Em ambos os casos o agente acrescentou o teste antes do PR seguir.
+- **O Greptile achou mais dois furos:**
+  - CNPJ como chave de `map` escapava da checagem de privacidade, na do guia e na guarda do CI;
+  - `comparar_resposta` aceitava o código `'5'` contra `'05'`.
+- **Interrupções:** os agentes caíram três vezes por erro de servidor da API (GA uma vez, FGA duas), e a FGA2 encerrou o turno sem relatório. Nada se perdeu, porque o trabalho já estava em commits; cada um foi retomado de onde parou, com o pedido explícito do relatório.
+
+### 11.3 O que custou caro
+
+| Problema | Efeito | Lição |
+|---|---|---|
+| Contexto do líder perto de 700 mil tokens durante esperas longas | 4 reescritas do cache inteiro, US$ 23 (69 % da fase de orquestração); os agentes custaram US$ 14,51 | Compactar o contexto do líder antes de despachar um lote longo; depois do `/compact`, cada chamada caiu para ~90 mil tokens |
+| Receita de segurança em prosa, sem execução | `read_only` passava por somente leitura e não era | Código que o leitor vai copiar entra no CI, e a revisão testa o que ele promete (ler fora da raiz, rede, `COPY`, `ATTACH`) |
+| Checagem de privacidade feita tipo a tipo | CNPJ em `DECIMAL`, lista, `ARRAY` fixo e chave de `map` escaparam em rodadas sucessivas | Percorrer o resultado de forma genérica e testar uma matriz de tipos, em vez de acrescentar um tipo por achado |
+| Erros de servidor da API e turnos sem relatório | retomadas manuais e esperas longas do líder | Commits pequenos e frequentes nos lotes e um pedido de relatório como passo final do brief; o líder confere o estado no git antes de retomar |
+
+### 11.4 Lições
+1. **A mutação do líder continua necessária depois das do agente.** Nas duas rodadas, as mutações propostas pelo autor morreram e as do líder sobreviveram.
+2. **Documento para quem constrói precisa de protótipo na revisão:** o teste de uso real (montar o agente mínimo) achou o que a leitura não achava.
+3. **O custo do líder depende mais do tamanho do contexto que do trabalho.** Numa versão pequena, o líder custou 2,3 vezes os agentes.
+
+### 11.5 Custo (resumo)
+Período: **US$ 51,69 ≈ R$ 260**, quase todo em Opus 5.5 (Sonnet US$ 2,45, no lote GA), equivalente de API da assinatura. Acumulado do projeto: **US$ 652,67 ≈ R$ 3.330**, dos quais US$ 10,55 foram desembolso real.
+
+| Papel | US$ | % |
+|---|---:|---:|
+| Líder (3,7 h ativas) | 37,18 | 72 % |
+| Correções (FGA, FGA2) | 8,03 | 15 % |
+| Revisão independente (RGA) | 4,03 | 8 % |
+| Implementação (GA) | 2,45 | 5 % |
+
+v1.5.1 com o líder: US$ 47,94. Detalhe em
+[custos-agentes.md](custos-agentes.md#v151-guia-de-construção-do-agente-de-consulta).
